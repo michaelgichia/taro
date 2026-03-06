@@ -1,7 +1,7 @@
 # Roadmap: Taro
 
-**Project:** Taro - Chrome Recorder to React Testing Library Test Generator  
-**Depth:** Standard  
+**Project:** Taro - Chrome Recorder to React Testing Library Test Generator
+**Depth:** Standard
 **Created:** 2026-03-06
 
 ## Overview
@@ -30,7 +30,7 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 5. **Taro writes test files to filesystem** — Test files are created in correct locations with proper imports and structure
 
 **Plans:**
-- [ ] 01-01-PLAN.md — Project setup (package.json, tsconfig, directory structure)
+6/6 plans complete
 - [ ] 01-02-PLAN.md — CLI interface (commander setup, generate command)
 - [ ] 01-03-PLAN.md — Chrome Recorder JSON parsing
 - [ ] 01-04-PLAN.md — Input schema validation (Zod)
@@ -90,6 +90,15 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 4. **Concerns are distributed across tests** — Related assertions are grouped logically, not all in one test
 5. **Helpers are assertion-free** — Helper functions contain setup only, no expect statements
 6. **Matchers are meaningful** — Generated tests use specific matchers (toBeInTheDocument, toHaveValue) rather than generic ones
+
+**Plans:** 7 plans
+- [ ] 03-01-PLAN.md — Type contracts + Wave 0 test stubs (foundation)
+- [ ] 03-02-PLAN.md — JS/AST parser for Testing Library Recorder output (QRY-01, TEST-01)
+- [ ] 03-03-PLAN.md — Playwright DOM resolver for querySelector fallbacks (QRY-02, QRY-03, TEST-03)
+- [ ] 03-04-PLAN.md — Codebase convention scanner + .taro/conventions.json persistence (CTX-01–05, TEST-02)
+- [ ] 03-05-PLAN.md — Multi-it() template and generator extensions (TEST-01, QRY-01)
+- [ ] 03-06-PLAN.md — CLI pipeline wiring + end-to-end integration (all requirements)
+- [ ] 03-07-PLAN.md — Gap closure: wire selectMatcher() into pipeline (TEST-03)
 
 **Phase Verification:** Generated tests pass query priority rules and follow RTL best practices
 
