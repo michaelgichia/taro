@@ -5,7 +5,18 @@
 
 import type { NormalizedAction } from '../types/recording.js'
 
-export function importBlock(hasUserEvents: boolean): string {
+export function importBlock(hasUserEvents: boolean, importStyle: 'esm' | 'cjs' = 'esm'): string {
+  if (importStyle === 'cjs') {
+    const lines = [
+      "const { render, screen } = require('@testing-library/react')",
+      "require('@testing-library/jest-dom')",
+    ]
+    if (hasUserEvents) {
+      lines.push("const userEvent = require('@testing-library/user-event')")
+    }
+    return lines.join('\n')
+  }
+  // ESM (default)
   const lines = [
     "import { render, screen } from '@testing-library/react'",
     "import '@testing-library/jest-dom'",
@@ -85,4 +96,32 @@ export function describeBlock(
     `  })`,
     `})`,
   ].join('\n')
+}
+
+export interface ItBlockTemplate {
+  name: string
+  stepLines: string[]
+  hasUserEvents: boolean
+}
+
+export function describeBlockMultiIt(
+  name: string,
+  itBlocks: ItBlockTemplate[]
+): string {
+  const escapedName = escapeSingleQuote(name)
+  const blocks = itBlocks.map((block) => {
+    const setup = block.hasUserEvents
+      ? `    const user = userEvent.setup()\n`
+      : ''
+    const indented = indentLines(block.stepLines.join('\n'), 4)
+    return [
+      `  it('${escapeSingleQuote(block.name)}', async () => {`,
+      `    render(<App />)`,
+      setup,
+      indented,
+      `  })`,
+    ].join('\n')
+  })
+
+  return [`describe('${escapedName}', () => {`, ...blocks, `})`].join('\n')
 }

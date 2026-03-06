@@ -6,12 +6,15 @@
  *   getByRole > getByLabelText > getByText > getByPlaceholderText > getByTestId
  */
 
-import type { NormalizedRecording, NormalizedStep } from '../types/recording.js'
+import type { NormalizedRecording, NormalizedStep, QueryResult, ItGroup, QueryQuality } from '../types/recording.js'
+import type { ConventionsSchema } from '../types/conventions.js'
 import {
   importBlock,
   describeBlock,
   stepTemplate,
+  describeBlockMultiIt,
 } from '../templates/test-template.js'
+import pc from 'picocolors'
 
 export interface GeneratorOptions {
   outputPath?: string
@@ -104,5 +107,93 @@ export function generateTest(
     code,
     testName,
     filePath: options.outputPath,
+  }
+}
+
+// --- Phase 3 additions: multi-it() and query quality summary ---
+
+export interface GeneratedTestV3 extends GeneratedTest {
+  queryResults?: QueryResult[]
+  itGroupCount?: number
+}
+
+export function emitQuerySummary(queryResults: QueryResult[]): void {
+  if (queryResults.length === 0) return
+
+  // Group by method name
+  const grouped = new Map<string, { quality: QueryQuality; lines: number[] }>()
+  for (const r of queryResults) {
+    const existing = grouped.get(r.method)
+    if (existing) {
+      grouped.set(r.method, {
+        ...existing,
+        lines: [...existing.lines, ...(r.line !== undefined ? [r.line] : [])],
+      })
+    } else {
+      grouped.set(r.method, {
+        quality: r.quality,
+        lines: r.line !== undefined ? [r.line] : [],
+      })
+    }
+  }
+
+  // Emit one line per unique query method
+  for (const [method, { quality, lines }] of grouped) {
+    const count = queryResults.filter((r) => r.method === method).length
+    const lineInfo =
+      quality === 'fragile' && lines.length > 0
+        ? ` — see line${lines.length > 1 ? 's' : ''} ${lines.join(', ')}`
+        : ''
+    console.log(
+      pc.dim('[taro]') +
+        ` ${count} ${method} (${quality}${lineInfo})`
+    )
+  }
+}
+
+export interface GenerateFromGroupsOptions {
+  outputPath?: string
+  dryRun?: boolean
+  conventions?: ConventionsSchema
+  queryResults?: QueryResult[]
+}
+
+export function generateTestFromGroups(
+  title: string,
+  itGroups: ItGroup[],
+  options: GenerateFromGroupsOptions = {}
+): GeneratedTestV3 {
+  const { conventions, queryResults = [], outputPath, dryRun } = options
+  const importStyle = conventions?.importStyle ?? 'esm'
+
+  // Determine if any it block uses user events
+  const globalHasUserEvents = itGroups.some((group) =>
+    group.steps.some((s) => ['click', 'fill', 'select', 'keyDown'].includes(s.action))
+  )
+
+  // Build ItBlockTemplate[] from ItGroup[]
+  const itBlocks = itGroups.map((group) => {
+    const hasUserEvents = group.steps.some((s) =>
+      ['click', 'fill', 'select', 'keyDown'].includes(s.action)
+    )
+    const stepLines = group.steps.map((step) => {
+      if (step.action === 'navigate') {
+        return stepTemplate({ action: 'navigate', query: '', value: step.target })
+      }
+      return stepTemplate({ action: step.action, query: step.target ?? 'document.body', value: step.value })
+    })
+    return { name: group.name, stepLines, hasUserEvents }
+  })
+
+  const imports = importBlock(globalHasUserEvents, importStyle)
+  const describeCode = describeBlockMultiIt(title, itBlocks)
+  const code = `${imports}\n\n${describeCode}\n`
+
+  return {
+    code,
+    testName: title,
+    filePath: outputPath,
+    queryResults,
+    itGroupCount: itGroups.length,
   }
 }

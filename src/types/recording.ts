@@ -57,3 +57,37 @@ export interface NormalizedRecording {
   steps: NormalizedStep[]
   rawStepCount: number
 }
+
+// --- Phase 3 additions ---
+
+export type QueryQuality = 'excellent' | 'good' | 'acceptable' | 'fragile'
+
+export interface ElementInfo {
+  tagName: string
+  role: string | null
+  ariaLabel: string | null
+  ariaLabelledBy: string | null
+  innerText: string
+  value: string | undefined
+  type: string | undefined
+  placeholder: string | null
+  isPresent: boolean
+}
+
+export interface QueryResult {
+  query: string // e.g., `screen.getByRole('button', { name: 'Save' })`
+  quality: QueryQuality
+  method: string // e.g., 'getByRole'
+  line?: number // source line in input JS (for quality summary)
+}
+
+export interface ItGroup {
+  name: string
+  steps: NormalizedStep[]
+}
+
+export interface GeneratedItBlock {
+  name: string
+  stepLines: string[]
+  hasUserEvent: boolean
+}
