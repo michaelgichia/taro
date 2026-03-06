@@ -69,14 +69,18 @@ export function stepTemplate(opts: StepTemplateOptions): string {
   }
 }
 
-export function describeBlock(name: string, bodyLines: string[]): string {
+export function describeBlock(
+  name: string,
+  bodyLines: string[],
+  hasUserEvents: boolean
+): string {
   const body = bodyLines.join('\n')
   const indented = indentLines(body, 4)
+  const setupLine = hasUserEvents ? `    const user = userEvent.setup()\n` : ''
   return [
     `describe('${escapeSingleQuote(name)}', () => {`,
     `  it('should complete the recorded flow', async () => {`,
-    `    const user = userEvent.setup()`,
-    ``,
+    `${setupLine}`,
     indented,
     `  })`,
     `})`,

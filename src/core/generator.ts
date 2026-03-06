@@ -76,6 +76,10 @@ function selectorToQuery(selector: string | undefined): string {
 }
 
 function generateStepCode(step: NormalizedStep): string {
+  // navigate steps use target (the URL), not the CSS-selector path
+  if (step.action === 'navigate') {
+    return stepTemplate({ action: 'navigate', query: '', value: step.target })
+  }
   const query = selectorToQuery(step.target)
   return stepTemplate({ action: step.action, query, value: step.value })
 }
@@ -86,15 +90,14 @@ export function generateTest(
 ): GeneratedTest {
   const testName = recording.title || 'Generated Test'
 
-  const actionableSteps = recording.steps.filter((s) => s.action !== 'unknown')
-  const hasUserEvents = actionableSteps.some((s) =>
+  const hasUserEvents = recording.steps.some((s) =>
     ['click', 'fill', 'select', 'keyDown'].includes(s.action)
   )
 
   const stepLines = recording.steps.map((step) => generateStepCode(step))
 
   const imports = importBlock(hasUserEvents)
-  const describe = describeBlock(testName, stepLines)
+  const describe = describeBlock(testName, stepLines, hasUserEvents)
   const code = `${imports}\n\n${describe}\n`
 
   return {

@@ -17,8 +17,6 @@ export interface WriteResult {
   overwritten: boolean
 }
 
-const VALID_EXTENSIONS = new Set(['.test.ts', '.test.tsx', '.spec.ts', '.spec.tsx'])
-
 function isValidTestPath(filePath: string): boolean {
   const base = filePath.replace(/\?.*$/, '')
   return (
