@@ -113,7 +113,23 @@ export async function run(options: OrchestratorOptions): Promise<void> {
   // 4b: Generate test code (placeholder for now)
   const testCode = generatePlaceholderTest(recording);
   
-  // 4c: Pre-write audit - validate before writing
+  // 4c: Score the test to give user visibility
+  console.log('   📊 Scoring test quality...');
+  const scoring = scoreTest(testCode);
+  console.log(`   Quality Score: ${scoring.score.overall}/100`);
+  console.log(`      Structure: ${scoring.score.criteria.structure}/100`);
+  console.log(`      Queries: ${scoring.score.criteria.queries}/100`);
+  console.log(`      Matchers: ${scoring.score.criteria.matchers}/100`);
+  console.log(`      Robustness: ${scoring.score.criteria.noFragility}/100`);
+  
+  if (scoring.score.issues.length > 0) {
+    console.log(`   Issues found: ${scoring.score.issues.length}`);
+    for (const issue of scoring.score.issues.slice(0, 3)) {
+      console.log(`      [${issue.severity}] ${issue.message}`);
+    }
+  }
+  
+  // 4d: Pre-write audit - validate before writing
   console.log('   🔍 Running pre-write audit...');
   const audit = preWriteAudit(testCode);
   
