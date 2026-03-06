@@ -1,0 +1,38 @@
+{
+  "name": "taro",
+  "version": "0.1.0",
+  "description": "Generate high-quality React Testing Library tests from Chrome Recorder recordings",
+  "type": "module",
+  "bin": {
+    "taro": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "testing",
+    "react-testing-library",
+    "chrome-recorder",
+    "code-generation"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@babel/parser": "^7.29.0",
+    "@babel/template": "^7.28.0",
+    "@babel/traverse": "^7.29.0",
+    "commander": "^12.0.0",
+    "picocolors": "^1.0.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/babel__traverse": "^7.20.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
