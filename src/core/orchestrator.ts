@@ -137,9 +137,15 @@ export async function run(options: OrchestratorOptions): Promise<void> {
     
     // 4e: Post-write verification
     console.log('   🔍 Running post-write verification...');
-    // Skip if file wasn't actually written
-    // const verification = postWriteVerification(outputFile);
-    console.log('   ✓ Post-write verification complete (skipped - file not written)');
+    const verification = postWriteVerification(outputFile);
+    if (verification.valid) {
+      console.log('   ✓ Post-write verification passed');
+    } else {
+      console.log('   ⚠ Post-write verification found issues:');
+      for (const error of verification.errors) {
+        console.log(`      - ${error}`);
+      }
+    }
     
     // 4f: Learn from generated test for future runs
     console.log('   📚 Learning conventions from generated test...');
