@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-06)
 ## Current Position
 
 Phase: 4 of 4 (Self-Scoring & Convention Learning)
-Plan: 2 of [total in phase]
+Plan: 3 of [total in phase]
 Status: In progress
-Last activity: 2026-03-06 — Completed 04-02-PLAN.md (Pre-Write Audit and Post-Write Verification)
+Last activity: 2026-03-06 — Completed 04-03-PLAN.md (Convention Learning Module)
 
-Progress: [░░░░░░░░░░░] 25%
+Progress: [██████████░░░░░] 75%
 
 ## Performance Metrics
 
@@ -30,10 +30,10 @@ Progress: [░░░░░░░░░░░] 25%
 | 1 - Core Pipeline | TBD | - | - |
 | 2 - Intelligence Layers | 4/4 complete | 4 | 7 min |
 | 3 - Query & Test Design | TBD | - | - |
-| 4 - Self-Scoring & Learning | 2/4 complete | 2 | 9 min |
+| 4 - Self-Scoring & Learning | 3/4 complete | 3 | 7 min |
 
 **Recent Trend:**
-- Phase 2 (Intelligence Layers) complete - all 4 plans finished
+- Phase 4 in progress - 3 of 4 plans complete
 
 *Updated after each plan completion*
 
@@ -59,6 +59,9 @@ Recent decisions affecting current work:
 - Phase 4-02: Pre-write audit runs quality gates + structural checks before file creation
 - Phase 4-02: Post-write verification validates syntax, imports, and common issues
 - Phase 4-02: Blocking issues prevent file creation, warnings logged but don't block
+- Phase 4-03: Convention analyzer extracts naming, queries, matchers, imports via AST analysis
+- Phase 4-03: Naming pattern detection: camelCase, kebab-case, snake_case from describe block names
+- Phase 4-03: Convention merging: OR logic for structure, union for queries/matchers/imports
 
 ### Pending Todos
 
@@ -75,5 +78,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-06
-Stopped at: Completed 04-01-PLAN.md (Scorer Infrastructure - Phase 4 started)
+Stopped at: Completed 04-03-PLAN.md (Convention Learning Module)
 Resume file: None
