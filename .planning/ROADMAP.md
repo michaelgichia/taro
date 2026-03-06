@@ -29,6 +29,14 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 4. **Taro generates valid RTL test code** — Output uses getByRole, getByText, getByLabelText queries (not CSS selectors)
 5. **Taro writes test files to filesystem** — Test files are created in correct locations with proper imports and structure
 
+**Plans:**
+- [ ] 01-01-PLAN.md — Project setup (package.json, tsconfig, directory structure)
+- [ ] 01-02-PLAN.md — CLI interface (commander setup, generate command)
+- [ ] 01-03-PLAN.md — Chrome Recorder JSON parsing
+- [ ] 01-04-PLAN.md — Input schema validation (Zod)
+- [ ] 01-05-PLAN.md — RTL test code generation
+- [ ] 01-06-PLAN.md — Test file writing (complete pipeline)
+
 **Phase Verification:** User provides a Chrome Recorder export, runs `taro generate <file>`, and receives a runnable .test.js file
 
 ---
