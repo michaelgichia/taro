@@ -7,6 +7,7 @@ import { Command } from 'commander'
 import { access, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import pc from 'picocolors'
+import { validateRecording, formatValidationErrors } from '../../core/validator.js'
 
 export interface GenerateOptions {
   output?: string
@@ -60,6 +61,15 @@ export function createGenerateCommand(): Command {
         process.exit(1)
       }
 
+      const validation = validateRecording(parsedJson)
+      if (!validation.valid) {
+        console.error(
+          pc.red('Error:') + ` Invalid Chrome Recorder format in ${pc.bold(filePath)}\n` +
+            formatValidationErrors(validation.errors)
+        )
+        process.exit(1)
+      }
+
       console.log(pc.green('File found:') + ` ${pc.bold(filePath)}`)
 
       if (options.dryRun) {
@@ -70,8 +80,9 @@ export function createGenerateCommand(): Command {
       }
 
       // Pipeline stub — full implementation in later plans
-      console.log(pc.dim('Parsed recording with keys:'), Object.keys(parsedJson as object).join(', '))
-      console.log(pc.dim('Pipeline integration coming in Phase 1 plans 03-06.'))
+      const { data: recording } = validation
+      console.log(pc.dim('Parsed recording:'), recording.title ?? 'Untitled', `(${recording.steps.length} steps)`)
+      console.log(pc.dim('Pipeline integration coming in Phase 1 plans 05-06.'))
 
       if (options.output) {
         console.log(pc.dim('Output path:'), options.output)
