@@ -246,8 +246,8 @@ export class InMemoryConventionStore {
    */
   merge(other: InMemoryConventionStore): TestConvention {
     const result = createEmptyConvention();
-    
-    for (const [, convention] of other.getAll()) {
+
+    for (const [, convention] of Array.from(other.getAll())) {
       this.mergeInto(result, convention);
     }
     

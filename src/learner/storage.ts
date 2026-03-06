@@ -4,10 +4,12 @@
  * Implements CNV-02 (conventions persist across runs) and CNV-03 (faster subsequent runs via caching)
  */
 
-import Database from 'better-sqlite3';
 import * as fs from 'fs';
 import * as path from 'path';
 import { TestConvention, createEmptyConvention } from './types.js';
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const Database = require('better-sqlite3');
 
 export { TestConvention };
 
@@ -15,7 +17,7 @@ export { TestConvention };
  * ConventionStore class with SQLite persistence
  */
 export class ConventionStore {
-  private db: Database.Database | null = null;
+  private db: ReturnType<typeof Database> | null = null;
   private dbPath: string;
   
   /**
