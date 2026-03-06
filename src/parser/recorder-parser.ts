@@ -5,7 +5,8 @@
  * 1. Parse JSON → NormalizedSteps
  * 2. deduplicateSteps(NormalizedSteps) → DedupedSteps  
  * 3. filterNoiseSteps(DedupedSteps) → CleanSteps
- * 4. Continue to generation
+ * 4. groupDialogSteps(CleanSteps) → DialogFlows
+ * 5. Continue to generation
  */
 
 import { readFile } from 'fs/promises';
@@ -13,6 +14,7 @@ import { resolve } from 'path';
 import type { ChromeRecorderExport, ChromeStep, NormalizedRecording, RecordingStep, StepType } from '../types/recording.js';
 import { deduplicateSteps } from './steps/deduplicator.js';
 import { filterNoiseSteps } from './steps/noise-filter.js';
+import { groupDialogSteps, type DialogFlow } from './steps/dialog-detector.js';
 
 let stepIdCounter = 0;
 
@@ -142,3 +144,20 @@ export function resetStepCounter(): void {
 // Re-export for convenience
 export { deduplicateSteps } from './steps/deduplicator.js';
 export { filterNoiseSteps } from './steps/noise-filter.js';
+export { groupDialogSteps, resetDialogIdCounter } from './steps/dialog-detector.js';
+export type { DialogFlow, DialogType } from './steps/dialog-detector.js';
+
+/**
+ * Parse recording and extract dialog flows
+ * 
+ * @param filePath - Path to Chrome Recorder JSON export
+ * @returns Object with normalized recording and detected dialog flows
+ */
+export async function parseRecordingWithDialogs(filePath: string): Promise<{
+  recording: NormalizedRecording;
+  dialogFlows: DialogFlow[];
+}> {
+  const recording = await parseRecording(filePath);
+  const dialogFlows = groupDialogSteps(recording.steps);
+  return { recording, dialogFlows };
+}
