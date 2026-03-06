@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase 1 planned, ready for execution
-stopped_at: Completed 01-02-PLAN.md (CLI interface with commander)
-last_updated: "2026-03-06T12:57:53.846Z"
-last_activity: 2026-03-06 — Phase 1 planned (6 plans)
+status: Phase 1 in progress — Wave 2 complete, Wave 3 next
+stopped_at: Completed 01-04-PLAN.md (Zod validation + generate command integration)
+last_updated: "2026-03-06T14:00:00.000Z"
+last_activity: 2026-03-06 — Plans 01-01 through 01-04 executed
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 6
-  completed_plans: 2
-  percent: 17
+  completed_plans: 4
+  percent: 33
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-06)
 ## Current Position
 
 Phase: 1 of 4 (Core Pipeline)
-Plan: 6 plans created, ready to execute
-Status: Phase 1 planned, ready for execution
-Last activity: 2026-03-06 — Phase 1 planned (6 plans)
+Plan: 4 of 6 complete (01-01 through 01-04)
+Status: Phase 1 in progress — Wave 2 complete, Wave 3 next
+Last activity: 2026-03-06 — Plans 01-01, 01-02, 01-03, 01-04 executed
 
-Progress: [██░░░░░░░░] 17%
+Progress: [███░░░░░░░] 33%
 
 ## Performance Metrics
 
@@ -67,6 +67,8 @@ Recent decisions affecting current work:
 - Coverage: 37/42 v1 requirements mapped (5 deferred to v2)
 - [Phase 01]: @babel/template pinned to ^7.28.0 (7.29.0 does not exist in npm); TypeScript moduleResolution=bundler for ESNext+ESM; @types/babel__traverse added as devDep
 - [Phase 01]: createGenerateCommand factory pattern chosen for testability; CLI errors use process.exit(1) with pc.red prefix
+- [Phase 01]: Action map object used in normalizeStep (over switch) for cleaner mapping; doubleClick→click, change→fill
+- [Phase 01]: ValidationResult discriminated union over throwing; safeParse with structured error paths
 
 ### Pending Todos
 
@@ -82,6 +84,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-06T12:57:53.844Z
-Stopped at: Completed 01-02-PLAN.md (CLI interface with commander)
+Last session: 2026-03-06
+Stopped at: Wave 2 complete (plans 01-03, 01-04). Next: execute Wave 3 (01-05 RTL generation, 01-06 file writing)
 Resume file: None
