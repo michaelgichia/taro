@@ -1,79 +1,80 @@
 ---
 phase: 03-query-test-design-intelligence
 plan: 06
-subsystem: cli-commands
+subsystem: cli
 tags: [cli, pipeline-integration, js-parser, resolver, scanner, generator]
-dependencies:
-  requires:
-    - 03-02 (js-parser)
-    - 03-03 (resolver)
-    - 03-04 (scanner)
-    - 03-05 (template/generator multi-it)
-  provides:
-    - Complete Phase 3 pipeline wired into CLI
-    - Single entry point: `taro generate <file>`
-  affects:
-    - Phase 4 (Self-Scoring)
+
+# Dependency graph
+requires:
+  - phase: 01-core-pipeline
+    provides: CLI generate command, JSON parsing, basic test generation
+  - phase: 03-query-test-design-intelligence
+    provides: js-parser.ts (plan 02), resolver.ts (plan 03), scanner.ts (plan 04), generator.ts (plan 05)
+provides:
+  - Complete Phase 3 pipeline wired into CLI
+  - JS file detection and routing to new pipeline
+  - JSON pipeline unchanged (no regression)
+  - Conventions caching via .taro/conventions.json
+affects: [phase-04-self-scoring]
+
+# Tech tracking
 tech-stack:
   added: []
-  patterns:
-    - Dual-pipeline CLI command (JS + JSON detection)
-    - Playwright DOM inspection for query resolution
-    - Conventions caching in .taro/conventions.json
+  patterns: [Dual-pipeline CLI command, Playwright DOM inspection, Conventions caching]
+
 key-files:
   created: []
   modified:
-    - src/cli/commands/generate.ts (Phase 3 pipeline integration)
-decisions: []
-metrics:
-  duration: 2 min
-  completed: "2026-03-06"
+    - src/cli/commands/generate.ts
+
+key-decisions:
+  - "JS pipeline added alongside existing JSON pipeline for backward compatibility"
+  - "Conventions cached in .taro/conventions.json to avoid repeated scanning"
+
+# Metrics
+duration: 2 min
+completed: 2026-03-06
 ---
 
 # Phase 3 Plan 6: Wire Phase 3 Pipeline into CLI
 
-## Summary
+**Complete Phase 3 pipeline wired into CLI with JS file detection, conventions caching, and graceful fallback to JSON pipeline**
 
-Wired the complete Phase 3 pipeline into the existing `taro generate` command with JS file detection. The CLI now intelligently routes between JS and JSON recording formats, invoking the appropriate pipeline.
+## Performance
 
-## What Was Built
+- **Duration:** 2 min
+- **Started:** 2026-03-06T18:08:00Z
+- **Completed:** 2026-03-06T18:10:00Z
+- **Tasks:** 1 completed (Task 2 was human verification checkpoint)
+- **Files modified:** 1
 
-**Complete Phase 3 Pipeline Integration:**
+## Accomplishments
+- Integrated js-parser.ts, resolver.ts, scanner.ts, and generator.ts into generate command
+- JS format detection via `.js` extension or `@jest-environment-options` marker
+- Conventions scanning on first run, cached in `.taro/conventions.json` for subsequent runs
+- Playwright-based query resolution with QRY-03 warnings for fragile selectors
+- Query quality summary printed after generation
+- JSON pipeline unchanged - full backward compatibility
 
-1. **JS Detection Logic** - File extension (`.js`) or `@jest-environment-options` marker triggers JS pipeline
-2. **Context Scanning** - Scans conventions on first run, caches in `.taro/conventions.json`
-3. **Babel AST Parsing** - Parses Testing Library Recorder JS format via js-parser
-4. **Playwright Resolution** - Resolves document.querySelector selectors via live DOM inspection
-5. **Multi-it() Generation** - Generates segmented test blocks from itGroups
-6. **Query Quality Summary** - Emits console output with query method counts and quality ratings
+## Task Commits
 
-**JSON Pipeline Preserved:**
-- All existing Chrome Recorder JSON handling unchanged
-- Validates, parses, generates single-it() test as before
+1. **Task 1: Update generate command with JS pipeline** - `f546aaf` (feat)
 
-## Verification
+## Files Modified
+- `src/cli/commands/generate.ts` - Updated generate command with JS pipeline integration
 
-Automated checks passed:
-- `npm run build` ✓
-- `npm run test:run` ✓ (24/24 tests green)
-
-Manual verification checkpoint required per plan design.
-
-## Usage
-
-```bash
-# JS format (Phase 3 pipeline)
-taro generate recording.js
-taro generate recording.js --dry-run
-
-# JSON format (Phase 1 pipeline, unchanged)
-taro generate recording.json
-```
+## Decisions Made
+- JS pipeline added alongside existing JSON pipeline for backward compatibility
+- Conventions cached in `.taro/conventions.json` to avoid repeated scanning
 
 ## Deviations from Plan
 
 None - plan executed exactly as written.
 
-## Authentication Gates
+## Next Phase Readiness
+- Phase 3 complete with all 6 plans done
+- Ready for Phase 4: Self-Scoring & Learning
 
-None encountered.
+---
+*Phase: 03-query-test-design-intelligence*
+*Completed: 2026-03-06*
