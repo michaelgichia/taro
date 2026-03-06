@@ -1,39 +1,73 @@
 /**
  * Test file filesystem writing
- * Writes generated test code to the filesystem.
+ * Writes generated test code to the filesystem with proper naming and safety checks.
  */
 
-import { writeFile, mkdir } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
-import type { GeneratedTest } from './generator.js'
+import { access, mkdir, writeFile } from 'node:fs/promises'
+import { dirname, extname, resolve } from 'node:path'
 
-export interface WriterOptions {
-  overwrite?: boolean
+export interface WriteOptions {
+  force?: boolean
+  createDir?: boolean
+}
+
+export interface WriteResult {
+  filePath: string
+  created: boolean
+  overwritten: boolean
+}
+
+const VALID_EXTENSIONS = new Set(['.test.ts', '.test.tsx', '.spec.ts', '.spec.tsx'])
+
+function isValidTestPath(filePath: string): boolean {
+  const base = filePath.replace(/\?.*$/, '')
+  return (
+    base.endsWith('.test.ts') ||
+    base.endsWith('.test.tsx') ||
+    base.endsWith('.spec.ts') ||
+    base.endsWith('.spec.tsx')
+  )
 }
 
 export async function writeTestFile(
-  generated: GeneratedTest,
+  content: string,
   outputPath: string,
-  options: WriterOptions = {}
-): Promise<void> {
+  options: WriteOptions = {}
+): Promise<WriteResult> {
+  const { force = false, createDir = true } = options
   const resolvedPath = resolve(outputPath)
-  const dir = dirname(resolvedPath)
 
-  await mkdir(dir, { recursive: true })
-
-  if (!options.overwrite) {
-    const { access } = await import('node:fs/promises')
-    try {
-      await access(resolvedPath)
-      throw new Error(
-        `Output file already exists: ${resolvedPath}. Use --overwrite to replace it.`
-      )
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-        throw err
-      }
-    }
+  if (!isValidTestPath(resolvedPath)) {
+    const ext = extname(resolvedPath)
+    throw new Error(
+      `Output file must have a test extension (.test.ts, .test.tsx, .spec.ts, .spec.tsx). Got: "${ext || '(no extension)'}"`
+    )
   }
 
-  await writeFile(resolvedPath, generated.code, 'utf-8')
+  const dir = dirname(resolvedPath)
+  if (createDir) {
+    await mkdir(dir, { recursive: true })
+  }
+
+  let fileExists = false
+  try {
+    await access(resolvedPath)
+    fileExists = true
+  } catch {
+    // ENOENT — file does not exist, proceed
+  }
+
+  if (fileExists && !force) {
+    throw new Error(
+      `Output file already exists: ${resolvedPath}\nUse --force to overwrite.`
+    )
+  }
+
+  await writeFile(resolvedPath, content, 'utf-8')
+
+  return {
+    filePath: resolvedPath,
+    created: !fileExists,
+    overwritten: fileExists,
+  }
 }
