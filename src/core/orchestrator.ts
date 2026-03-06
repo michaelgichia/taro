@@ -5,12 +5,15 @@
 
 import { Command } from 'commander';
 import { resolve } from 'path';
-import { mkdirSync, existsSync } from 'fs';
+import { mkdirSync, existsSync, readFileSync } from 'fs';
 import { parseRecording } from './parser.js';
 import { launchBrowser, navigateToUrl, inspectElement, captureScreenshot, getAccessibilityTree, type ElementInfo } from '../analyzer/visual/inspector.js';
 import type { Browser, Page } from 'playwright';
 import { analyzeElementProperties, type AccessibilityProperties, analyzePageElements, recommendQueryMethod } from '../analyzer/visual/element-analyzer.js';
 import type { NormalizedRecording } from '../types/recording.js';
+import { detectApiCalls, filterMockableCalls, groupApiCallsByDomain, type ApiCallInfo } from '../analyzer/mocks/detector.js';
+import { analyzeMockTargets, type MockTarget } from '../analyzer/mocks/target-analyzer.js';
+import { buildMocks, generateMockFile, type MockDecision } from '../generator/mocks/builder.js';
 
 /**
  * Visual inspection context passed to generator
@@ -25,12 +28,23 @@ export interface VisualInspectionContext {
 }
 
 /**
+ * Mock inspection context passed to generator
+ */
+export interface MockInspectionContext {
+  enabled: boolean;
+  apiCalls?: ApiCallInfo[];
+  mockTargets?: MockTarget[];
+  mockDecisions?: MockDecision[];
+}
+
+/**
  * Main orchestrator options
  */
 export interface OrchestratorOptions {
   recordingPath: string;
   outputPath?: string;
   visual?: boolean;
+  mocks?: boolean;
   url?: string;
 }
 
@@ -38,17 +52,20 @@ export interface OrchestratorOptions {
  * Run the test generation pipeline
  */
 export async function run(options: OrchestratorOptions): Promise<void> {
-  const { recordingPath, outputPath = './tests', visual = false, url } = options;
+  const { recordingPath, outputPath = './tests', visual = false, mocks = true, url } = options;
 
   console.log(`\n📼 Taro - Chrome Recorder to RTL Test Generator\n`);
   console.log(`📂 Recording: ${recordingPath}`);
   if (visual) {
     console.log(`👁️  Visual inspection: ENABLED`);
   }
+  if (mocks) {
+    console.log(`🎭 Mock detection: ENABLED`);
+  }
   console.log('');
 
   // Step 1: Parse the recording
-  console.log('1/3 Parsing recording...');
+  console.log('1/4 Parsing recording...');
   let recording: NormalizedRecording;
   try {
     recording = await parseRecording(recordingPath);
@@ -58,20 +75,31 @@ export async function run(options: OrchestratorOptions): Promise<void> {
     process.exit(1);
   }
 
+  // Step 2: Detect API calls for mocking (optional)
+  let mockContext: MockInspectionContext = { enabled: false };
+  
+  if (mocks) {
+    console.log('2/4 Detecting API calls for mocking...');
+    mockContext = await runMockDetection(recording, outputPath);
+    console.log(`   ✓ Detected ${mockContext.apiCalls?.length || 0} API calls`);
+  } else {
+    console.log('2/4 Mock detection: DISABLED (use --mocks to enable)');
+  }
+
   // Visual inspection (optional)
   let visualContext: VisualInspectionContext = { enabled: false };
   
   if (visual) {
-    console.log('2/3 Running visual inspection...');
+    console.log('3/4 Running visual inspection...');
     visualContext = await runVisualInspection(recording, url);
     console.log(`   ✓ Inspected ${visualContext.elements?.size || 0} elements`);
   } else {
-    console.log('2/3 Visual inspection: SKIPPED (use --visual to enable)');
+    console.log('3/4 Visual inspection: SKIPPED (use --visual to enable)');
   }
 
-  // Step 3: Generate tests
-  console.log('3/3 Generating tests...');
-  // TODO: Implement test generation
+  // Step 4: Generate tests
+  console.log('4/4 Generating tests...');
+  // TODO: Implement test generation - pass mockContext to generator
   console.log('   ✓ (Generation placeholder - to be implemented)');
   
   // Cleanup
@@ -172,6 +200,75 @@ async function runVisualInspection(
 }
 
 /**
+ * Run mock detection on the recording and codebase
+ */
+async function runMockDetection(
+  recording: NormalizedRecording,
+  outputPath: string
+): Promise<MockInspectionContext> {
+  const mockContext: MockInspectionContext = { enabled: true };
+
+  try {
+    // Step 1: Detect API calls from recording
+    const apiCalls = detectApiCalls(recording);
+    mockContext.apiCalls = apiCalls;
+
+    if (apiCalls.length === 0) {
+      console.log('   ℹ No API calls detected in recording');
+      return mockContext;
+    }
+
+    // Log detected API calls grouped by domain
+    const grouped = groupApiCallsByDomain(apiCalls);
+    console.log(`   📡 Found API calls to ${grouped.size} domain(s):`);
+    for (const [domain, calls] of grouped) {
+      console.log(`      - ${domain}: ${calls.length} call(s)`);
+    }
+
+    // Step 2: Try to load package.json for mock library detection
+    let packageJson: Record<string, unknown> = {};
+    try {
+      const packagePath = resolve(process.cwd(), 'package.json');
+      if (existsSync(packagePath)) {
+        packageJson = JSON.parse(readFileSync(packagePath, 'utf-8'));
+      }
+    } catch {
+      // Ignore - package.json not required
+    }
+
+    // Step 3: Analyze mock targets
+    const mockTargets = analyzeMockTargets(apiCalls, {
+      packageJson,
+      config: {
+        sharedMocksDir: resolve(outputPath, '__mocks__'),
+      },
+    });
+    mockContext.mockTargets = mockTargets;
+
+    console.log(`   🎯 Mock targets identified: ${mockTargets.length}`);
+    for (const target of mockTargets) {
+      console.log(`      - ${target.method} ${target.url}`);
+      console.log(`        → ${target.mockLibrary} (${target.extractionRecommendation})`);
+    }
+
+    // Step 4: Generate mock code
+    const apiCallMap = new Map(apiCalls.map(ac => [ac.id, ac]));
+    const mockDecisions = buildMocks(mockTargets, apiCallMap);
+    mockContext.mockDecisions = mockDecisions;
+
+    // Log summary
+    const inline = mockDecisions.filter(d => d.isInline).length;
+    const extracted = mockDecisions.filter(d => !d.isInline).length;
+    console.log(`   ✓ Generated ${inline} inline, ${extracted} extracted mocks`);
+
+  } catch (error) {
+    console.error(`   ⚠ Mock detection error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+
+  return mockContext;
+}
+
+/**
  * Create CLI command
  */
 export function createCommand(): Command {
@@ -188,12 +285,14 @@ export function createCommand(): Command {
     .argument('<recording>', 'Path to Chrome Recorder JSON export')
     .option('-o, --output <path>', 'Output directory for tests', './tests')
     .option('--visual', 'Enable visual UI inspection via Playwright (requires app running)')
+    .option('--no-mocks', 'Disable API call detection and mock generation')
     .option('--url <url>', 'URL of the application to inspect (required for --visual)')
     .action(async (recordingPath: string, options) => {
       await run({
         recordingPath,
         outputPath: options.output,
         visual: options.visual,
+        mocks: options.mocks,
         url: options.url,
       });
     });
