@@ -3,7 +3,7 @@
  * Generates React Testing Library test code from parsed recordings.
  */
 
-import type { Recording } from './parser.js'
+import type { NormalizedRecording } from '../types/recording.js'
 
 export interface GeneratorOptions {
   outputPath?: string
@@ -17,10 +17,10 @@ export interface GeneratedTest {
 }
 
 export function generateTest(
-  recording: Recording,
+  recording: NormalizedRecording,
   options: GeneratorOptions = {}
 ): GeneratedTest {
-  // Stub implementation — will be implemented in a later plan
+  // Stub implementation — will be implemented in plan 01-05
   const testName = recording.title ?? 'Generated Test'
 
   const code = `
