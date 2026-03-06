@@ -10,30 +10,30 @@ See: .planning/PROJECT.md (updated 2026-03-06)
 ## Current Position
 
 Phase: 2 of 4 (Intelligence Layers)
-Plan: 2 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-03-06 — Completed 02-02-PLAN.md (Visual Intelligence)
+Last activity: 2026-03-06 — Completed 02-03-PLAN.md (Mock Intelligence)
 
-Progress: [██░░░░░░░░] 25%
+Progress: [███░░░░░░░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 8 min/plan
-- Total execution time: 16 min
+- Total plans completed: 3
+- Average duration: 9 min/plan
+- Total execution time: 23 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 - Core Pipeline | TBD | - | - |
-| 2 - Intelligence Layers | 2/4 complete | 4 | 8 min |
+| 2 - Intelligence Layers | 3/4 complete | 4 | 9 min |
 | 3 - Query & Test Design | TBD | - | - |
 | 4 - Self-Scoring & Learning | TBD | - | - |
 
 **Recent Trend:**
-- Phase 2 (Intelligence Layers) in progress - 2 plans complete
+- Phase 2 (Intelligence Layers) in progress - 3 plans complete
 
 *Updated after each plan completion*
 
@@ -50,6 +50,8 @@ Recent decisions affecting current work:
 - Phase 2-02: Used Playwright over Puppeteer for cross-browser support
 - Phase 2-02: Visual inspection is opt-in via --visual flag for performance
 - Phase 2-02: Query priority order based on Testing Library best practices
+- Phase 2-03: Mock detection integrated into pipeline with --no-mocks flag
+- Phase 2-03: Supports MSW, jest.fn, sinon, nock, fetch-mock, undici
 
 ### Pending Todos
 
@@ -66,5 +68,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-06
-Stopped at: Completed 02-02-PLAN.md (Visual Intelligence - Playwright Integration)
+Stopped at: Completed 02-03-PLAN.md (Mock Intelligence - API detection and mock generation)
 Resume file: None
