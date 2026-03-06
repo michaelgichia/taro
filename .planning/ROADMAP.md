@@ -116,6 +116,12 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 
 **Phase Verification:** Taro produces progressively better tests on subsequent runs, matching project style
 
+**Plans:**
+- [x] 04-01-PLAN.md — Scorer infrastructure (SCR-01)
+- [x] 04-02-PLAN.md — Pre-write audit and post-write verification (SCR-02, SCR-03)
+- [x] 04-03-PLAN.md — Convention analyzer (CNV-01)
+- [x] 04-04-PLAN.md — Convention persistence with SQLite (CNV-02, CNV-03)
+
 ---
 
 ## Progress
@@ -125,7 +131,7 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 | 1 - Core Pipeline | CLI + basic test generation | 10 | ✓ Complete |
 | 2 - Intelligence Layers | Noise filtering, visual/mock awareness | 10 | ✓ Complete |
 | 3 - Query & Test Design | Optimal queries, best practices | 11 | Pending |
-| 4 - Self-Scoring & Learning | Quality evaluation, convention learning | 6 | Pending |
+| 4 - Self-Scoring & Learning | Quality evaluation, convention learning | 6 | ✓ Planned |
 
 **Coverage:** 37/42 requirements mapped
 
