@@ -6,7 +6,7 @@ import { ElementInfo, inspectElement } from './inspector.js';
  */
 export interface QueryStrategy {
   method: string;
-  args: (string | RegExp)[];
+  args: (string | RegExp | { name?: string; exact?: boolean })[];
   priority: number; // 1 = best
 }
 
@@ -51,7 +51,7 @@ export async function analyzeElementProperties(
   if (elementInfo.ariaRole && elementInfo.textContent) {
     strategies.push({
       method: 'getByRole',
-      args: [elementInfo.ariaRole, { name: elementInfo.textContent }],
+      args: [elementInfo.ariaRole, { name: elementInfo.textContent }] as [string, { name: string }],
       priority: 1,
     });
   }
@@ -130,7 +130,7 @@ export async function analyzeElementProperties(
   if (elementInfo.textContent) {
     strategies.push({
       method: 'getByText',
-      args: [elementInfo.textContent, { exact: true }],
+      args: [elementInfo.textContent, { exact: true }] as [string, { exact: boolean }],
       priority: 6,
     });
   }
@@ -187,7 +187,8 @@ export async function analyzePageElements(
         if (el.className && typeof el.className === 'object' && 'baseVal' in el.className) {
           return el.tagName.toLowerCase();
         }
-        const classes = Array.from(el.classList).filter(c => !c.includes('Mui')).join('.');
+        const classList = el.classList ? Array.from(el.classList) : [];
+        const classes = classList.filter((c: string) => !c.includes('Mui')).join('.');
         return classes ? `${el.tagName.toLowerCase()}.${classes}` : el.tagName.toLowerCase();
       });
 

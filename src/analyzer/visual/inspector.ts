@@ -69,6 +69,22 @@ export async function inspectElement(
                         computedStyle.visibility !== 'hidden' && 
                         computedStyle.opacity !== '0';
       
+      // Handle className (can be string or SVGAnimatedString)
+      let classes: string[] = [];
+      const className = el.className;
+      if (typeof className === 'string') {
+        classes = className.split(' ').filter(c => c.trim().length > 0);
+      } else if (className && typeof className === 'object' && 'baseVal' in className) {
+        classes = (className as SVGAnimatedString).baseVal.split(' ').filter(c => c.trim().length > 0);
+      }
+      
+      // Check if element is disabled
+      let isDisabled = false;
+      const htmlEl = el as unknown as { disabled?: boolean; tagName: string };
+      if (htmlEl.disabled !== undefined && (htmlEl.tagName === 'INPUT' || htmlEl.tagName === 'BUTTON' || htmlEl.tagName === 'SELECT' || htmlEl.tagName === 'TEXTAREA')) {
+        isDisabled = Boolean(htmlEl.disabled);
+      }
+      
       return {
         tagName: el.tagName.toLowerCase(),
         textContent: el.textContent?.trim() || '',
@@ -76,9 +92,9 @@ export async function inspectElement(
         ariaLabel: el.getAttribute('aria-label') || undefined,
         nameAttr: el.getAttribute('name') || undefined,
         id: el.id || '',
-        classes: el.className ? Array.from(el.classList) : [],
+        classes,
         isVisible,
-        isDisabled: (el as HTMLOrSVGElement & { disabled?: boolean }).disabled || false,
+        isDisabled,
       };
     });
 
@@ -118,6 +134,8 @@ export async function navigateToUrl(
  * @returns Promise<string> - Accessibility tree snapshot
  */
 export async function getAccessibilityTree(page: Page): Promise<string> {
+  // Use Playwright's accessibility API
+  // @ts-expect-error - Playwright accessibility is available on CDPPage
   const snapshot = await page.accessibility.snapshot();
   return JSON.stringify(snapshot, null, 2);
 }
