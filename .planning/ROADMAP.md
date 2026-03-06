@@ -63,6 +63,12 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 
 **Phase Verification:** User runs Taro on recordings with noise/mocks, output is cleaner and more accurate than Phase 1
 
+**Plans:**
+- [ ] 02-01-PLAN.md — Recording noise filtering (deduplication, noise removal)
+- [ ] 02-02-PLAN.md — Visual intelligence (Playwright inspection)
+- [ ] 02-03-PLAN.md — Mock intelligence (API detection, mock generation)
+- [ ] 02-04-PLAN.md — Dialog flow detection (multi-step grouping)
+
 ---
 
 ## Phase 3: Query & Test Design Intelligence
