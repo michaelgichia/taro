@@ -141,12 +141,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TEST-01 | Phase 3 | Pending |
 | TEST-02 | Phase 3 | Pending |
 | TEST-03 | Phase 3 | Pending |
-| SCR-01 | Phase 4 | Pending |
-| SCR-02 | Phase 4 | Pending |
-| SCR-03 | Phase 4 | Pending |
-| CNV-01 | Phase 4 | Pending |
-| CNV-02 | Phase 4 | Pending |
-| CNV-03 | Phase 4 | Pending |
+| SCR-01 | Phase 4 | ✓ Complete |
+| SCR-02 | Phase 4 | ✓ Complete |
+| SCR-03 | Phase 4 | ✓ Complete |
+| CNV-01 | Phase 4 | ✓ Complete |
+| CNV-02 | Phase 4 | ✓ Complete |
+| CNV-03 | Phase 4 | ✓ Complete |
 
 **Coverage:**
 - v1 requirements: 37 total
