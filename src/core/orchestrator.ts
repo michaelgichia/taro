@@ -5,7 +5,7 @@
 
 import { Command } from 'commander';
 import { resolve } from 'path';
-import { mkdirSync, existsSync, readFileSync } from 'fs';
+import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { parseRecording } from './parser.js';
 import { launchBrowser, navigateToUrl, inspectElement, captureScreenshot, getAccessibilityTree, type ElementInfo } from '../analyzer/visual/inspector.js';
 import type { Browser, Page } from 'playwright';
@@ -132,8 +132,9 @@ export async function run(options: OrchestratorOptions): Promise<void> {
     if (!existsSync(outputPath)) {
       mkdirSync(outputPath, { recursive: true });
     }
-    // TODO: Actually write the file - for now just log
-    console.log(`   📝 Would write: ${outputFile}`);
+    // Write the test file to disk
+    writeFileSync(outputFile, testCode);
+    console.log(`   ✓ Written: ${outputFile}`);
     
     // 4e: Post-write verification
     console.log('   🔍 Running post-write verification...');
