@@ -85,13 +85,14 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 5. **Helpers are assertion-free** — Helper functions contain setup only, no expect statements
 6. **Matchers are meaningful** — Generated tests use specific matchers (toBeInTheDocument, toHaveValue) rather than generic ones
 
-**Plans:** 6 plans
+**Plans:** 7 plans
 - [ ] 03-01-PLAN.md — Type contracts + Wave 0 test stubs (foundation)
 - [ ] 03-02-PLAN.md — JS/AST parser for Testing Library Recorder output (QRY-01, TEST-01)
 - [ ] 03-03-PLAN.md — Playwright DOM resolver for querySelector fallbacks (QRY-02, QRY-03, TEST-03)
 - [ ] 03-04-PLAN.md — Codebase convention scanner + .taro/conventions.json persistence (CTX-01–05, TEST-02)
 - [ ] 03-05-PLAN.md — Multi-it() template and generator extensions (TEST-01, QRY-01)
 - [ ] 03-06-PLAN.md — CLI pipeline wiring + end-to-end integration (all requirements)
+- [ ] 03-07-PLAN.md — Gap closure: wire selectMatcher() into pipeline (TEST-03)
 
 **Phase Verification:** Generated tests pass query priority rules and follow RTL best practices
 
