@@ -28,7 +28,13 @@ export function evaluateQualityGates(code: string): QualityScore {
   
   let ast: ParsedAST;
   try {
-    ast = parse(code, { loc: true, range: true }) as unknown as ParsedAST;
+    ast = parse(code, { 
+      loc: true, 
+      range: true,
+      jsx: true,
+      ecmaVersion: 2020,
+      sourceType: 'module'
+    }) as unknown as ParsedAST;
   } catch (error) {
     issues.push({
       type: 'structure',
