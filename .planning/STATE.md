@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-03-06)
 
 ## Current Position
 
-Phase: 2 of 4 (Intelligence Layers)
-Plan: 4 of 4 in current phase
-Status: Phase complete
-Last activity: 2026-03-06 — Completed 02-04-PLAN.md (Dialog Flow Detection)
+Phase: 4 of 4 (Self-Scoring & Convention Learning)
+Plan: 1 of [total in phase]
+Status: In progress
+Last activity: 2026-03-06 — Completed 04-01-PLAN.md (Scorer Infrastructure)
 
-Progress: [██████░░░░] 100%
+Progress: [░░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -30,7 +30,7 @@ Progress: [██████░░░░] 100%
 | 1 - Core Pipeline | TBD | - | - |
 | 2 - Intelligence Layers | 4/4 complete | 4 | 7 min |
 | 3 - Query & Test Design | TBD | - | - |
-| 4 - Self-Scoring & Learning | TBD | - | - |
+| 4 - Self-Scoring & Learning | 1/4 complete | 1 | 7 min |
 
 **Recent Trend:**
 - Phase 2 (Intelligence Layers) complete - all 4 plans finished
@@ -54,6 +54,8 @@ Recent decisions affecting current work:
 - Phase 2-03: Supports MSW, jest.fn, sinon, nock, fetch-mock, undici
 - Phase 2-04: Dialog detection with 30s time window grouping
 - Phase 2-04: Supports modal, drawer, popover, confirm, form dialog types
+- Phase 4-01: Used @typescript-eslint/typescript-estree for AST parsing
+- Phase 4-01: Weighted scoring: structure 25%, queries 25%, matchers 30%, noFragility 20%
 
 ### Pending Todos
 
@@ -70,5 +72,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-06
-Stopped at: Completed 02-04-PLAN.md (Dialog Flow Detection - Phase 2 complete)
+Stopped at: Completed 04-01-PLAN.md (Scorer Infrastructure - Phase 4 started)
 Resume file: None
