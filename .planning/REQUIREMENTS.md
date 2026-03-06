@@ -118,11 +118,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | GEN-03 | Phase 1 | Pending |
 | GEN-04 | Phase 1 | Pending |
 | GEN-05 | Phase 1 | Pending |
-| CTX-01 | Phase 2 | Pending |
-| CTX-02 | Phase 2 | Pending |
-| CTX-03 | Phase 2 | Pending |
-| CTX-04 | Phase 2 | Pending |
-| CTX-05 | Phase 2 | Pending |
+| CLI-01 | Phase 1 | Pending |
+| CLI-02 | Phase 1 | Pending |
 | REC-01 | Phase 2 | Pending |
 | REC-02 | Phase 2 | Pending |
 | REC-03 | Phase 2 | Pending |
@@ -133,26 +130,29 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MOCK-02 | Phase 2 | Pending |
 | MOCK-03 | Phase 2 | Pending |
 | MOCK-04 | Phase 2 | Pending |
-| QRY-01 | Phase 2 | Pending |
-| QRY-02 | Phase 2 | Pending |
-| QRY-03 | Phase 2 | Pending |
-| TEST-01 | Phase 2 | Pending |
-| TEST-02 | Phase 2 | Pending |
-| TEST-03 | Phase 2 | Pending |
-| SCR-01 | Phase 2 | Pending |
-| SCR-02 | Phase 2 | Pending |
-| SCR-03 | Phase 2 | Pending |
-| CNV-01 | Phase 2 | Pending |
-| CNV-02 | Phase 2 | Pending |
-| CNV-03 | Phase 2 | Pending |
-| CLI-01 | Phase 1 | Pending |
-| CLI-02 | Phase 1 | Pending |
+| CTX-01 | Phase 3 | Pending |
+| CTX-02 | Phase 3 | Pending |
+| CTX-03 | Phase 3 | Pending |
+| CTX-04 | Phase 3 | Pending |
+| CTX-05 | Phase 3 | Pending |
+| QRY-01 | Phase 3 | Pending |
+| QRY-02 | Phase 3 | Pending |
+| QRY-03 | Phase 3 | Pending |
+| TEST-01 | Phase 3 | Pending |
+| TEST-02 | Phase 3 | Pending |
+| TEST-03 | Phase 3 | Pending |
+| SCR-01 | Phase 4 | Pending |
+| SCR-02 | Phase 4 | Pending |
+| SCR-03 | Phase 4 | Pending |
+| CNV-01 | Phase 4 | Pending |
+| CNV-02 | Phase 4 | Pending |
+| CNV-03 | Phase 4 | Pending |
 
 **Coverage:**
-- v1 requirements: 42 total
-- Mapped to phases: 42
-- Unmapped: 0 ✓
+- v1 requirements: 37 total
+- Mapped to phases: 37 ✓
+- Deferred to v2: 5 (EXEC-01, MAIN-02, E2E-01, FRAME-01, FRAME-02)
 
 ---
 *Requirements defined: 2026-03-06*
-*Last updated: 2026-03-06 after initial definition*
+*Last updated: 2026-03-06 after roadmap creation*
