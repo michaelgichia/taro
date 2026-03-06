@@ -1,61 +1,71 @@
 /**
- * TypeScript types for Chrome Recorder exports and normalized steps.
+ * Type definitions for Chrome Recorder exports and normalized recording steps
  */
 
-export interface AssertedEvent {
-  type: string
-  url?: string
-  title?: string
-}
-
-export interface ChromeStep {
-  type: string
-  target?: string
-  selectors?: string[][]
-  value?: string
-  key?: string
-  url?: string
-  assertedEvents?: AssertedEvent[]
-  timeout?: number
-  offsetX?: number
-  offsetY?: number
-  x?: number
-  y?: number
-  width?: number
-  height?: number
-  deviceScaleFactor?: number
-  isMobile?: boolean
-  hasTouch?: boolean
-  isLandscape?: boolean
-}
-
-export interface ChromeRecorderExport {
-  title?: string
-  steps: ChromeStep[]
-  settings?: Record<string, unknown>
-}
-
-export type NormalizedAction =
+export type StepType = 
   | 'click'
   | 'fill'
   | 'select'
   | 'scroll'
   | 'assert'
-  | 'navigate'
+  | 'waitForSelector'
+  | 'doubleClick'
   | 'keyDown'
-  | 'unknown'
+  | 'navigate';
 
-export interface NormalizedStep {
-  action: NormalizedAction
-  target?: string
-  value?: string
-  originalType: string
+/**
+ * Chrome Recorder export format
+ */
+export interface ChromeRecorderExport {
+  title: string;
+  steps: ChromeStep[];
+  settings?: {
+    url?: string;
+    viewport?: {
+      width: number;
+      height: number;
+    };
+  };
 }
 
+/**
+ * Individual step from Chrome Recorder
+ */
+export interface ChromeStep {
+  type: StepType;
+  target?: string;
+  value?: string;
+  selectors?: string[][];
+  assert?: {
+    expression: string;
+  };
+  url?: string;
+  key?: string;
+  modifiedTime?: number;
+}
+
+/**
+ * Normalized step in internal format
+ */
+export interface RecordingStep {
+  id: string;
+  type: StepType;
+  action: string;
+  target: string;
+  selector?: string;
+  value?: string;
+  timestamp?: number;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Normalized recording with all steps
+ */
 export interface NormalizedRecording {
-  title: string
-  steps: NormalizedStep[]
-  rawStepCount: number
+  title: string;
+  steps: RecordingStep[];
+  url?: string;
+  settings?: ChromeRecorderExport['settings'];
 }
 
 // --- Phase 3 additions ---
@@ -75,15 +85,15 @@ export interface ElementInfo {
 }
 
 export interface QueryResult {
-  query: string // e.g., `screen.getByRole('button', { name: 'Save' })`
+  query: string
   quality: QueryQuality
-  method: string // e.g., 'getByRole'
-  line?: number // source line in input JS (for quality summary)
+  method: string
+  line?: number
 }
 
 export interface ItGroup {
   name: string
-  steps: NormalizedStep[]
+  steps: RecordingStep[]
 }
 
 export interface GeneratedItBlock {

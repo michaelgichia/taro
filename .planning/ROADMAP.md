@@ -63,6 +63,12 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 
 **Phase Verification:** User runs Taro on recordings with noise/mocks, output is cleaner and more accurate than Phase 1
 
+**Plans:**
+- [ ] 02-01-PLAN.md — Recording noise filtering (deduplication, noise removal)
+- [ ] 02-02-PLAN.md — Visual intelligence (Playwright inspection)
+- [ ] 02-03-PLAN.md — Mock intelligence (API detection, mock generation)
+- [ ] 02-04-PLAN.md — Dialog flow detection (multi-step grouping)
+
 ---
 
 ## Phase 3: Query & Test Design Intelligence
@@ -119,16 +125,24 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 
 **Phase Verification:** Taro produces progressively better tests on subsequent runs, matching project style
 
+**Plans:**
+- [x] 04-01-PLAN.md — Scorer infrastructure (SCR-01)
+- [x] 04-02-PLAN.md — Pre-write audit and post-write verification (SCR-02, SCR-03)
+- [x] 04-03-PLAN.md — Convention analyzer (CNV-01)
+- [x] 04-04-PLAN.md — Convention persistence with SQLite (CNV-02, CNV-03)
+- [x] 04-05-PLAN.md — Scorer/learner integration (gap closure)
+- [x] 04-06-PLAN.md — Complete integration (gap closure)
+
 ---
 
 ## Progress
 
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
-| 1 - Core Pipeline | 2/6 | Complete    | 2026-03-06 |
-| 2 - Intelligence Layers | Noise filtering, visual/mock awareness | 10 | Pending |
-| 3 - Query & Test Design | Optimal queries, best practices | 11 | Planning complete |
-| 4 - Self-Scoring & Learning | Quality evaluation, convention learning | 6 | Pending |
+| 1 - Core Pipeline | CLI + basic test generation | 10 | ✓ Complete |
+| 2 - Intelligence Layers | Noise filtering, visual/mock awareness | 10 | ✓ Complete |
+| 3 - Query & Test Design | Optimal queries, best practices | 11 | Pending |
+| 4 - Self-Scoring & Learning | Quality evaluation, convention learning | 6 | ✓ Complete |
 
 **Coverage:** 37/42 requirements mapped
 
