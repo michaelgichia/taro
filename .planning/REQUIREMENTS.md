@@ -74,8 +74,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### CLI Interface
 
-- [ ] **CLI-01**: Single command invocation from project root
-- [ ] **CLI-02**: Accept recording file as argument
+- [x] **CLI-01**: Single command invocation from project root
+- [x] **CLI-02**: Accept recording file as argument
 
 ## v2 Requirements
 
@@ -118,8 +118,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | GEN-03 | Phase 1 | Pending |
 | GEN-04 | Phase 1 | Pending |
 | GEN-05 | Phase 1 | Pending |
-| CLI-01 | Phase 1 | Pending |
-| CLI-02 | Phase 1 | Pending |
+| CLI-01 | Phase 1 | Complete |
+| CLI-02 | Phase 1 | Complete |
 | REC-01 | Phase 2 | Pending |
 | REC-02 | Phase 2 | Pending |
 | REC-03 | Phase 2 | Pending |
