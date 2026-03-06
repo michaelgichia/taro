@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-03-06)
 
 **Core value:** Reduce the effort to write and maintain tests by automatically generating high-quality, codebase-aware React Testing Library tests from browser recordings
-**Current focus:** Phase 1 - Core Pipeline
+**Current focus:** Phase 3 - Query & Test Design
 
 ## Current Position
 

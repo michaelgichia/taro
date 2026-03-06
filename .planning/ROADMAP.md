@@ -122,8 +122,8 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
-| 1 - Core Pipeline | CLI + basic test generation | 10 | Pending |
-| 2 - Intelligence Layers | Noise filtering, visual/mock awareness | 10 | Pending |
+| 1 - Core Pipeline | CLI + basic test generation | 10 | ✓ Complete |
+| 2 - Intelligence Layers | Noise filtering, visual/mock awareness | 10 | ✓ Complete |
 | 3 - Query & Test Design | Optimal queries, best practices | 11 | Pending |
 | 4 - Self-Scoring & Learning | Quality evaluation, convention learning | 6 | Pending |
 

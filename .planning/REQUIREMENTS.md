@@ -120,16 +120,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 | GEN-05 | Phase 1 | Pending |
 | CLI-01 | Phase 1 | Pending |
 | CLI-02 | Phase 1 | Pending |
-| REC-01 | Phase 2 | Pending |
-| REC-02 | Phase 2 | Pending |
-| REC-03 | Phase 2 | Pending |
-| REC-04 | Phase 2 | Pending |
-| VIS-01 | Phase 2 | Pending |
-| VIS-02 | Phase 2 | Pending |
-| MOCK-01 | Phase 2 | Pending |
-| MOCK-02 | Phase 2 | Pending |
-| MOCK-03 | Phase 2 | Pending |
-| MOCK-04 | Phase 2 | Pending |
+| REC-01 | Phase 2 | ✓ Complete |
+| REC-02 | Phase 2 | ✓ Complete |
+| REC-03 | Phase 2 | ✓ Complete |
+| REC-04 | Phase 2 | ✓ Complete |
+| VIS-01 | Phase 2 | ✓ Complete |
+| VIS-02 | Phase 2 | ✓ Complete |
+| MOCK-01 | Phase 2 | ✓ Complete |
+| MOCK-02 | Phase 2 | ✓ Complete |
+| MOCK-03 | Phase 2 | ✓ Complete |
+| MOCK-04 | Phase 2 | ✓ Complete |
 | CTX-01 | Phase 3 | Pending |
 | CTX-02 | Phase 3 | Pending |
 | CTX-03 | Phase 3 | Pending |
