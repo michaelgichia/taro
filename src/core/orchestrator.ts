@@ -150,8 +150,12 @@ export async function run(options: OrchestratorOptions): Promise<void> {
     
     // 4f: Learn from generated test for future runs
     console.log('   📚 Learning conventions from generated test...');
-    // In a full implementation, we'd analyze the written file
-    console.log('   ✓ Convention learning complete');
+    try {
+      const conventions = learnConventions(process.cwd());
+      console.log(`   ✓ Convention learning complete`);
+    } catch (error) {
+      console.log(`   ⚠ Convention learning skipped: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
   
   // Cleanup
