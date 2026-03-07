@@ -4,6 +4,7 @@ plan: 01
 status: complete
 completed: 2026-03-07T09:23:20Z
 duration: ~15min
+requirements-completed: [SCR-01]
 ---
 
 # Plan 01 Summary: Score Types + Scorer

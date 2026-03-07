@@ -4,6 +4,7 @@ plan: 03
 status: complete
 completed: 2026-03-07T09:23:20Z
 duration: ~15min
+requirements-completed: [CNV-01, CNV-02]
 ---
 
 # Plan 03 Summary: Scanner Exports for Convention Learning
