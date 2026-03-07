@@ -27,9 +27,9 @@ Reduce the effort to write and maintain tests by automatically generating high-q
 
 ### Active
 
-- [ ] Taro writes tests colocated with components
-- [ ] Taro reduces harness/setup assumptions for generated JSON-path tests
-- [ ] Define the next milestone scope with `$gsd-new-milestone`
+- [ ] Comprehensive README for public developers
+- [ ] npm package published as `@tayo/rtl`
+- [ ] Package fields and build verified for npm distribution
 
 ### Out of Scope
 
@@ -37,11 +37,14 @@ Reduce the effort to write and maintain tests by automatically generating high-q
 - [Real-time recording during test execution] — input is exported recordings, not live capture
 - [Test maintenance/updates] — v1 focuses on generation only
 
-## Next Milestone Goals
+## Current Milestone: v1.1 Documentation & Deployment
 
-- Default colocated test output without manual relocation
-- Stronger standalone runnability for generated JSON-path tests
-- Fresh milestone definition and requirements via the GSD milestone flow
+**Goal:** Make Taro publicly installable and well-documented so any developer can discover, install, and use it.
+
+**Target features:**
+- Comprehensive README covering install, setup, `taro generate` usage, configuration, examples, and Claude skill integration
+- npm package published as `@tayo/rtl` so `npx @tayo/rtl generate ./recording.js` works out of the box
+- Package preparation: `files` field, version bump, build verification, `.npmignore`
 
 ## Context
 
@@ -71,4 +74,4 @@ Reduce the effort to write and maintain tests by automatically generating high-q
 | Gap recovery via Phases 5-7 | Recover missing roadmap scope without rewriting history | Implemented in v1.0 |
 
 ---
-*Last updated: 2026-03-07 after v1.0 milestone*
+*Last updated: 2026-03-07 after v1.1 milestone start*
