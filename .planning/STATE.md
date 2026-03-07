@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Runtime Installer Distribution
-status: requirements
-stopped_at: Started milestone v1.2 and gathering requirements
-last_updated: "2026-03-07T15:06:19Z"
-last_activity: 2026-03-07 — Started milestone v1.2 Runtime Installer Distribution
+status: roadmap_ready
+stopped_at: Created roadmap for milestone v1.2; Phase 10 ready to plan
+last_updated: "2026-03-07T15:19:00Z"
+last_activity: 2026-03-07 — Defined v1.2 requirements and created roadmap through Phase 12
 progress:
   total_phases: 3
   completed_phases: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-07)
 
 **Core value:** Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, and Codex with near-zero setup friction
-**Current focus:** Milestone v1.2 — defining installer-first requirements for multi-runtime distribution
+**Current focus:** Milestone v1.2 roadmap created — Phase 10 is ready for planning
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 10 of 12 (Installer Core & Package Entry)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-03-07 — Started milestone v1.2 Runtime Installer Distribution
+Status: Ready to plan
+Last activity: 2026-03-07 — Defined v1.2 requirements and created roadmap through Phase 12
 
 Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
 
@@ -70,6 +70,7 @@ Carried forward from v1.0:
 - [v1.2]: Installer entrypoint stays in `@tayo-dev/rtl`; no separate umbrella package in this milestone
 - [v1.2]: Milestone focus is installer-first across Claude Code, OpenCode, Gemini CLI, and Codex
 - [v1.2]: Codex support must install skills under `skills/@tayo-dev/rtl-*/SKILL.md`, not custom prompts
+- [v1.2]: Research is enabled for this milestone because runtime-specific install conventions and update behavior need validation
 
 ### Pending Todos
 
@@ -87,6 +88,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-07T15:06:19Z
-Stopped at: Started milestone v1.2 and gathering requirements
+Last session: 2026-03-07T15:19:00Z
+Stopped at: Created roadmap for milestone v1.2; Phase 10 ready to plan
 Resume file: None

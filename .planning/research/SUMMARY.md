@@ -1,164 +1,123 @@
 # Project Research Summary
 
-**Project:** Taro - Chrome Recorder to React Testing Library Test Generator
-**Domain:** Developer Tools / Test Automation
-**Researched:** 2026-03-06
-**Confidence:** MEDIUM-HIGH
+**Project:** Taro
+**Domain:** installer-first distribution for AI coding runtimes
+**Researched:** 2026-03-07
+**Confidence:** MEDIUM
 
 ## Executive Summary
 
-Taro is a CLI tool that transforms Chrome DevTools Recorder exports into React Testing Library (RTL) component tests. This addresses a significant gap in the React testing ecosystem: Chrome Recorder exports E2E-style tests optimized for Playwright/Puppeteer, but modern React development increasingly prefers fast, isolated component tests using RTL. The tool parses recorder JSON, converts browser selectors to semantic RTL queries, analyzes the target codebase for component structure and testing conventions, and generates colocated test files.
+Taro's next milestone is not about improving the generator itself; it is about changing how users adopt it. The current package is a single Commander CLI named `taro`, while the target behavior is a GSD-style installer flow that lets users bootstrap Taro into Claude Code, OpenCode, Gemini CLI, and Codex from `@tayo-dev/rtl`.
 
-Research indicates the core technical challenge is selector transformation—converting brittle CSS/XPath selectors (common in Chrome Recorder exports) into robust accessibility-based queries (getByRole, getByLabelText). This must be solved before test generation can work reliably. Secondary challenges include bridging the E2E-to-unit paradigm mismatch (where recording-level flows must map to component-level tests) and handling React's asynchronous rendering patterns. The recommended approach prioritizes a minimal parser-writer-generator pipeline in Phase 1, followed by the critical selector transformation work in Phase 2, with project analysis deferred to Phase 3.
-
-Key risks include: generated tests may remain brittle without proper async handling (Phase 2 must address this); the paradigm mismatch between recorded flows and component tests requires careful boundary detection; and convention awareness is essential or developers will rewrite generated tests instead of using them.
+Research points toward a straightforward architecture: keep the package owner fixed, add a dedicated installer flow, model each runtime in a registry, and ship runtime payloads as versioned assets in the npm tarball. The main risks are package-name ambiguity, per-runtime path drift, and under-specifying the rerun/update path.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The stack reflects a modern Node.js CLI built with TypeScript for type-safe code generation. Babel packages handle AST parsing and code generation—@babel/parser for input analysis, @babel/traverse for component structure inspection, and @babel/template for safe test code generation. Playwright serves as the browser automation layer for element inspection and test validation. React Testing Library 19.x and @testing-library/dom 10.x provide the target API surface for code generation. Commander 12.x offers CLI framework capabilities.
+Keep the installer inside the existing TypeScript + Commander + Node 18 stack. No hosted services or new package split are needed for v1.2. The important addition is not a new framework; it is a clearer module boundary for installer logic, runtime registry definitions, and packaged runtime assets.
 
 **Core technologies:**
-- TypeScript 5.7.x — Essential for CLI tools with complex AST handling; provides type safety for code generation
-- @babel/parser + @babel/traverse + @babel/template — Industry standard for parsing and generating code
-- React Testing Library 19.x — Target testing library; understanding its API surface is essential
-- Playwright 1.50.x — Cross-browser automation superior to Puppeteer
-- commander 12.x — Lightweight CLI framework with excellent TypeScript support
+- TypeScript: typed runtime metadata and filesystem plans
+- Commander: interactive/non-interactive CLI surface
+- Node built-in filesystem/path APIs: install planning and file writes
 
 ### Expected Features
 
 **Must have (table stakes):**
-- Chrome Recorder JSON parsing — Core input format; must handle all step types (click, fill, select, scroll, assert)
-- Valid RTL query generation — Must generate getByRole, getByText, getByLabelText—not CSS selectors
-- Test structure generation — Proper describe/it blocks with imports
-- Jest/Vitest compatibility — Standard React test runners
-- Test file creation — Write valid .test.js files to filesystem
+- Interactive installer entrypoint from `npx @tayo-dev/rtl@latest`
+- Runtime selection plus global/local installation selection
+- Runtime-specific assets for Claude Code, OpenCode, Gemini CLI, and Codex
+- Verification commands and idempotent rerun/update flow
 
 **Should have (competitive):**
-- Project convention analysis — Detect existing test patterns (naming, folder structure, query preferences)
-- Smart selector-to-query conversion — Convert aria selectors to getByRole, label text to getByLabelText
-- Test colocation — Place .test.js files next to component files
-- Multiple selector fallback — Try alternatives if primary selector fails
+- Single package that supports all runtimes
+- Codex-specific skills-first installation
+- Preserve direct generator usage while the installer becomes the new onboarding path
 
 **Defer (v2+):**
-- Learning state — Remember user corrections over time (Phase 5)
-- Incremental test updates — Merge generated code with manual edits
-- Custom convention support — Project-specific patterns
+- Broad product/CLI rebrand
+- Uninstall flow
+- Remote template delivery
 
 ### Architecture Approach
 
-The architecture follows a pipeline pattern: Parser normalizes Chrome Recorder JSON → Analyzer inspects the codebase for component structure and conventions → Generator transforms steps to RTL test code → Writer creates test files. Key components include the Convention Store (persists learned project patterns), Project Context (current project configuration), and Learning Store (remembers selector preferences).
+Use a dedicated installer subsystem with five major components: CLI entrypoint, runtime registry, location resolver, asset layer, and verification reporter. Keep these isolated from the existing generator pipeline so installer complexity does not leak into `generate`.
 
 **Major components:**
-1. Parser — Validates and normalizes Chrome Recorder JSON export to internal step representations
-2. Analyzer — Inspects codebase via AST parsing to extract component metadata and detect conventions
-3. Generator — Transforms parsed steps to RTL test code using template engine and selector strategies
-4. Writer — Handles file operations, path resolution, and colocated test placement
+1. Installer CLI — prompt/flag entrypoint
+2. Runtime registry — directories, asset types, verify commands
+3. Install engine — plan, write, rerun/update behavior
+4. Asset payloads — prompts, commands, and Codex skills
 
 ### Critical Pitfalls
 
-1. **Brittle CSS/XPath Selectors** — Chrome Recorder exports selectors that break with generated class names, DOM changes, and React production builds. Must implement selector transformation to semantic queries (getByRole, getByLabelText) with fallback chains. Address in Phase 2.
-
-2. **E2E-to-Unit Paradigm Mismatch** — Recorded flows span the entire app but RTL tests should isolate components. Must detect component boundaries and generate component-scoped tests, not full app renders. Address in Phase 3.
-
-3. **Ignoring Async/Wait Patterns** — React's asynchronous rendering causes race conditions. Generated tests must use findBy* queries and waitFor patterns. Address in Phase 2.
-
-4. **Using fireEvent Instead of user-event** — fireEvent doesn't simulate real user behavior. Must map event types to user-event functions (click → userEvent.click, type → userEvent.type). Address in Phase 4.
-
-5. **No Convention Awareness** — Generic test generation ignores project patterns. Generated tests feel foreign and developers rewrite them. Must analyze existing test files to match project conventions. Address in Phase 3.
+1. **Package entry ambiguity** — keep `@tayo-dev/rtl` as the only documented installer command
+2. **Runtime path assumptions** — encode paths in a registry and test global/local variants explicitly
+3. **Codex treated like prompts** — give Codex a dedicated skills-first module
+4. **Installer fails on rerun** — design overwrite/update behavior before release
+5. **Docs drift from emitted commands** — smoke-test README commands against the real package
 
 ## Implications for Roadmap
 
-Based on research, the following phase structure is recommended:
+Based on research, suggested phase structure:
 
-### Phase 1: Core Pipeline
-**Rationale:** Establishes the basic processing flow with minimal dependencies; enables early validation of the core concept.
-**Delivers:** Working CLI that parses Chrome Recorder JSON and generates basic test structure
-**Addresses:** Chrome Recorder JSON parsing, test structure generation, test file creation, Jest/Vitest compatibility
-**Avoids:** Nothing critical—this is the foundation
+### Phase 10: Installer Core & Package Entry
+**Rationale:** The installer needs a stable entrypoint, flag model, and path resolver before any runtime payloads can be installed.
+**Delivers:** interactive/non-interactive install command and install planning
+**Addresses:** installer table stakes
+**Avoids:** package-name ambiguity and runtime path drift
 
-### Phase 2: Selector Transformation Engine
-**Rationale:** This is the critical technical challenge; brittle selectors make tests fail in production. Must be solved before meaningful test generation is possible.
-**Delivers:** Robust selector-to-query conversion with fallback chains, proper async handling using findBy queries and waitFor patterns
-**Addresses:** Valid RTL query generation, smart selector-to-query conversion, async/wait patterns
-**Avoids:** Pitfall 1 (brittle selectors), Pitfall 3 (async issues)
-**Research flag:** Complex—selector strategy pattern needs careful implementation; may need to research specific RTL query priority rules
+### Phase 11: Runtime Targets & Asset Delivery
+**Rationale:** Once the install engine exists, runtime modules and packaged assets can be added without mixing concerns.
+**Delivers:** Claude, OpenCode, Gemini, and Codex payload installation
+**Uses:** runtime registry and packaged assets
+**Implements:** runtime-specific modules and verification commands
 
-### Phase 3: Project Analysis & Conventions
-**Rationale:** Convention matching determines whether developers accept generated tests; paradigm mismatch resolution requires understanding component boundaries.
-**Delivers:** Codebase analyzer that extracts component metadata, detects test file conventions, generates component-scoped tests
-**Addresses:** Project convention analysis, test colocation, component flow detection
-**Avoids:** Pitfall 2 (paradigm mismatch), Pitfall 5 (convention mismatch)
-**Research flag:** Analyzer performance on large codebases—may need caching strategy
-
-### Phase 4: Test Generator Refinement
-**Rationale:** Refines the generated test quality with user-event simulation instead of fireEvent.
-**Delivers:** Tests using user-event library for accurate user behavior simulation
-**Addresses:** fireEvent to user-event conversion, assertion generation improvements
-**Avoids:** Pitfall 4 (fireEvent usage)
-
-### Phase 5: Learning & Persistence (v2)
-**Rationale:** Adds differentiation through continuous improvement; builds moat by learning project-specific patterns.
-**Delivers:** Persistent store for selector preferences, correction mechanisms, incremental test updates
-**Addresses:** Learning state, incremental test updates
-**Avoids:** Pitfall 6 (no learning system)
+### Phase 12: Verification, Updates & Docs
+**Rationale:** Update flow and docs must be validated against the real installed assets after runtime support exists.
+**Delivers:** rerun/update behavior, smoke checks, and release-ready onboarding docs
 
 ### Phase Ordering Rationale
 
-- Phase 1 before Phase 2: Need basic pipeline working before tackling selector transformation
-- Phase 2 before Phase 3: Selector conversion is prerequisite for meaningful codebase analysis
-- Phase 3 before Phase 4: Need convention awareness to generate quality tests before refinement
-- Phase 5 last: Learning system depends on all other components being stable
-
-The critical path runs through Phase 2 (selector transformation) as it addresses the most severe pitfalls. Async handling is embedded in Phase 2 rather than deferred because intermittent test failures destroy user trust.
+- Build the install engine before the payload matrix so runtime logic has a stable host
+- Add runtime targets after path and asset abstractions are in place
+- Leave update behavior and final docs until the emitted assets are real and testable
 
 ### Research Flags
 
 Phases likely needing deeper research during planning:
-- **Phase 2:** Complex selector strategy implementation—RTL query priority rules need careful research
-- **Phase 3:** Analyzer performance optimization for large codebases
+- **Phase 11:** runtime-specific filesystem conventions may still need closer inspection per target
+- **Phase 12:** update/repair semantics may need extra validation once real payloads exist
 
 Phases with standard patterns (skip research-phase):
-- **Phase 1:** Well-documented input format (Chrome Recorder JSON) and output format (RTL)
-- **Phase 4:** user-event API is well-documented; straightforward implementation
+- **Phase 10:** package entrypoint, flags, prompts, and path planning follow standard CLI patterns
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | MEDIUM | Greenfield domain with no established standard; recommendations based on ecosystem research and adjacent tools |
-| Features | HIGH | Clear table stakes from Chrome Recorder documentation and RTL ecosystem; differentiators well-understood |
-| Architecture | MEDIUM | Pipeline pattern is standard; selector strategy pattern well-documented; convention learning is novel |
-| Pitfalls | HIGH | Derived from extensive RTL/Testing Library experience documented by Kent C. Dodds and community |
+| Stack | HIGH | Existing repo already uses the recommended foundations |
+| Features | HIGH | User provided the target behavior concretely |
+| Architecture | MEDIUM | Runtime-specific install conventions still need per-phase validation |
+| Pitfalls | MEDIUM | Risks are clear, but final mitigations depend on runtime asset details |
 
-**Overall confidence:** MEDIUM-HIGH
-
-Research is grounded in well-documented APIs (Chrome Recorder, RTL) and established patterns. Uncertainty exists around convention learning—a novel approach without proven precedent—and selector transformation edge cases that will emerge only during implementation.
+**Overall confidence:** MEDIUM
 
 ### Gaps to Address
 
-- **Chrome Recorder export format variations:** Research assumed standard JSON structure; may need to handle extensions or custom exporters
-- **Convention detection accuracy:** No established algorithms for detecting test patterns; may need iterative refinement
-- **Large codebase performance:** Analyzer scaling not validated; may require significant optimization work
-- **Learning system design:** Novel approach without reference implementations; may need pivoting based on user feedback
+- Exact asset naming and folder contracts for each runtime should be validated during phase planning
+- The final install/update ownership model should be decided before phase 12 execution begins
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Chrome DevTools Recorder Documentation (developer.chrome.com/docs/devtools/recorder) — Input format verification
-- React Testing Library Docs (testing-library.com) — Target output format, query priority rules
-- Kent C. Dodds on fireEvent vs user-event — Critical pitfall guidance
+- Current repo state (`package.json`, `src/index.ts`, `README.md`) — verified existing package behavior
+- User-provided milestone direction and target installer commands — defined required runtime behavior
 
 ### Secondary (MEDIUM confidence)
-- Playwright Codegen — Comparison benchmark for similar tools
-- Puppeteer Replay (GitHub) — JSON format reference
-- Babel documentation — AST parsing patterns
-
-### Tertiary (LOW confidence)
-- Convention learning approach — Novel; needs validation through implementation
-- Large codebase analyzer performance — Theoretical; needs real-world testing
+- GSD-style installer behavior referenced by the user — product benchmark for interactive setup and multi-runtime support
 
 ---
-*Research completed: 2026-03-06*
+*Research completed: 2026-03-07*
 *Ready for roadmap: yes*

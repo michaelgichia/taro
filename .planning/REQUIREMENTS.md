@@ -1,43 +1,51 @@
 # Requirements: Taro
 
 **Defined:** 2026-03-07
-**Core Value:** Reduce the effort to write and maintain tests by automatically generating high-quality, codebase-aware React Testing Library tests from browser recordings
+**Core Value:** Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, and Codex with near-zero setup friction
 
-## v1.1 Requirements
+## v1.2 Requirements
 
-### Documentation
+### Installer Experience
 
-- [x] **DOCS-01**: Developer can read an introduction explaining what Taro is, who it's for, and the problem it solves
-- [x] **DOCS-02**: Developer can follow a Quick Start to install Taro and generate their first test in under 5 minutes
-- [x] **DOCS-03**: Developer can look up all CLI flags and options for `taro generate` in the README
-- [x] **DOCS-04**: Developer can follow a worked example showing a Chrome recording in → generated RTL test out
-- [x] **DOCS-05**: Developer can read a guide for invoking Taro as a Claude Code skill / agent tool
+- [ ] **INST-01**: User can run `npx @tayo-dev/rtl@latest` and complete setup through an interactive installer flow
+- [ ] **INST-02**: User can choose Claude Code, OpenCode, Gemini CLI, Codex, or all runtimes during installation
+- [ ] **INST-03**: User can choose global or local installation during setup
+- [ ] **INST-04**: User can run installation non-interactively using runtime flags and `--global` / `--local`
 
-### Package
+### Runtime Delivery
 
-- [x] **PKG-01**: `package.json` has `name=@tayo-dev/rtl`, `files`, `exports`, and `engines` fields correctly set
-- [x] **PKG-02**: Package version is bumped to 1.0.0
-- [x] **PKG-03**: `tsc` build produces a working `dist/` verified by running `node dist/index.js --help`
-- [x] **PKG-04**: `npx @tayo-dev/rtl generate ./recording.js` installs and runs correctly after publish
+- [ ] **RUNT-01**: User gets a Claude Code installation that exposes `/@tayo-dev/rtl:help`
+- [ ] **RUNT-02**: User gets a Gemini CLI installation that exposes `/@tayo-dev/rtl:help`
+- [ ] **RUNT-03**: User gets an OpenCode installation that exposes `/@tayo-dev/rtl-help`
+- [ ] **RUNT-04**: User gets a Codex installation that writes `skills/@tayo-dev/rtl-*/SKILL.md` assets and exposes `$@tayo-dev/rtl-help`
+- [ ] **RUNT-05**: User can install all supported runtimes in one run with `--all`
+
+### Distribution & Verification
+
+- [ ] **DIST-01**: User can access the installer from the published `@tayo-dev/rtl` package without switching to a separate installer package
+- [ ] **DIST-02**: User can rerun the installer to update or repair an existing installation without manual cleanup
+- [ ] **DIST-03**: User receives runtime-specific verification commands after installation and can use them successfully
+- [ ] **DIST-04**: User can follow the README for interactive, non-interactive, and development installation flows without extra guidance
 
 ## Future Requirements
 
-### Documentation
+### Installer Lifecycle
 
-- **DOCS-06**: Configuration reference for `.taro/` state and convention learning settings
-- **DOCS-07**: Troubleshooting guide for common generation issues
+- **LIFE-01**: User can uninstall a runtime-specific installation cleanly
+- **LIFE-02**: User can see a doctor/diagnostics report for broken runtime setups
 
-### Package
+### Product Identity
 
-- **PKG-05**: CI/CD integration guide (GitHub Actions, GitLab CI)
+- **BRAND-01**: User sees a unified post-installer command vocabulary that no longer depends on the historical `taro` CLI name
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Separate docs site | README-first is sufficient for v1.1; docs site deferred |
-| API / programmatic usage docs | CLI-first for v1.1 |
-| Automated npm publish in CI | Manual publish sufficient for first release |
+| New generator intelligence features | v1.2 is about distribution and onboarding, not expanding generation behavior |
+| Hosted asset registry or remote sync | Keep installation local-first and release-driven |
+| Separate umbrella installer package | Explicitly deferred; `@tayo-dev/rtl` owns the installer in v1.2 |
+| Broad `Taro` / `taro` rename across the entire product | Valuable, but not required to prove installer adoption |
 
 ## Traceability
 
@@ -45,21 +53,25 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DOCS-01 | Phase 8 | Complete |
-| DOCS-02 | Phase 8 | Complete |
-| DOCS-03 | Phase 8 | Complete |
-| DOCS-04 | Phase 8 | Complete |
-| DOCS-05 | Phase 8 | Complete |
-| PKG-01 | Phase 9 | Complete |
-| PKG-02 | Phase 9 | Complete |
-| PKG-03 | Phase 9 | Complete |
-| PKG-04 | Phase 9 | Complete |
+| INST-01 | Phase 10 | Pending |
+| INST-02 | Phase 10 | Pending |
+| INST-03 | Phase 10 | Pending |
+| INST-04 | Phase 10 | Pending |
+| RUNT-01 | Phase 11 | Pending |
+| RUNT-02 | Phase 11 | Pending |
+| RUNT-03 | Phase 11 | Pending |
+| RUNT-04 | Phase 11 | Pending |
+| RUNT-05 | Phase 11 | Pending |
+| DIST-01 | Phase 10 | Pending |
+| DIST-02 | Phase 12 | Pending |
+| DIST-03 | Phase 12 | Pending |
+| DIST-04 | Phase 12 | Pending |
 
 **Coverage:**
-- v1.1 requirements: 9 total
-- Mapped to phases: 9
+- v1.2 requirements: 13 total
+- Mapped to phases: 13
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-07*
-*Last updated: 2026-03-07 after phase 09 publish verification completion*
+*Last updated: 2026-03-07 after v1.2 requirements definition*

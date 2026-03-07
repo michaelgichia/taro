@@ -4,6 +4,7 @@
 
 - ✅ **v1.0 Taro v1.0** — shipped 2026-03-07. See [roadmap archive](./milestones/v1.0-ROADMAP.md), [requirements archive](./milestones/v1.0-REQUIREMENTS.md), and [audit](./milestones/v1.0-MILESTONE-AUDIT.md).
 - ✅ **v1.1 Documentation & Deployment** — shipped 2026-03-07
+- ◆ **v1.2 Runtime Installer Distribution** — requirements defined 2026-03-07
 
 ## Phases
 
@@ -21,46 +22,60 @@ See [v1.0 roadmap archive](./milestones/v1.0-ROADMAP.md) for full phase details.
 - [x] **Phase 8: README Documentation** - Comprehensive public-facing README covering what Taro is, how to install it, and how to use it (completed 2026-03-07)
 - [x] **Phase 9: Package & Publish** - Package fields, build verification, and npm publish so `npx @tayo-dev/rtl generate` works out of the box (completed 2026-03-07)
 
+### ◆ v1.2 Runtime Installer Distribution (Not Started)
+
+**Milestone Goal:** Make `@tayo-dev/rtl` install like a runtime-native agent package so users can bootstrap Taro into Claude Code, OpenCode, Gemini CLI, or Codex from one command.
+
+- [ ] **Phase 10: Installer Core & Package Entry** - Create the installer entrypoint, interactive/non-interactive selection flow, and installation plan model
+- [ ] **Phase 11: Runtime Targets & Asset Delivery** - Install runtime-specific prompts/commands/skills for Claude Code, OpenCode, Gemini CLI, and Codex
+- [ ] **Phase 12: Verification, Updates & Release Docs** - Make reruns/update flows safe, verify installed assets, and document the release-ready onboarding path
+
 ## Phase Details
 
-### Phase 8: README Documentation
-**Goal**: Any public developer can discover, understand, install, and use Taro from the README alone
-**Depends on**: Nothing (first phase of v1.1)
-**Requirements**: DOCS-01, DOCS-02, DOCS-03, DOCS-04, DOCS-05
+### Phase 10: Installer Core & Package Entry
+**Goal**: Users can invoke `@tayo-dev/rtl` as an installer, choose runtimes and install location, and get a deterministic install plan without yet depending on runtime-specific payload implementation details
+**Depends on**: Phase 9
+**Requirements**: INST-01, INST-02, INST-03, INST-04, DIST-01
 **Success Criteria** (what must be TRUE):
-  1. Developer reads the README and understands what Taro is, who it is for, and the problem it solves — without reading source code
-  2. Developer follows the Quick Start section and generates their first test in under 5 minutes from a clean install
-  3. Developer can look up any `taro generate` CLI flag or option in the README without guessing
-  4. Developer reads a worked example that shows an actual Chrome recording going in and a generated RTL test coming out
-  5. Developer reads a guide for invoking Taro as a Claude Code skill or agent tool and can configure it without additional help
-**Plans**: 2 plans
+  1. Running `npx @tayo-dev/rtl@latest` enters an interactive installer flow instead of dropping the user into generator-only help
+  2. The installer can accept `--claude`, `--opencode`, `--gemini`, `--codex`, `--all`, `--global`, and `--local` combinations without prompting
+  3. Global vs local destination resolution is modeled explicitly and can be previewed or summarized before writes occur
+  4. `@tayo-dev/rtl` remains the only documented installer package; no secondary umbrella package is required
+**Plans**: Not yet created
 
-Plans:
-- [x] 08-01-PLAN.md — Write Introduction, Quick Start, and CLI Reference sections (DOCS-01, DOCS-02, DOCS-03)
-- [x] 08-02-PLAN.md — Write Worked Example and Claude Code Skill guide (DOCS-04, DOCS-05)
-
-### Phase 9: Package & Publish
-**Goal**: The `@tayo-dev/rtl` package is correctly prepared, builds cleanly, and installs from npm so any developer can run `npx @tayo-dev/rtl generate ./recording.js`
-**Depends on**: Phase 8
-**Requirements**: PKG-01, PKG-02, PKG-03, PKG-04
+### Phase 11: Runtime Targets & Asset Delivery
+**Goal**: Each supported runtime receives the correct packaged assets and a working runtime-native help entrypoint
+**Depends on**: Phase 10
+**Requirements**: RUNT-01, RUNT-02, RUNT-03, RUNT-04, RUNT-05
 **Success Criteria** (what must be TRUE):
-  1. `package.json` contains `name`, `files`, `exports`, and `engines` fields that correctly describe the package for npm consumers
-  2. Package version reads `1.0.0` in `package.json`
-  3. Running `tsc` produces a `dist/` directory and `node dist/index.js --help` prints the CLI help without error
-  4. After publishing, `npx @tayo-dev/rtl generate ./recording.js` installs the package and runs the generate command correctly
-**Plans**: 2 plans
+  1. Claude Code installations expose `/@tayo-dev/rtl:help`
+  2. Gemini CLI installations expose `/@tayo-dev/rtl:help`
+  3. OpenCode installations expose `/@tayo-dev/rtl-help`
+  4. Codex installations create `skills/@tayo-dev/rtl-*/SKILL.md` assets and expose `$@tayo-dev/rtl-help`
+  5. `--all` installs all supported runtimes in one run and reports what was written
+**Plans**: Not yet created
 
-Plans:
-- [x] 09-01-PLAN.md — Update package.json fields and version bump (PKG-01, PKG-02)
-- [x] 09-02-PLAN.md — Build verification, dry-run publish, and manual publish instructions (PKG-03, PKG-04)
+### Phase 12: Verification, Updates & Release Docs
+**Goal**: Installer reruns are safe, verification commands are trustworthy, and the README documents the real shipped onboarding flow
+**Depends on**: Phase 11
+**Requirements**: DIST-02, DIST-03, DIST-04
+**Success Criteria** (what must be TRUE):
+  1. Re-running the installer updates or repairs owned assets without requiring manual cleanup
+  2. Install completion output includes verification commands for every selected runtime
+  3. The README covers interactive install, non-interactive install, staying updated, and development installation using the real published/package-local commands
+  4. Release verification proves the shipped tarball contains runtime assets and that the documented verification commands work
+**Plans**: Not yet created
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 8 → 9
+Phases execute in numeric order: 10 → 11 → 12
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1-7. v1.0 Phases | v1.0 | Complete | Complete | 2026-03-07 |
 | 8. README Documentation | v1.1 | 2/2 | Complete | 2026-03-07 |
 | 9. Package & Publish | v1.1 | 2/2 | Complete | 2026-03-07 |
+| 10. Installer Core & Package Entry | v1.2 | 0/0 | Not Started | — |
+| 11. Runtime Targets & Asset Delivery | v1.2 | 0/0 | Not Started | — |
+| 12. Verification, Updates & Release Docs | v1.2 | 0/0 | Not Started | — |
