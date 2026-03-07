@@ -4,7 +4,7 @@
   "description": "Generate high-quality React Testing Library tests from Chrome Recorder recordings",
   "type": "module",
   "bin": {
-    "taro": "./dist/index.js"
+    "taro": "dist/index.js"
   },
   "files": [
     "dist",
