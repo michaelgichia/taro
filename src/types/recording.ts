@@ -88,6 +88,25 @@ export interface AnalyzedRecording extends NormalizedRecording {
   intentGroups: IntentGroup[]
 }
 
+export interface DialogState {
+  role: 'dialog' | 'alertdialog' | null
+  title: string | null
+  description: string | null
+  actions: string[]
+  isOpen: boolean
+}
+
+export interface VisualState {
+  capturedAt: string
+  element: ElementInfo | null
+  pageTitle: string
+  reason: string
+  screenshotPath?: string
+  selector?: string
+  url: string
+  dialog: DialogState | null
+}
+
 // --- Phase 3 additions ---
 
 export type QueryQuality = 'excellent' | 'good' | 'acceptable' | 'fragile'

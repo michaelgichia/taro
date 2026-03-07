@@ -1,6 +1,12 @@
 import { chromium, Browser, Page } from 'playwright'
 import pc from 'picocolors'
-import type { ElementInfo, QueryResult, QueryQuality } from '../types/recording.js'
+import type {
+  DialogState,
+  ElementInfo,
+  QueryResult,
+  QueryQuality,
+  VisualState,
+} from '../types/recording.js'
 
 /**
  * Maps HTML tag names to implied ARIA roles.
@@ -34,6 +40,122 @@ function escapeSingleQuote(str: string): string {
  */
 function sanitizeSelectorForTestId(selector: string): string {
   return selector.replace(/[^a-zA-Z0-9-]/g, '-').replace(/^-+|-+$/g, '')
+}
+
+async function readElementInfo(page: Page, selector: string): Promise<ElementInfo> {
+  const locator = page.locator(selector).first()
+  const elementInfo = await locator.evaluate((el: Element) => {
+    const htmlEl = el as HTMLElement
+    return {
+      tagName: el.tagName.toLowerCase(),
+      role: el.getAttribute('role') ?? null,
+      ariaLabel: el.getAttribute('aria-label') ?? null,
+      ariaLabelledBy: el.getAttribute('aria-labelledby') ?? null,
+      innerText: htmlEl.innerText ?? '',
+      value: (htmlEl as HTMLInputElement).value ?? undefined,
+      type: (htmlEl as HTMLInputElement).type ?? undefined,
+      placeholder: (htmlEl as HTMLInputElement).placeholder ?? null,
+      isPresent: true,
+    }
+  })
+
+  return elementInfo as ElementInfo
+}
+
+function sanitizeCaptureSegment(value: string): string {
+  return value.replace(/[^a-zA-Z0-9-_]+/g, '-').replace(/^-+|-+$/g, '') || 'capture'
+}
+
+export async function extractDialogState(page: Page): Promise<DialogState | null> {
+  try {
+    const state = await page.evaluate(() => {
+      const dialog = document.querySelector('[role="dialog"], [role="alertdialog"]')
+      if (!dialog) {
+        return null
+      }
+
+      const titleNode = dialog.querySelector('h1, h2, h3, [aria-labelledby]')
+      const descriptionNode = dialog.querySelector('[aria-describedby], p')
+      const actionNodes = Array.from(
+        dialog.querySelectorAll('button, [role="button"]')
+      ) as HTMLElement[]
+
+      return {
+        role:
+          (dialog.getAttribute('role') as 'dialog' | 'alertdialog' | null) ?? null,
+        title: titleNode?.textContent?.trim() ?? null,
+        description: descriptionNode?.textContent?.trim() ?? null,
+        actions: actionNodes
+          .map((node) => node.innerText?.trim())
+          .filter((text): text is string => Boolean(text)),
+        isOpen: true,
+      }
+    })
+
+    return state as DialogState | null
+  } catch {
+    return null
+  }
+}
+
+export interface CaptureVisualStateOptions {
+  reason: string
+  screenshotDir?: string
+  selector?: string
+  timeoutMs?: number
+}
+
+/**
+ * Captures a structured visual-state artifact for a page and optional selector.
+ */
+export async function captureVisualState(
+  url: string,
+  options: CaptureVisualStateOptions
+): Promise<VisualState | null> {
+  const { reason, screenshotDir, selector, timeoutMs = 5000 } = options
+  let browser: Browser | null = null
+
+  try {
+    browser = await chromium.launch({ headless: true })
+    const page = await browser.newPage()
+
+    await page.goto(url, {
+      timeout: timeoutMs,
+      waitUntil: 'domcontentloaded',
+    })
+
+    const pageTitle = await page.title()
+    const dialog = await extractDialogState(page)
+    const element = selector ? await readElementInfo(page, selector) : null
+
+    let screenshotPath: string | undefined
+    if (screenshotDir) {
+      screenshotPath = `${screenshotDir}/${sanitizeCaptureSegment(pageTitle || reason)}.png`
+      await page.screenshot({ path: screenshotPath, fullPage: true })
+    }
+
+    return {
+      capturedAt: new Date().toISOString(),
+      dialog,
+      element,
+      pageTitle,
+      reason,
+      screenshotPath,
+      selector,
+      url,
+    }
+  } catch (error) {
+    console.warn(
+      pc.yellow('[taro]') +
+        pc.dim(' VIS-01:') +
+        ` Failed to capture visual state for ${url}: ${error instanceof Error ? error.message : 'Unknown error'}`
+    )
+    return null
+  } finally {
+    if (browser) {
+      await browser.close()
+    }
+  }
 }
 
 /**
@@ -150,23 +272,7 @@ export async function inspectElement(
       waitUntil: 'domcontentloaded',
     })
 
-    const locator = page.locator(cssSelector).first()
-    const elementInfo = await locator.evaluate((el: Element) => {
-      const htmlEl = el as HTMLElement
-      return {
-        tagName: el.tagName.toLowerCase(),
-        role: el.getAttribute('role') ?? null,
-        ariaLabel: el.getAttribute('aria-label') ?? null,
-        ariaLabelledBy: el.getAttribute('aria-labelledby') ?? null,
-        innerText: htmlEl.innerText ?? '',
-        value: (htmlEl as HTMLInputElement).value ?? undefined,
-        type: (htmlEl as HTMLInputElement).type ?? undefined,
-        placeholder: (htmlEl as HTMLInputElement).placeholder ?? null,
-        isPresent: true,
-      }
-    })
-
-    return elementInfo as ElementInfo
+    return await readElementInfo(page, cssSelector)
   } catch (error) {
     console.warn(
       pc.yellow('[taro]') +
@@ -209,23 +315,7 @@ export async function inspectElements(
 
     for (const selector of selectors) {
       try {
-        const locator = page.locator(selector).first()
-        const elementInfo = await locator.evaluate((el: Element) => {
-          const htmlEl = el as HTMLElement
-          return {
-            tagName: el.tagName.toLowerCase(),
-            role: el.getAttribute('role') ?? null,
-            ariaLabel: el.getAttribute('aria-label') ?? null,
-            ariaLabelledBy: el.getAttribute('aria-labelledby') ?? null,
-            innerText: htmlEl.innerText ?? '',
-            value: (htmlEl as HTMLInputElement).value ?? undefined,
-            type: (htmlEl as HTMLInputElement).type ?? undefined,
-            placeholder: (htmlEl as HTMLInputElement).placeholder ?? null,
-            isPresent: true,
-          }
-        })
-
-        result.set(selector, elementInfo as ElementInfo)
+        result.set(selector, await readElementInfo(page, selector))
       } catch {
         // On individual selector failure, set to null and continue
         result.set(selector, null)

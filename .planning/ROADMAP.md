@@ -158,7 +158,7 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 **Gap Closure:** Closes the missing Phase 2 visual/mock scope and the broken mock-aware generation flow identified in `v1.0-MILESTONE-AUDIT.md`.
 
 **Plans:** 4 plans
-- [ ] 06-01-PLAN.md — Visual-state capture foundation in the Playwright resolver
+- [x] 06-01-PLAN.md — Visual-state capture foundation in the Playwright resolver
 - [ ] 06-02-PLAN.md — Dialog-state understanding and visual-intelligence integration
 - [ ] 06-03-PLAN.md — Mock-analysis foundation for repeated targets and inline/extract decisions
 - [ ] 06-04-PLAN.md — Mock lifecycle/stability reasoning and generate pipeline integration
@@ -195,7 +195,7 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 | 3 - Query & Test Design | Optimal queries, best practices | 11 | Complete (2026-03-07) |
 | 4 - Self-Scoring & Learning | Quality evaluation, convention learning | 6 | Complete (2026-03-07) |
 | 5 - Recording Intelligence Recovery | Restore missing REC-* scope | 4 | Complete (2026-03-07) |
-| 6 - Visual & Mock Intelligence Recovery | Restore missing VIS-* / MOCK-* scope | 6 | Planned |
+| 6 - Visual & Mock Intelligence Recovery | Restore missing VIS-* / MOCK-* scope | 6 | In Progress |
 | 7 - Verification & Traceability Reconciliation | Close audit and validation gaps | 22 | Pending |
 
 **Coverage:** 37/42 requirements mapped
