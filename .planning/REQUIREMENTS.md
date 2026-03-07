@@ -9,25 +9,25 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Core Input Processing
 
-- [ ] **INPT-01**: Parse Chrome DevTools Recorder JSON exports
-- [ ] **INPT-02**: Handle all step types (click, fill, select, scroll, assert)
-- [ ] **INPT-03**: Validate input JSON schema
+- [x] **INPT-01**: Parse Chrome DevTools Recorder JSON exports
+- [x] **INPT-02**: Handle all step types (click, fill, select, scroll, assert)
+- [x] **INPT-03**: Validate input JSON schema
 
 ### Test Generation
 
-- [ ] **GEN-01**: Generate valid React Testing Library tests
-- [ ] **GEN-02**: Generate getByRole, getByText, getByLabelText queries (not CSS selectors)
-- [ ] **GEN-03**: Generate proper describe/it blocks with imports
-- [ ] **GEN-04**: Jest/Vitest compatibility — generate runnable tests
-- [ ] **GEN-05**: Write test files to filesystem
+- [x] **GEN-01**: Generate valid React Testing Library tests
+- [x] **GEN-02**: Generate getByRole, getByText, getByLabelText queries (not CSS selectors)
+- [x] **GEN-03**: Generate proper describe/it blocks with imports
+- [x] **GEN-04**: Jest/Vitest compatibility — generate runnable tests
+- [x] **GEN-05**: Write test files to filesystem
 
 ### Context Awareness
 
-- [ ] **CTX-01**: Read codebase conventions before generation
-- [ ] **CTX-02**: Analyze existing test patterns
-- [ ] **CTX-03**: Detect folder structure and naming conventions
-- [ ] **CTX-04**: Analyze shared mocks
-- [ ] **CTX-05**: Update internal state after each run
+- [x] **CTX-01**: Read codebase conventions before generation
+- [x] **CTX-02**: Analyze existing test patterns
+- [x] **CTX-03**: Detect folder structure and naming conventions
+- [x] **CTX-04**: Analyze shared mocks
+- [x] **CTX-05**: Update internal state after each run
 
 ### Recording Intelligence
 
@@ -50,27 +50,27 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Query Intelligence
 
-- [ ] **QRY-01**: Classify queries for brittleness
-- [ ] **QRY-02**: Resolve ambiguous element targeting using DOM scoping
-- [ ] **QRY-03**: Flag accessibility gaps when no clean resolution exists
+- [x] **QRY-01**: Classify queries for brittleness
+- [x] **QRY-02**: Resolve ambiguous element targeting using DOM scoping
+- [x] **QRY-03**: Flag accessibility gaps when no clean resolution exists
 
 ### Test Design Intelligence
 
-- [ ] **TEST-01**: Distribute concerns across test cases
-- [ ] **TEST-02**: Keep helpers assertion-free
-- [ ] **TEST-03**: Enforce meaningful matchers
+- [x] **TEST-01**: Distribute concerns across test cases
+- [x] **TEST-02**: Keep helpers assertion-free
+- [x] **TEST-03**: Enforce meaningful matchers
 
 ### Self-Scoring
 
-- [ ] **SCR-01**: Score output against quality criteria before committing
-- [ ] **SCR-02**: Run pre-write audit checkpoint
-- [ ] **SCR-03**: Run post-write verification checkpoint
+- [x] **SCR-01**: Score output against quality criteria before committing
+- [x] **SCR-02**: Run pre-write audit checkpoint
+- [x] **SCR-03**: Run post-write verification checkpoint
 
 ### Convention Learning
 
-- [ ] **CNV-01**: Derive project conventions from observation
-- [ ] **CNV-02**: Persist learned conventions for subsequent runs
-- [ ] **CNV-03**: Reduce discovery time on subsequent runs
+- [x] **CNV-01**: Derive project conventions from observation
+- [x] **CNV-02**: Persist learned conventions for subsequent runs
+- [x] **CNV-03**: Reduce discovery time on subsequent runs
 
 ### CLI Interface
 
@@ -110,14 +110,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INPT-01 | Phase 7 | Pending |
-| INPT-02 | Phase 7 | Pending |
-| INPT-03 | Phase 7 | Pending |
-| GEN-01 | Phase 7 | Pending |
-| GEN-02 | Phase 7 | Pending |
-| GEN-03 | Phase 7 | Pending |
-| GEN-04 | Phase 7 | Pending |
-| GEN-05 | Phase 7 | Pending |
+| INPT-01 | Phase 1 | Complete |
+| INPT-02 | Phase 1 | Complete |
+| INPT-03 | Phase 1 | Complete |
+| GEN-01 | Phase 1 | Complete |
+| GEN-02 | Phase 1 | Complete |
+| GEN-03 | Phase 1 | Complete |
+| GEN-04 | Phase 1 | Complete |
+| GEN-05 | Phase 1 | Complete |
 | CLI-01 | Phase 1 | Complete |
 | CLI-02 | Phase 1 | Complete |
 | REC-01 | Phase 5 | Complete |
@@ -130,23 +130,23 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MOCK-02 | Phase 6 | Complete |
 | MOCK-03 | Phase 6 | Complete |
 | MOCK-04 | Phase 6 | Complete |
-| CTX-01 | Phase 7 | Pending |
-| CTX-02 | Phase 7 | Pending |
-| CTX-03 | Phase 7 | Pending |
-| CTX-04 | Phase 7 | Pending |
-| CTX-05 | Phase 7 | Pending |
-| QRY-01 | Phase 7 | Pending |
-| QRY-02 | Phase 7 | Pending |
-| QRY-03 | Phase 7 | Pending |
-| TEST-01 | Phase 7 | Pending |
-| TEST-02 | Phase 7 | Pending |
-| TEST-03 | Phase 7 | Pending |
-| SCR-01 | Phase 7 | Pending |
-| SCR-02 | Phase 7 | Pending |
-| SCR-03 | Phase 7 | Pending |
-| CNV-01 | Phase 7 | Pending |
-| CNV-02 | Phase 7 | Pending |
-| CNV-03 | Phase 7 | Pending |
+| CTX-01 | Phase 3 | Complete |
+| CTX-02 | Phase 3 | Complete |
+| CTX-03 | Phase 3 | Complete |
+| CTX-04 | Phase 3 | Complete |
+| CTX-05 | Phase 3 | Complete |
+| QRY-01 | Phase 3 | Complete |
+| QRY-02 | Phase 3 | Complete |
+| QRY-03 | Phase 3 | Complete |
+| TEST-01 | Phase 3 | Complete |
+| TEST-02 | Phase 3 | Complete |
+| TEST-03 | Phase 3 | Complete |
+| SCR-01 | Phase 4 | Complete |
+| SCR-02 | Phase 4 | Complete |
+| SCR-03 | Phase 4 | Complete |
+| CNV-01 | Phase 4 | Complete |
+| CNV-02 | Phase 4 | Complete |
+| CNV-03 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 37 total
@@ -155,4 +155,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-06*
-*Last updated: 2026-03-07 after Phase 6 completion*
+*Last updated: 2026-03-07 after Phase 7 reconciliation*
