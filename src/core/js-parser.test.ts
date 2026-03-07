@@ -46,4 +46,34 @@ describe('parseJsRecording', () => {
   it('throws on non-JS input', async () => {
     await expect(parseJsRecording('{ "steps": [] }')).rejects.toThrow()
   })
+
+  it('tags parsed steps with JS source metadata', async () => {
+    const recording = await parseJsRecording(`
+      /**
+       * My Flow
+       * @jest-environment-options {"url":"http://localhost:3000"}
+       */
+      page.goto('http://localhost:3000')
+      userEvent.click('Save')
+      screen.getByText('Saved')
+    `)
+
+    expect(recording.steps).toEqual([
+      expect.objectContaining({
+        action: 'navigate',
+        source: 'js',
+        line: expect.any(Number),
+      }),
+      expect.objectContaining({
+        action: 'click',
+        source: 'js',
+        line: expect.any(Number),
+      }),
+      expect.objectContaining({
+        action: 'assert',
+        source: 'js',
+        line: expect.any(Number),
+      }),
+    ])
+  })
 })

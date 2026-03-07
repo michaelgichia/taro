@@ -23,8 +23,9 @@ import {
   readConventions,
   scanConventions,
 } from '../../core/scanner.js'
+import { analyzeRecording } from '../../core/recording-intelligence.js'
 import { generateTestFromGroups, emitQuerySummary } from '../../core/generator.js'
-import type { QueryResult } from '../../types/recording.js'
+import type { AnalyzedRecording, ItGroup, QueryResult } from '../../types/recording.js'
 import type { HistoryEntry, ScoreResult } from '../../types/score.js'
 
 export interface GenerateOptions {
@@ -79,6 +80,46 @@ function emitScoreHints(
       )
     )
   }
+}
+
+function summarizeCleanup(analyzedRecording: AnalyzedRecording): void {
+  const { diagnostics } = analyzedRecording
+  const parts: string[] = []
+
+  if (diagnostics.removedRedundantClicks > 0) {
+    parts.push(`${diagnostics.removedRedundantClicks} redundant click(s)`)
+  }
+
+  if (diagnostics.removedDoubleClickNoise > 0) {
+    parts.push(`${diagnostics.removedDoubleClickNoise} dblClick noise event(s)`)
+  }
+
+  if (diagnostics.removedCursorWander > 0) {
+    parts.push(`${diagnostics.removedCursorWander} cursor wander step(s)`)
+  }
+
+  if (diagnostics.intentGroupCount > 1) {
+    parts.push(`${diagnostics.intentGroupCount} intent groups`)
+  }
+
+  if (parts.length === 0) {
+    return
+  }
+
+  console.log(pc.dim('[taro]') + ` Recording cleanup: ${parts.join(', ')}`)
+}
+
+function toItGroups(analyzedRecording: AnalyzedRecording, fallbackTitle: string): ItGroup[] {
+  if (analyzedRecording.intentGroups.length > 0) {
+    return analyzedRecording.intentGroups
+  }
+
+  return [
+    {
+      name: fallbackTitle || 'recorded flow',
+      steps: analyzedRecording.steps,
+    },
+  ]
 }
 
 async function appendHistoryEntry(
@@ -197,6 +238,14 @@ export function createGenerateCommand(): Command {
             ` ${pc.bold(jsResult.title)} — ${jsResult.steps.length} steps, ${jsResult.itGroups.length} test group(s)`
         )
 
+        const analyzedRecording = analyzeRecording({
+          title: jsResult.title,
+          steps: jsResult.steps,
+          rawStepCount: jsResult.steps.length,
+        })
+
+        summarizeCleanup(analyzedRecording)
+
         // Step 3: Resolve document.querySelector selectors via Playwright (QRY-02, QRY-03)
         const queryResults: QueryResult[] = []
 
@@ -235,7 +284,7 @@ export function createGenerateCommand(): Command {
 
         // Step 4: Generate test code with multi-it() blocks (TEST-01, TEST-03)
         const outputPath = options.output ?? deriveOutputPath(filePath)
-        const generated = generateTestFromGroups(jsResult.title, jsResult.itGroups, {
+        const generated = generateTestFromGroups(jsResult.title, toItGroups(analyzedRecording, jsResult.title), {
           outputPath,
           dryRun: options.dryRun,
           conventions,
@@ -322,9 +371,12 @@ export function createGenerateCommand(): Command {
           ` ${pc.bold(normalizedRecording.title)} — ${normalizedRecording.steps.length} steps`
       )
 
+      const analyzedRecording = analyzeRecording(normalizedRecording)
+      summarizeCleanup(analyzedRecording)
+
       // 6. Generate test code
       const outputPath = options.output ?? deriveOutputPath(filePath)
-      const generated = generateTest(normalizedRecording, { outputPath, dryRun: options.dryRun })
+      const generated = generateTest(analyzedRecording, { outputPath, dryRun: options.dryRun })
       const scoreResult = scoreGeneratedTest(generated.code)
 
       logScore(scoreResult)
