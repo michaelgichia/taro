@@ -10,8 +10,8 @@
 - [x] **DOCS-01**: Developer can read an introduction explaining what Taro is, who it's for, and the problem it solves
 - [x] **DOCS-02**: Developer can follow a Quick Start to install Taro and generate their first test in under 5 minutes
 - [x] **DOCS-03**: Developer can look up all CLI flags and options for `taro generate` in the README
-- [ ] **DOCS-04**: Developer can follow a worked example showing a Chrome recording in → generated RTL test out
-- [ ] **DOCS-05**: Developer can read a guide for invoking Taro as a Claude Code skill / agent tool
+- [x] **DOCS-04**: Developer can follow a worked example showing a Chrome recording in → generated RTL test out
+- [x] **DOCS-05**: Developer can read a guide for invoking Taro as a Claude Code skill / agent tool
 
 ### Package
 
@@ -48,8 +48,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DOCS-01 | Phase 8 | Complete |
 | DOCS-02 | Phase 8 | Complete |
 | DOCS-03 | Phase 8 | Complete |
-| DOCS-04 | Phase 8 | Pending |
-| DOCS-05 | Phase 8 | Pending |
+| DOCS-04 | Phase 8 | Complete |
+| DOCS-05 | Phase 8 | Complete |
 | PKG-01 | Phase 9 | Pending |
 | PKG-02 | Phase 9 | Pending |
 | PKG-03 | Phase 9 | Pending |

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Documentation & Deployment
 status: planning
-stopped_at: Completed 08-readme-documentation-01-PLAN.md
-last_updated: "2026-03-07T12:55:48.206Z"
+stopped_at: Completed 08-readme-documentation-02-PLAN.md
+last_updated: "2026-03-07T12:59:51.939Z"
 last_activity: 2026-03-07 — Roadmap created for v1.1; Phase 8 is next
 progress:
   total_phases: 2
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -47,6 +47,7 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 08-readme-documentation P01 | 1 | 3 tasks | 1 files |
+| Phase 08-readme-documentation P02 | 1 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -62,6 +63,8 @@ Carried forward from v1.0:
 - [v1.1]: Phase 9 covers all package preparation and publish verification (PKG-01 through PKG-04)
 - [Phase 08-readme-documentation]: All CLI flags documented from source code (generate.ts) — no fabricated features
 - [Phase 08-readme-documentation]: README-first documentation structure: Introduction, Quick Start, CLI Reference
+- [Phase 08-readme-documentation]: Worked example uses login flow as canonical scenario — covers navigate, click, change, and waitForElement step types
+- [Phase 08-readme-documentation]: Claude skill section provides both Option A (direct npx invocation) and Option B (SKILL.md registration) to serve different developer preferences
 
 ### Pending Todos
 
@@ -73,6 +76,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-07T12:55:48.204Z
-Stopped at: Completed 08-readme-documentation-01-PLAN.md
+Last session: 2026-03-07T12:59:51.937Z
+Stopped at: Completed 08-readme-documentation-02-PLAN.md
 Resume file: None

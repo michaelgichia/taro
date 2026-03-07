@@ -18,7 +18,7 @@ See [v1.0 roadmap archive](./milestones/v1.0-ROADMAP.md) for full phase details.
 
 **Milestone Goal:** Make Taro publicly installable and well-documented so any developer can discover, install, and use it.
 
-- [ ] **Phase 8: README Documentation** - Comprehensive public-facing README covering what Taro is, how to install it, and how to use it
+- [x] **Phase 8: README Documentation** - Comprehensive public-facing README covering what Taro is, how to install it, and how to use it (completed 2026-03-07)
 - [ ] **Phase 9: Package & Publish** - Package fields, build verification, and npm publish so `npx @tayo/rtl generate` works out of the box
 
 ## Phase Details
@@ -58,5 +58,5 @@ Phases execute in numeric order: 8 → 9
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1-7. v1.0 Phases | v1.0 | Complete | Complete | 2026-03-07 |
-| 8. README Documentation | 1/2 | In Progress|  | - |
+| 8. README Documentation | 2/2 | Complete   | 2026-03-07 | - |
 | 9. Package & Publish | v1.1 | 0/TBD | Not started | - |
