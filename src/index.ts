@@ -17,7 +17,7 @@ program
     pc.bold('Taro') +
       ' — Generate React Testing Library tests from Chrome Recorder exports'
   )
-  .version('0.1.0', '-v, --version', 'Output the current version')
+  .version('1.0.0', '-v, --version', 'Output the current version')
   .helpOption('-h, --help', 'Display help for command')
 
 program.addCommand(createGenerateCommand())
