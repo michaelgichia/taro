@@ -1,0 +1,48 @@
+import type { RuntimeTarget, RuntimeDefinition } from './types.js'
+
+export const RUNTIME_REGISTRY: Record<RuntimeTarget, RuntimeDefinition> = {
+  claude: {
+    id: 'claude',
+    displayName: 'Claude Code',
+    family: 'prompt',
+    globalDirectorySegments: ['.claude'],
+    localDirectoryName: '.claude',
+    packageContainerSegments: ['commands', '@tayo-dev', 'rtl'],
+    verificationCommand: '/@tayo-dev/rtl:help',
+    ownershipMarkerFileName: 'install-manifest.json',
+    assets: [],
+  },
+  opencode: {
+    id: 'opencode',
+    displayName: 'OpenCode',
+    family: 'prompt',
+    globalDirectorySegments: ['.config', 'opencode'],
+    localDirectoryName: '.opencode',
+    packageContainerSegments: ['commands', '@tayo-dev', 'rtl'],
+    verificationCommand: '/@tayo-dev/rtl-help',
+    ownershipMarkerFileName: 'install-manifest.json',
+    assets: [],
+  },
+  gemini: {
+    id: 'gemini',
+    displayName: 'Gemini CLI',
+    family: 'prompt',
+    globalDirectorySegments: ['.gemini'],
+    localDirectoryName: '.gemini',
+    packageContainerSegments: ['commands', '@tayo-dev', 'rtl'],
+    verificationCommand: '/@tayo-dev/rtl:help',
+    ownershipMarkerFileName: 'install-manifest.json',
+    assets: [],
+  },
+  codex: {
+    id: 'codex',
+    displayName: 'Codex',
+    family: 'skill',
+    globalDirectorySegments: ['.codex'],
+    localDirectoryName: '.codex',
+    packageContainerSegments: ['skills'],
+    verificationCommand: '$@tayo-dev/rtl-help',
+    ownershipMarkerFileName: '@tayo-dev-rtl-manifest.json',
+    assets: [],
+  },
+}

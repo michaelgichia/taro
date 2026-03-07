@@ -1,294 +1,147 @@
 # Architecture Research
 
-**Domain:** Test Generation Tool (Chrome Recorder to React Testing Library)
-**Researched:** 2026-03-06
+**Domain:** local installer architecture for AI runtime integrations
+**Researched:** 2026-03-07
 **Confidence:** MEDIUM
 
 ## Standard Architecture
 
 ### System Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         CLI Interface Layer                          │
-├─────────────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────────────────────────────────┐│
-│  │                      Taro Orchestrator                          ││
-│  │   (Coordinates all components, manages flow)                    ││
-│  └─────────────────────────────────────────────────────────────────┘│
-├─────────────────────────────────────────────────────────────────────┤
-│                         Core Processing Layer                       │
-├─────────────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐│
-│  │   Parser    │  │  Analyzer   │  │  Generator  │  │   Writer    ││
-│  │             │→ │             │→ │             │→ │             ││
-│  │ (Recorder   │  │ (Codebase   │  │ (Template  │  │ (File       ││
-│  │  JSON)      │  │  Introspection)│  │  Engine)   │  │  Operations)│
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘│
-├─────────────────────────────────────────────────────────────────────┤
-│                         Data/State Layer                            │
-├─────────────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                  │
-│  │Convention   │  │  Project    │  │  Learning   │                  │
-│  │ Store       │  │  Context    │  │  Store      │                  │
-│  └─────────────┘  └─────────────┘  └─────────────┘                  │
-└─────────────────────────────────────────────────────────────────────┘
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                    CLI ENTRYPOINT LAYER                     │
+├─────────────────────────────────────────────────────────────┤
+│  install command   flags parser   interactive prompts       │
+├─────────────────────────────────────────────────────────────┤
+│                   INSTALL ORCHESTRATION                     │
+├─────────────────────────────────────────────────────────────┤
+│  runtime registry   location resolver   plan builder        │
+│  asset renderer     file writer         summary reporter    │
+├─────────────────────────────────────────────────────────────┤
+│                     RUNTIME PAYLOADS                        │
+├─────────────────────────────────────────────────────────────┤
+│  claude assets   opencode assets   gemini assets   codex    │
+│                                                     skills  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ### Component Responsibilities
 
 | Component | Responsibility | Typical Implementation |
 |-----------|----------------|------------------------|
-| **CLI Interface** | User input handling, command routing | Commander.js/oclif CLI |
-| **Orchestrator** | Coordinate pipeline, manage errors, report progress | Main async pipeline controller |
-| **Parser** | Parse Chrome Recorder JSON, validate schema | Zod/JSON Schema validation |
-| **Analyzer** | Inspect codebase, extract component metadata, find test patterns | AST parsing (TypeScript) |
-| **Generator** | Transform parsed steps to RTL test code | Template engine (Handlebars/mustache) + AST generation |
-| **Writer** | Create/update test files, ensure colocated placement | Node.js fs operations |
-| **Convention Store** | Persist learned project conventions | JSON file or SQLite |
-| **Project Context** | Current project configuration, paths | In-memory + config files |
-| **Learning Store** | Remember selector preferences, custom patterns | JSON/File-based persistence |
+| CLI entrypoint | Parse commands and decide interactive vs non-interactive flow | Commander command(s) and small prompt wrappers |
+| Runtime registry | Describe each runtime's directories, asset types, and verification command | Typed config objects keyed by runtime id |
+| Install engine | Build an install plan, write files, and handle overwrite/update behavior | Filesystem service operating on a dry-run-able plan |
+| Asset layer | Store prompts, commands, skills, and helper files | Repo-local templates copied with small substitutions |
+| Verification reporter | Tell the user what was installed and how to check it | Structured install summary plus help commands |
 
 ## Recommended Project Structure
 
-```
+```text
 src/
-├── cli/                      # CLI entry point and commands
-│   ├── index.ts              # CLI setup
+├── cli/
 │   └── commands/
-│       ├── generate.ts        # Main generate command
-│       └── init.ts            # Initialize convention learning
-├── core/                     # Core orchestration
-│   ├── orchestrator.ts       # Pipeline coordinator
-│   ├── pipeline.ts           # Processing pipeline definitions
-│   └── errors.ts             # Custom error types
-├── parser/                   # Chrome Recorder JSON parsing
-│   ├── recorder-parser.ts    # Main parser
-│   ├── schema.ts             # JSON schema validation
-│   ├── types.ts              # Internal types
-│   └── steps/
-│       ├── click.ts          # Step type parsers
-│       ├── type.ts
-│       ├── navigate.ts
-│       └── wait.ts
-├── analyzer/                 # Codebase analysis
-│   ├── analyzer.ts           # Main analyzer
-│   ├── components/
-│   │   ├── finder.ts         # Find component files
-│   │   ├── extractor.ts     # Extract component metadata
-│   │   └── selectors.ts      # Analyze existing test selectors
-│   ├── ast/                  # AST utilities
-│   │   ├── parser.ts         # TypeScript AST parser
-│   │   └── visitors.ts       # Custom AST visitors
-│  
-│   └── conventions/
-│       ├── detector.ts       # Detect project conventions
-│       └── patterns.ts       # Common patterns inventory
-├── generator/                # Test code generation
-│   ├── generator.ts          # Main generator
-│   ├── templates/            # Test templates
-│   │   ├── basic-test.ts     # Basic test template
-│   │   ├── component-test.ts # Component test template
-│   │   └── mock-template.ts  # Mock helper templates
-│   ├── transforms/           # Step-to-query transforms
-│   │   ├── selectors.ts      # Selector strategies
-│   │   ├── assertions.ts     # Assertion builders
-│   │   └── waits.ts          # Wait/async handling
-│   └── codegen/
-│       ├── ast-builder.ts    # AST-based code generation
-│       └── printer.ts        # Code formatting
-├── writer/                   # File operations
-│   ├── writer.ts             # Main file writer
-│   ├── file-operations.ts    # Create/update files
-│   ├── path-resolver.ts      # Resolve colocated paths
-│   └── test-finder.ts        # Find existing test files
-├── store/                    # State management
-│   ├── convention-store.ts   # Convention persistence
-│   ├── learning-store.ts      # Learning state
-│   └── project-context.ts    # Current project state
-├── config/                   # Configuration
-│   ├── config.ts             # Config loading
-│   └── defaults.ts           # Default settings
-└── utils/                    # Shared utilities
-    ├── logger.ts             # Logging utilities
-    └── path.ts               # Path utilities
+│       ├── generate.ts      # existing generator command
+│       └── install.ts       # new installer command / default entry
+├── install/
+│   ├── registry.ts          # runtime registry and metadata
+│   ├── prompts.ts           # interactive selection flow
+│   ├── resolver.ts          # global/local path resolution
+│   ├── planner.ts           # install plan and overwrite decisions
+│   ├── writer.ts            # file writes, updates, dry-run support
+│   ├── verify.ts            # runtime-native verification output
+│   └── runtimes/
+│       ├── claude.ts
+│       ├── opencode.ts
+│       ├── gemini.ts
+│       └── codex.ts
+├── assets/
+│   ├── claude/             # commands/prompts shipped in package
+│   ├── opencode/
+│   ├── gemini/
+│   └── codex/
+└── core/                   # existing generator pipeline
 ```
 
 ### Structure Rationale
 
-- **cli/**: Separates CLI concerns from core logic, enables testing without CLI
-- **parser/**: Isolates input parsing, easy to swap for different export formats
-- **analyzer/**: Independent codebase introspection, reusable for multiple outputs
-- **generator/**: Template-based generation allows customization without core changes
-- **writer/**: File operations isolated for testability and different output targets
-- **store/**: State persistence separate from processing, enables incremental learning
-- **core/**: Minimal orchestrator that coordinates, doesn't contain domain logic
+- **`install/`** keeps runtime-distribution logic isolated from generator internals
+- **`assets/`** makes emitted files reviewable, testable, and packable
+- **`install/runtimes/`** lets each runtime encode only its own path and asset rules
 
 ## Architectural Patterns
 
-### Pattern 1: Pipeline Architecture
+### Pattern 1: Runtime Registry
 
-**What:** Sequential processing stages where each stage transforms input and passes to next
-**When to use:** Core processing flow where data flows linearly
-**Trade-offs:** Simple to understand and test, but less flexible for branching logic
-
-**Example:**
-```typescript
-async function runPipeline(input: RecorderExport): Promise<TestFile[]> {
-  const parsed = await parser.parse(input);
-  const context = await analyzer.analyze(parsed, projectPath);
-  const generated = await generator.generate(parsed, context);
-  return await writer.write(generated);
-}
-```
-
-### Pattern 2: Convention Learning
-
-**What:** Build and persist understanding of project-specific patterns over time
-**When to use:** When generated tests need to match project conventions
-**Trade-offs:** Improves over time but requires initial warm-up period
+**What:** one typed definition per runtime with directories, asset types, and verification commands
+**When to use:** always, because the installer targets multiple runtimes with different conventions
+**Trade-offs:** adds upfront modeling work but prevents path logic from spreading across the CLI
 
 **Example:**
 ```typescript
-class ConventionStore {
-  async learn(analysis: CodeAnalysis): Promise<void> {
-    const conventions = detectConventions(analysis);
-    await this.store.merge(conventions);
-  }
-  
-  async getConventions(): Promise<Conventions> {
-    return this.store.get() ?? DEFAULT_CONVENTIONS;
-  }
+type RuntimeTarget = 'claude' | 'opencode' | 'gemini' | 'codex'
+
+interface RuntimeDefinition {
+  id: RuntimeTarget
+  globalDir: string
+  localDir: string
+  assetKind: 'prompt' | 'command' | 'skill'
+  verifyCommand: string
 }
 ```
 
-### Pattern 3: Selector Strategy Pattern
+### Pattern 2: Install Plan Before Write
 
-**What:** Multiple selector generation strategies with priority ordering
-**When to use:** Converting Recorder selectors to RTL queries
-**Trade-offs:** More flexible but requires careful priority management
+**What:** resolve a complete file operation plan before touching the filesystem
+**When to use:** whenever the installer may overwrite existing runtime assets
+**Trade-offs:** slightly more code, but much easier dry-run, testing, and rollback reasoning
 
-**Example:**
-```typescript
-interface SelectorStrategy {
-  priority: number;
-  canHandle(step: Step): boolean;
-  generate(step: Step, context: AnalysisContext): string[];
-}
+### Pattern 3: Packaged Asset Templates
 
-const strategies: SelectorStrategy[] = [
-  new AriaRoleStrategy(),      // Highest priority
-  new TestIdStrategy(),        // Project-specific IDs
-  new TextContentStrategy(),   // Fallback
-  new StructuralStrategy(),    // Last resort
-];
-```
-
-### Pattern 4: Colocated Test Placement
-
-**What:** Place generated tests next to their components using file system conventions
-**When to use:** When following project conventions for test location
-**Trade-offs:** Matches project patterns but requires flexible path resolution
-
-**Example:**
-```
-src/
-├── components/
-│   ├── Button/
-│   │   ├── Button.tsx
-│   │   ├── Button.test.tsx    ← Generated here
-│   │   └── index.ts
-```
+**What:** store runtime payloads as repo-local template files instead of constructing them inline
+**When to use:** for prompts, command files, and Codex skills
+**Trade-offs:** package tarball gets larger, but emitted behavior stays auditable and documentation-friendly
 
 ## Data Flow
 
-### Main Processing Flow
+### Request Flow
 
-```
-[Chrome Recorder JSON]
-         ↓
-[Parser: Validate & Normalize]
-         ↓
-[Recorder Steps Data]
-         ↓
-[Analyzer: Inspect Codebase]
-         ↓
-[Analysis Context + Conventions]
-         ↓
-[Generator: Transform to RTL]
-         ↓
-[Generated Test Code]
-         ↓
-[Writer: Create Files]
-         ↓
-[Test Files on Disk]
-```
-
-### Convention Learning Flow
-
-```
-[Code Analysis]
+```text
+[User runs npx @tayo-dev/rtl@latest]
     ↓
-[Convention Detector]
+[CLI entrypoint]
     ↓
-[New Conventions]
+[Prompt or flag parser]
     ↓
-[Convention Store] ←→ [Learning Store]
+[Runtime registry + location resolver]
     ↓
-[Generator Uses Conventions]
+[Install plan builder]
+    ↓
+[File writer]
+    ↓
+[Summary + verification commands]
 ```
 
 ### Key Data Flows
 
-1. **Generation Flow:** Recorder JSON → Parser → Analyzer → Generator → Writer
-2. **Learning Flow:** Codebase changes → Analyzer → Convention Store → Future generations
-3. **Configuration Flow:** CLI args + config files → Project Context → All components
-
-## Scaling Considerations
-
-| Scale | Architecture Adjustments |
-|-------|--------------------------|
-| Single project | Monolith architecture, file-based store |
-| Multiple projects | Add project isolation, shared convention database |
-| Team/Organization | Centralized convention server, configuration management |
-| 100+ projects | Consider microservices, shared convention learning |
-
-### Scaling Priorities
-
-1. **First bottleneck:** Analyzer performance on large codebases
-   - **Fix:** Add caching, incremental analysis, parallel processing
-   
-2. **Second bottleneck:** Convention store read/write
-   - **Fix:** In-memory cache with file persistence, eventually move to database
-
-3. **Third bottleneck:** Template rendering for many test files
-   - **Fix:** Template caching, batch processing
+1. **Interactive install:** prompt for runtime and location, build plan, write assets, show verify commands
+2. **Non-interactive install:** validate flags, build the same plan without prompts, write assets, show machine-readable summary if needed
+3. **Rerun/update:** detect owned files, refresh payloads idempotently, and report what changed
 
 ## Anti-Patterns
 
-### Anti-Pattern 1: Monolithic Generator
+### Anti-Pattern 1: CLI Switchyard
 
-**What people do:** Put all generation logic in one large function or class
-**Why it's wrong:** Hard to test, difficult to extend, becomes unmaintainable
-**Do this instead:** Use Strategy pattern for different step types, separate templates per test style
+**What people do:** scatter runtime-specific conditionals across one large install command
+**Why it's wrong:** every new runtime multiplies branching and makes verification fragile
+**Do this instead:** centralize runtime differences in a registry plus per-runtime modules
 
-### Anti-Pattern 2: Tight Coupling to Chrome Recorder Schema
+### Anti-Pattern 2: Prompt-Only Installer
 
-**What people do:** Directly use Recorder JSON structure throughout the system
-**Why it's wrong:** Recorder format may change, hard to support other input formats
-**Do this instead:** Normalize to internal representation early, isolate parser
-
-### Anti-Pattern 3: Ignoring Project Conventions
-
-**What people do:** Generate generic tests without analyzing project patterns
-**Why it's wrong:** Generated tests won't match project style, developers will rewrite them
-**Do this instead:** Build convention detection and learning from the start
-
-### Anti-Pattern 4: No Incremental Learning
-
-**What people do:** Analyze codebase from scratch every time
-**Why it's wrong:** Slow for large projects, doesn't improve over time
-**Do this instead:** Cache analysis results, persist learned conventions
+**What people do:** build a nice interactive flow but skip a deterministic flag path
+**Why it's wrong:** automation users cannot install in CI or scripts
+**Do this instead:** make prompts a thin wrapper around the same validated install plan
 
 ## Integration Points
 
@@ -296,68 +149,24 @@ src/
 
 | Service | Integration Pattern | Notes |
 |---------|---------------------|-------|
-| Chrome Recorder | JSON file import | Standard export format, well-documented |
-| File System | Node.js fs APIs | Primary output target |
-| TypeScript AST | ts-morph or @typescript-eslint/parser | Codebase analysis |
-| Testing Library | Template output | Target for generated tests |
+| Claude Code filesystem | prompt/command asset copy | Needs global and local target resolution |
+| OpenCode config dir | command asset copy | Path handling should not assume only one config root |
+| Gemini config dir | prompt/command asset copy | Verification command should match installed asset name |
+| Codex skill dir | skill directory copy | Must write `SKILL.md` payloads instead of prompts |
 
 ### Internal Boundaries
 
 | Boundary | Communication | Notes |
 |----------|---------------|-------|
-| Parser ↔ Analyzer | Internal step types | Parser normalizes, analyzer understands |
-| Analyzer ↔ Generator | Analysis context | Shared data structure for context |
-| Generator ↔ Writer | Test file AST | Structured output, not just strings |
-| All ↔ Store | Convention objects | Shared learning state |
-
-## Build Order Implications
-
-Based on dependencies, implement in this order:
-
-1. **Phase 1: Parser** (no dependencies)
-   - Parse Chrome Recorder JSON
-   - Validate against schema
-   - Output: Normalized step objects
-
-2. **Phase 2: Writer** (no dependencies)
-   - File system operations
-   - Path resolution
-   - Test file creation
-
-3. **Phase 3: Generator** (depends on Parser)
-   - Template engine
-   - Step-to-query transforms
-   - Basic test output
-
-4. **Phase 4: Analyzer** (independent but needed for Phase 5)
-   - Codebase inspection
-   - Convention detection
-   - AST parsing
-
-5. **Phase 5: Convention Store** (supports Analyzer/Generator)
-   - Persistence layer
-   - Learning logic
-
-6. **Phase 6: Orchestrator** (coordinates all)
-   - Pipeline definition
-   - Error handling
-   - Progress reporting
-
-7. **Phase 7: CLI** (depends on all)
-   - Command interface
-   - Configuration handling
-
-This ordering ensures each component can be tested independently before integration.
+| `cli` ↔ `install` | direct function call | CLI stays thin; install engine owns behavior |
+| `install` ↔ `assets` | file/template lookup | Asset names should be versioned and explicit |
+| `install` ↔ existing `core` generator | none at install time | Keep install concerns decoupled from generation logic |
 
 ## Sources
 
-- Chrome DevTools Recorder documentation (developer.chrome.com/docs/devtools/recorder)
-- Testing Library guiding principles (testing-library.com/docs)
-- Kent C. Dodds on testing implementation details
-- Common React project testing conventions (community patterns)
-- Pipeline architecture patterns from code generation tools
+- Current Taro source tree and entrypoint — established the existing CLI boundary
+- User-provided runtime target behavior — established the required installer outcomes
 
 ---
-
-*Architecture research for: Test Generation Tool (Chrome Recorder to RTL)*
-*Researched: 2026-03-06*
+*Architecture research for: local installer architecture*
+*Researched: 2026-03-07*

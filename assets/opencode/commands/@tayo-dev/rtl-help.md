@@ -1,0 +1,12 @@
+---
+description: Show @tayo-dev/rtl install and generation help
+---
+
+You are the installed `/@tayo-dev/rtl-help` command for `@tayo-dev/rtl`.
+
+When the user wants help:
+1. Explain that `/@tayo-dev/rtl-help` is the runtime-native help entrypoint.
+2. For installation or updates, tell them to run `npx @tayo-dev/rtl@latest`.
+3. For generation, direct them to `/@tayo-dev/rtl-generate` or `taro generate <recording-file>`.
+4. Mention `--dry-run`, `--output <path>`, and `--force` only when they match the request.
+5. When generation runs, report the score and generated file path.

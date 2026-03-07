@@ -1,18 +1,31 @@
 {
-  "name": "taro",
-  "version": "0.1.0",
+  "name": "@tayo-dev/rtl",
+  "version": "1.0.0",
   "description": "Generate high-quality React Testing Library tests from Chrome Recorder recordings",
   "type": "module",
   "bin": {
-    "taro": "./dist/index.js"
+    "taro": "dist/index.js"
   },
+  "files": [
+    "dist",
+    "assets",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsc && node dist/index.js",
+    "pack:check": "npm pack --json --dry-run",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "keywords": [
     "testing",
