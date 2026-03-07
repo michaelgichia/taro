@@ -49,8 +49,8 @@ Open Chrome DevTools → Recorder panel → click "Start new recording" → perf
 ### Step 3 — Generate the test
 
 ```bash
-# Local install
-npx taro generate ./recording.js
+# Using npx (no install required)
+npx @tayo/rtl generate ./recording.js
 
 # Or if installed globally
 taro generate ./recording.js
