@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { normalizeStep } from './parser.js'
-import { analyzeRecording, filterNoiseSteps } from './recording-intelligence.js'
+import {
+  analyzeRecording,
+  filterNoiseSteps,
+  inferIntentGroups,
+} from './recording-intelligence.js'
 import type { ChromeStep, NormalizedRecording, NormalizedStep } from '../types/recording.js'
 
 describe('normalizeStep', () => {
@@ -113,6 +117,89 @@ describe('analyzeRecording', () => {
       filteredStepCount: 2,
       intentGroupCount: 1,
     })
-    expect(result.intentGroups[0]?.name).toBe('interact with #save')
+    expect(result.intentGroups[0]?.name).toBe('submit #save')
+  })
+})
+
+describe('inferIntentGroups', () => {
+  it('splits a cleaned recording into deterministic intent groups', () => {
+    const steps: NormalizedStep[] = [
+      {
+        action: 'navigate',
+        target: 'http://localhost:3000/sales',
+        originalType: 'navigate',
+        source: 'json',
+      },
+      {
+        action: 'click',
+        target: 'Add Sale',
+        originalType: 'click',
+        source: 'json',
+      },
+      {
+        action: 'assert',
+        target: 'Add Sale',
+        originalType: 'assertElementVisible',
+        source: 'json',
+      },
+      {
+        action: 'fill',
+        target: 'Customer Name',
+        value: 'Acme',
+        originalType: 'fill',
+        source: 'json',
+      },
+      {
+        action: 'fill',
+        target: 'Amount',
+        value: '1200',
+        originalType: 'fill',
+        source: 'json',
+      },
+      {
+        action: 'click',
+        target: 'Submit Sale',
+        originalType: 'click',
+        source: 'json',
+      },
+      {
+        action: 'assert',
+        target: 'Sale created',
+        originalType: 'assertElementVisible',
+        source: 'json',
+      },
+    ]
+
+    const groups = inferIntentGroups(steps)
+
+    expect(groups).toHaveLength(3)
+    expect(groups.map((group) => group.name)).toEqual([
+      'navigate to http://localhost:3000/sales',
+      'confirm Add Sale',
+      'submit Submit Sale',
+    ])
+    expect(groups[2]?.steps).toHaveLength(4)
+  })
+
+  it('keeps noisy click bursts collapsed before intent naming', () => {
+    const recording: NormalizedRecording = {
+      title: 'Dialog flow',
+      rawStepCount: 5,
+      steps: [
+        { action: 'click', target: 'Open', originalType: 'click', source: 'json' },
+        { action: 'click', target: 'Open', originalType: 'doubleClick', source: 'json' },
+        { action: 'assert', target: 'Dialog', originalType: 'assertElementVisible', source: 'json' },
+        { action: 'fill', target: 'Name', value: 'Acme', originalType: 'fill', source: 'json' },
+        { action: 'assert', target: 'Saved', originalType: 'assertElementVisible', source: 'json' },
+      ],
+    }
+
+    const analyzed = analyzeRecording(recording)
+
+    expect(analyzed.diagnostics.intentGroupCount).toBe(2)
+    expect(analyzed.intentGroups.map((group) => group.name)).toEqual([
+      'confirm Open',
+      'edit Name',
+    ])
   })
 })

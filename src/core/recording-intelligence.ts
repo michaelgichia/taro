@@ -59,19 +59,37 @@ function pickRepresentativeClick(cluster: NormalizedStep[]): NormalizedStep {
 }
 
 function deriveIntentLabel(steps: NormalizedStep[]): string {
-  const primary = steps.find((step) => step.action !== 'assert')
-
-  switch (primary?.action) {
-    case 'navigate':
-      return 'navigation flow'
-    case 'fill':
-    case 'select':
-      return 'form interaction'
-    case 'click':
-      return primary.target ? `interact with ${primary.target}` : 'click interaction'
-    default:
-      return 'recorded flow'
+  const navigateStep = steps.find((step) => step.action === 'navigate')
+  if (navigateStep) {
+    return navigateStep.target ? `navigate to ${navigateStep.target}` : 'navigation flow'
   }
+
+  const submitStep = steps.find(
+    (step) =>
+      step.action === 'click' &&
+      /save|submit|confirm|continue|done|create|update/i.test(step.target ?? '')
+  )
+  if (submitStep?.target) {
+    return `submit ${submitStep.target}`
+  }
+
+  const fillStep = steps.find(
+    (step) => step.action === 'fill' || step.action === 'select'
+  )
+  if (fillStep?.target) {
+    return `edit ${fillStep.target}`
+  }
+
+  const clickStep = steps.find((step) => step.action === 'click')
+  if (clickStep?.target && steps.some((step) => step.action === 'assert')) {
+    return `confirm ${clickStep.target}`
+  }
+
+  if (clickStep?.target) {
+    return `interact with ${clickStep.target}`
+  }
+
+  return 'recorded flow'
 }
 
 export function inferIntentGroups(steps: NormalizedStep[]): IntentGroup[] {
@@ -79,7 +97,41 @@ export function inferIntentGroups(steps: NormalizedStep[]): IntentGroup[] {
     return []
   }
 
-  return [{ name: deriveIntentLabel(steps), steps }]
+  const groups: IntentGroup[] = []
+  let currentGroup: NormalizedStep[] = []
+
+  const flushGroup = (): void => {
+    if (currentGroup.length === 0) {
+      return
+    }
+
+    groups.push({
+      name: deriveIntentLabel(currentGroup),
+      steps: [...currentGroup],
+    })
+    currentGroup = []
+  }
+
+  for (const step of steps) {
+    if (step.action === 'navigate') {
+      flushGroup()
+      currentGroup = [step]
+      continue
+    }
+
+    if (currentGroup.length === 1 && currentGroup[0]?.action === 'navigate') {
+      flushGroup()
+    }
+
+    currentGroup.push(step)
+
+    if (step.action === 'assert') {
+      flushGroup()
+    }
+  }
+
+  flushGroup()
+  return groups
 }
 
 export function filterNoiseSteps(steps: NormalizedStep[]): NoiseFilterResult {
