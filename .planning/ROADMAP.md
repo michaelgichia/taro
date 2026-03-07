@@ -33,7 +33,11 @@ See [v1.0 roadmap archive](./milestones/v1.0-ROADMAP.md) for full phase details.
   3. Developer can look up any `taro generate` CLI flag or option in the README without guessing
   4. Developer reads a worked example that shows an actual Chrome recording going in and a generated RTL test coming out
   5. Developer reads a guide for invoking Taro as a Claude Code skill or agent tool and can configure it without additional help
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Write Introduction, Quick Start, and CLI Reference sections (DOCS-01, DOCS-02, DOCS-03)
+- [ ] 08-02-PLAN.md — Write Worked Example and Claude Code Skill guide (DOCS-04, DOCS-05)
 
 ### Phase 9: Package & Publish
 **Goal**: The `@tayo/rtl` package is correctly prepared, builds cleanly, and installs from npm so any developer can run `npx @tayo/rtl generate ./recording.js`
@@ -54,5 +58,5 @@ Phases execute in numeric order: 8 → 9
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1-7. v1.0 Phases | v1.0 | Complete | Complete | 2026-03-07 |
-| 8. README Documentation | v1.1 | 0/TBD | Not started | - |
+| 8. README Documentation | v1.1 | 0/2 | Not started | - |
 | 9. Package & Publish | v1.1 | 0/TBD | Not started | - |
