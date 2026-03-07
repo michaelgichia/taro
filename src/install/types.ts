@@ -1,8 +1,12 @@
 export const SUPPORTED_RUNTIMES = ['claude', 'opencode', 'gemini', 'codex'] as const
 export const INSTALL_LOCATIONS = ['global', 'local'] as const
+export const RUNTIME_FAMILIES = ['prompt', 'skill'] as const
+export const INSTALL_ASSET_KINDS = ['prompt', 'command', 'skill', 'manifest'] as const
 
 export type RuntimeTarget = (typeof SUPPORTED_RUNTIMES)[number]
 export type InstallLocation = (typeof INSTALL_LOCATIONS)[number]
+export type RuntimeFamily = (typeof RUNTIME_FAMILIES)[number]
+export type InstallAssetKind = (typeof INSTALL_ASSET_KINDS)[number]
 export type InstallSelectionSource = 'flags' | 'prompt' | 'mixed'
 
 export interface InstallCommandOptions {
@@ -34,17 +38,55 @@ export interface InstallSelection {
   source: InstallSelectionSource
 }
 
-export interface RuntimeMetadata {
-  id: RuntimeTarget
-  displayName: string
-  globalDirectorySegments: string[]
-  localDirectoryName: string
-  verificationCommand: string
+export interface RuntimeAssetDefinition {
+  id: string
+  kind: InstallAssetKind
+  sourceSegments: string[]
+  destinationSegments: string[]
+  entrypoint?: string
 }
 
-export interface ResolvedInstallTarget extends RuntimeMetadata {
+export interface RuntimeDefinition {
+  id: RuntimeTarget
+  displayName: string
+  family: RuntimeFamily
+  globalDirectorySegments: string[]
+  localDirectoryName: string
+  packageContainerSegments: string[]
+  verificationCommand: string
+  ownershipMarkerFileName: string
+  assets: RuntimeAssetDefinition[]
+}
+
+export interface ResolvedInstallTarget extends RuntimeDefinition {
   location: InstallLocation
   destinationDirectory: string
+}
+
+export interface InstallOwnedFile {
+  relativePath: string
+  kind: InstallAssetKind
+  checksum?: string
+}
+
+export interface InstallOwnershipManifest {
+  packageName: '@tayo-dev/rtl'
+  runtime: RuntimeTarget
+  location: InstallLocation
+  manifestVersion: 1
+  generatedAt: string
+  files: InstallOwnedFile[]
+}
+
+export type InstallAssetConflictKind =
+  | 'missing'
+  | 'installer-owned'
+  | 'installer-owned-modified'
+  | 'external-collision'
+
+export interface InstallAssetConflict {
+  kind: InstallAssetConflictKind
+  targetPath: string
 }
 
 export interface InstallPlan {
@@ -54,35 +96,4 @@ export interface InstallPlan {
   source: InstallSelectionSource
   mode: 'interactive' | 'non-interactive'
   targets: ResolvedInstallTarget[]
-}
-
-export const RUNTIME_METADATA: Record<RuntimeTarget, RuntimeMetadata> = {
-  claude: {
-    id: 'claude',
-    displayName: 'Claude Code',
-    globalDirectorySegments: ['.claude'],
-    localDirectoryName: '.claude',
-    verificationCommand: '/@tayo-dev/rtl:help',
-  },
-  opencode: {
-    id: 'opencode',
-    displayName: 'OpenCode',
-    globalDirectorySegments: ['.config', 'opencode'],
-    localDirectoryName: '.opencode',
-    verificationCommand: '/@tayo-dev/rtl-help',
-  },
-  gemini: {
-    id: 'gemini',
-    displayName: 'Gemini CLI',
-    globalDirectorySegments: ['.gemini'],
-    localDirectoryName: '.gemini',
-    verificationCommand: '/@tayo-dev/rtl:help',
-  },
-  codex: {
-    id: 'codex',
-    displayName: 'Codex',
-    globalDirectorySegments: ['.codex'],
-    localDirectoryName: '.codex',
-    verificationCommand: '$@tayo-dev/rtl-help',
-  },
 }

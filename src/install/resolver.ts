@@ -1,7 +1,7 @@
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { InstallSelection, ResolvedInstallTarget } from './types.js'
-import { RUNTIME_METADATA } from './types.js'
+import { RUNTIME_REGISTRY } from './registry.js'
 
 interface ResolveInstallTargetsContext {
   cwd?: string
@@ -16,7 +16,7 @@ export function resolveInstallTargets(
   const homeDirectory = context.home ?? homedir()
 
   return selection.runtimes.map((runtime) => {
-    const metadata = RUNTIME_METADATA[runtime]
+    const metadata = RUNTIME_REGISTRY[runtime]
     const location = selection.locations[runtime]
     const destinationDirectory =
       location === 'global'

@@ -8,7 +8,8 @@ import type {
   RuntimeLocationSelections,
   RuntimeTarget,
 } from './types.js'
-import { RUNTIME_METADATA, SUPPORTED_RUNTIMES } from './types.js'
+import { SUPPORTED_RUNTIMES } from './types.js'
+import { RUNTIME_REGISTRY } from './registry.js'
 
 interface PromptIO {
   input?: typeof stdin
@@ -19,7 +20,7 @@ const ALL_RUNTIMES_CHOICE = SUPPORTED_RUNTIMES.length + 1
 
 function runtimeMenu(): string {
   const lines = SUPPORTED_RUNTIMES.map((runtime, index) => {
-    return `  ${index + 1}. ${RUNTIME_METADATA[runtime].displayName}`
+    return `  ${index + 1}. ${RUNTIME_REGISTRY[runtime].displayName}`
   })
 
   lines.push(`  ${ALL_RUNTIMES_CHOICE}. All runtimes`)
@@ -121,7 +122,7 @@ export async function promptForInstallChoices(
 
       while (!location) {
         console.log(
-          `\n${pc.bold(RUNTIME_METADATA[runtime].displayName)} installation location:`
+          `\n${pc.bold(RUNTIME_REGISTRY[runtime].displayName)} installation location:`
         )
         console.log('  1. Global')
         console.log('  2. Local')
