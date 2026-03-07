@@ -7,10 +7,10 @@
 
 ### Installer Experience
 
-- [ ] **INST-01**: User can run `npx @tayo-dev/rtl@latest` and complete setup through an interactive installer flow
-- [ ] **INST-02**: User can choose Claude Code, OpenCode, Gemini CLI, Codex, or all runtimes during installation
-- [ ] **INST-03**: User can choose global or local installation during setup
-- [ ] **INST-04**: User can run installation non-interactively using runtime flags and `--global` / `--local`
+- [x] **INST-01**: User can run `npx @tayo-dev/rtl@latest` and complete setup through an interactive installer flow
+- [x] **INST-02**: User can choose Claude Code, OpenCode, Gemini CLI, Codex, or all runtimes during installation
+- [x] **INST-03**: User can choose global or local installation during setup
+- [x] **INST-04**: User can run installation non-interactively using runtime flags and `--global` / `--local`
 
 ### Runtime Delivery
 
@@ -22,7 +22,7 @@
 
 ### Distribution & Verification
 
-- [ ] **DIST-01**: User can access the installer from the published `@tayo-dev/rtl` package without switching to a separate installer package
+- [x] **DIST-01**: User can access the installer from the published `@tayo-dev/rtl` package without switching to a separate installer package
 - [ ] **DIST-02**: User can rerun the installer to update or repair an existing installation without manual cleanup
 - [ ] **DIST-03**: User receives runtime-specific verification commands after installation and can use them successfully
 - [ ] **DIST-04**: User can follow the README for interactive, non-interactive, and development installation flows without extra guidance
@@ -53,16 +53,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INST-01 | Phase 10 | Pending |
-| INST-02 | Phase 10 | Pending |
-| INST-03 | Phase 10 | Pending |
-| INST-04 | Phase 10 | Pending |
+| INST-01 | Phase 10 | Complete |
+| INST-02 | Phase 10 | Complete |
+| INST-03 | Phase 10 | Complete |
+| INST-04 | Phase 10 | Complete |
 | RUNT-01 | Phase 11 | Pending |
 | RUNT-02 | Phase 11 | Pending |
 | RUNT-03 | Phase 11 | Pending |
 | RUNT-04 | Phase 11 | Pending |
 | RUNT-05 | Phase 11 | Pending |
-| DIST-01 | Phase 10 | Pending |
+| DIST-01 | Phase 10 | Complete |
 | DIST-02 | Phase 12 | Pending |
 | DIST-03 | Phase 12 | Pending |
 | DIST-04 | Phase 12 | Pending |
