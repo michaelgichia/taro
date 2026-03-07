@@ -27,7 +27,7 @@ See [v1.0 roadmap archive](./milestones/v1.0-ROADMAP.md) for full phase details.
 **Milestone Goal:** Make `@tayo-dev/rtl` install like a runtime-native agent package so users can bootstrap Taro into Claude Code, OpenCode, Gemini CLI, or Codex from one command.
 
 - [x] **Phase 10: Installer Core & Package Entry** - Create the installer entrypoint, interactive/non-interactive selection flow, and installation plan model (completed 2026-03-07)
-- [ ] **Phase 11: Runtime Targets & Asset Delivery** - Install runtime-specific prompts/commands/skills for Claude Code, OpenCode, Gemini CLI, and Codex
+- [ ] **Phase 11: Runtime Targets & Asset Delivery** - Install runtime-specific prompts/commands/skills for Claude Code, OpenCode, Gemini CLI, and Codex (in progress: 1/4 plans complete)
 - [ ] **Phase 12: Verification, Updates & Release Docs** - Make reruns/update flows safe, verify installed assets, and document the release-ready onboarding path
 
 ## Phase Details
@@ -57,7 +57,7 @@ See [v1.0 roadmap archive](./milestones/v1.0-ROADMAP.md) for full phase details.
   4. Codex installations create `skills/@tayo-dev/rtl-*/SKILL.md` assets and expose `$@tayo-dev/rtl-help`
   5. `--all` installs all supported runtimes in one run and reports what was written
 **Plans**:
-- [ ] 11-01 - Runtime registry, manifest, and package asset foundation
+- [x] 11-01 - Runtime registry, manifest, and package asset foundation
 - [ ] 11-02 - Prompt-runtime assets and temp-directory delivery tests
 - [ ] 11-03 - Codex skill suite and temp-directory delivery tests
 - [ ] 11-04 - Real write execution, conflict handling, and all-runtime reporting
@@ -84,5 +84,5 @@ Phases execute in numeric order: 10 → 11 → 12
 | 8. README Documentation | v1.1 | 2/2 | Complete | 2026-03-07 |
 | 9. Package & Publish | v1.1 | 2/2 | Complete | 2026-03-07 |
 | 10. Installer Core & Package Entry | v1.2 | 3/3 | Complete | 2026-03-07 |
-| 11. Runtime Targets & Asset Delivery | v1.2 | 0/4 | Planned | — |
+| 11. Runtime Targets & Asset Delivery | v1.2 | 1/4 | In Progress | — |
 | 12. Verification, Updates & Release Docs | v1.2 | 0/0 | Not Started | — |
