@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-last_updated: "2026-03-07T08:34:20.149Z"
-last_activity: "2026-03-07 — Phase 3 Plan 7 complete: selectMatcher() wired, TEST-03 closed"
+status: ready_for_execution
+last_updated: "2026-03-07T09:06:00Z"
+last_activity: "2026-03-07 — Phase 4 planning complete; ready to execute Wave 1 (04-01, 04-02, 04-03)"
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 13
+  total_plans: 17
   completed_plans: 13
-  percent: 100
+  percent: 76
 ---
 
 # Project State
@@ -20,21 +20,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-06)
 
 **Core value:** Reduce the effort to write and maintain tests by automatically generating high-quality, codebase-aware React Testing Library tests from browser recordings
-**Current focus:** Phase 3 - Query & Test Design Intelligence
+**Current focus:** Phase 4 - Self-Scoring & Convention Learning
 
 ## Current Position
 
-Phase: 3 of 4 (Query & Test Design Intelligence)
-Plan: 7 of 7 complete — PHASE FULLY VERIFIED 11/11
-Status: Phase complete — ready to transition to Phase 4
-Last activity: 2026-03-07 — Phase 3 Plan 7 complete: selectMatcher() wired, TEST-03 closed
+Phase: 4 of 4 (Self-Scoring & Convention Learning)
+Plan: 1 of 4 ready — Wave 1 queued
+Status: Ready to execute
+Last activity: 2026-03-07 — Phase 4 planning complete; execution checkpoint created
 
-Progress: [████████████] 100%
+Progress: [█████████░░░] 76%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
+- Total plans completed: 13
 - Average duration: 2min/plan
 - Total execution time: 0.40 hours
 
@@ -44,17 +44,14 @@ Progress: [████████████] 100%
 |-------|-------|-----------|----------|
 | 1 - Core Pipeline | 6 | 6 | TBD |
 | 2 - Intelligence Layers | 0 | 0 | - |
-| 3 - Query & Test Design | 6 | 3 | 2min |
-| 4 - Self-Scoring & Learning | 0 | 0 | - |
+| 3 - Query & Test Design | 7 | 7 | 2min |
+| 4 - Self-Scoring & Learning | 4 | 0 | - |
 
 **Recent Trend:**
-- Phase 3 Plan 1: 3 min (type contracts + test stubs)
-- Phase 3 Plan 2: 2 min (js-parser.ts implementation)
-- Phase 3 Plan 3: 3 min (resolver.ts with Playwright DOM inspection)
-- Phase 3 Plan 4: 1 min (scanner.ts implementation)
-- Phase 3 Plan 5: 2 min (template/generator multi-it extension)
+- Phase 3 Plan 5: 2 min (multi-it() template and generator extensions)
 - Phase 3 Plan 6: 2 min (CLI pipeline integration)
-- Phase 3 Plan 7: 5 min (gap closure: selectMatcher wired — TEST-03 resolved)
+- Phase 3 Plan 7: 5 min (selectMatcher() wired, TEST-03 closed)
+- Phase 4 planning: complete (4 plans verified, execution ready)
 
 *Updated after each plan completion*
 
@@ -65,17 +62,10 @@ Progress: [████████████] 100%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- Roadmap: 4 phases derived from requirements (Core Pipeline → Intelligence → Quality → Learning)
-- Phase 1 scope: CLI + input parsing + basic test generation (10 requirements)
-- Coverage: 37/42 v1 requirements mapped (5 deferred to v2)
-- [Phase 01]: @babel/template pinned to ^7.28.0 (7.29.0 does not exist in npm); TypeScript moduleResolution=bundler for ESNext+ESM; @types/babel__traverse added as devDep
-- [Phase 01]: createGenerateCommand factory pattern chosen for testability; CLI errors use process.exit(1) with pc.red prefix
-- [Phase 01]: Action map object used in normalizeStep (over switch) for cleaner mapping; doubleClick→click, change→fill
-- [Phase 01]: ValidationResult discriminated union over throwing; safeParse with structured error paths
-- [Phase 03]: Interface-first ordering: types defined before implementations
-- [Phase 03]: js-parser uses static QUERY_QUALITY_MAP for classifyQuery; @babel/traverse ESM interop pattern
-- [Phase 03]: scanner.ts uses string-based detection (no AST) for import style and mock patterns - simpler and faster for convention detection; simple heuristic for helper-with-expect detection
-- [Phase 05]: describeBlockMultiIt generates independent it() blocks each with own render() and userEvent.setup(); importBlock backward-compatible (defaults to ESM)
+- [Phase 03]: selectMatcher() is now wired into the generation pipeline; TEST-03 is closed
+- [Phase 04]: Scoring is advisory only; low scores emit hints but do not block file writes
+- [Phase 04]: Pre-write audit runs before write, post-write verification parses output with @babel/parser
+- [Phase 04]: Convention learning is additive; run metrics append to `.taro/history.json`
 
 ### Pending Todos
 
@@ -91,6 +81,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-07T08:34:20.146Z
-Stop at: Phase 3 complete (11/11 verified). Ready to transition to Phase 4.
-Resume file: .planning/phases/04-self-scoring-convention-learning/04-CONTEXT.md
+Last session: 2026-03-07 12:06 EAT
+Stopped at: Session resumed, proceeding to execute Phase 4
+Resume file: .planning/phases/04-self-scoring-convention-learning/.continue-here.md

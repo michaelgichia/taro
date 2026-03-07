@@ -5,7 +5,7 @@
  */
 
 import { Command } from 'commander'
-import { access, readFile } from 'node:fs/promises'
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
 import { cwd } from 'node:process'
 import pc from 'picocolors'
@@ -15,7 +15,14 @@ import { generateTest } from '../../core/generator.js'
 import { writeTestFile } from '../../core/writer.js'
 import { parseJsRecording } from '../../core/js-parser.js'
 import { inspectElements, buildQuery, selectMatcher, emitQry03Warning } from '../../core/resolver.js'
-import { readConventions, scanConventions } from '../../core/scanner.js'
+import { scoreGeneratedTest } from '../../core/scorer.js'
+import { verifySyntax } from '../../core/verifier.js'
+import {
+  analyzeSingleTestFile,
+  mergeConventions,
+  readConventions,
+  scanConventions,
+} from '../../core/scanner.js'
 import { generateTestFromGroups, emitQuerySummary } from '../../core/generator.js'
 import type { QueryResult } from '../../types/recording.js'
 
@@ -138,12 +145,51 @@ export function createGenerateCommand(): Command {
         // Step 5: Emit query quality summary (QRY-01)
         emitQuerySummary(queryResults)
 
+        // Pre-write audit: compute score before writing
+        const scoreResult = scoreGeneratedTest(generated.code, queryResults)
+
+        console.log(
+          pc.dim('[taro]') +
+            ` Score: ${scoreResult.total}/100 (${scoreResult.grade}) — ` +
+            `query: ${scoreResult.dimensions.queryQuality}, ` +
+            `assertions: ${scoreResult.dimensions.assertionSpecificity}, ` +
+            `structure: ${scoreResult.dimensions.testStructure}`
+        )
+
+        if (scoreResult.dimensions.queryQuality < 60) {
+          const testIdCount = queryResults.filter((queryResult) => {
+            return queryResult.method === 'getByTestId'
+          }).length
+          console.log(
+            pc.yellow(
+              `[taro] Tip: ${testIdCount} getByTestId queries — consider adding aria-label`
+            )
+          )
+        }
+
+        if (scoreResult.dimensions.assertionSpecificity < 60) {
+          console.log(
+            pc.yellow(
+              '[taro] Tip: Add specific matchers like toHaveValue() for better assertions'
+            )
+          )
+        }
+
+        if (scoreResult.dimensions.testStructure < 60) {
+          console.log(
+            pc.yellow(
+              '[taro] Tip: Split into multiple it() blocks for better test organization'
+            )
+          )
+        }
+
         // Step 6: Write or preview
         if (options.dryRun) {
           console.log(pc.yellow('\nDry run — test preview:\n'))
           console.log(pc.dim('─'.repeat(60)))
           console.log(generated.code)
           console.log(pc.dim('─'.repeat(60)))
+          console.log(pc.dim(`\n[taro] Score: ${scoreResult.total}/100 (${scoreResult.grade})`))
           console.log(pc.yellow(`\nWould write to: ${pc.bold(outputPath)}`))
           return
         }
@@ -153,6 +199,52 @@ export function createGenerateCommand(): Command {
             force: options.force,
             createDir: true,
           })
+
+          const verification = verifySyntax(generated.code, result.filePath)
+          if (!verification.valid) {
+            console.error(pc.red('[taro] Error: Post-write verification failed'))
+            console.error(pc.red(`  ${verification.error}`))
+            console.error(pc.red('  This is a Taro bug. Please report it.'))
+            process.exit(1)
+          }
+
+          console.log(pc.green('[taro] ✓ post-write verified'))
+
+          const historyEntry = {
+            timestamp: new Date().toISOString(),
+            recordingFile: filePath,
+            score: scoreResult.total,
+            grade: scoreResult.grade,
+            dimensions: scoreResult.dimensions,
+          }
+
+          const taroDir = join(projectRoot, '.taro')
+          await mkdir(taroDir, { recursive: true })
+
+          const historyPath = join(taroDir, 'history.json')
+          let history: Array<typeof historyEntry> = []
+
+          try {
+            await access(historyPath)
+            const historyContent = await readFile(historyPath, 'utf-8')
+            history = JSON.parse(historyContent) as Array<typeof historyEntry>
+          } catch {
+            history = []
+          }
+
+          history.push(historyEntry)
+          await writeFile(historyPath, JSON.stringify(history, null, 2), 'utf-8')
+
+          try {
+            const detectedConventions = await analyzeSingleTestFile(
+              projectRoot,
+              result.filePath
+            )
+            await mergeConventions(projectRoot, detectedConventions)
+          } catch {
+            // Convention learning is best-effort, do not fail generation.
+          }
+
           const action = result.overwritten ? pc.yellow('Updated') : pc.green('Created')
           console.log(`${action}: ${pc.bold(result.filePath)}`)
         } catch (err) {
