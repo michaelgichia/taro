@@ -45,17 +45,47 @@ export type NormalizedAction =
   | 'keyDown'
   | 'unknown'
 
+export type RecordingSource = 'json' | 'js'
+
 export interface NormalizedStep {
   action: NormalizedAction
   target?: string
   value?: string
   originalType: string
+  source?: RecordingSource
+  selectors?: string[][]
+  assertedEvents?: AssertedEvent[]
+  key?: string
+  line?: number
+  offsetX?: number
+  offsetY?: number
+  x?: number
+  y?: number
 }
 
 export interface NormalizedRecording {
   title: string
   steps: NormalizedStep[]
   rawStepCount: number
+}
+
+export interface RecordingDiagnostics {
+  removedRedundantClicks: number
+  removedDoubleClickNoise: number
+  removedCursorWander: number
+  rawStepCount: number
+  filteredStepCount: number
+  intentGroupCount: number
+}
+
+export interface IntentGroup {
+  name: string
+  steps: NormalizedStep[]
+}
+
+export interface AnalyzedRecording extends NormalizedRecording {
+  diagnostics: RecordingDiagnostics
+  intentGroups: IntentGroup[]
 }
 
 // --- Phase 3 additions ---

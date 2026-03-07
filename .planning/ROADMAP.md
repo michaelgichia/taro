@@ -139,7 +139,7 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 **Gap Closure:** Closes the missing Phase 2 recording-intelligence scope and the broken noisy-recording cleanup flow identified in `v1.0-MILESTONE-AUDIT.md`.
 
 **Plans:** 3 plans
-- [ ] 05-01-PLAN.md — Recorder metadata preservation and noise filtering foundation
+- [x] 05-01-PLAN.md — Recorder metadata preservation and noise filtering foundation
 - [ ] 05-02-PLAN.md — Intent inference and analyzed recording diagnostics
 - [ ] 05-03-PLAN.md — Generate pipeline integration for recording cleanup
 
@@ -190,7 +190,7 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 | 2 - Intelligence Layers | Noise filtering, visual/mock awareness | 10 | Pending |
 | 3 - Query & Test Design | Optimal queries, best practices | 11 | Complete (2026-03-07) |
 | 4 - Self-Scoring & Learning | Quality evaluation, convention learning | 6 | Complete (2026-03-07) |
-| 5 - Recording Intelligence Recovery | Restore missing REC-* scope | 4 | Planned |
+| 5 - Recording Intelligence Recovery | Restore missing REC-* scope | 4 | In Progress |
 | 6 - Visual & Mock Intelligence Recovery | Restore missing VIS-* / MOCK-* scope | 6 | Pending |
 | 7 - Verification & Traceability Reconciliation | Close audit and validation gaps | 22 | Pending |
 
