@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Runtime Installer Distribution
-status: in_progress
-stopped_at: Phase 12 complete; milestone closeout next
-last_updated: "2026-03-07T18:26:03Z"
-last_activity: 2026-03-07 — Completed Phase 12 verification, updates, and release docs
+status: complete
+stopped_at: v1.2 archived and tagged; next milestone definition pending
+last_updated: "2026-03-07T18:45:02Z"
+last_activity: 2026-03-07 — Archived v1.2 milestone and prepared the project for the next cycle
 progress:
   total_phases: 3
   completed_phases: 3
@@ -21,38 +21,44 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-07)
 
 **Core value:** Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, and Codex with near-zero setup friction
-**Current focus:** All milestone phases complete — milestone closeout next
+**Current focus:** v1.2 is shipped; define the next milestone
 
 ## Current Position
 
-Phase: 12 of 12 (Verification, Updates & Release Docs)
+Phase: 12 of 12 (Runtime Installer Distribution complete)
 Plan: —
-Status: Complete
-Last activity: 2026-03-07 — Completed Phase 12 verification, updates, and release docs
+Status: Milestone Archived
+Last activity: 2026-03-07 — Archived v1.2 milestone and prepared the project for the next cycle
 
 Progress: [████████████████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7 (v1.2)
-- Average duration: ~9 min
-- Total execution time: ~27 min
+- Total plans completed: 10 (v1.2)
+- Average duration: phase summaries explicitly track ~11 min across the four plans that recorded duration
+- Milestone verification: 13/13 requirements complete, 10/10 plans summarized, Phase 12 score 4/4 must-haves verified
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 10. Installer Core & Package Entry | 3 | ~27 min | ~9 min |
+| 11. Runtime Targets & Asset Delivery | 4 | Mixed | Mixed |
+| 12. Verification, Updates & Release Docs | 3 | Mixed | Mixed |
 
-*Updated after each plan completion*
-| 10-01 | 46ea63b | Installer-first CLI entry | 2026-03-07 |
-| 10-02 | 6ff4df8 | Installer selection flow | 2026-03-07 |
-| 10-03 | 2e84e7e | Install plan preview | 2026-03-07 |
-| 11-01 | 9611f9c | Runtime installer foundation | 2026-03-07 |
-| 11-02 | 974602d | Prompt runtime asset delivery | 2026-03-07 |
-| 11-03 | 974602d | Codex skill delivery | 2026-03-07 |
-| 11-04 | 974602d | Real write execution and reporting | 2026-03-07 |
+**Shipped plan log:**
+
+- `10-01` — `46ea63b` — Installer-first CLI entry — 2026-03-07
+- `10-02` — `6ff4df8` — Installer selection flow — 2026-03-07
+- `10-03` — `2e84e7e` — Install plan preview — 2026-03-07
+- `11-01` — `9611f9c` — Runtime installer foundation — 2026-03-07
+- `11-02` — `974602d` — Prompt runtime asset delivery — 2026-03-07
+- `11-03` — `974602d` — Codex skill delivery — 2026-03-07
+- `11-04` — `974602d` — Real write execution and reporting — 2026-03-07
+- `12-01` — `6a62f12` — Safe rerun and repair semantics — 2026-03-07
+- `12-02` — `6a62f12` — Verified runtime commands and tarball proof — 2026-03-07
+- `12-03` — `6a62f12` — Installer-first README and release docs — 2026-03-07
 
 ## Accumulated Context
 
@@ -86,6 +92,7 @@ Carried forward from v1.0:
 - [Phase 12 planned]: Use three sequential plans: safe reruns, runtime/package verification, then installer-first README and release docs
 - [Phase 12]: Reruns now refresh unchanged owned assets and repair missing owned assets automatically while still protecting manual edits
 - [Phase 12]: Install completion output now reports verified runtime command paths and package smoke proof covers the tarball boundary
+- [Milestone v1.2]: Closeout proceeded without a separate milestone audit artifact because all requirements, summaries, and verification reports were complete
 
 ### Pending Todos
 
@@ -103,6 +110,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-07T17:42:25Z
-Stopped at: Phase 12 complete; milestone closeout next
-Resume file: .planning/ROADMAP.md
+Last session: 2026-03-07T18:45:02Z
+Stopped at: v1.2 archived and tagged; next milestone definition pending
+Resume file: .planning/PROJECT.md
