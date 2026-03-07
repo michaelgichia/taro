@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 Taro v1.0** — shipped 2026-03-07. See [roadmap archive](./milestones/v1.0-ROADMAP.md), [requirements archive](./milestones/v1.0-REQUIREMENTS.md), and [audit](./milestones/v1.0-MILESTONE-AUDIT.md).
-- 🚧 **v1.1 Documentation & Deployment** — Phases 8-9 (in progress)
+- ✅ **v1.1 Documentation & Deployment** — shipped 2026-03-07
 
 ## Phases
 
@@ -14,12 +14,12 @@ See [v1.0 roadmap archive](./milestones/v1.0-ROADMAP.md) for full phase details.
 
 </details>
 
-### 🚧 v1.1 Documentation & Deployment (In Progress)
+### ✅ v1.1 Documentation & Deployment (Completed 2026-03-07)
 
 **Milestone Goal:** Make Taro publicly installable and well-documented so any developer can discover, install, and use it.
 
 - [x] **Phase 8: README Documentation** - Comprehensive public-facing README covering what Taro is, how to install it, and how to use it (completed 2026-03-07)
-- [ ] **Phase 9: Package & Publish** - Package fields, build verification, and npm publish so `npx @tayo/rtl generate` works out of the box
+- [x] **Phase 9: Package & Publish** - Package fields, build verification, and npm publish so `npx @tayo/rtl generate` works out of the box (completed 2026-03-07)
 
 ## Phase Details
 
@@ -36,8 +36,8 @@ See [v1.0 roadmap archive](./milestones/v1.0-ROADMAP.md) for full phase details.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 08-01-PLAN.md — Write Introduction, Quick Start, and CLI Reference sections (DOCS-01, DOCS-02, DOCS-03)
-- [ ] 08-02-PLAN.md — Write Worked Example and Claude Code Skill guide (DOCS-04, DOCS-05)
+- [x] 08-01-PLAN.md — Write Introduction, Quick Start, and CLI Reference sections (DOCS-01, DOCS-02, DOCS-03)
+- [x] 08-02-PLAN.md — Write Worked Example and Claude Code Skill guide (DOCS-04, DOCS-05)
 
 ### Phase 9: Package & Publish
 **Goal**: The `@tayo/rtl` package is correctly prepared, builds cleanly, and installs from npm so any developer can run `npx @tayo/rtl generate ./recording.js`
@@ -51,8 +51,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 09-01-PLAN.md — Update package.json fields and version bump (PKG-01, PKG-02)
-- [ ] 09-02-PLAN.md — Build verification, dry-run publish, and manual publish instructions (PKG-03, PKG-04)
+- [x] 09-01-PLAN.md — Update package.json fields and version bump (PKG-01, PKG-02)
+- [x] 09-02-PLAN.md — Build verification, dry-run publish, and manual publish instructions (PKG-03, PKG-04)
 
 ## Progress
 
@@ -62,5 +62,5 @@ Phases execute in numeric order: 8 → 9
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1-7. v1.0 Phases | v1.0 | Complete | Complete | 2026-03-07 |
-| 8. README Documentation | 2/2 | Complete    | 2026-03-07 | - |
-| 9. Package & Publish | 1/2 | In Progress|  | - |
+| 8. README Documentation | v1.1 | 2/2 | Complete | 2026-03-07 |
+| 9. Package & Publish | v1.1 | 2/2 | Complete | 2026-03-07 |

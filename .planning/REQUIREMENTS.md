@@ -17,8 +17,8 @@
 
 - [x] **PKG-01**: `package.json` has `name=@tayo/rtl`, `files`, `exports`, and `engines` fields correctly set
 - [x] **PKG-02**: Package version is bumped to 1.0.0
-- [ ] **PKG-03**: `tsc` build produces a working `dist/` verified by running `node dist/index.js --help`
-- [ ] **PKG-04**: `npx @tayo/rtl generate ./recording.js` installs and runs correctly after publish
+- [x] **PKG-03**: `tsc` build produces a working `dist/` verified by running `node dist/index.js --help`
+- [x] **PKG-04**: `npx @tayo/rtl generate ./recording.js` installs and runs correctly after publish
 
 ## Future Requirements
 
@@ -52,8 +52,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DOCS-05 | Phase 8 | Complete |
 | PKG-01 | Phase 9 | Complete |
 | PKG-02 | Phase 9 | Complete |
-| PKG-03 | Phase 9 | Pending |
-| PKG-04 | Phase 9 | Pending |
+| PKG-03 | Phase 9 | Complete |
+| PKG-04 | Phase 9 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 9 total
@@ -62,4 +62,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-07*
-*Last updated: 2026-03-07 after roadmap creation (traceability confirmed)*
+*Last updated: 2026-03-07 after phase 09 publish verification completion*
