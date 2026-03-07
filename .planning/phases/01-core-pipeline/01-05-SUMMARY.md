@@ -21,6 +21,7 @@ key-decisions:
   - user-event v14 setup() pattern (not legacy direct calls)
   - Unknown steps emit TODO comments, not errors — keeps partial recordings usable
   - navigate steps become comments since RTL does not navigate
+requirements-completed: [GEN-01, GEN-02, GEN-03, GEN-04]
 duration: 12min
 completed: 2026-03-06
 ---

@@ -18,6 +18,7 @@ key-decisions:
   - Used action map object over switch for cleaner normalization
   - doubleClick maps to 'click', change maps to 'fill' (semantically equivalent)
   - Unknown/no-op steps emit console.warn and return action:'unknown' (not error)
+requirements-completed: [INPT-01, INPT-02]
 duration: 10min
 completed: 2026-03-06
 ---

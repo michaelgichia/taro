@@ -5,7 +5,7 @@
  */
 
 import { Command } from 'commander'
-import { access, readFile } from 'node:fs/promises'
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
 import { cwd } from 'node:process'
 import pc from 'picocolors'
@@ -14,10 +14,35 @@ import { parseRecording } from '../../core/parser.js'
 import { generateTest } from '../../core/generator.js'
 import { writeTestFile } from '../../core/writer.js'
 import { parseJsRecording } from '../../core/js-parser.js'
-import { inspectElements, buildQuery, emitQry03Warning } from '../../core/resolver.js'
-import { readConventions, scanConventions } from '../../core/scanner.js'
+import {
+  captureVisualState,
+  inspectElements,
+  buildQuery,
+  selectMatcher,
+  emitQry03Warning,
+} from '../../core/resolver.js'
+import { scoreGeneratedTest } from '../../core/scorer.js'
+import { verifySyntax } from '../../core/verifier.js'
+import {
+  analyzeSingleTestFile,
+  mergeConventions,
+  readConventions,
+  scanConventions,
+} from '../../core/scanner.js'
+import {
+  analyzeRecording,
+  findVisualCaptureCandidates,
+} from '../../core/recording-intelligence.js'
+import { analyzeMocks } from '../../core/mock-intelligence.js'
 import { generateTestFromGroups, emitQuerySummary } from '../../core/generator.js'
-import type { QueryResult } from '../../types/recording.js'
+import type {
+  AnalyzedRecording,
+  ItGroup,
+  QueryResult,
+  VisualState,
+} from '../../types/recording.js'
+import type { HistoryEntry, ScoreResult } from '../../types/score.js'
+import type { MockAnalysis } from '../../core/mock-intelligence.js'
 
 export interface GenerateOptions {
   output?: string
@@ -31,6 +56,255 @@ function deriveOutputPath(inputPath: string): string {
   return join(dir, `${name}.test.tsx`)
 }
 
+function logScore(scoreResult: ScoreResult): void {
+  console.log(
+    pc.dim('[taro]') +
+      ` Score: ${scoreResult.total}/100 (${scoreResult.grade}) — ` +
+      `query: ${scoreResult.dimensions.queryQuality}, ` +
+      `assertions: ${scoreResult.dimensions.assertionSpecificity}, ` +
+      `structure: ${scoreResult.dimensions.testStructure}`
+  )
+}
+
+function emitScoreHints(
+  scoreResult: ScoreResult,
+  queryResults: QueryResult[] = []
+): void {
+  if (scoreResult.dimensions.queryQuality < 60) {
+    const testIdCount = queryResults.filter((queryResult) => {
+      return queryResult.method === 'getByTestId'
+    }).length
+    console.log(
+      pc.yellow(
+        `[taro] Tip: ${testIdCount} getByTestId queries — consider adding aria-label`
+      )
+    )
+  }
+
+  if (scoreResult.dimensions.assertionSpecificity < 60) {
+    console.log(
+      pc.yellow(
+        '[taro] Tip: Add specific matchers like toHaveValue() for better assertions'
+      )
+    )
+  }
+
+  if (scoreResult.dimensions.testStructure < 60) {
+    console.log(
+      pc.yellow(
+        '[taro] Tip: Split into multiple it() blocks for better test organization'
+      )
+    )
+  }
+}
+
+function summarizeCleanup(analyzedRecording: AnalyzedRecording): void {
+  const { diagnostics } = analyzedRecording
+  const parts: string[] = []
+
+  if (diagnostics.removedRedundantClicks > 0) {
+    parts.push(`${diagnostics.removedRedundantClicks} redundant click(s)`)
+  }
+
+  if (diagnostics.removedDoubleClickNoise > 0) {
+    parts.push(`${diagnostics.removedDoubleClickNoise} dblClick noise event(s)`)
+  }
+
+  if (diagnostics.removedCursorWander > 0) {
+    parts.push(`${diagnostics.removedCursorWander} cursor wander step(s)`)
+  }
+
+  if (diagnostics.intentGroupCount > 1) {
+    parts.push(`${diagnostics.intentGroupCount} intent groups`)
+  }
+
+  if (parts.length === 0) {
+    return
+  }
+
+  console.log(pc.dim('[taro]') + ` Recording cleanup: ${parts.join(', ')}`)
+}
+
+function toItGroups(analyzedRecording: AnalyzedRecording, fallbackTitle: string): ItGroup[] {
+  if (analyzedRecording.intentGroups.length > 0) {
+    return analyzedRecording.intentGroups
+  }
+
+  return [
+    {
+      name: fallbackTitle || 'recorded flow',
+      steps: analyzedRecording.steps,
+    },
+  ]
+}
+
+function summarizeVisualState(visualState: VisualState | null): void {
+  if (!visualState) {
+    return
+  }
+
+  const parts = [visualState.reason]
+  if (visualState.dialog?.title) {
+    parts.push(`dialog=${visualState.dialog.title}`)
+  }
+  if (visualState.screenshotPath) {
+    parts.push(`screenshot=${visualState.screenshotPath}`)
+  }
+
+  console.log(pc.dim('[taro]') + ` Visual state: ${parts.join(', ')}`)
+}
+
+function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
+  if (!mockAnalysis) {
+    return
+  }
+
+  const parts: string[] = []
+
+  if (mockAnalysis.repeatedTargets.length > 0) {
+    parts.push(`${mockAnalysis.repeatedTargets.length} repeated target(s)`)
+  }
+
+  if (mockAnalysis.mutationLifecycles.length > 0) {
+    parts.push(`${mockAnalysis.mutationLifecycles.length} mutation flow(s)`)
+  }
+
+  if (mockAnalysis.instabilityWarnings.length > 0) {
+    parts.push(`${mockAnalysis.instabilityWarnings.length} stability warning(s)`)
+  }
+
+  if (parts.length === 0) {
+    return
+  }
+
+  console.log(pc.dim('[taro]') + ` Mock analysis: ${parts.join(', ')}`)
+
+  const topRecommendation = mockAnalysis.recommendations[0]
+  if (topRecommendation) {
+    console.log(
+      pc.dim('[taro]') +
+        ` Mock hint: ${topRecommendation.kind} ${topRecommendation.target} (${topRecommendation.count} file(s))`
+    )
+  }
+
+  const topLifecycle = mockAnalysis.mutationLifecycles[0]
+  if (topLifecycle) {
+    console.log(
+      pc.dim('[taro]') +
+        ` Mutation lifecycle: ${topLifecycle.stages.join(' -> ')} in ${topLifecycle.file}`
+    )
+  }
+
+  const topWarning = mockAnalysis.instabilityWarnings[0]
+  if (topWarning) {
+    console.warn(pc.yellow(`[taro] Mock stability: ${topWarning.reason} (${topWarning.file})`))
+  }
+}
+
+function findRecordingUrl(analyzedRecording: AnalyzedRecording): string | undefined {
+  return analyzedRecording.steps.find((step) => step.action === 'navigate')?.target
+}
+
+async function maybeCaptureVisualState(params: {
+  analyzedRecording: AnalyzedRecording
+  projectRoot: string
+  selector?: string
+  url?: string
+}): Promise<VisualState | null> {
+  const { analyzedRecording, projectRoot, selector, url } = params
+  if (!url) {
+    return null
+  }
+
+  const candidates = findVisualCaptureCandidates(analyzedRecording)
+  const visualDir = join(projectRoot, '.taro', 'visual')
+
+  if (candidates.length > 0) {
+    await mkdir(visualDir, { recursive: true })
+    return captureVisualState(url, {
+      reason: candidates[0]!.reason,
+      screenshotDir: visualDir,
+      selector: candidates[0]!.selector,
+    })
+  }
+
+  if (selector) {
+    await mkdir(visualDir, { recursive: true })
+    return captureVisualState(url, {
+      reason: 'ambiguous-ui',
+      screenshotDir: visualDir,
+      selector,
+    })
+  }
+
+  return null
+}
+
+async function maybeAnalyzeMocks(projectRoot: string): Promise<MockAnalysis | null> {
+  try {
+    return await analyzeMocks(projectRoot)
+  } catch {
+    return null
+  }
+}
+
+async function appendHistoryEntry(
+  projectRoot: string,
+  historyEntry: HistoryEntry
+): Promise<void> {
+  const taroDir = join(projectRoot, '.taro')
+  await mkdir(taroDir, { recursive: true })
+
+  const historyPath = join(taroDir, 'history.json')
+  let history: HistoryEntry[] = []
+
+  try {
+    await access(historyPath)
+    const historyContent = await readFile(historyPath, 'utf-8')
+    history = JSON.parse(historyContent) as HistoryEntry[]
+  } catch {
+    history = []
+  }
+
+  history.push(historyEntry)
+  await writeFile(historyPath, JSON.stringify(history, null, 2), 'utf-8')
+}
+
+async function finalizeGeneratedOutput(params: {
+  code: string
+  outputPath: string
+  projectRoot: string
+  recordingFile: string
+  scoreResult: ScoreResult
+}): Promise<void> {
+  const { code, outputPath, projectRoot, recordingFile, scoreResult } = params
+
+  const verification = verifySyntax(code, outputPath)
+  if (!verification.valid) {
+    console.error(pc.red('[taro] Error: Post-write verification failed'))
+    console.error(pc.red(`  ${verification.error}`))
+    console.error(pc.red('  This is a Taro bug. Please report it.'))
+    process.exit(1)
+  }
+
+  console.log(pc.green('[taro] ✓ post-write verified'))
+
+  await appendHistoryEntry(projectRoot, {
+    timestamp: new Date().toISOString(),
+    recordingFile,
+    score: scoreResult.total,
+    grade: scoreResult.grade,
+    dimensions: scoreResult.dimensions,
+  })
+
+  try {
+    const detectedConventions = await analyzeSingleTestFile(projectRoot, outputPath)
+    await mergeConventions(projectRoot, detectedConventions)
+  } catch {
+    // Convention learning is best-effort, do not fail generation.
+  }
+}
+
 export function createGenerateCommand(): Command {
   const generate = new Command('generate')
 
@@ -42,6 +316,7 @@ export function createGenerateCommand(): Command {
     .option('-f, --force', 'Overwrite existing test file', false)
     .action(async (file: string, options: GenerateOptions) => {
       const filePath = resolve(file)
+      const projectRoot = cwd()
 
       // 1. Verify file is accessible
       try {
@@ -69,7 +344,6 @@ export function createGenerateCommand(): Command {
 
       if (isJsFormat) {
         // Step 1: Context scan (CTX-01–05)
-        const projectRoot = cwd()
         let conventions = await readConventions(projectRoot)
         if (!conventions) {
           console.log(pc.dim('[taro]') + ' Scanning project conventions...')
@@ -89,6 +363,23 @@ export function createGenerateCommand(): Command {
           pc.green('Parsed:') +
             ` ${pc.bold(jsResult.title)} — ${jsResult.steps.length} steps, ${jsResult.itGroups.length} test group(s)`
         )
+
+        const analyzedRecording = analyzeRecording({
+          title: jsResult.title,
+          steps: jsResult.steps,
+          rawStepCount: jsResult.steps.length,
+        })
+
+        summarizeCleanup(analyzedRecording)
+        const visualState = await maybeCaptureVisualState({
+          analyzedRecording,
+          projectRoot,
+          selector: jsResult.querySelectorCalls[0]?.selector,
+          url: jsResult.environmentUrl,
+        })
+        summarizeVisualState(visualState)
+        const mockAnalysis = await maybeAnalyzeMocks(projectRoot)
+        summarizeMockAnalysis(mockAnalysis)
 
         // Step 3: Resolve document.querySelector selectors via Playwright (QRY-02, QRY-03)
         const queryResults: QueryResult[] = []
@@ -115,7 +406,8 @@ export function createGenerateCommand(): Command {
             } else {
               const result = buildQuery(info, call.selector)
               if (result.quality === 'fragile') emitQry03Warning(call.selector)
-              queryResults.push({ ...result, line: call.line })
+              const matcher = selectMatcher(info, 'assert')
+              queryResults.push({ ...result, matcher, line: call.line })
             }
           }
         } else if (jsResult.querySelectorCalls.length > 0 && !jsResult.environmentUrl) {
@@ -127,7 +419,7 @@ export function createGenerateCommand(): Command {
 
         // Step 4: Generate test code with multi-it() blocks (TEST-01, TEST-03)
         const outputPath = options.output ?? deriveOutputPath(filePath)
-        const generated = generateTestFromGroups(jsResult.title, jsResult.itGroups, {
+        const generated = generateTestFromGroups(jsResult.title, toItGroups(analyzedRecording, jsResult.title), {
           outputPath,
           dryRun: options.dryRun,
           conventions,
@@ -137,12 +429,18 @@ export function createGenerateCommand(): Command {
         // Step 5: Emit query quality summary (QRY-01)
         emitQuerySummary(queryResults)
 
+        // Pre-write audit: compute score before writing
+        const scoreResult = scoreGeneratedTest(generated.code, queryResults)
+        logScore(scoreResult)
+        emitScoreHints(scoreResult, queryResults)
+
         // Step 6: Write or preview
         if (options.dryRun) {
           console.log(pc.yellow('\nDry run — test preview:\n'))
           console.log(pc.dim('─'.repeat(60)))
           console.log(generated.code)
           console.log(pc.dim('─'.repeat(60)))
+          console.log(pc.dim(`\n[taro] Score: ${scoreResult.total}/100 (${scoreResult.grade})`))
           console.log(pc.yellow(`\nWould write to: ${pc.bold(outputPath)}`))
           return
         }
@@ -152,6 +450,15 @@ export function createGenerateCommand(): Command {
             force: options.force,
             createDir: true,
           })
+
+          await finalizeGeneratedOutput({
+            code: generated.code,
+            outputPath: result.filePath,
+            projectRoot,
+            recordingFile: filePath,
+            scoreResult,
+          })
+
           const action = result.overwritten ? pc.yellow('Updated') : pc.green('Created')
           console.log(`${action}: ${pc.bold(result.filePath)}`)
         } catch (err) {
@@ -199,9 +506,24 @@ export function createGenerateCommand(): Command {
           ` ${pc.bold(normalizedRecording.title)} — ${normalizedRecording.steps.length} steps`
       )
 
+      const analyzedRecording = analyzeRecording(normalizedRecording)
+      summarizeCleanup(analyzedRecording)
+      const visualState = await maybeCaptureVisualState({
+        analyzedRecording,
+        projectRoot,
+        url: findRecordingUrl(analyzedRecording),
+      })
+      summarizeVisualState(visualState)
+      const mockAnalysis = await maybeAnalyzeMocks(projectRoot)
+      summarizeMockAnalysis(mockAnalysis)
+
       // 6. Generate test code
       const outputPath = options.output ?? deriveOutputPath(filePath)
-      const generated = generateTest(normalizedRecording, { outputPath, dryRun: options.dryRun })
+      const generated = generateTest(analyzedRecording, { outputPath, dryRun: options.dryRun })
+      const scoreResult = scoreGeneratedTest(generated.code)
+
+      logScore(scoreResult)
+      emitScoreHints(scoreResult)
 
       // 7. Write or preview
       if (options.dryRun) {
@@ -209,6 +531,7 @@ export function createGenerateCommand(): Command {
         console.log(pc.dim('─'.repeat(60)))
         console.log(generated.code)
         console.log(pc.dim('─'.repeat(60)))
+        console.log(pc.dim(`\n[taro] Score: ${scoreResult.total}/100 (${scoreResult.grade})`))
         console.log(pc.yellow(`\nWould write to: ${pc.bold(outputPath)}`))
         return
       }
@@ -217,6 +540,13 @@ export function createGenerateCommand(): Command {
         const result = await writeTestFile(generated.code, outputPath, {
           force: options.force,
           createDir: true,
+        })
+        await finalizeGeneratedOutput({
+          code: generated.code,
+          outputPath: result.filePath,
+          projectRoot,
+          recordingFile: filePath,
+          scoreResult,
         })
         const action = result.overwritten ? pc.yellow('Updated') : pc.green('Created')
         console.log(`${action}: ${pc.bold(result.filePath)}`)

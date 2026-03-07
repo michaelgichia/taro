@@ -39,7 +39,7 @@ patterns-established:
   - "Query quality summary pattern: method grouping + tier reporting"
   - "Import style convention pattern: scanned convention → generator option"
 
-requirements-completed: [QRY-01, TEST-01, TEST-03]
+requirements-completed: [QRY-01, TEST-01]
 
 # Metrics
 duration: 2min
@@ -105,6 +105,7 @@ None
 - Multi-it test generation ready for integration with js-parser.ts ItGroup output
 - Convention importStyle can flow from scanner.ts through to generateTestFromGroups
 - emitQuerySummary can be called after js-parser produces QueryResult[] to show quality summary
+- Matcher-aware assertion rendering still depended on later pipeline wiring, which landed in Plan 07
 - Existing generateTest() pipeline unchanged - can continue using monolithic it() block
 
 ---

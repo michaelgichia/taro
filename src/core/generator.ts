@@ -78,6 +78,43 @@ function selectorToQuery(selector: string | undefined): string {
   return `screen.getByTestId(/* TODO: replace with RTL query — CSS: '${escaped}' */ '')`
 }
 
+function isQueryExpression(target: string): boolean {
+  return /^(screen|document)\./.test(target)
+}
+
+function looksLikeCssSelector(target: string): boolean {
+  return (
+    /^[#.[]/.test(target) ||
+    /^[a-z][a-z0-9-]*(?:[.#[:\s>])/i.test(target) ||
+    /^(button|input|select|textarea|a|img|h[1-6])$/i.test(target)
+  )
+}
+
+function reconstructQuery(step: NormalizedStep): string {
+  const target = step.target
+  if (!target) {
+    return 'document.body'
+  }
+
+  if (isQueryExpression(target)) {
+    return target
+  }
+
+  if (step.source === 'js' && step.action === 'assert' && step.originalType.startsWith('getBy')) {
+    const escapedTarget = target.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+    return step.originalType === 'getByRole'
+      ? `screen.getByRole('${escapedTarget}')`
+      : `screen.${step.originalType}('${escapedTarget}')`
+  }
+
+  if (looksLikeCssSelector(target)) {
+    return selectorToQuery(target)
+  }
+
+  const escapedTarget = target.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+  return `screen.getByText('${escapedTarget}')`
+}
+
 function generateStepCode(step: NormalizedStep): string {
   // navigate steps use target (the URL), not the CSS-selector path
   if (step.action === 'navigate') {
@@ -171,6 +208,14 @@ export function generateTestFromGroups(
     group.steps.some((s) => ['click', 'fill', 'select', 'keyDown'].includes(s.action))
   )
 
+  // Build query -> matcher map for context-aware assert matchers
+  const matcherMap = new Map<string, string>()
+  for (const qr of queryResults) {
+    if (qr.matcher) {
+      matcherMap.set(qr.query, qr.matcher)
+    }
+  }
+
   // Build ItBlockTemplate[] from ItGroup[]
   const itBlocks = itGroups.map((group) => {
     const hasUserEvents = group.steps.some((s) =>
@@ -180,7 +225,9 @@ export function generateTestFromGroups(
       if (step.action === 'navigate') {
         return stepTemplate({ action: 'navigate', query: '', value: step.target })
       }
-      return stepTemplate({ action: step.action, query: step.target ?? 'document.body', value: step.value })
+      const query = reconstructQuery(step)
+      const matcher = step.action === 'assert' ? matcherMap.get(query) : undefined
+      return stepTemplate({ action: step.action, query, value: step.value, matcher })
     })
     return { name: group.name, stepLines, hasUserEvents }
   })

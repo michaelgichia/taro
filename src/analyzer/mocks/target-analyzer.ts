@@ -21,7 +21,7 @@ export interface MockTarget {
   /** HTTP method */
   method: string;
   /** Recommended mock library */
-  mockLibrary: 'msw' | 'jest.fn' | 'sinon' | 'fetch-mock' | 'undici';
+  mockLibrary: 'msw' | 'jest.fn' | 'sinon' | 'fetch-mock' | 'undici' | 'nock';
   /** Whether to inline the mock or extract to separate file */
   extractionRecommendation: 'inline' | 'extracted' | 'shared';
   /** Rationale for recommendations */

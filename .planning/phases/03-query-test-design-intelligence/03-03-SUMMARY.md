@@ -35,7 +35,7 @@ patterns-established:
   - "Priority query selection: getByRole > getByLabelText > getByText > getByPlaceholderText > getByTestId"
   - "ROLE_MAP for implied ARIA roles from tag names"
 
-requirements-completed: [QRY-02, QRY-03, TEST-03]
+requirements-completed: [QRY-02, QRY-03]
 
 # Metrics
 duration: 3min
@@ -90,6 +90,7 @@ None
 ## Next Phase Readiness
 
 - resolver.ts ready for JS parser fallback integration
+- Matcher selection logic exists here, but TEST-03 was only fully closed once Plan 07 wired it into generated assertions
 - All tests pass (7/7)
 - TypeScript build succeeds
 

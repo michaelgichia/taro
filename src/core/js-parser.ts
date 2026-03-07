@@ -224,6 +224,8 @@ export async function parseJsRecording(code: string): Promise<JsParseResult> {
             target: target ?? methodName,
             value: undefined,
             originalType: methodName,
+            line,
+            source: 'js',
           })
         }
       }
@@ -261,6 +263,8 @@ export async function parseJsRecording(code: string): Promise<JsParseResult> {
             target,
             value,
             originalType: methodName,
+            line,
+            source: 'js',
           })
         }
       }
@@ -280,6 +284,8 @@ export async function parseJsRecording(code: string): Promise<JsParseResult> {
             target,
             value: undefined,
             originalType: 'goto',
+            line,
+            source: 'js',
           })
         }
       }

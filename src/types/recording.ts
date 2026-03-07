@@ -1,74 +1,141 @@
 /**
- * Type definitions for Chrome Recorder exports and normalized recording steps
+ * TypeScript types for Chrome Recorder exports and normalized steps.
  */
 
-export type StepType = 
+export interface AssertedEvent {
+  type: string
+  url?: string
+  title?: string
+}
+
+export interface ChromeRecorderSettings {
+  url?: string
+  viewport?: {
+    width: number
+    height: number
+  }
+  [key: string]: unknown
+}
+
+export type NormalizedAction =
   | 'click'
   | 'fill'
   | 'select'
   | 'scroll'
   | 'assert'
+  | 'navigate'
+  | 'keyDown'
   | 'waitForSelector'
   | 'doubleClick'
-  | 'keyDown'
-  | 'navigate';
+  | 'unknown'
 
-/**
- * Chrome Recorder export format
- */
-export interface ChromeRecorderExport {
-  title: string;
-  steps: ChromeStep[];
-  settings?: {
-    url?: string;
-    viewport?: {
-      width: number;
-      height: number;
-    };
-  };
-}
+export type StepType = Exclude<NormalizedAction, 'unknown'> | (string & {})
+export type RecordingSource = 'json' | 'js'
 
-/**
- * Individual step from Chrome Recorder
- */
 export interface ChromeStep {
-  type: StepType;
-  target?: string;
-  value?: string;
-  selectors?: string[][];
+  type: StepType
+  target?: string
+  selectors?: string[][]
+  value?: string
+  key?: string
+  url?: string
+  assertedEvents?: AssertedEvent[]
   assert?: {
-    expression: string;
-  };
-  url?: string;
-  key?: string;
-  modifiedTime?: number;
+    expression: string
+  }
+  timeout?: number
+  offsetX?: number
+  offsetY?: number
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  deviceScaleFactor?: number
+  isMobile?: boolean
+  hasTouch?: boolean
+  isLandscape?: boolean
+  modifiedTime?: number
 }
 
-/**
- * Normalized step in internal format
- */
-export interface RecordingStep {
-  id: string;
-  type: StepType;
-  action: string;
-  target: string;
-  selector?: string;
-  value?: string;
-  timestamp?: number;
-  metadata?: Record<string, unknown>;
+export interface ChromeRecorderExport {
+  title?: string
+  steps: ChromeStep[]
+  settings?: ChromeRecorderSettings
 }
 
-/**
- * Normalized recording with all steps
- */
+export interface NormalizedStep {
+  action: NormalizedAction
+  target?: string
+  value?: string
+  originalType: string
+  source?: RecordingSource
+  selectors?: string[][]
+  assertedEvents?: AssertedEvent[]
+  key?: string
+  line?: number
+  offsetX?: number
+  offsetY?: number
+  x?: number
+  y?: number
+  id?: string
+  type?: StepType
+  selector?: string
+  timestamp?: number
+  metadata?: Record<string, unknown>
+}
+
+export interface RecordingStep extends NormalizedStep {
+  id: string
+  type: StepType
+  action: Exclude<NormalizedAction, 'unknown'>
+  target: string
+}
+
 export interface NormalizedRecording {
-  title: string;
-  steps: RecordingStep[];
-  url?: string;
-  settings?: ChromeRecorderExport['settings'];
+  title: string
+  steps: NormalizedStep[]
+  rawStepCount: number
+  url?: string
+  settings?: ChromeRecorderSettings
 }
 
-// --- Phase 3 additions ---
+export interface RecordingDiagnostics {
+  removedRedundantClicks: number
+  removedDoubleClickNoise: number
+  removedCursorWander: number
+  rawStepCount: number
+  filteredStepCount: number
+  intentGroupCount: number
+}
+
+export interface IntentGroup {
+  name: string
+  steps: NormalizedStep[]
+}
+
+export interface AnalyzedRecording extends NormalizedRecording {
+  diagnostics: RecordingDiagnostics
+  intentGroups: IntentGroup[]
+}
+
+export interface DialogState {
+  role: 'dialog' | 'alertdialog' | null
+  title: string | null
+  description: string | null
+  actions: string[]
+  isOpen: boolean
+}
+
+export interface VisualState {
+  capturedAt: string
+  element: ElementInfo | null
+  pageTitle: string
+  reason: string
+  screenshotPath?: string
+  selector?: string
+  url: string
+  dialog: DialogState | null
+}
 
 export type QueryQuality = 'excellent' | 'good' | 'acceptable' | 'fragile'
 
@@ -88,12 +155,13 @@ export interface QueryResult {
   query: string
   quality: QueryQuality
   method: string
+  matcher?: string
   line?: number
 }
 
 export interface ItGroup {
   name: string
-  steps: RecordingStep[]
+  steps: NormalizedStep[]
 }
 
 export interface GeneratedItBlock {

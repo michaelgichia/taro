@@ -2,25 +2,34 @@
 
 ## What This Is
 
-Taro is an agent-agnostic skill that transforms Chrome Recorder exports into production-quality React Testing Library tests. Developers record user flows in Chrome DevTools, export via the Testing Library Recorder extension, and hand it to Taro — which generates tests that reflect real user interactions while following project conventions.
+Taro is an agent-agnostic skill that transforms Chrome Recorder exports into production-quality React Testing Library tests. Developers record user flows in Chrome DevTools, export via the Testing Library Recorder extension, and hand them to Taro, which generates tests that reflect real user interactions, scores its own output, and learns project conventions over time through local `.taro/` state.
 
 ## Core Value
 
 Reduce the effort to write and maintain tests by automatically generating high-quality, codebase-aware React Testing Library tests from browser recordings, so developers spend less time testing and more time building.
 
+## Current State
+
+- **Shipped version:** v1.0 on 2026-03-07
+- **Pipeline:** Chrome Recorder JSON and Testing Library Recorder JS both flow through generation
+- **Quality layer:** scoring, post-write verification, and convention learning are active
+- **Intelligence layer:** recording cleanup, dialog-aware visual capture, and mock analysis are implemented
+- **Archive status:** v1.0 roadmap, requirements, and audit are stored in `.planning/milestones/`
+
 ## Requirements
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ Core pipeline from recorder input to generated test file output — v1.0
+- ✓ Codebase-aware query and test-design intelligence — v1.0
+- ✓ Self-scoring, post-write verification, and convention learning — v1.0
+- ✓ Recording, visual, and mock intelligence recovery — v1.0
 
 ### Active
 
-- [ ] Taro accepts a Chrome Recorder export file as input
-- [ ] Taro reads and understands the codebase conventions
-- [ ] Taro generates React Testing Library tests from recordings
 - [ ] Taro writes tests colocated with components
-- [ ] Taro maintains internal state to improve over time
+- [ ] Taro reduces harness/setup assumptions for generated JSON-path tests
+- [ ] Define the next milestone scope with `$gsd-new-milestone`
 
 ### Out of Scope
 
@@ -28,13 +37,20 @@ Reduce the effort to write and maintain tests by automatically generating high-q
 - [Real-time recording during test execution] — input is exported recordings, not live capture
 - [Test maintenance/updates] — v1 focuses on generation only
 
+## Next Milestone Goals
+
+- Default colocated test output without manual relocation
+- Stronger standalone runnability for generated JSON-path tests
+- Fresh milestone definition and requirements via the GSD milestone flow
+
 ## Context
 
-- **Input**: Chrome DevTools Recorder exports (JSON format from Testing Library Recorder extension)
-- **Target**: React/Next.js applications using React Testing Library
-- **Integration**: Single command invoked from project root (`taro generate ./recordings/flow.js`)
-- **State**: Local files in `.taro/` directory
-- **Output**: Test files written alongside components, following existing conventions
+- **Codebase size:** ~4,093 LOC TypeScript in `src/`
+- **Input:** Chrome DevTools Recorder exports (JSON) and Testing Library Recorder JS
+- **Target:** React/Next.js applications using React Testing Library
+- **Integration:** Single command invoked from project root (`taro generate ./recordings/flow.js`)
+- **State:** Local files in `.taro/` directory
+- **Archive:** v1.0 planning artifacts live in `.planning/milestones/`
 
 ## Constraints
 
@@ -47,10 +63,12 @@ Reduce the effort to write and maintain tests by automatically generating high-q
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Colocate tests with components | Matches React ecosystem best practices, easier to find | — Pending |
-| Local file state (.taro/) | No external dependencies, developer owns data | — Pending |
-| Single command interface | Simple workflow, fits agent/CI integration | — Pending |
-| Playwright for UI inspection | Already in React ecosystem, robust screenshot capabilities | — Pending |
+| Colocate tests with components | Matches React ecosystem best practices, easier to find | Pending next milestone |
+| Local file state (.taro/) | No external dependencies, developer owns data | Implemented in v1.0 |
+| Single command interface | Simple workflow, fits agent/CI integration | Implemented in v1.0 |
+| Playwright for DOM and visual inspection | Already in React ecosystem, robust screenshot/state capabilities | Implemented in v1.0 |
+| Advisory scoring instead of blocking writes | Preserve generation flow while still surfacing quality signals | Implemented in v1.0 |
+| Gap recovery via Phases 5-7 | Recover missing roadmap scope without rewriting history | Implemented in v1.0 |
 
 ---
-*Last updated: 2025-03-06 after initialization*
+*Last updated: 2026-03-07 after v1.0 milestone*

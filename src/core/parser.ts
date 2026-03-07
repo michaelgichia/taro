@@ -6,6 +6,7 @@
 
 import { readFile } from 'node:fs/promises'
 import type {
+  AssertedEvent,
   ChromeRecorderExport,
   ChromeStep,
   NormalizedAction,
@@ -18,6 +19,30 @@ function getFirstSelector(selectors?: string[][]): string | undefined {
   const first = selectors[0]
   if (!first || first.length === 0) return undefined
   return first[0]
+}
+
+function withMetadata(
+  chromeStep: ChromeStep,
+  step: Omit<NormalizedStep, 'source'>
+): NormalizedStep {
+  const metadata: Pick<
+    NormalizedStep,
+    'assertedEvents' | 'key' | 'offsetX' | 'offsetY' | 'selectors' | 'x' | 'y'
+  > = {
+    assertedEvents: chromeStep.assertedEvents as AssertedEvent[] | undefined,
+    key: chromeStep.key,
+    offsetX: chromeStep.offsetX,
+    offsetY: chromeStep.offsetY,
+    selectors: chromeStep.selectors,
+    x: chromeStep.x,
+    y: chromeStep.y,
+  }
+
+  return {
+    ...step,
+    ...metadata,
+    source: 'json',
+  }
 }
 
 export function normalizeStep(chromeStep: ChromeStep): NormalizedStep {
@@ -42,15 +67,32 @@ export function normalizeStep(chromeStep: ChromeStep): NormalizedStep {
   if (action !== undefined) {
     switch (action) {
       case 'navigate':
-        return { action, target: chromeStep.url, originalType: chromeStep.type }
+        return withMetadata(chromeStep, {
+          action,
+          target: chromeStep.url,
+          originalType: chromeStep.type,
+        })
       case 'keyDown':
-        return { action, value: chromeStep.key, originalType: chromeStep.type }
+        return withMetadata(chromeStep, {
+          action,
+          value: chromeStep.key,
+          originalType: chromeStep.type,
+        })
       case 'fill':
       case 'select':
       case 'assert':
-        return { action, target, value: chromeStep.value, originalType: chromeStep.type }
+        return withMetadata(chromeStep, {
+          action,
+          target,
+          value: chromeStep.value,
+          originalType: chromeStep.type,
+        })
       default:
-        return { action, target, originalType: chromeStep.type }
+        return withMetadata(chromeStep, {
+          action,
+          target,
+          originalType: chromeStep.type,
+        })
     }
   }
 
@@ -61,7 +103,11 @@ export function normalizeStep(chromeStep: ChromeStep): NormalizedStep {
     console.warn(`[taro] Unknown step type "${chromeStep.type}" — skipped`)
   }
 
-  return { action: 'unknown', target, originalType: chromeStep.type }
+  return withMetadata(chromeStep, {
+    action: 'unknown',
+    target,
+    originalType: chromeStep.type,
+  })
 }
 
 export async function parseRecording(filePath: string): Promise<NormalizedRecording> {

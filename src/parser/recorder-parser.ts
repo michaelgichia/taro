@@ -28,8 +28,8 @@ function generateStepId(): string {
 /**
  * Map Chrome Recorder step type to action name
  */
-function getActionName(type: StepType): string {
-  const actionMap: Record<StepType, string> = {
+function getActionName(type: StepType): RecordingStep['action'] {
+  const actionMap: Record<string, RecordingStep['action']> = {
     click: 'click',
     fill: 'fill',
     select: 'select',
@@ -40,7 +40,7 @@ function getActionName(type: StepType): string {
     keyDown: 'keyDown',
     navigate: 'navigate'
   };
-  return actionMap[type] || type;
+  return actionMap[type] || (type as RecordingStep['action']);
 }
 
 /**
@@ -65,6 +65,7 @@ function normalizeStep(step: ChromeStep, index: number): RecordingStep {
     type: step.type,
     action: getActionName(step.type),
     target: step.target || '',
+    originalType: step.type,
     selector: extractSelector(step),
     timestamp: step.modifiedTime,
     metadata: {}
@@ -97,7 +98,9 @@ function normalizeStep(step: ChromeStep, index: number): RecordingStep {
  * @param filePath - Path to Chrome Recorder JSON export
  * @returns Normalized recording with cleaned steps
  */
-export async function parseRecording(filePath: string): Promise<NormalizedRecording> {
+export async function parseRecording(
+  filePath: string
+): Promise<NormalizedRecording & { steps: RecordingStep[] }> {
   const absolutePath = resolve(process.cwd(), filePath);
   const content = await readFile(absolutePath, 'utf-8');
   
@@ -129,6 +132,7 @@ export async function parseRecording(filePath: string): Promise<NormalizedRecord
   return {
     title: exportData.title || 'Untitled Recording',
     steps,
+    rawStepCount: exportData.steps.length,
     url: exportData.settings?.url,
     settings: exportData.settings
   };

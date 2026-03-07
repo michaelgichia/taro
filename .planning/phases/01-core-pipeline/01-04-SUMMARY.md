@@ -18,6 +18,7 @@ key-decisions:
   - Used safeParse + ValidationResult instead of throwing — callers decide how to handle errors
   - passthrough() on step schema allows unknown step fields without schema rejection
   - Error paths formatted as dot-notation JSON paths for clarity
+requirements-completed: [INPT-03]
 duration: 8min
 completed: 2026-03-06
 ---

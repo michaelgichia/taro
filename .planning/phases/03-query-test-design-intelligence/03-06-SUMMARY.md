@@ -31,6 +31,8 @@ key-decisions:
   - "JS pipeline added alongside existing JSON pipeline for backward compatibility"
   - "Conventions cached in .taro/conventions.json to avoid repeated scanning"
 
+requirements-completed: [CTX-01, CTX-02, CTX-03, CTX-04, CTX-05, QRY-01, QRY-02, QRY-03, TEST-01, TEST-02]
+
 # Metrics
 duration: 2 min
 completed: 2026-03-06
@@ -38,7 +40,7 @@ completed: 2026-03-06
 
 # Phase 3 Plan 6: Wire Phase 3 Pipeline into CLI
 
-**Complete Phase 3 pipeline wired into CLI with JS file detection, conventions caching, and graceful fallback to JSON pipeline**
+**Phase 3 JS pipeline wired into CLI with context-aware query selection, grouped test generation, and one remaining matcher gap later closed in Plan 07**
 
 ## Performance
 
@@ -55,6 +57,7 @@ completed: 2026-03-06
 - Playwright-based query resolution with QRY-03 warnings for fragile selectors
 - Query quality summary printed after generation
 - JSON pipeline unchanged - full backward compatibility
+- TEST-03 matcher selection remained open at this checkpoint and was closed later in Plan 07
 
 ## Task Commits
 
@@ -72,8 +75,8 @@ completed: 2026-03-06
 None - plan executed exactly as written.
 
 ## Next Phase Readiness
-- Phase 3 complete with all 6 plans done
-- Ready for Phase 4: Self-Scoring & Learning
+- Core Phase 3 pipeline was ready for Phase 4 self-scoring work
+- TEST-03 matcher selection still required a follow-up closure plan at this point
 
 ---
 *Phase: 03-query-test-design-intelligence*
