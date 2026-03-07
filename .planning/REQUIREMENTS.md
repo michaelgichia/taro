@@ -38,15 +38,15 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Visual Intelligence
 
-- [ ] **VIS-01**: Use Playwright to screenshot UI states when needed
-- [ ] **VIS-02**: Understand multi-step dialog states
+- [x] **VIS-01**: Use Playwright to screenshot UI states when needed
+- [x] **VIS-02**: Understand multi-step dialog states
 
 ### Mock Intelligence
 
-- [ ] **MOCK-01**: Detect repeated mock targets across codebase
-- [ ] **MOCK-02**: Decide whether to inline or extract mocks
-- [ ] **MOCK-03**: Identify mutation lifecycle reimplementation
-- [ ] **MOCK-04**: Detect mock instance stability issues
+- [x] **MOCK-01**: Detect repeated mock targets across codebase
+- [x] **MOCK-02**: Decide whether to inline or extract mocks
+- [x] **MOCK-03**: Identify mutation lifecycle reimplementation
+- [x] **MOCK-04**: Detect mock instance stability issues
 
 ### Query Intelligence
 
@@ -124,12 +124,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REC-02 | Phase 5 | Complete |
 | REC-03 | Phase 5 | Complete |
 | REC-04 | Phase 5 | Complete |
-| VIS-01 | Phase 6 | Pending |
-| VIS-02 | Phase 6 | Pending |
-| MOCK-01 | Phase 6 | Pending |
-| MOCK-02 | Phase 6 | Pending |
-| MOCK-03 | Phase 6 | Pending |
-| MOCK-04 | Phase 6 | Pending |
+| VIS-01 | Phase 6 | Complete |
+| VIS-02 | Phase 6 | Complete |
+| MOCK-01 | Phase 6 | Complete |
+| MOCK-02 | Phase 6 | Complete |
+| MOCK-03 | Phase 6 | Complete |
+| MOCK-04 | Phase 6 | Complete |
 | CTX-01 | Phase 7 | Pending |
 | CTX-02 | Phase 7 | Pending |
 | CTX-03 | Phase 7 | Pending |
@@ -155,4 +155,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-06*
-*Last updated: 2026-03-07 after Phase 5 completion*
+*Last updated: 2026-03-07 after Phase 6 completion*
