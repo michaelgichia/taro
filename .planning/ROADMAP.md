@@ -127,6 +127,58 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 
 ---
 
+## Phase 5: Recording Intelligence Recovery
+
+**Goal:** Restore the missing recording-intelligence layer so Taro filters noisy recorder input and infers user intent before query generation.
+
+**Dependencies:** Phase 1 (requires working pipeline)
+
+**Requirements:**
+- REC-01, REC-02, REC-03, REC-04 (Recording Intelligence)
+
+**Gap Closure:** Closes the missing Phase 2 recording-intelligence scope and the broken noisy-recording cleanup flow identified in `v1.0-MILESTONE-AUDIT.md`.
+
+**Plans:** To be created during phase planning
+
+---
+
+## Phase 6: Visual & Mock Intelligence Recovery
+
+**Goal:** Add the missing visual- and mock-intelligence layer so generation can reason about UI states and mock strategy instead of skipping those concerns entirely.
+
+**Dependencies:** Phase 5 (restores the missing intelligence layer in order)
+
+**Requirements:**
+- VIS-01, VIS-02 (Visual Intelligence)
+- MOCK-01, MOCK-02, MOCK-03, MOCK-04 (Mock Intelligence)
+
+**Gap Closure:** Closes the missing Phase 2 visual/mock scope and the broken mock-aware generation flow identified in `v1.0-MILESTONE-AUDIT.md`.
+
+**Plans:** To be created during phase planning
+
+---
+
+## Phase 7: Verification & Traceability Reconciliation
+
+**Goal:** Reconcile milestone verification artifacts, Nyquist coverage, and requirement traceability so implemented behavior is audit-clean and the milestone can be archived honestly.
+
+**Dependencies:** Phase 6 (cleanup after implementation gaps are closed)
+
+**Requirements:**
+- INPT-01, INPT-02, INPT-03 (Core Input Processing)
+- GEN-01, GEN-02, GEN-03, GEN-04, GEN-05 (Test Generation)
+- CTX-01, CTX-02, CTX-03, CTX-04, CTX-05 (Context Awareness)
+- QRY-01, QRY-02, QRY-03 (Query Intelligence)
+- TEST-01, TEST-02, TEST-03 (Test Design Intelligence)
+- SCR-01, SCR-02, SCR-03 (Self-Scoring)
+- CNV-01, CNV-02, CNV-03 (Convention Learning)
+
+**Gap Closure:** Closes the milestone audit's partial-requirement traceability gaps, missing validation artifacts, and planning-state inconsistencies.
+
+**Plans:** To be created during phase planning
+
+---
+
 ## Progress
 
 | Phase | Goal | Requirements | Status |
@@ -135,6 +187,9 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 | 2 - Intelligence Layers | Noise filtering, visual/mock awareness | 10 | Pending |
 | 3 - Query & Test Design | Optimal queries, best practices | 11 | Complete (2026-03-07) |
 | 4 - Self-Scoring & Learning | Quality evaluation, convention learning | 6 | Complete (2026-03-07) |
+| 5 - Recording Intelligence Recovery | Restore missing REC-* scope | 4 | Pending |
+| 6 - Visual & Mock Intelligence Recovery | Restore missing VIS-* / MOCK-* scope | 6 | Pending |
+| 7 - Verification & Traceability Reconciliation | Close audit and validation gaps | 22 | Pending |
 
 **Coverage:** 37/42 requirements mapped
 
@@ -149,9 +204,9 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 
 ## Notes
 
-- Phase ordering follows research recommendations: pipeline → intelligence → quality → learning
-- Critical path runs through Phase 2 (selector transformation) as the highest-risk area
-- Phase 4 self-scoring validates all prior work, so it depends on having quality to score
+- Phases 1-4 reflect the original milestone execution order; Phases 5-7 were added after the milestone audit to close uncovered scope and verification gaps
+- Gap-closure work now proceeds in dependency order: recording recovery → visual/mock recovery → verification reconciliation
+- Original Phase 2 remains historically documented, but its missing scope is now being recovered through Phases 5 and 6
 - v2 requirements tracked separately; not in current roadmap
 
 ---

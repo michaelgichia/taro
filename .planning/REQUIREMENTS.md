@@ -62,15 +62,15 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Self-Scoring
 
-- [x] **SCR-01**: Score output against quality criteria before committing
-- [x] **SCR-02**: Run pre-write audit checkpoint
-- [x] **SCR-03**: Run post-write verification checkpoint
+- [ ] **SCR-01**: Score output against quality criteria before committing
+- [ ] **SCR-02**: Run pre-write audit checkpoint
+- [ ] **SCR-03**: Run post-write verification checkpoint
 
 ### Convention Learning
 
-- [x] **CNV-01**: Derive project conventions from observation
-- [x] **CNV-02**: Persist learned conventions for subsequent runs
-- [x] **CNV-03**: Reduce discovery time on subsequent runs
+- [ ] **CNV-01**: Derive project conventions from observation
+- [ ] **CNV-02**: Persist learned conventions for subsequent runs
+- [ ] **CNV-03**: Reduce discovery time on subsequent runs
 
 ### CLI Interface
 
@@ -110,43 +110,43 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INPT-01 | Phase 1 | Pending |
-| INPT-02 | Phase 1 | Pending |
-| INPT-03 | Phase 1 | Pending |
-| GEN-01 | Phase 1 | Pending |
-| GEN-02 | Phase 1 | Pending |
-| GEN-03 | Phase 1 | Pending |
-| GEN-04 | Phase 1 | Pending |
-| GEN-05 | Phase 1 | Pending |
+| INPT-01 | Phase 7 | Pending |
+| INPT-02 | Phase 7 | Pending |
+| INPT-03 | Phase 7 | Pending |
+| GEN-01 | Phase 7 | Pending |
+| GEN-02 | Phase 7 | Pending |
+| GEN-03 | Phase 7 | Pending |
+| GEN-04 | Phase 7 | Pending |
+| GEN-05 | Phase 7 | Pending |
 | CLI-01 | Phase 1 | Complete |
 | CLI-02 | Phase 1 | Complete |
-| REC-01 | Phase 2 | Pending |
-| REC-02 | Phase 2 | Pending |
-| REC-03 | Phase 2 | Pending |
-| REC-04 | Phase 2 | Pending |
-| VIS-01 | Phase 2 | Pending |
-| VIS-02 | Phase 2 | Pending |
-| MOCK-01 | Phase 2 | Pending |
-| MOCK-02 | Phase 2 | Pending |
-| MOCK-03 | Phase 2 | Pending |
-| MOCK-04 | Phase 2 | Pending |
-| CTX-01 | Phase 3 | Pending |
-| CTX-02 | Phase 3 | Pending |
-| CTX-03 | Phase 3 | Pending |
-| CTX-04 | Phase 3 | Pending |
-| CTX-05 | Phase 3 | Pending |
-| QRY-01 | Phase 3 | Pending |
-| QRY-02 | Phase 3 | Pending |
-| QRY-03 | Phase 3 | Pending |
-| TEST-01 | Phase 3 | Pending |
-| TEST-02 | Phase 3 | Pending |
-| TEST-03 | Phase 3 | Pending |
-| SCR-01 | Phase 4 | Complete |
-| SCR-02 | Phase 4 | Complete |
-| SCR-03 | Phase 4 | Complete |
-| CNV-01 | Phase 4 | Complete |
-| CNV-02 | Phase 4 | Complete |
-| CNV-03 | Phase 4 | Complete |
+| REC-01 | Phase 5 | Pending |
+| REC-02 | Phase 5 | Pending |
+| REC-03 | Phase 5 | Pending |
+| REC-04 | Phase 5 | Pending |
+| VIS-01 | Phase 6 | Pending |
+| VIS-02 | Phase 6 | Pending |
+| MOCK-01 | Phase 6 | Pending |
+| MOCK-02 | Phase 6 | Pending |
+| MOCK-03 | Phase 6 | Pending |
+| MOCK-04 | Phase 6 | Pending |
+| CTX-01 | Phase 7 | Pending |
+| CTX-02 | Phase 7 | Pending |
+| CTX-03 | Phase 7 | Pending |
+| CTX-04 | Phase 7 | Pending |
+| CTX-05 | Phase 7 | Pending |
+| QRY-01 | Phase 7 | Pending |
+| QRY-02 | Phase 7 | Pending |
+| QRY-03 | Phase 7 | Pending |
+| TEST-01 | Phase 7 | Pending |
+| TEST-02 | Phase 7 | Pending |
+| TEST-03 | Phase 7 | Pending |
+| SCR-01 | Phase 7 | Pending |
+| SCR-02 | Phase 7 | Pending |
+| SCR-03 | Phase 7 | Pending |
+| CNV-01 | Phase 7 | Pending |
+| CNV-02 | Phase 7 | Pending |
+| CNV-03 | Phase 7 | Pending |
 
 **Coverage:**
 - v1 requirements: 37 total
@@ -155,4 +155,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-06*
-*Last updated: 2026-03-07 after Phase 4 completion*
+*Last updated: 2026-03-07 after milestone gap planning*
