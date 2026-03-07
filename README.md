@@ -1,29 +1,94 @@
 # Taro
 
-Generate React Testing Library tests from Chrome Recorder recordings — automatically.
+Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex, then generate React Testing Library tests from Chrome Recorder recordings.
 
-## Introduction
+Taro ships as an installer-first package. The package entrypoint bootstraps runtime-native commands or skills into your agent environment, and the generated runtime surface still routes back to `taro generate` when you want Recorder-to-RTL output.
 
-Taro is a CLI tool that reads Chrome DevTools Recorder exports (JSON) and Testing Library Recorder JS files and generates RTL test files. It scores its own output, learns your project's test conventions from existing files, and stores per-project state in a local `.taro/` directory. No server, no cloud — just files.
+## Getting Started
 
-### Who it is for
+```bash
+npx @tayo-dev/rtl@latest
+```
 
-- React developers who write tests with `@testing-library/react`
-- Developers who use Chrome DevTools Recorder to capture user flows
-- Teams that want test coverage without spending hours writing boilerplate
+The installer prompts you to choose:
 
-### The problem it solves
+1. **Runtime** — Claude Code, OpenCode, Gemini CLI, Codex, or all
+2. **Location** — Global (all projects) or local (current project only)
 
-Recording a user flow in Chrome takes 30 seconds. Translating that recording into a well-structured RTL test takes 20–40 minutes and requires knowing which queries to use, how to assert, and how to match your project's test conventions. Taro closes that gap.
+Verify the install with the runtime-native help command:
 
-### How it works
+- Claude Code: `/@tayo-dev/rtl:help`
+- Gemini CLI: `/@tayo-dev/rtl:help`
+- OpenCode: `/@tayo-dev/rtl-help`
+- Codex: `$@tayo-dev/rtl-help`
 
-1. Record a user flow in Chrome DevTools → Recorder panel.
-2. Export via the Testing Library Recorder extension (`.js`) or as native Chrome Recorder JSON (`.json`).
-3. Run `taro generate ./recording.js`.
-4. Taro writes a `.test.tsx` file next to your recording, scored and convention-aware.
+> [!NOTE]
+> Codex installation uses skills under `skills/@tayo-dev/rtl-*/SKILL.md`, not prompt files.
 
-## Quick Start
+## Staying Updated
+
+Re-run the installer package to refresh owned assets and repair missing ones:
+
+```bash
+npx @tayo-dev/rtl@latest
+```
+
+Taro refreshes unchanged owned files automatically, restores missing owned files, and protects manual edits instead of overwriting them silently.
+
+## Non-interactive Install
+
+Use runtime flags plus exactly one location flag to skip prompts:
+
+```bash
+# Claude Code
+npx @tayo-dev/rtl@latest --claude --global
+npx @tayo-dev/rtl@latest --claude --local
+
+# OpenCode
+npx @tayo-dev/rtl@latest --opencode --global
+npx @tayo-dev/rtl@latest --opencode --local
+
+# Gemini CLI
+npx @tayo-dev/rtl@latest --gemini --global
+npx @tayo-dev/rtl@latest --gemini --local
+
+# Codex
+npx @tayo-dev/rtl@latest --codex --global
+npx @tayo-dev/rtl@latest --codex --local
+
+# All runtimes
+npx @tayo-dev/rtl@latest --all --global
+npx @tayo-dev/rtl@latest --all --local
+```
+
+Local installs write to hidden runtime directories in the current project:
+
+- Claude Code: `./.claude/`
+- OpenCode: `./.opencode/`
+- Gemini CLI: `./.gemini/`
+- Codex: `./.codex/`
+
+## Development Installation
+
+When you want to test the installer from a local checkout instead of the published package:
+
+```bash
+# Build the CLI
+npm run build
+
+# Exercise the installer from the built package entrypoint
+node dist/index.js --all --local
+
+# Or verify the publish boundary with a tarball
+env NPM_CONFIG_CACHE=/tmp/taro-npm-cache npm pack --pack-destination /tmp/taro-pack
+npx /tmp/taro-pack/tayo-dev-rtl-1.0.0.tgz --codex --local
+```
+
+The tarball flow is the closest match to what end users get from npm.
+
+## Generate RTL Tests
+
+After installation, use `taro generate` directly or call the runtime-native installed command/skill that routes to it.
 
 ### Prerequisites
 
@@ -31,43 +96,29 @@ Recording a user flow in Chrome takes 30 seconds. Translating that recording int
 - A React project using `@testing-library/react`
 - Chrome DevTools Recorder (built into Chrome — no extension needed for JSON exports)
 
-### Step 1 — Install
+### Record a user flow
+
+Open Chrome DevTools → Recorder panel → click "Start new recording" → perform your user flow → click "End recording". Then either:
+
+- Export as JSON and save as `recording.json`
+- Export via Testing Library Recorder extension and save as `recording.js`
+
+### Generate the test
 
 ```bash
-npm install --save-dev @tayo-dev/rtl
-# or use npx to skip install entirely
-npx @tayo-dev/rtl generate ./my-recording.js
-```
-
-### Step 2 — Record a user flow
-
-Open Chrome DevTools → Recorder panel → click "Start new recording" → perform your user flow (clicks, form fills, navigation) → click "End recording". Then either:
-
-- Export as JSON: click the export button → "JSON" → save as `recording.json`
-- Export via Testing Library Recorder extension: install the extension, click its export button, save as `recording.js`
-
-### Step 3 — Generate the test
-
-```bash
-# Using npx (no install required)
-npx @tayo-dev/rtl generate ./recording.js
-
-# Or if installed globally
 taro generate ./recording.js
 ```
 
 Expected output:
 
-```
+```text
 Parsed: my user flow — 8 steps
 [taro] Score: 78/100 (B) — query: 80, assertions: 70, structure: 85
 Created: src/components/MyComponent.test.tsx
 [taro] ✓ post-write verified
 ```
 
-### What happens next
-
-Taro writes a `.test.tsx` file. On subsequent runs in the same project, it reads `.taro/conventions.json` to match your test style (import style, mock pattern, folder structure) automatically.
+On subsequent runs in the same project, Taro reads `.taro/conventions.json` to match your test style automatically.
 
 ## CLI Reference
 
@@ -185,59 +236,11 @@ describe('login flow', () => {
 
 > **Note:** The component import path (`../LoginPage`) is a placeholder. Taro generates a comment in the file indicating where to update it.
 
-## Using Taro as a Claude Code Skill
+## Agent Usage
 
-### Overview
+After installation, each runtime gets a namespaced help entrypoint plus a generate command or skill that routes back to `taro generate`.
 
-Taro works naturally as a Claude Code skill. You can instruct Claude to run `taro generate` on a recording file and it will generate the test, report the score, and surface any quality hints — all in a single agent turn.
-
-### Option A: Direct invocation (no setup required)
-
-Claude Code can invoke Taro directly using the Bash tool. No skill configuration is needed — Claude calls npx inline. Simply give Claude a prompt like:
-
-```
-Run: npx @tayo-dev/rtl generate ./recordings/checkout-flow.js
-Then report the score and the path of the generated file.
-```
-
-### Option B: Register as a Claude Code skill
-
-Registering Taro as a skill lets Claude invoke it by name without knowing the full command.
-
-**Step 1** — Create the skill file at `.claude/skills/taro/SKILL.md` in your project:
-
-```markdown
-# Taro — RTL Test Generator
-
-## Purpose
-Generate a React Testing Library test from a Chrome Recorder export.
-
-## Invocation
-Run: taro generate <recording-file>
-
-## Flags
-- `--dry-run` (-d): Preview the generated test without writing to disk
-- `--output <path>` (-o): Override the output file path
-- `--force` (-f): Overwrite an existing test file
-
-## Output
-Writes `{recording-name}.test.tsx` next to the recording file.
-Reports score (0-100) and any quality hints.
-```
-
-**Step 2** — Ensure Taro is installed in the project:
-
-```bash
-npm install --save-dev @tayo-dev/rtl
-```
-
-**Step 3** — Ask Claude to use the skill:
-
-```
-Use the taro skill to generate a test from ./recordings/login-flow.js
-```
-
-### Tips for agent use
+### Tips
 
 - Use `--dry-run` first to preview output before committing generated files
 - If you record multiple flows, run Taro on each to build up convention state in `.taro/conventions.json` — later runs benefit from earlier ones

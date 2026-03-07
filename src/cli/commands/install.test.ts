@@ -58,16 +58,16 @@ describe('runInstallCommand', () => {
 
     expect(process.exitCode).toBeUndefined()
     expect(output).toContain('Install complete.')
-    expect(output).toContain('/@tayo-dev/rtl:help')
-    expect(output).toContain('/@tayo-dev/rtl-help')
-    expect(output).toContain('$@tayo-dev/rtl-help')
+    expect(output).toContain('/@tayo-dev/rtl:help (verified at')
+    expect(output).toContain('/@tayo-dev/rtl-help (verified at')
+    expect(output).toContain('$@tayo-dev/rtl-help (verified at')
 
     await expect(
       readFile(join(sandbox.home, '.codex', 'skills', '@tayo-dev', 'rtl-help', 'SKILL.md'), 'utf8')
     ).resolves.toContain('$@tayo-dev/rtl-help')
   })
 
-  it('reports replace confirmation requirements on rerun in non-interactive mode', async () => {
+  it('reports update results on rerun in non-interactive mode', async () => {
     const sandbox = await createSandbox('replace')
     const firstRun = createLogger()
     const secondRun = createLogger()
@@ -94,7 +94,41 @@ describe('runInstallCommand', () => {
 
     const output = secondRun.logs.join('\n')
 
-    expect(process.exitCode).toBe(1)
-    expect(output).toContain('replace confirmation required')
+    expect(process.exitCode).toBeUndefined()
+    expect(output).toContain('updated 2 owned asset(s)')
+  })
+
+  it('reports repaired outcomes when a rerun restores a missing owned asset', async () => {
+    const sandbox = await createSandbox('repair')
+    const firstRun = createLogger()
+    const secondRun = createLogger()
+
+    await runInstallCommand(
+      { gemini: true, global: true },
+      {
+        cwd: sandbox.cwd,
+        home: sandbox.home,
+        logger: firstRun.logger,
+      }
+    )
+
+    await rm(join(sandbox.home, '.gemini', 'commands', '@tayo-dev', 'rtl', 'help.toml'), {
+      force: true,
+    })
+    process.exitCode = undefined
+
+    await runInstallCommand(
+      { gemini: true, global: true },
+      {
+        cwd: sandbox.cwd,
+        home: sandbox.home,
+        logger: secondRun.logger,
+      }
+    )
+
+    const output = secondRun.logs.join('\n')
+
+    expect(process.exitCode).toBeUndefined()
+    expect(output).toContain('repaired 2 owned asset(s)')
   })
 })

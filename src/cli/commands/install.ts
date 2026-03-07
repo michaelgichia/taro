@@ -10,7 +10,6 @@ import { buildInstallPlan } from '../../install/planner.js'
 import { promptForInstallChoices } from '../../install/prompts.js'
 import {
   confirmInstallPlan,
-  confirmInstallReplacement,
   renderInstallCancelledMessage,
   renderInstallExecutionResult,
   renderInstallSummary,
@@ -92,12 +91,7 @@ export async function runInstallCommand(
       }
     }
 
-    const result = await executeInstallPlan(plan, {
-      confirmReplace:
-        selection.mode === 'interactive'
-          ? (request) => confirmInstallReplacement(request, context.promptIO)
-          : undefined,
-    })
+    const result = await executeInstallPlan(plan)
 
     logger.log(renderInstallExecutionResult(result))
 

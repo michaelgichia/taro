@@ -23,6 +23,8 @@ export interface WriteInstallPlanOptions {
   generatedAt?: string
 }
 
+type WriteAction = 'created' | 'updated' | 'repaired'
+
 async function readOwnershipManifest(
   manifestPath: string
 ): Promise<InstallOwnershipManifest | null> {
@@ -49,6 +51,7 @@ export async function writeInstallPlan(
   const manifestPath = join(target.destinationDirectory, target.ownershipMarkerFileName)
   const manifest = await readOwnershipManifest(manifestPath)
   const conflicts: InstallAssetConflict[] = []
+  const writeActions = new Map<string, WriteAction>()
 
   for (const operation of target.operations) {
     let existingContent: string | null = null
@@ -71,7 +74,16 @@ export async function writeInstallPlan(
 
     if (conflict.kind !== 'missing') {
       conflicts.push(conflict)
+      if (conflict.kind === 'installer-owned') {
+        writeActions.set(operation.targetPath, 'updated')
+      }
+      continue
     }
+
+    const ownedFileExists = Boolean(
+      manifest?.files.find((file) => file.relativePath === operation.relativeDestinationPath)
+    )
+    writeActions.set(operation.targetPath, ownedFileExists ? 'repaired' : 'created')
   }
 
   if (
@@ -91,27 +103,6 @@ export async function writeInstallPlan(
       writtenFiles: [],
       manifestPath,
       conflicts,
-    }
-  }
-
-  const replaceConflicts = conflicts.filter((conflict) => conflict.kind === 'installer-owned')
-  if (replaceConflicts.length > 0) {
-    const confirmed = options.confirmReplace
-      ? await options.confirmReplace({ target, conflicts: replaceConflicts })
-      : false
-
-    if (!confirmed) {
-      return {
-        runtime: target.id,
-        displayName: target.displayName,
-        location: target.location,
-        destinationDirectory: target.destinationDirectory,
-        verificationCommand: target.verificationCommand,
-        status: 'requires-replace-confirmation',
-        writtenFiles: [],
-        manifestPath,
-        conflicts,
-      }
     }
   }
 
@@ -143,13 +134,17 @@ export async function writeInstallPlan(
   await mkdir(dirname(manifestPath), { recursive: true })
   await writeFile(`${manifestPath}`, `${JSON.stringify(ownershipManifest, null, 2)}\n`)
 
+  const actionSet = new Set(writeActions.values())
+  const status =
+    actionSet.has('repaired') ? 'repaired' : actionSet.has('updated') ? 'updated' : 'installed'
+
   return {
     runtime: target.id,
     displayName: target.displayName,
     location: target.location,
     destinationDirectory: target.destinationDirectory,
     verificationCommand: target.verificationCommand,
-    status: 'installed',
+    status,
     writtenFiles,
     manifestPath,
     conflicts,

@@ -8,7 +8,6 @@ import type {
   InstallPlan,
   ResolvedInstallTarget,
 } from './types.js'
-import type { ReplaceConfirmationRequest } from './writer.js'
 
 interface PromptIO {
   input?: typeof stdin
@@ -81,56 +80,31 @@ export function renderInstallCancelledMessage(): string {
   return 'Install cancelled. Nothing changed.'
 }
 
-async function confirmWithPrompt(
-  question: string,
-  io: PromptIO = { input: stdin, output: stdout }
-): Promise<boolean> {
-  const rl = createInterface({
-    input: io.input ?? stdin,
-    output: io.output ?? stdout,
-  })
-
-  try {
-    while (true) {
-      const answer = await rl.question(question)
-      const normalized = answer.trim().toLowerCase()
-
-      if (normalized === '' || normalized === 'n' || normalized === 'no') {
-        return false
-      }
-
-      if (normalized === 'y' || normalized === 'yes') {
-        return true
-      }
-
-      console.log(pc.yellow('Answer `y` to continue or `n` to cancel.'))
-    }
-  } finally {
-    rl.close()
-  }
-}
-
-export async function confirmInstallReplacement(
-  request: ReplaceConfirmationRequest,
-  io: PromptIO = { input: stdin, output: stdout }
-): Promise<boolean> {
-  return confirmWithPrompt(
-    `Replace ${request.conflicts.length} existing ${request.target.displayName} asset(s)? [y/N]: `,
-    io
-  )
-}
-
 function renderResultLine(target: InstallExecutionResult['targets'][number]): string {
   if (target.status === 'installed') {
     return `- ${target.displayName}: wrote ${target.writtenFiles.length} asset(s) to ${target.destinationDirectory} (${target.verificationCommand})`
   }
 
-  if (target.status === 'requires-replace-confirmation') {
-    return `- ${target.displayName}: replace confirmation required for ${target.conflicts.length} existing asset(s)`
+  if (target.status === 'updated') {
+    return `- ${target.displayName}: updated ${target.writtenFiles.length} owned asset(s) in ${target.destinationDirectory} (${target.verificationCommand})`
+  }
+
+  if (target.status === 'repaired') {
+    return `- ${target.displayName}: repaired ${target.writtenFiles.length} owned asset(s) in ${target.destinationDirectory} (${target.verificationCommand})`
   }
 
   const blockedReasons = target.conflicts
-    .map((conflict) => `${conflict.kind} at ${conflict.targetPath}`)
+    .map((conflict) => {
+      if (conflict.kind === 'installer-owned-modified') {
+        return `protected manual edit at ${conflict.targetPath}`
+      }
+
+      if (conflict.kind === 'external-collision') {
+        return `external collision at ${conflict.targetPath}`
+      }
+
+      return `${conflict.kind} at ${conflict.targetPath}`
+    })
     .join('; ')
 
   return `- ${target.displayName}: blocked by ${blockedReasons}`
@@ -145,11 +119,21 @@ export function renderInstallExecutionResult(result: InstallExecutionResult): st
         : pc.red('Install blocked.')
 
   const verificationLines = result.targets
-    .filter((target) => target.status === 'installed')
-    .map((target) => `- ${target.displayName}: ${target.verificationCommand}`)
+    .filter((target) => target.status !== 'blocked')
+    .map((target) => {
+      if (target.verification?.status === 'verified') {
+        return `- ${target.displayName}: ${target.verificationCommand} (verified at ${target.verification.checkedPath})`
+      }
+
+      if (target.verification?.status === 'missing-installed-assets') {
+        return `- ${target.displayName}: ${target.verificationCommand} (missing ${target.verification.missingPaths.join(', ')})`
+      }
+
+      return `- ${target.displayName}: ${target.verificationCommand} (verification metadata missing)`
+    })
 
   const manifestLines = result.targets
-    .filter((target) => target.status === 'installed' && target.manifestPath)
+    .filter((target) => target.status !== 'blocked' && target.manifestPath)
     .map((target) => `- ${target.displayName}: ${target.manifestPath}`)
 
   return [

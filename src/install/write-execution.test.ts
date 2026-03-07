@@ -88,7 +88,7 @@ describe('executeInstallPlan', () => {
 })
 
 describe('writeInstallPlan conflict handling', () => {
-  it('requires replace confirmation before overwriting unchanged installer-owned assets', async () => {
+  it('refreshes unchanged installer-owned assets on rerun without manual cleanup', async () => {
     const { cwd, home } = await createSandbox('replace-confirm')
     const plan = buildInstallPlan(createSelection(['claude'], 'global'), { cwd, home })
     const target = plan.targets[0]!
@@ -96,13 +96,22 @@ describe('writeInstallPlan conflict handling', () => {
     await writeInstallPlan(target, { generatedAt: FIXED_GENERATED_AT })
 
     const secondPass = await writeInstallPlan(target, { generatedAt: FIXED_GENERATED_AT })
-    expect(secondPass.status).toBe('requires-replace-confirmation')
+    expect(secondPass.status).toBe('updated')
+  })
 
-    const thirdPass = await writeInstallPlan(target, {
-      generatedAt: FIXED_GENERATED_AT,
-      confirmReplace: async () => true,
-    })
-    expect(thirdPass.status).toBe('installed')
+  it('repairs missing owned assets when the manifest proves ownership', async () => {
+    const { cwd, home } = await createSandbox('repair-missing')
+    const plan = buildInstallPlan(createSelection(['gemini'], 'global'), { cwd, home })
+    const target = plan.targets[0]!
+    const helpPath = join(home, '.gemini', 'commands', '@tayo-dev', 'rtl', 'help.toml')
+
+    await writeInstallPlan(target, { generatedAt: FIXED_GENERATED_AT })
+    await rm(helpPath, { force: true })
+
+    const result = await writeInstallPlan(target, { generatedAt: FIXED_GENERATED_AT })
+
+    expect(result.status).toBe('repaired')
+    await expect(readFile(helpPath, 'utf8')).resolves.toContain('/@tayo-dev/rtl:help')
   })
 
   it('protects user-edited installer assets instead of overwriting them', async () => {
@@ -114,10 +123,7 @@ describe('writeInstallPlan conflict handling', () => {
     await writeInstallPlan(target, { generatedAt: FIXED_GENERATED_AT })
     await writeFile(helpPath, 'manual edit\n')
 
-    const result = await writeInstallPlan(target, {
-      generatedAt: FIXED_GENERATED_AT,
-      confirmReplace: async () => true,
-    })
+    const result = await writeInstallPlan(target, { generatedAt: FIXED_GENERATED_AT })
 
     expect(result.status).toBe('blocked')
     expect(result.conflicts.map((conflict) => conflict.kind)).toContain('installer-owned-modified')

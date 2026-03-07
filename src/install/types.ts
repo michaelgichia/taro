@@ -84,6 +84,13 @@ export interface PlannedInstallTarget extends ResolvedInstallTarget {
   operations: InstallFileOperation[]
 }
 
+export interface RuntimeVerificationResult {
+  verificationCommand: string
+  status: 'verified' | 'missing-entrypoint' | 'missing-installed-assets'
+  checkedPath?: string
+  missingPaths: string[]
+}
+
 export interface InstallOwnershipManifest {
   packageName: '@tayo-dev/rtl'
   runtime: RuntimeTarget
@@ -119,10 +126,11 @@ export interface RuntimeInstallResult {
   location: InstallLocation
   destinationDirectory: string
   verificationCommand: string
-  status: 'installed' | 'requires-replace-confirmation' | 'blocked'
+  status: 'installed' | 'updated' | 'repaired' | 'blocked'
   writtenFiles: string[]
   manifestPath?: string
   conflicts: InstallAssetConflict[]
+  verification?: RuntimeVerificationResult
 }
 
 export interface InstallExecutionResult {
