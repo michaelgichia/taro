@@ -119,11 +119,11 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 
 **Phase Verification:** Taro produces progressively better tests on subsequent runs, matching project style
 
-**Plans:** 4 plans
-- [ ] 04-01-PLAN.md — Score types and scorer implementation
-- [ ] 04-02-PLAN.md — Post-write verifier using @babel/parser
-- [ ] 04-03-PLAN.md — Scanner exports for convention learning
-- [ ] 04-04-PLAN.md — Pipeline integration (pre-write audit, post-write verification, history, conventions)
+**Plans:** 4/4 plans complete
+- [x] 04-01-PLAN.md — Score types and scorer implementation
+- [x] 04-02-PLAN.md — Post-write verifier using @babel/parser
+- [x] 04-03-PLAN.md — Scanner exports for convention learning
+- [x] 04-04-PLAN.md — Pipeline integration (pre-write audit, post-write verification, history, conventions)
 
 ---
 
@@ -131,10 +131,10 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
-| 1 - Core Pipeline | 2/6 | Complete    | 2026-03-06 |
+| 1 - Core Pipeline | CLI, parsing, and generation foundation | 10 | Complete (2026-03-06) |
 | 2 - Intelligence Layers | Noise filtering, visual/mock awareness | 10 | Pending |
-| 3 - Query & Test Design | Optimal queries, best practices | 11 | Planning complete |
-| 4 - Self-Scoring & Learning | Quality evaluation, convention learning | 6 | Pending |
+| 3 - Query & Test Design | Optimal queries, best practices | 11 | Complete (2026-03-07) |
+| 4 - Self-Scoring & Learning | Quality evaluation, convention learning | 6 | Complete (2026-03-07) |
 
 **Coverage:** 37/42 requirements mapped
 
@@ -156,4 +156,4 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 
 ---
 
-*Last updated: 2026-03-06*
+*Last updated: 2026-03-07*

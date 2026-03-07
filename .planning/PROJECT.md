@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Taro is an agent-agnostic skill that transforms Chrome Recorder exports into production-quality React Testing Library tests. Developers record user flows in Chrome DevTools, export via the Testing Library Recorder extension, and hand it to Taro — which generates tests that reflect real user interactions while following project conventions.
+Taro is an agent-agnostic skill that transforms Chrome Recorder exports into production-quality React Testing Library tests. Developers record user flows in Chrome DevTools, export via the Testing Library Recorder extension, and hand it to Taro — which generates tests that reflect real user interactions, scores its own output, and learns project conventions over time through local `.taro/` state.
 
 ## Core Value
 
@@ -12,15 +12,14 @@ Reduce the effort to write and maintain tests by automatically generating high-q
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ Taro accepts a Chrome Recorder export file as input — Phases 1-4
+- ✓ Taro reads and understands the codebase conventions — Phases 3-4
+- ✓ Taro generates React Testing Library tests from recordings — Phases 1-4
+- ✓ Taro maintains internal state to improve over time — Phase 4
 
 ### Active
 
-- [ ] Taro accepts a Chrome Recorder export file as input
-- [ ] Taro reads and understands the codebase conventions
-- [ ] Taro generates React Testing Library tests from recordings
 - [ ] Taro writes tests colocated with components
-- [ ] Taro maintains internal state to improve over time
 
 ### Out of Scope
 
@@ -48,9 +47,9 @@ Reduce the effort to write and maintain tests by automatically generating high-q
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Colocate tests with components | Matches React ecosystem best practices, easier to find | — Pending |
-| Local file state (.taro/) | No external dependencies, developer owns data | — Pending |
-| Single command interface | Simple workflow, fits agent/CI integration | — Pending |
-| Playwright for UI inspection | Already in React ecosystem, robust screenshot capabilities | — Pending |
+| Local file state (.taro/) | No external dependencies, developer owns data | Implemented across Phases 3-4 |
+| Single command interface | Simple workflow, fits agent/CI integration | Implemented in Phase 1 |
+| Playwright for UI inspection | Already in React ecosystem, robust screenshot capabilities | Implemented in Phase 3 |
 
 ---
-*Last updated: 2025-03-06 after initialization*
+*Last updated: 2026-03-07 after Phase 4*

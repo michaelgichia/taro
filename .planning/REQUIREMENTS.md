@@ -62,15 +62,15 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Self-Scoring
 
-- [ ] **SCR-01**: Score output against quality criteria before committing
-- [ ] **SCR-02**: Run pre-write audit checkpoint
-- [ ] **SCR-03**: Run post-write verification checkpoint
+- [x] **SCR-01**: Score output against quality criteria before committing
+- [x] **SCR-02**: Run pre-write audit checkpoint
+- [x] **SCR-03**: Run post-write verification checkpoint
 
 ### Convention Learning
 
-- [ ] **CNV-01**: Derive project conventions from observation
-- [ ] **CNV-02**: Persist learned conventions for subsequent runs
-- [ ] **CNV-03**: Reduce discovery time on subsequent runs
+- [x] **CNV-01**: Derive project conventions from observation
+- [x] **CNV-02**: Persist learned conventions for subsequent runs
+- [x] **CNV-03**: Reduce discovery time on subsequent runs
 
 ### CLI Interface
 
@@ -141,12 +141,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TEST-01 | Phase 3 | Pending |
 | TEST-02 | Phase 3 | Pending |
 | TEST-03 | Phase 3 | Pending |
-| SCR-01 | Phase 4 | Pending |
-| SCR-02 | Phase 4 | Pending |
-| SCR-03 | Phase 4 | Pending |
-| CNV-01 | Phase 4 | Pending |
-| CNV-02 | Phase 4 | Pending |
-| CNV-03 | Phase 4 | Pending |
+| SCR-01 | Phase 4 | Complete |
+| SCR-02 | Phase 4 | Complete |
+| SCR-03 | Phase 4 | Complete |
+| CNV-01 | Phase 4 | Complete |
+| CNV-02 | Phase 4 | Complete |
+| CNV-03 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 37 total
@@ -155,4 +155,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-06*
-*Last updated: 2026-03-06 after roadmap creation*
+*Last updated: 2026-03-07 after Phase 4 completion*
