@@ -4,7 +4,7 @@
 
 - ✅ **v1.0 Taro v1.0** — shipped 2026-03-07. See [roadmap archive](./milestones/v1.0-ROADMAP.md), [requirements archive](./milestones/v1.0-REQUIREMENTS.md), and [audit](./milestones/v1.0-MILESTONE-AUDIT.md).
 - ✅ **v1.1 Documentation & Deployment** — shipped 2026-03-07
-- ◆ **v1.2 Runtime Installer Distribution** — requirements defined 2026-03-07
+- ◐ **v1.2 Runtime Installer Distribution** — execution started 2026-03-07
 
 ## Phases
 
@@ -22,11 +22,11 @@ See [v1.0 roadmap archive](./milestones/v1.0-ROADMAP.md) for full phase details.
 - [x] **Phase 8: README Documentation** - Comprehensive public-facing README covering what Taro is, how to install it, and how to use it (completed 2026-03-07)
 - [x] **Phase 9: Package & Publish** - Package fields, build verification, and npm publish so `npx @tayo-dev/rtl generate` works out of the box (completed 2026-03-07)
 
-### ◆ v1.2 Runtime Installer Distribution (Not Started)
+### ◐ v1.2 Runtime Installer Distribution (In Progress)
 
 **Milestone Goal:** Make `@tayo-dev/rtl` install like a runtime-native agent package so users can bootstrap Taro into Claude Code, OpenCode, Gemini CLI, or Codex from one command.
 
-- [ ] **Phase 10: Installer Core & Package Entry** - Create the installer entrypoint, interactive/non-interactive selection flow, and installation plan model
+- [ ] **Phase 10: Installer Core & Package Entry** - Create the installer entrypoint, interactive/non-interactive selection flow, and installation plan model (in progress: 1/3 plans complete)
 - [ ] **Phase 11: Runtime Targets & Asset Delivery** - Install runtime-specific prompts/commands/skills for Claude Code, OpenCode, Gemini CLI, and Codex
 - [ ] **Phase 12: Verification, Updates & Release Docs** - Make reruns/update flows safe, verify installed assets, and document the release-ready onboarding path
 
@@ -41,7 +41,10 @@ See [v1.0 roadmap archive](./milestones/v1.0-ROADMAP.md) for full phase details.
   2. The installer can accept `--claude`, `--opencode`, `--gemini`, `--codex`, `--all`, `--global`, and `--local` combinations without prompting
   3. Global vs local destination resolution is modeled explicitly and can be previewed or summarized before writes occur
   4. `@tayo-dev/rtl` remains the only documented installer package; no secondary umbrella package is required
-**Plans**: Not yet created
+**Plans**:
+- [x] 10-01 - Installer-first root CLI and explicit `install` command
+- [ ] 10-02 - Runtime-first interactive flow and non-interactive flag normalization
+- [ ] 10-03 - Install-plan model, prewrite summary, and confirmation flow
 
 ### Phase 11: Runtime Targets & Asset Delivery
 **Goal**: Each supported runtime receives the correct packaged assets and a working runtime-native help entrypoint
@@ -76,6 +79,6 @@ Phases execute in numeric order: 10 → 11 → 12
 | 1-7. v1.0 Phases | v1.0 | Complete | Complete | 2026-03-07 |
 | 8. README Documentation | v1.1 | 2/2 | Complete | 2026-03-07 |
 | 9. Package & Publish | v1.1 | 2/2 | Complete | 2026-03-07 |
-| 10. Installer Core & Package Entry | v1.2 | 0/0 | Not Started | — |
+| 10. Installer Core & Package Entry | v1.2 | 1/3 | In Progress | — |
 | 11. Runtime Targets & Asset Delivery | v1.2 | 0/0 | Not Started | — |
 | 12. Verification, Updates & Release Docs | v1.2 | 0/0 | Not Started | — |
