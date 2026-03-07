@@ -25,6 +25,7 @@ import {
 } from '../../core/scanner.js'
 import { generateTestFromGroups, emitQuerySummary } from '../../core/generator.js'
 import type { QueryResult } from '../../types/recording.js'
+import type { HistoryEntry, ScoreResult } from '../../types/score.js'
 
 export interface GenerateOptions {
   output?: string
@@ -38,6 +39,105 @@ function deriveOutputPath(inputPath: string): string {
   return join(dir, `${name}.test.tsx`)
 }
 
+function logScore(scoreResult: ScoreResult): void {
+  console.log(
+    pc.dim('[taro]') +
+      ` Score: ${scoreResult.total}/100 (${scoreResult.grade}) — ` +
+      `query: ${scoreResult.dimensions.queryQuality}, ` +
+      `assertions: ${scoreResult.dimensions.assertionSpecificity}, ` +
+      `structure: ${scoreResult.dimensions.testStructure}`
+  )
+}
+
+function emitScoreHints(
+  scoreResult: ScoreResult,
+  queryResults: QueryResult[] = []
+): void {
+  if (scoreResult.dimensions.queryQuality < 60) {
+    const testIdCount = queryResults.filter((queryResult) => {
+      return queryResult.method === 'getByTestId'
+    }).length
+    console.log(
+      pc.yellow(
+        `[taro] Tip: ${testIdCount} getByTestId queries — consider adding aria-label`
+      )
+    )
+  }
+
+  if (scoreResult.dimensions.assertionSpecificity < 60) {
+    console.log(
+      pc.yellow(
+        '[taro] Tip: Add specific matchers like toHaveValue() for better assertions'
+      )
+    )
+  }
+
+  if (scoreResult.dimensions.testStructure < 60) {
+    console.log(
+      pc.yellow(
+        '[taro] Tip: Split into multiple it() blocks for better test organization'
+      )
+    )
+  }
+}
+
+async function appendHistoryEntry(
+  projectRoot: string,
+  historyEntry: HistoryEntry
+): Promise<void> {
+  const taroDir = join(projectRoot, '.taro')
+  await mkdir(taroDir, { recursive: true })
+
+  const historyPath = join(taroDir, 'history.json')
+  let history: HistoryEntry[] = []
+
+  try {
+    await access(historyPath)
+    const historyContent = await readFile(historyPath, 'utf-8')
+    history = JSON.parse(historyContent) as HistoryEntry[]
+  } catch {
+    history = []
+  }
+
+  history.push(historyEntry)
+  await writeFile(historyPath, JSON.stringify(history, null, 2), 'utf-8')
+}
+
+async function finalizeGeneratedOutput(params: {
+  code: string
+  outputPath: string
+  projectRoot: string
+  recordingFile: string
+  scoreResult: ScoreResult
+}): Promise<void> {
+  const { code, outputPath, projectRoot, recordingFile, scoreResult } = params
+
+  const verification = verifySyntax(code, outputPath)
+  if (!verification.valid) {
+    console.error(pc.red('[taro] Error: Post-write verification failed'))
+    console.error(pc.red(`  ${verification.error}`))
+    console.error(pc.red('  This is a Taro bug. Please report it.'))
+    process.exit(1)
+  }
+
+  console.log(pc.green('[taro] ✓ post-write verified'))
+
+  await appendHistoryEntry(projectRoot, {
+    timestamp: new Date().toISOString(),
+    recordingFile,
+    score: scoreResult.total,
+    grade: scoreResult.grade,
+    dimensions: scoreResult.dimensions,
+  })
+
+  try {
+    const detectedConventions = await analyzeSingleTestFile(projectRoot, outputPath)
+    await mergeConventions(projectRoot, detectedConventions)
+  } catch {
+    // Convention learning is best-effort, do not fail generation.
+  }
+}
+
 export function createGenerateCommand(): Command {
   const generate = new Command('generate')
 
@@ -49,6 +149,7 @@ export function createGenerateCommand(): Command {
     .option('-f, --force', 'Overwrite existing test file', false)
     .action(async (file: string, options: GenerateOptions) => {
       const filePath = resolve(file)
+      const projectRoot = cwd()
 
       // 1. Verify file is accessible
       try {
@@ -76,7 +177,6 @@ export function createGenerateCommand(): Command {
 
       if (isJsFormat) {
         // Step 1: Context scan (CTX-01–05)
-        const projectRoot = cwd()
         let conventions = await readConventions(projectRoot)
         if (!conventions) {
           console.log(pc.dim('[taro]') + ' Scanning project conventions...')
@@ -147,41 +247,8 @@ export function createGenerateCommand(): Command {
 
         // Pre-write audit: compute score before writing
         const scoreResult = scoreGeneratedTest(generated.code, queryResults)
-
-        console.log(
-          pc.dim('[taro]') +
-            ` Score: ${scoreResult.total}/100 (${scoreResult.grade}) — ` +
-            `query: ${scoreResult.dimensions.queryQuality}, ` +
-            `assertions: ${scoreResult.dimensions.assertionSpecificity}, ` +
-            `structure: ${scoreResult.dimensions.testStructure}`
-        )
-
-        if (scoreResult.dimensions.queryQuality < 60) {
-          const testIdCount = queryResults.filter((queryResult) => {
-            return queryResult.method === 'getByTestId'
-          }).length
-          console.log(
-            pc.yellow(
-              `[taro] Tip: ${testIdCount} getByTestId queries — consider adding aria-label`
-            )
-          )
-        }
-
-        if (scoreResult.dimensions.assertionSpecificity < 60) {
-          console.log(
-            pc.yellow(
-              '[taro] Tip: Add specific matchers like toHaveValue() for better assertions'
-            )
-          )
-        }
-
-        if (scoreResult.dimensions.testStructure < 60) {
-          console.log(
-            pc.yellow(
-              '[taro] Tip: Split into multiple it() blocks for better test organization'
-            )
-          )
-        }
+        logScore(scoreResult)
+        emitScoreHints(scoreResult, queryResults)
 
         // Step 6: Write or preview
         if (options.dryRun) {
@@ -200,50 +267,13 @@ export function createGenerateCommand(): Command {
             createDir: true,
           })
 
-          const verification = verifySyntax(generated.code, result.filePath)
-          if (!verification.valid) {
-            console.error(pc.red('[taro] Error: Post-write verification failed'))
-            console.error(pc.red(`  ${verification.error}`))
-            console.error(pc.red('  This is a Taro bug. Please report it.'))
-            process.exit(1)
-          }
-
-          console.log(pc.green('[taro] ✓ post-write verified'))
-
-          const historyEntry = {
-            timestamp: new Date().toISOString(),
+          await finalizeGeneratedOutput({
+            code: generated.code,
+            outputPath: result.filePath,
+            projectRoot,
             recordingFile: filePath,
-            score: scoreResult.total,
-            grade: scoreResult.grade,
-            dimensions: scoreResult.dimensions,
-          }
-
-          const taroDir = join(projectRoot, '.taro')
-          await mkdir(taroDir, { recursive: true })
-
-          const historyPath = join(taroDir, 'history.json')
-          let history: Array<typeof historyEntry> = []
-
-          try {
-            await access(historyPath)
-            const historyContent = await readFile(historyPath, 'utf-8')
-            history = JSON.parse(historyContent) as Array<typeof historyEntry>
-          } catch {
-            history = []
-          }
-
-          history.push(historyEntry)
-          await writeFile(historyPath, JSON.stringify(history, null, 2), 'utf-8')
-
-          try {
-            const detectedConventions = await analyzeSingleTestFile(
-              projectRoot,
-              result.filePath
-            )
-            await mergeConventions(projectRoot, detectedConventions)
-          } catch {
-            // Convention learning is best-effort, do not fail generation.
-          }
+            scoreResult,
+          })
 
           const action = result.overwritten ? pc.yellow('Updated') : pc.green('Created')
           console.log(`${action}: ${pc.bold(result.filePath)}`)
@@ -295,6 +325,10 @@ export function createGenerateCommand(): Command {
       // 6. Generate test code
       const outputPath = options.output ?? deriveOutputPath(filePath)
       const generated = generateTest(normalizedRecording, { outputPath, dryRun: options.dryRun })
+      const scoreResult = scoreGeneratedTest(generated.code)
+
+      logScore(scoreResult)
+      emitScoreHints(scoreResult)
 
       // 7. Write or preview
       if (options.dryRun) {
@@ -302,6 +336,7 @@ export function createGenerateCommand(): Command {
         console.log(pc.dim('─'.repeat(60)))
         console.log(generated.code)
         console.log(pc.dim('─'.repeat(60)))
+        console.log(pc.dim(`\n[taro] Score: ${scoreResult.total}/100 (${scoreResult.grade})`))
         console.log(pc.yellow(`\nWould write to: ${pc.bold(outputPath)}`))
         return
       }
@@ -310,6 +345,13 @@ export function createGenerateCommand(): Command {
         const result = await writeTestFile(generated.code, outputPath, {
           force: options.force,
           createDir: true,
+        })
+        await finalizeGeneratedOutput({
+          code: generated.code,
+          outputPath: result.filePath,
+          projectRoot,
+          recordingFile: filePath,
+          scoreResult,
         })
         const action = result.overwritten ? pc.yellow('Updated') : pc.green('Created')
         console.log(`${action}: ${pc.bold(result.filePath)}`)
