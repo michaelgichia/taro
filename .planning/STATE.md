@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Documentation & Deployment
-status: roadmap_created
-stopped_at: roadmap created, ready to plan Phase 8
-last_updated: "2026-03-07T00:00:00Z"
-last_activity: "2026-03-07 — Roadmap created for v1.1 (2 phases, 9 requirements)"
+status: planning
+stopped_at: Completed 08-readme-documentation-01-PLAN.md
+last_updated: "2026-03-07T12:55:48.206Z"
+last_activity: 2026-03-07 — Roadmap created for v1.1; Phase 8 is next
 progress:
   total_phases: 2
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
   percent: 0
 ---
 
@@ -46,6 +46,7 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
 | - | - | - | - |
 
 *Updated after each plan completion*
+| Phase 08-readme-documentation P01 | 1 | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -59,6 +60,8 @@ Carried forward from v1.0:
 - [v1.1]: Package name is `@tayo/rtl`; docs are README-first targeting any public developer
 - [v1.1]: Phase 8 covers all README documentation (DOCS-01 through DOCS-05)
 - [v1.1]: Phase 9 covers all package preparation and publish verification (PKG-01 through PKG-04)
+- [Phase 08-readme-documentation]: All CLI flags documented from source code (generate.ts) — no fabricated features
+- [Phase 08-readme-documentation]: README-first documentation structure: Introduction, Quick Start, CLI Reference
 
 ### Pending Todos
 
@@ -70,6 +73,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-07
-Stopped at: Roadmap created, ready to plan Phase 8
+Last session: 2026-03-07T12:55:48.204Z
+Stopped at: Completed 08-readme-documentation-01-PLAN.md
 Resume file: None

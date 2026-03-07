@@ -58,5 +58,5 @@ Phases execute in numeric order: 8 → 9
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1-7. v1.0 Phases | v1.0 | Complete | Complete | 2026-03-07 |
-| 8. README Documentation | v1.1 | 0/2 | Not started | - |
+| 8. README Documentation | 1/2 | In Progress|  | - |
 | 9. Package & Publish | v1.1 | 0/TBD | Not started | - |
