@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
+milestone: none
 milestone_name: milestone
-status: ready_to_complete
-stopped_at: Phase 7 complete, milestone completion next
-last_updated: "2026-03-07T11:09:51Z"
-last_activity: "2026-03-07 — Phase 7 complete"
+status: ready_for_next_milestone
+stopped_at: v1.0 archived, next milestone undefined
+last_updated: "2026-03-07T11:13:44Z"
+last_activity: "2026-03-07 — v1.0 archived"
 progress:
   total_phases: 7
   completed_phases: 7
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-07)
 
 **Core value:** Reduce the effort to write and maintain tests by automatically generating high-quality, codebase-aware React Testing Library tests from browser recordings
-**Current focus:** Milestone closure for v1.0
+**Current focus:** Planning the next milestone
 
 ## Current Position
 
 Phase: 7 of 7 (Verification & Traceability Reconciliation)
 Plan: 4 of 4 complete
-Status: Ready for milestone completion
-Last activity: 2026-03-07 — Phase 7 complete
+Status: Waiting for next milestone definition
+Last activity: 2026-03-07 — v1.0 archived
 
 Progress: [████████████████████] 100%
 
@@ -72,6 +72,7 @@ Progress: [████████████████████] 100%
 - Phase 7 Plan 2: Phase 3 verification, validation, and CTX/QRY/TEST traceability reconciled
 - Phase 7 Plan 1: Phase 1 verification rerun with a controlled GEN-04 harness proof path
 - Phase 7 Plan 4: root traceability synced, milestone audit rerun, and Phase 7 verified
+- Milestone v1.0: archived roadmap, requirements, and audit for historical reference
 
 *Updated after each plan completion*
 
@@ -104,6 +105,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-07 14:02 EAT
-Stopped at: Phase 7 complete, milestone completion next
+Last session: 2026-03-07 14:13 EAT
+Stopped at: v1.0 archived, next milestone undefined
 Resume file: None
