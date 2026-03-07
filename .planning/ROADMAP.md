@@ -119,6 +119,12 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 
 **Phase Verification:** Taro produces progressively better tests on subsequent runs, matching project style
 
+**Plans:** 4 plans
+- [ ] 04-01-PLAN.md — Score types and scorer implementation
+- [ ] 04-02-PLAN.md — Post-write verifier using @babel/parser
+- [ ] 04-03-PLAN.md — Scanner exports for convention learning
+- [ ] 04-04-PLAN.md — Pipeline integration (pre-write audit, post-write verification, history, conventions)
+
 ---
 
 ## Progress
