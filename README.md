@@ -113,3 +113,74 @@ If `--output` is not provided, Taro derives the output path from the input file:
 **Supported input formats:**
 - Chrome Recorder JSON (`.json`) — exported directly from Chrome DevTools Recorder
 - Testing Library Recorder JS (`.js`) — exported via the Testing Library Recorder Chrome extension; detected by `.js` extension or `@jest-environment-options` header
+
+## Worked Example
+
+### Input: Chrome Recorder export (`login-flow.json`)
+
+Here is a typical Chrome Recorder JSON export capturing a login flow.
+
+```json
+{
+  "title": "login flow",
+  "steps": [
+    { "type": "navigate", "url": "http://localhost:3000/login" },
+    { "type": "click", "selectors": [["aria/Email address"]] },
+    { "type": "change", "value": "user@example.com", "selectors": [["#email"]] },
+    { "type": "click", "selectors": [["aria/Password"]] },
+    { "type": "change", "value": "secret123", "selectors": [["#password"]] },
+    { "type": "click", "selectors": [["aria/Sign in[role=\"button\"]"]] },
+    { "type": "waitForElement", "selectors": [["aria/Welcome back"]] }
+  ]
+}
+```
+
+### Command
+
+```bash
+taro generate ./login-flow.json
+```
+
+### Terminal output
+
+```
+Parsed: login flow — 7 steps
+[taro] Score: 82/100 (B) — query: 90, assertions: 75, structure: 80
+Created: login-flow.test.tsx
+[taro] ✓ post-write verified
+```
+
+### Output: Generated test (`login-flow.test.tsx`)
+
+Taro generates a convention-aware RTL test with accessible queries:
+
+```typescript
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { LoginPage } from '../LoginPage'
+
+describe('login flow', () => {
+  it('should complete login flow', async () => {
+    const user = userEvent.setup()
+    render(<LoginPage />)
+
+    await user.click(screen.getByRole('textbox', { name: /email address/i }))
+    await user.type(screen.getByRole('textbox', { name: /email address/i }), 'user@example.com')
+    await user.click(screen.getByRole('textbox', { name: /password/i }))
+    await user.type(screen.getByRole('textbox', { name: /password/i }), 'secret123')
+    await user.click(screen.getByRole('button', { name: /sign in/i }))
+
+    expect(screen.getByText(/welcome back/i)).toBeInTheDocument()
+  })
+})
+```
+
+### What Taro did here
+
+- Parsed the navigate step and inferred the component under test
+- Upgraded CSS selectors (`#email`, `#password`) to accessible `getByRole` queries using aria attributes from the recording
+- Inferred `userEvent.type()` from change steps and `userEvent.click()` from click steps
+- Mapped the `waitForElement` step to a `toBeInTheDocument()` assertion
+- Scored the output (82/100) and emitted no blocking errors
+
+> **Note:** The component import path (`../LoginPage`) is a placeholder. Taro generates a comment in the file indicating where to update it.
