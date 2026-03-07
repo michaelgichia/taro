@@ -14,11 +14,11 @@
 
 ### Runtime Delivery
 
-- [ ] **RUNT-01**: User gets a Claude Code installation that exposes `/@tayo-dev/rtl:help`
-- [ ] **RUNT-02**: User gets a Gemini CLI installation that exposes `/@tayo-dev/rtl:help`
-- [ ] **RUNT-03**: User gets an OpenCode installation that exposes `/@tayo-dev/rtl-help`
-- [ ] **RUNT-04**: User gets a Codex installation that writes `skills/@tayo-dev/rtl-*/SKILL.md` assets and exposes `$@tayo-dev/rtl-help`
-- [ ] **RUNT-05**: User can install all supported runtimes in one run with `--all`
+- [x] **RUNT-01**: User gets a Claude Code installation that exposes `/@tayo-dev/rtl:help`
+- [x] **RUNT-02**: User gets a Gemini CLI installation that exposes `/@tayo-dev/rtl:help`
+- [x] **RUNT-03**: User gets an OpenCode installation that exposes `/@tayo-dev/rtl-help`
+- [x] **RUNT-04**: User gets a Codex installation that writes `skills/@tayo-dev/rtl-*/SKILL.md` assets and exposes `$@tayo-dev/rtl-help`
+- [x] **RUNT-05**: User can install all supported runtimes in one run with `--all`
 
 ### Distribution & Verification
 
@@ -57,11 +57,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INST-02 | Phase 10 | Complete |
 | INST-03 | Phase 10 | Complete |
 | INST-04 | Phase 10 | Complete |
-| RUNT-01 | Phase 11 | Pending |
-| RUNT-02 | Phase 11 | Pending |
-| RUNT-03 | Phase 11 | Pending |
-| RUNT-04 | Phase 11 | Pending |
-| RUNT-05 | Phase 11 | Pending |
+| RUNT-01 | Phase 11 | Complete |
+| RUNT-02 | Phase 11 | Complete |
+| RUNT-03 | Phase 11 | Complete |
+| RUNT-04 | Phase 11 | Complete |
+| RUNT-05 | Phase 11 | Complete |
 | DIST-01 | Phase 10 | Complete |
 | DIST-02 | Phase 12 | Pending |
 | DIST-03 | Phase 12 | Pending |
@@ -74,4 +74,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-07*
-*Last updated: 2026-03-07 after v1.2 requirements definition*
+*Last updated: 2026-03-07 after Phase 11 execution*
