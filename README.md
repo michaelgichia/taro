@@ -184,3 +184,67 @@ describe('login flow', () => {
 - Scored the output (82/100) and emitted no blocking errors
 
 > **Note:** The component import path (`../LoginPage`) is a placeholder. Taro generates a comment in the file indicating where to update it.
+
+## Using Taro as a Claude Code Skill
+
+### Overview
+
+Taro works naturally as a Claude Code skill. You can instruct Claude to run `taro generate` on a recording file and it will generate the test, report the score, and surface any quality hints — all in a single agent turn.
+
+### Option A: Direct invocation (no setup required)
+
+Claude Code can invoke Taro directly using the Bash tool. No skill configuration is needed — Claude calls npx inline. Simply give Claude a prompt like:
+
+```
+Run: npx @tayo/rtl generate ./recordings/checkout-flow.js
+Then report the score and the path of the generated file.
+```
+
+### Option B: Register as a Claude Code skill
+
+Registering Taro as a skill lets Claude invoke it by name without knowing the full command.
+
+**Step 1** — Create the skill file at `.claude/skills/taro/SKILL.md` in your project:
+
+```markdown
+# Taro — RTL Test Generator
+
+## Purpose
+Generate a React Testing Library test from a Chrome Recorder export.
+
+## Invocation
+Run: taro generate <recording-file>
+
+## Flags
+- `--dry-run` (-d): Preview the generated test without writing to disk
+- `--output <path>` (-o): Override the output file path
+- `--force` (-f): Overwrite an existing test file
+
+## Output
+Writes `{recording-name}.test.tsx` next to the recording file.
+Reports score (0-100) and any quality hints.
+```
+
+**Step 2** — Ensure Taro is installed in the project:
+
+```bash
+npm install --save-dev @tayo/rtl
+```
+
+**Step 3** — Ask Claude to use the skill:
+
+```
+Use the taro skill to generate a test from ./recordings/login-flow.js
+```
+
+### Tips for agent use
+
+- Use `--dry-run` first to preview output before committing generated files
+- If you record multiple flows, run Taro on each to build up convention state in `.taro/conventions.json` — later runs benefit from earlier ones
+- Pass `--force` when re-recording an updated flow to overwrite the old test
+- The `.taro/` directory should be committed to your repo so convention learning persists across team members
+
+### Notes
+
+- Taro does not require network access at generation time (DOM inspection via Playwright is optional and only runs when a live URL is in the recording)
+- All state is local to `.taro/` — no external service is contacted
