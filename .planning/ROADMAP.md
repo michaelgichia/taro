@@ -71,7 +71,10 @@ See [v1.0 roadmap archive](./milestones/v1.0-ROADMAP.md) for full phase details.
   2. Install completion output includes verification commands for every selected runtime
   3. The README covers interactive install, non-interactive install, staying updated, and development installation using the real published/package-local commands
   4. Release verification proves the shipped tarball contains runtime assets and that the documented verification commands work
-**Plans**: Not yet created
+**Plans**:
+- [ ] 12-01 - Repair and update semantics for safe reruns
+- [ ] 12-02 - Runtime verification helpers and tarball smoke proof
+- [ ] 12-03 - Installer-first README and release docs
 
 ## Progress
 
@@ -85,4 +88,4 @@ Phases execute in numeric order: 10 → 11 → 12
 | 9. Package & Publish | v1.1 | 2/2 | Complete | 2026-03-07 |
 | 10. Installer Core & Package Entry | v1.2 | 3/3 | Complete | 2026-03-07 |
 | 11. Runtime Targets & Asset Delivery | v1.2 | 4/4 | Complete | 2026-03-07 |
-| 12. Verification, Updates & Release Docs | v1.2 | 0/0 | Not Started | — |
+| 12. Verification, Updates & Release Docs | v1.2 | 0/3 | Planned | — |

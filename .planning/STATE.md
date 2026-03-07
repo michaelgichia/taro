@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Runtime Installer Distribution
 status: in_progress
-stopped_at: Phase 11 complete; Phase 12 planning next
-last_updated: "2026-03-07T17:55:14Z"
-last_activity: 2026-03-07 — Completed Phase 11 runtime targets and asset delivery
+stopped_at: Phase 12 planned; ready for execution
+last_updated: "2026-03-07T18:15:13Z"
+last_activity: 2026-03-07 — Planned Phase 12 verification, updates, and release docs
 progress:
   total_phases: 3
   completed_phases: 2
-  total_plans: 7
+  total_plans: 10
   completed_plans: 7
   percent: 67
 ---
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-07)
 
 **Core value:** Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, and Codex with near-zero setup friction
-**Current focus:** Phase 11 complete — Phase 12 planning next
+**Current focus:** Phase 12 planned — execute repair semantics, verification proof, and release docs
 
 ## Current Position
 
 Phase: 12 of 12 (Verification, Updates & Release Docs)
 Plan: —
 Status: Not Started
-Last activity: 2026-03-07 — Completed Phase 11 runtime targets and asset delivery
+Last activity: 2026-03-07 — Planned Phase 12 verification, updates, and release docs
 
 Progress: [█████████████░░░░░░░] 67%
 
@@ -83,6 +83,7 @@ Carried forward from v1.0:
 - [Phase 11]: Project-local installs should mirror hidden runtime dirs, with OpenCode local installs using `./.opencode`
 - [Phase 11 planned]: Use four plans in three waves: foundation, prompt/Codex delivery in parallel, then shared execution/reporting
 - [Phase 11 planned]: Conflict handling must explicitly cover replace-confirmation, protected manual edits, and blocking non-Tayo collisions
+- [Phase 12 planned]: Use three sequential plans: safe reruns, runtime/package verification, then installer-first README and release docs
 
 ### Pending Todos
 
@@ -101,5 +102,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-07T17:42:25Z
-Stopped at: Phase 11 complete; Phase 12 planning next
-Resume file: .planning/ROADMAP.md
+Stopped at: Phase 12 planned; ready for execution
+Resume file: .planning/phases/12-verification-updates-release-docs/12-01-PLAN.md
