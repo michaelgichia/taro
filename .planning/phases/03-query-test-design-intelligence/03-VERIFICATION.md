@@ -1,21 +1,10 @@
 ---
 phase: 03-query-test-design-intelligence
 verified: 2026-03-06T18:15:00Z
-status: gaps_found
-score: 10/11 must-haves verified
-gaps:
-  - truth: "Matchers are meaningful — Generated tests use specific matchers (toBeInTheDocument, toHaveValue) rather than generic ones"
-    status: partial
-    reason: "selectMatcher() function exists in resolver.ts but is NOT wired into the generation pipeline"
-    artifacts:
-      - path: "src/core/resolver.ts"
-        issue: "selectMatcher() function exists (lines 103-126) with full implementation for toHaveValue, toBeChecked, toHaveTextContent, toBeVisible"
-      - path: "src/cli/commands/generate.ts"
-        issue: "Does NOT call selectMatcher() - only calls buildQuery() and emitQuerySummary()"
-    missing:
-      - "Call selectMatcher() during test generation in generate.ts"
-      - "Pass selected matcher to stepTemplate() in test-template.ts"
-      - "Update stepTemplate() to accept and use matcher parameter instead of hardcoded toBeInTheDocument"
+updated: 2026-03-07T00:00:00Z
+status: verified
+score: 11/11 must-haves verified
+gaps: []
 ---
 
 # Phase 3: Query & Test Design Intelligence Verification Report
@@ -37,7 +26,7 @@ gaps:
 | 3 | Accessibility gaps are flagged — When no clean query exists, a warning is logged with suggestions | ✓ VERIFIED | `emitQry03Warning()` in resolver.ts (lines 259-264) logs warnings with actionable suggestions. Called in generate.ts line 117 when quality === 'fragile'. |
 | 4 | Concerns are distributed across tests — Related assertions are grouped logically, not all in one test | ✓ VERIFIED | `segmentIntoItGroups()` in js-parser.ts (lines 64-119) segments steps by modal boundaries. `generateTestFromGroups()` in generator.ts creates multiple `it()` blocks. Each it block has own render() + userEvent.setup(). |
 | 5 | Helpers are assertion-free — Helper functions contain setup only, no expect statements | ✓ VERIFIED | `detectHelperWithExpect()` in scanner.ts (lines 109-122) detects helpers with expect(). `scanConventions()` logs TEST-02 warnings (lines 293-305) when found. |
-| 6 | Matchers are meaningful — Generated tests use specific matchers (toBeInTheDocument, toHaveValue) rather than generic ones | ✗ PARTIAL | `selectMatcher()` function exists in resolver.ts (lines 103-126) with full implementation BUT it is NOT called anywhere in the generation pipeline. The function is defined but unused. |
+| 6 | Matchers are meaningful — Generated tests use specific matchers (toBeInTheDocument, toHaveValue) rather than generic ones | ✓ VERIFIED | `selectMatcher()` called in generate.ts after buildQuery(), matcher stored in QueryResult, passed through generateTestFromGroups() → stepTemplate() for assert steps. Plan 07 (2026-03-07). |
 
 **Score:** 5/6 truths verified
 
@@ -74,7 +63,7 @@ gaps:
 | QRY-03: Flag accessibility gaps | ✓ SATISFIED | emitQry03Warning() logs actionable warnings when getByTestId fallback used |
 | TEST-01: Distribute concerns across tests | ✓ SATISFIED | segmentIntoItGroups() segments by modal boundaries, each it has own setup |
 | TEST-02: Keep helpers assertion-free | ✓ SATISFIED | detectHelperWithExpect() + TEST-02 warnings implemented |
-| TEST-03: Meaningful matchers | ✗ BLOCKED | selectMatcher() exists but NOT wired into generation pipeline |
+| TEST-03: Meaningful matchers | ✓ SATISFIED | selectMatcher() wired: generate.ts → QueryResult.matcher → generateTestFromGroups → stepTemplate (Plan 07) |
 | CTX-01: Read codebase conventions | ✓ SATISFIED | scanConventions() scans test files on first run |
 | CTX-02: Analyze existing test patterns | ✓ SATISFIED | analyzeTestFile() detects import style, describe blocks, mock patterns |
 | CTX-03: Detect folder structure | ✓ SATISFIED | detectFolderPattern() identifies colocated vs __tests__ vs mixed |

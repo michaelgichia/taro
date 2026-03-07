@@ -43,6 +43,7 @@ export interface StepTemplateOptions {
   action: NormalizedAction
   query: string
   value?: string
+  matcher?: string // context-aware matcher, e.g. '.toHaveValue()', '.toBeChecked()'
 }
 
 export function stepTemplate(opts: StepTemplateOptions): string {
@@ -66,7 +67,7 @@ export function stepTemplate(opts: StepTemplateOptions): string {
       return `${query}.scrollIntoView()`
 
     case 'assert':
-      return `expect(${query}).toBeInTheDocument()`
+      return `expect(${query})${opts.matcher ?? '.toBeInTheDocument()'}`
 
     case 'navigate':
       return `// navigate: ${value || query}`

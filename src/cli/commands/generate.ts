@@ -14,7 +14,7 @@ import { parseRecording } from '../../core/parser.js'
 import { generateTest } from '../../core/generator.js'
 import { writeTestFile } from '../../core/writer.js'
 import { parseJsRecording } from '../../core/js-parser.js'
-import { inspectElements, buildQuery, emitQry03Warning } from '../../core/resolver.js'
+import { inspectElements, buildQuery, selectMatcher, emitQry03Warning } from '../../core/resolver.js'
 import { readConventions, scanConventions } from '../../core/scanner.js'
 import { generateTestFromGroups, emitQuerySummary } from '../../core/generator.js'
 import type { QueryResult } from '../../types/recording.js'
@@ -115,7 +115,8 @@ export function createGenerateCommand(): Command {
             } else {
               const result = buildQuery(info, call.selector)
               if (result.quality === 'fragile') emitQry03Warning(call.selector)
-              queryResults.push({ ...result, line: call.line })
+              const matcher = selectMatcher(info, 'assert')
+              queryResults.push({ ...result, matcher, line: call.line })
             }
           }
         } else if (jsResult.querySelectorCalls.length > 0 && !jsResult.environmentUrl) {

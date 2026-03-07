@@ -171,6 +171,14 @@ export function generateTestFromGroups(
     group.steps.some((s) => ['click', 'fill', 'select', 'keyDown'].includes(s.action))
   )
 
+  // Build query -> matcher map for context-aware assert matchers
+  const matcherMap = new Map<string, string>()
+  for (const qr of queryResults) {
+    if (qr.matcher) {
+      matcherMap.set(qr.query, qr.matcher)
+    }
+  }
+
   // Build ItBlockTemplate[] from ItGroup[]
   const itBlocks = itGroups.map((group) => {
     const hasUserEvents = group.steps.some((s) =>
@@ -180,7 +188,9 @@ export function generateTestFromGroups(
       if (step.action === 'navigate') {
         return stepTemplate({ action: 'navigate', query: '', value: step.target })
       }
-      return stepTemplate({ action: step.action, query: step.target ?? 'document.body', value: step.value })
+      const query = step.target ?? 'document.body'
+      const matcher = step.action === 'assert' ? matcherMap.get(query) : undefined
+      return stepTemplate({ action: step.action, query, value: step.value, matcher })
     })
     return { name: group.name, stepLines, hasUserEvents }
   })

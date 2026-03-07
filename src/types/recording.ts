@@ -78,6 +78,7 @@ export interface QueryResult {
   query: string // e.g., `screen.getByRole('button', { name: 'Save' })`
   quality: QueryQuality
   method: string // e.g., 'getByRole'
+  matcher?: string // e.g., '.toHaveValue()', '.toBeChecked()' — context-aware matcher
   line?: number // source line in input JS (for quality summary)
 }
 
