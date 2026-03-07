@@ -190,7 +190,7 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 | 2 - Intelligence Layers | Noise filtering, visual/mock awareness | 10 | Pending |
 | 3 - Query & Test Design | Optimal queries, best practices | 11 | Complete (2026-03-07) |
 | 4 - Self-Scoring & Learning | Quality evaluation, convention learning | 6 | Complete (2026-03-07) |
-| 5 - Recording Intelligence Recovery | Restore missing REC-* scope | 4 | In Progress |
+| 5 - Recording Intelligence Recovery | Restore missing REC-* scope | 4 | Complete (2026-03-07) |
 | 6 - Visual & Mock Intelligence Recovery | Restore missing VIS-* / MOCK-* scope | 6 | Pending |
 | 7 - Verification & Traceability Reconciliation | Close audit and validation gaps | 22 | Pending |
 

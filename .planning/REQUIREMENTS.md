@@ -31,10 +31,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Recording Intelligence
 
-- [ ] **REC-01**: Filter redundant clicks
-- [ ] **REC-02**: Filter dblClick noise
-- [ ] **REC-03**: Filter cursor wandering
-- [ ] **REC-04**: Identify actual user intent behind sequences
+- [x] **REC-01**: Filter redundant clicks
+- [x] **REC-02**: Filter dblClick noise
+- [x] **REC-03**: Filter cursor wandering
+- [x] **REC-04**: Identify actual user intent behind sequences
 
 ### Visual Intelligence
 
@@ -120,10 +120,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | GEN-05 | Phase 7 | Pending |
 | CLI-01 | Phase 1 | Complete |
 | CLI-02 | Phase 1 | Complete |
-| REC-01 | Phase 5 | Pending |
-| REC-02 | Phase 5 | Pending |
-| REC-03 | Phase 5 | Pending |
-| REC-04 | Phase 5 | Pending |
+| REC-01 | Phase 5 | Complete |
+| REC-02 | Phase 5 | Complete |
+| REC-03 | Phase 5 | Complete |
+| REC-04 | Phase 5 | Complete |
 | VIS-01 | Phase 6 | Pending |
 | VIS-02 | Phase 6 | Pending |
 | MOCK-01 | Phase 6 | Pending |
@@ -155,4 +155,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-06*
-*Last updated: 2026-03-07 after milestone gap planning*
+*Last updated: 2026-03-07 after Phase 5 completion*
