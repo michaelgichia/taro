@@ -4,7 +4,7 @@
  */
 
 import { readdir, readFile, mkdir, writeFile, access } from 'node:fs/promises'
-import { join, extname, relative } from 'node:path'
+import { join, extname, relative, isAbsolute } from 'node:path'
 import pc from 'picocolors'
 import { DEFAULT_CONVENTIONS } from '../types/conventions.js'
 import type { ConventionsSchema, ConventionFile, ImportStyle, MockPattern } from '../types/conventions.js'
@@ -313,7 +313,7 @@ export async function scanConventions(
 /**
  * Persist conventions to .taro/conventions.json
  */
-async function persistConventions(
+export async function persistConventions(
   projectRoot: string,
   conventions: ConventionsSchema
 ): Promise<void> {
@@ -329,4 +329,48 @@ async function persistConventions(
     JSON.stringify(conventions, null, 2),
     'utf-8'
   )
+}
+
+/**
+ * Merge new file conventions into the persisted conventions store.
+ */
+export async function mergeConventions(
+  projectRoot: string,
+  newPatterns: ConventionFile
+): Promise<void> {
+  const existing = await readConventions(projectRoot)
+
+  if (!existing) {
+    await scanConventions(projectRoot)
+    return
+  }
+
+  const normalizedPatterns: ConventionFile = {
+    ...newPatterns,
+    path: isAbsolute(newPatterns.path)
+      ? newPatterns.path
+      : join(projectRoot, newPatterns.path),
+  }
+
+  const mergedFiles = existing.testFiles.filter(
+    (file) => file.path !== normalizedPatterns.path
+  )
+  mergedFiles.push(normalizedPatterns)
+
+  const conventions = deriveConventions(mergedFiles, projectRoot)
+  await persistConventions(projectRoot, conventions)
+}
+
+/**
+ * Analyze a single test file without rescanning the whole project.
+ */
+export async function analyzeSingleTestFile(
+  projectRoot: string,
+  filePath: string
+): Promise<ConventionFile> {
+  const normalizedPath = isAbsolute(filePath)
+    ? filePath
+    : join(projectRoot, filePath)
+
+  return analyzeTestFile(normalizedPath)
 }
