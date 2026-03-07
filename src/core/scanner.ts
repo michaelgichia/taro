@@ -55,6 +55,30 @@ export async function findTestFiles(root: string): Promise<string[]> {
   return results
 }
 
+export interface TestFileContent {
+  path: string
+  content: string
+}
+
+/**
+ * Load discovered test files with content for downstream analyzers.
+ */
+export async function readTestFiles(root: string): Promise<TestFileContent[]> {
+  const files = await findTestFiles(root)
+  const loaded = await Promise.all(
+    files.map(async (path) => {
+      try {
+        const content = await readFile(path, 'utf-8')
+        return { path, content }
+      } catch {
+        return null
+      }
+    })
+  )
+
+  return loaded.filter((entry): entry is TestFileContent => entry !== null)
+}
+
 /**
  * Analyze a single test file to detect its conventions
  * @param filePath - Absolute path to the test file

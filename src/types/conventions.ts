@@ -4,6 +4,7 @@
 
 export type ImportStyle = 'esm' | 'cjs'
 export type MockPattern = 'vi.mock' | 'jest.mock' | 'none'
+export type MockRecommendationKind = 'inline' | 'extract'
 
 export interface ConventionFile {
   path: string
@@ -21,6 +22,20 @@ export interface ConventionsSchema {
   testFiles: ConventionFile[] // one entry per discovered test file
   folderPattern: 'colocated' | '__tests__' | 'mixed' | 'unknown'
   fileExtension: 'ts' | 'tsx' | 'js' | 'jsx' | 'mixed'
+}
+
+export interface MockTargetUsage {
+  target: string
+  files: string[]
+  count: number
+}
+
+export interface MockRecommendation {
+  target: string
+  kind: MockRecommendationKind
+  reason: string
+  files: string[]
+  count: number
 }
 
 export const DEFAULT_CONVENTIONS: ConventionsSchema = {

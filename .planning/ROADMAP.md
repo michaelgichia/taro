@@ -160,7 +160,7 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 **Plans:** 4 plans
 - [x] 06-01-PLAN.md — Visual-state capture foundation in the Playwright resolver
 - [x] 06-02-PLAN.md — Dialog-state understanding and visual-intelligence integration
-- [ ] 06-03-PLAN.md — Mock-analysis foundation for repeated targets and inline/extract decisions
+- [x] 06-03-PLAN.md — Mock-analysis foundation for repeated targets and inline/extract decisions
 - [ ] 06-04-PLAN.md — Mock lifecycle/stability reasoning and generate pipeline integration
 
 ---
