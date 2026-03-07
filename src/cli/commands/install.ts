@@ -1,14 +1,13 @@
 import { Command } from 'commander'
 import pc from 'picocolors'
-export interface InstallCommandOptions {
-  claude?: boolean
-  opencode?: boolean
-  gemini?: boolean
-  codex?: boolean
-  all?: boolean
-  global?: boolean
-  local?: boolean
-}
+import {
+  InstallValidationError,
+  normalizeInstallOptions,
+  toInstallSelection,
+} from '../../install/options.js'
+import { promptForInstallChoices } from '../../install/prompts.js'
+import { RUNTIME_METADATA } from '../../install/types.js'
+import type { InstallCommandOptions, InstallSelection } from '../../install/types.js'
 
 export function applyInstallOptions(command: Command): Command {
   return command
@@ -21,16 +20,48 @@ export function applyInstallOptions(command: Command): Command {
     .option('--local', 'Install into the current project only')
 }
 
-export async function runInstallCommand(_options: InstallCommandOptions = {}): Promise<void> {
-  console.log(
-    pc.bold('Taro installer') +
-      ' — installer-first runtime setup is enabled for this package.'
-  )
-  console.log(
-    pc.dim(
-      'Use `taro install --help` to review setup flags or `taro generate --help` to access the existing generator.'
-    )
-  )
+async function resolveInstallSelection(
+  options: InstallCommandOptions
+): Promise<InstallSelection> {
+  const normalized = normalizeInstallOptions(options)
+
+  if (normalized.mode === 'interactive') {
+    return promptForInstallChoices(normalized)
+  }
+
+  return toInstallSelection(normalized)
+}
+
+function renderSelectionSummary(selection: InstallSelection): string {
+  const lines = selection.runtimes.map((runtime) => {
+    return `- ${RUNTIME_METADATA[runtime].displayName}: ${selection.locations[runtime]}`
+  })
+
+  return [
+    pc.bold('Installer selection captured'),
+    ...lines,
+    '',
+    pc.dim('Prewrite install planning lands in the next plan.'),
+  ].join('\n')
+}
+
+function printInstallError(error: unknown): void {
+  if (error instanceof InstallValidationError) {
+    console.error(pc.red(`Error: ${error.message}`))
+    process.exitCode = 1
+    return
+  }
+
+  throw error
+}
+
+export async function runInstallCommand(options: InstallCommandOptions = {}): Promise<void> {
+  try {
+    const selection = await resolveInstallSelection(options)
+    console.log(renderSelectionSummary(selection))
+  } catch (error) {
+    printInstallError(error)
+  }
 }
 
 export function createInstallCommand(): Command {

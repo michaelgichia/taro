@@ -12,8 +12,8 @@ import {
   applyInstallOptions,
   createInstallCommand,
   runInstallCommand,
-  type InstallCommandOptions,
 } from './cli/commands/install.js'
+import type { InstallCommandOptions } from './install/types.js'
 
 const program = new Command()
 
