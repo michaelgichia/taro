@@ -34,9 +34,9 @@ Recording a user flow in Chrome takes 30 seconds. Translating that recording int
 ### Step 1 — Install
 
 ```bash
-npm install --save-dev @tayo/rtl
+npm install --save-dev @tayo-dev/rtl
 # or use npx to skip install entirely
-npx @tayo/rtl generate ./my-recording.js
+npx @tayo-dev/rtl generate ./my-recording.js
 ```
 
 ### Step 2 — Record a user flow
@@ -50,7 +50,7 @@ Open Chrome DevTools → Recorder panel → click "Start new recording" → perf
 
 ```bash
 # Using npx (no install required)
-npx @tayo/rtl generate ./recording.js
+npx @tayo-dev/rtl generate ./recording.js
 
 # Or if installed globally
 taro generate ./recording.js
@@ -196,7 +196,7 @@ Taro works naturally as a Claude Code skill. You can instruct Claude to run `tar
 Claude Code can invoke Taro directly using the Bash tool. No skill configuration is needed — Claude calls npx inline. Simply give Claude a prompt like:
 
 ```
-Run: npx @tayo/rtl generate ./recordings/checkout-flow.js
+Run: npx @tayo-dev/rtl generate ./recordings/checkout-flow.js
 Then report the score and the path of the generated file.
 ```
 
@@ -228,7 +228,7 @@ Reports score (0-100) and any quality hints.
 **Step 2** — Ensure Taro is installed in the project:
 
 ```bash
-npm install --save-dev @tayo/rtl
+npm install --save-dev @tayo-dev/rtl
 ```
 
 **Step 3** — Ask Claude to use the skill:
