@@ -48,7 +48,11 @@ Plans:
   2. Package version reads `1.0.0` in `package.json`
   3. Running `tsc` produces a `dist/` directory and `node dist/index.js --help` prints the CLI help without error
   4. After publishing, `npx @tayo/rtl generate ./recording.js` installs the package and runs the generate command correctly
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — Update package.json fields and version bump (PKG-01, PKG-02)
+- [ ] 09-02-PLAN.md — Build verification, dry-run publish, and manual publish instructions (PKG-03, PKG-04)
 
 ## Progress
 
@@ -59,4 +63,4 @@ Phases execute in numeric order: 8 → 9
 |-------|-----------|----------------|--------|-----------|
 | 1-7. v1.0 Phases | v1.0 | Complete | Complete | 2026-03-07 |
 | 8. README Documentation | 2/2 | Complete    | 2026-03-07 | - |
-| 9. Package & Publish | v1.1 | 0/TBD | Not started | - |
+| 9. Package & Publish | v1.1 | 0/2 | Not started | - |
