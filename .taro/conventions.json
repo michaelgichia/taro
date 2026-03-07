@@ -1,0 +1,52 @@
+{
+  "scannedAt": "2026-03-07T10:09:43.485Z",
+  "projectRoot": "/Users/michaelgichia/workspace/taro",
+  "importStyle": "esm",
+  "mockPattern": "vi.mock",
+  "testFiles": [
+    {
+      "path": "/Users/michaelgichia/workspace/taro/src/core/js-parser.test.ts",
+      "importStyle": "esm",
+      "hasDescribeBlock": true,
+      "mockPattern": "none",
+      "hasHelperWithExpect": false
+    },
+    {
+      "path": "/Users/michaelgichia/workspace/taro/src/core/recording-intelligence.test.ts",
+      "importStyle": "esm",
+      "hasDescribeBlock": true,
+      "mockPattern": "none",
+      "hasHelperWithExpect": false
+    },
+    {
+      "path": "/Users/michaelgichia/workspace/taro/src/core/resolver.test.ts",
+      "importStyle": "esm",
+      "hasDescribeBlock": true,
+      "mockPattern": "vi.mock",
+      "hasHelperWithExpect": false
+    },
+    {
+      "path": "/Users/michaelgichia/workspace/taro/src/core/scanner.test.ts",
+      "importStyle": "cjs",
+      "hasDescribeBlock": true,
+      "mockPattern": "vi.mock",
+      "hasHelperWithExpect": true
+    },
+    {
+      "path": "/tmp/taro-phase5-noisy.test.tsx",
+      "importStyle": "esm",
+      "hasDescribeBlock": true,
+      "mockPattern": "none",
+      "hasHelperWithExpect": false
+    },
+    {
+      "path": "/tmp/taro-phase5-valid-js.test.tsx",
+      "importStyle": "esm",
+      "hasDescribeBlock": true,
+      "mockPattern": "none",
+      "hasHelperWithExpect": false
+    }
+  ],
+  "folderPattern": "colocated",
+  "fileExtension": "ts"
+}

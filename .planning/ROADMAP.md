@@ -182,7 +182,11 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 
 **Gap Closure:** Closes the milestone audit's partial-requirement traceability gaps, missing validation artifacts, and planning-state inconsistencies.
 
-**Plans:** To be created during phase planning
+**Plans:** 4 plans in 2 waves
+- [ ] 07-01-PLAN.md — Reconcile Phase 1 verification, validation, and INPT/GEN traceability
+- [ ] 07-02-PLAN.md — Reconcile Phase 3 verification, validation, and CTX/QRY/TEST traceability
+- [ ] 07-03-PLAN.md — Reconcile Phase 4 validation and SCR/CNV summary traceability
+- [ ] 07-04-PLAN.md — Sync root traceability, rerun milestone audit, and verify Phase 7
 
 ---
 
@@ -196,7 +200,7 @@ Taro transforms Chrome DevTools Recorder exports into production-quality React T
 | 4 - Self-Scoring & Learning | Quality evaluation, convention learning | 6 | Complete (2026-03-07) |
 | 5 - Recording Intelligence Recovery | Restore missing REC-* scope | 4 | Complete (2026-03-07) |
 | 6 - Visual & Mock Intelligence Recovery | Restore missing VIS-* / MOCK-* scope | 6 | Complete (2026-03-07) |
-| 7 - Verification & Traceability Reconciliation | Close audit and validation gaps | 22 | Pending |
+| 7 - Verification & Traceability Reconciliation | Close audit and validation gaps | 25 | Pending |
 
 **Coverage:** 37/42 requirements mapped
 
