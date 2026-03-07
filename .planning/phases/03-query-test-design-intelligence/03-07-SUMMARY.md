@@ -1,12 +1,47 @@
 ---
 phase: 03-query-test-design-intelligence
 plan: 07
-status: complete
-completed: 2026-03-07T00:00:00.000Z
-duration: ~5min
+subsystem: testing
+tags: [matcher-selection, rtl, generator, cli, gap-closure]
+
+# Dependency graph
+requires:
+  - phase: 03-query-test-design-intelligence
+    provides: Phase 3 CLI integration with one remaining TEST-03 matcher gap
+provides:
+  - Context-aware matcher selection carried from resolver output into generated assertions
+  - Explicit TEST-03 closure metadata for milestone traceability
+affects:
+  - phase-07-verification-traceability-reconciliation
+  - milestone traceability
+
+# Tech tracking
+tech-stack:
+  added: []
+  patterns: [Resolver-selected matchers persisted on QueryResult and consumed during test rendering]
+
+key-files:
+  created: []
+  modified:
+    - src/types/recording.ts - QueryResult carries matcher metadata
+    - src/cli/commands/generate.ts - Pipeline stores resolver-selected matchers
+    - src/core/generator.ts - Generator maps queries to matcher-aware assertion rendering
+    - src/templates/test-template.ts - Assert steps emit the selected matcher
+
+key-decisions:
+  - "Persist matcher selection on QueryResult so resolver output and generated assertions stay aligned"
+
+patterns-established:
+  - "Matcher selection happens before template rendering and falls back only when no specialized matcher applies"
+
+requirements-completed: [TEST-03]
+
+# Metrics
+duration: 5 min
+completed: 2026-03-07
 ---
 
-# Plan 07 Summary: Wire selectMatcher() into Pipeline (Gap Closure)
+# Phase 3 Plan 7: Close Matcher Selection Gap
 
 ## What Was Done
 
