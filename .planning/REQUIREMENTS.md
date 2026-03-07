@@ -23,9 +23,9 @@
 ### Distribution & Verification
 
 - [x] **DIST-01**: User can access the installer from the published `@tayo-dev/rtl` package without switching to a separate installer package
-- [ ] **DIST-02**: User can rerun the installer to update or repair an existing installation without manual cleanup
-- [ ] **DIST-03**: User receives runtime-specific verification commands after installation and can use them successfully
-- [ ] **DIST-04**: User can follow the README for interactive, non-interactive, and development installation flows without extra guidance
+- [x] **DIST-02**: User can rerun the installer to update or repair an existing installation without manual cleanup
+- [x] **DIST-03**: User receives runtime-specific verification commands after installation and can use them successfully
+- [x] **DIST-04**: User can follow the README for interactive, non-interactive, and development installation flows without extra guidance
 
 ## Future Requirements
 
@@ -63,9 +63,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RUNT-04 | Phase 11 | Complete |
 | RUNT-05 | Phase 11 | Complete |
 | DIST-01 | Phase 10 | Complete |
-| DIST-02 | Phase 12 | Pending |
-| DIST-03 | Phase 12 | Pending |
-| DIST-04 | Phase 12 | Pending |
+| DIST-02 | Phase 12 | Complete |
+| DIST-03 | Phase 12 | Complete |
+| DIST-04 | Phase 12 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 13 total
@@ -74,4 +74,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-07*
-*Last updated: 2026-03-07 after Phase 11 execution*
+*Last updated: 2026-03-07 after Phase 12 execution*
