@@ -20,6 +20,7 @@ key-decisions:
   - WriteResult instead of void — callers know if file was created vs overwritten
   - Default output path derived from input filename (recording.json → recording.test.tsx)
   - Dry run prints full test preview with separator lines
+requirements-completed: [GEN-05]
 duration: 10min
 completed: 2026-03-06
 ---

@@ -26,6 +26,7 @@ decisions:
   - "@babel/template version pinned to ^7.28.0 because 7.29.0 does not exist; @babel/parser and @babel/traverse at ^7.29.0 are available"
   - "TypeScript moduleResolution set to bundler for ESNext + ESM compatibility"
   - "Added @types/babel__traverse as devDependency for proper traverse type support"
+requirements-completed: []
 metrics:
   duration: "~3 minutes"
   completed_date: "2026-03-06"
