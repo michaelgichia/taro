@@ -14,7 +14,13 @@ import { parseRecording } from '../../core/parser.js'
 import { generateTest } from '../../core/generator.js'
 import { writeTestFile } from '../../core/writer.js'
 import { parseJsRecording } from '../../core/js-parser.js'
-import { inspectElements, buildQuery, selectMatcher, emitQry03Warning } from '../../core/resolver.js'
+import {
+  captureVisualState,
+  inspectElements,
+  buildQuery,
+  selectMatcher,
+  emitQry03Warning,
+} from '../../core/resolver.js'
 import { scoreGeneratedTest } from '../../core/scorer.js'
 import { verifySyntax } from '../../core/verifier.js'
 import {
@@ -23,9 +29,17 @@ import {
   readConventions,
   scanConventions,
 } from '../../core/scanner.js'
-import { analyzeRecording } from '../../core/recording-intelligence.js'
+import {
+  analyzeRecording,
+  findVisualCaptureCandidates,
+} from '../../core/recording-intelligence.js'
 import { generateTestFromGroups, emitQuerySummary } from '../../core/generator.js'
-import type { AnalyzedRecording, ItGroup, QueryResult } from '../../types/recording.js'
+import type {
+  AnalyzedRecording,
+  ItGroup,
+  QueryResult,
+  VisualState,
+} from '../../types/recording.js'
 import type { HistoryEntry, ScoreResult } from '../../types/score.js'
 
 export interface GenerateOptions {
@@ -120,6 +134,61 @@ function toItGroups(analyzedRecording: AnalyzedRecording, fallbackTitle: string)
       steps: analyzedRecording.steps,
     },
   ]
+}
+
+function summarizeVisualState(visualState: VisualState | null): void {
+  if (!visualState) {
+    return
+  }
+
+  const parts = [visualState.reason]
+  if (visualState.dialog?.title) {
+    parts.push(`dialog=${visualState.dialog.title}`)
+  }
+  if (visualState.screenshotPath) {
+    parts.push(`screenshot=${visualState.screenshotPath}`)
+  }
+
+  console.log(pc.dim('[taro]') + ` Visual state: ${parts.join(', ')}`)
+}
+
+function findRecordingUrl(analyzedRecording: AnalyzedRecording): string | undefined {
+  return analyzedRecording.steps.find((step) => step.action === 'navigate')?.target
+}
+
+async function maybeCaptureVisualState(params: {
+  analyzedRecording: AnalyzedRecording
+  projectRoot: string
+  selector?: string
+  url?: string
+}): Promise<VisualState | null> {
+  const { analyzedRecording, projectRoot, selector, url } = params
+  if (!url) {
+    return null
+  }
+
+  const candidates = findVisualCaptureCandidates(analyzedRecording)
+  const visualDir = join(projectRoot, '.taro', 'visual')
+
+  if (candidates.length > 0) {
+    await mkdir(visualDir, { recursive: true })
+    return captureVisualState(url, {
+      reason: candidates[0]!.reason,
+      screenshotDir: visualDir,
+      selector: candidates[0]!.selector,
+    })
+  }
+
+  if (selector) {
+    await mkdir(visualDir, { recursive: true })
+    return captureVisualState(url, {
+      reason: 'ambiguous-ui',
+      screenshotDir: visualDir,
+      selector,
+    })
+  }
+
+  return null
 }
 
 async function appendHistoryEntry(
@@ -245,6 +314,13 @@ export function createGenerateCommand(): Command {
         })
 
         summarizeCleanup(analyzedRecording)
+        const visualState = await maybeCaptureVisualState({
+          analyzedRecording,
+          projectRoot,
+          selector: jsResult.querySelectorCalls[0]?.selector,
+          url: jsResult.environmentUrl,
+        })
+        summarizeVisualState(visualState)
 
         // Step 3: Resolve document.querySelector selectors via Playwright (QRY-02, QRY-03)
         const queryResults: QueryResult[] = []
@@ -373,6 +449,12 @@ export function createGenerateCommand(): Command {
 
       const analyzedRecording = analyzeRecording(normalizedRecording)
       summarizeCleanup(analyzedRecording)
+      const visualState = await maybeCaptureVisualState({
+        analyzedRecording,
+        projectRoot,
+        url: findRecordingUrl(analyzedRecording),
+      })
+      summarizeVisualState(visualState)
 
       // 6. Generate test code
       const outputPath = options.output ?? deriveOutputPath(filePath)

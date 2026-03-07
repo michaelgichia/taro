@@ -6,6 +6,12 @@ import type {
   RecordingDiagnostics,
 } from '../types/recording.js'
 
+export interface VisualCaptureCandidate {
+  groupName: string
+  reason: 'dialog-state' | 'ambiguous-ui'
+  selector?: string
+}
+
 export interface NoiseFilterResult {
   steps: NormalizedStep[]
   diagnostics: Pick<
@@ -92,6 +98,14 @@ function deriveIntentLabel(steps: NormalizedStep[]): string {
   return 'recorded flow'
 }
 
+function isDialogLikeText(value?: string): boolean {
+  return /dialog|modal|drawer|sheet|popover/i.test(value ?? '')
+}
+
+function findGroupSelector(group: IntentGroup): string | undefined {
+  return group.steps.find((step) => step.target)?.target
+}
+
 export function inferIntentGroups(steps: NormalizedStep[]): IntentGroup[] {
   if (steps.length === 0) {
     return []
@@ -132,6 +146,37 @@ export function inferIntentGroups(steps: NormalizedStep[]): IntentGroup[] {
 
   flushGroup()
   return groups
+}
+
+export function findVisualCaptureCandidates(
+  analyzedRecording: AnalyzedRecording
+): VisualCaptureCandidate[] {
+  return analyzedRecording.intentGroups.flatMap((group) => {
+    const joinedTargets = group.steps
+      .map((step) => step.target ?? '')
+      .join(' ')
+
+    const hasDialogState =
+      isDialogLikeText(group.name) ||
+      isDialogLikeText(joinedTargets) ||
+      group.steps.some(
+        (step) =>
+          step.action === 'assert' &&
+          /open|confirm|add|dialog|modal/i.test(step.target ?? '')
+      )
+
+    if (!hasDialogState) {
+      return []
+    }
+
+    return [
+      {
+        groupName: group.name,
+        reason: 'dialog-state' as const,
+        selector: findGroupSelector(group),
+      },
+    ]
+  })
 }
 
 export function filterNoiseSteps(steps: NormalizedStep[]): NoiseFilterResult {

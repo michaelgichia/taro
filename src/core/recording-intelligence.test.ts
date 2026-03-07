@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { normalizeStep } from './parser.js'
 import {
   analyzeRecording,
+  findVisualCaptureCandidates,
   filterNoiseSteps,
   inferIntentGroups,
 } from './recording-intelligence.js'
@@ -200,6 +201,37 @@ describe('inferIntentGroups', () => {
     expect(analyzed.intentGroups.map((group) => group.name)).toEqual([
       'confirm Open',
       'edit Name',
+    ])
+  })
+
+  it('marks dialog-like intent groups for visual capture', () => {
+    const analyzed = analyzeRecording({
+      title: 'Dialog flow',
+      rawStepCount: 4,
+      steps: [
+        { action: 'click', target: 'Open Dialog', originalType: 'click', source: 'json' },
+        {
+          action: 'assert',
+          target: 'Confirmation Dialog',
+          originalType: 'assertElementVisible',
+          source: 'json',
+        },
+        { action: 'fill', target: 'Customer Name', value: 'Acme', originalType: 'fill', source: 'json' },
+        {
+          action: 'assert',
+          target: 'Saved',
+          originalType: 'assertElementVisible',
+          source: 'json',
+        },
+      ],
+    })
+
+    expect(findVisualCaptureCandidates(analyzed)).toEqual([
+      {
+        groupName: 'confirm Open Dialog',
+        reason: 'dialog-state',
+        selector: 'Open Dialog',
+      },
     ])
   })
 })
