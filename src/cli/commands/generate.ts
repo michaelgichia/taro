@@ -33,6 +33,7 @@ import {
   analyzeRecording,
   findVisualCaptureCandidates,
 } from '../../core/recording-intelligence.js'
+import { analyzeMocks } from '../../core/mock-intelligence.js'
 import { generateTestFromGroups, emitQuerySummary } from '../../core/generator.js'
 import type {
   AnalyzedRecording,
@@ -41,6 +42,7 @@ import type {
   VisualState,
 } from '../../types/recording.js'
 import type { HistoryEntry, ScoreResult } from '../../types/score.js'
+import type { MockAnalysis } from '../../core/mock-intelligence.js'
 
 export interface GenerateOptions {
   output?: string
@@ -152,6 +154,53 @@ function summarizeVisualState(visualState: VisualState | null): void {
   console.log(pc.dim('[taro]') + ` Visual state: ${parts.join(', ')}`)
 }
 
+function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
+  if (!mockAnalysis) {
+    return
+  }
+
+  const parts: string[] = []
+
+  if (mockAnalysis.repeatedTargets.length > 0) {
+    parts.push(`${mockAnalysis.repeatedTargets.length} repeated target(s)`)
+  }
+
+  if (mockAnalysis.mutationLifecycles.length > 0) {
+    parts.push(`${mockAnalysis.mutationLifecycles.length} mutation flow(s)`)
+  }
+
+  if (mockAnalysis.instabilityWarnings.length > 0) {
+    parts.push(`${mockAnalysis.instabilityWarnings.length} stability warning(s)`)
+  }
+
+  if (parts.length === 0) {
+    return
+  }
+
+  console.log(pc.dim('[taro]') + ` Mock analysis: ${parts.join(', ')}`)
+
+  const topRecommendation = mockAnalysis.recommendations[0]
+  if (topRecommendation) {
+    console.log(
+      pc.dim('[taro]') +
+        ` Mock hint: ${topRecommendation.kind} ${topRecommendation.target} (${topRecommendation.count} file(s))`
+    )
+  }
+
+  const topLifecycle = mockAnalysis.mutationLifecycles[0]
+  if (topLifecycle) {
+    console.log(
+      pc.dim('[taro]') +
+        ` Mutation lifecycle: ${topLifecycle.stages.join(' -> ')} in ${topLifecycle.file}`
+    )
+  }
+
+  const topWarning = mockAnalysis.instabilityWarnings[0]
+  if (topWarning) {
+    console.warn(pc.yellow(`[taro] Mock stability: ${topWarning.reason} (${topWarning.file})`))
+  }
+}
+
 function findRecordingUrl(analyzedRecording: AnalyzedRecording): string | undefined {
   return analyzedRecording.steps.find((step) => step.action === 'navigate')?.target
 }
@@ -189,6 +238,14 @@ async function maybeCaptureVisualState(params: {
   }
 
   return null
+}
+
+async function maybeAnalyzeMocks(projectRoot: string): Promise<MockAnalysis | null> {
+  try {
+    return await analyzeMocks(projectRoot)
+  } catch {
+    return null
+  }
 }
 
 async function appendHistoryEntry(
@@ -321,6 +378,8 @@ export function createGenerateCommand(): Command {
           url: jsResult.environmentUrl,
         })
         summarizeVisualState(visualState)
+        const mockAnalysis = await maybeAnalyzeMocks(projectRoot)
+        summarizeMockAnalysis(mockAnalysis)
 
         // Step 3: Resolve document.querySelector selectors via Playwright (QRY-02, QRY-03)
         const queryResults: QueryResult[] = []
@@ -455,6 +514,8 @@ export function createGenerateCommand(): Command {
         url: findRecordingUrl(analyzedRecording),
       })
       summarizeVisualState(visualState)
+      const mockAnalysis = await maybeAnalyzeMocks(projectRoot)
+      summarizeMockAnalysis(mockAnalysis)
 
       // 6. Generate test code
       const outputPath = options.output ?? deriveOutputPath(filePath)

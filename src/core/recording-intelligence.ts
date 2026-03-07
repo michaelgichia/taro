@@ -103,7 +103,7 @@ function isDialogLikeText(value?: string): boolean {
 }
 
 function findGroupSelector(group: IntentGroup): string | undefined {
-  return group.steps.find((step) => step.target)?.target
+  return group.steps.find((step) => step.action !== 'navigate' && step.target)?.target
 }
 
 export function inferIntentGroups(steps: NormalizedStep[]): IntentGroup[] {

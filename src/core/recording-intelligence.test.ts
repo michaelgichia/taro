@@ -234,4 +234,39 @@ describe('inferIntentGroups', () => {
       },
     ])
   })
+
+  it('prefers a non-navigation selector for dialog capture candidates', () => {
+    const analyzed = analyzeRecording({
+      title: 'Dialog flow',
+      rawStepCount: 3,
+      steps: [
+        {
+          action: 'navigate',
+          target: 'http://localhost:3000/checkout',
+          originalType: 'navigate',
+          source: 'json',
+        },
+        {
+          action: 'click',
+          target: '.checkout-dialog',
+          originalType: 'click',
+          source: 'json',
+        },
+        {
+          action: 'assert',
+          target: 'Checkout Dialog',
+          originalType: 'assertElementVisible',
+          source: 'json',
+        },
+      ],
+    })
+
+    expect(findVisualCaptureCandidates(analyzed)).toEqual([
+      {
+        groupName: 'confirm .checkout-dialog',
+        reason: 'dialog-state',
+        selector: '.checkout-dialog',
+      },
+    ])
+  })
 })

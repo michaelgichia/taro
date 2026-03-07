@@ -5,6 +5,8 @@
 export type ImportStyle = 'esm' | 'cjs'
 export type MockPattern = 'vi.mock' | 'jest.mock' | 'none'
 export type MockRecommendationKind = 'inline' | 'extract'
+export type MutationLifecycleStage = 'loading' | 'success' | 'error'
+export type MockInstabilityKind = 'recreated-factory' | 'per-test-churn'
 
 export interface ConventionFile {
   path: string
@@ -36,6 +38,19 @@ export interface MockRecommendation {
   reason: string
   files: string[]
   count: number
+}
+
+export interface MutationLifecyclePattern {
+  file: string
+  stages: MutationLifecycleStage[]
+  evidence: string[]
+}
+
+export interface MockInstabilityWarning {
+  file: string
+  kind: MockInstabilityKind
+  reason: string
+  evidence: string[]
 }
 
 export const DEFAULT_CONVENTIONS: ConventionsSchema = {
