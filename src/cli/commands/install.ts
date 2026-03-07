@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import pc from 'picocolors'
+import { executeInstallPlan } from '../../install/executor.js'
 import {
   InstallValidationError,
   normalizeInstallOptions,
@@ -9,11 +10,30 @@ import { buildInstallPlan } from '../../install/planner.js'
 import { promptForInstallChoices } from '../../install/prompts.js'
 import {
   confirmInstallPlan,
+  confirmInstallReplacement,
   renderInstallCancelledMessage,
-  renderInstallPendingMessage,
+  renderInstallExecutionResult,
   renderInstallSummary,
 } from '../../install/summary.js'
 import type { InstallCommandOptions, InstallSelection } from '../../install/types.js'
+
+interface PromptCapability {
+  input?: Pick<typeof process.stdin, 'isTTY'>
+  output?: Pick<typeof process.stdout, 'isTTY'>
+}
+
+interface PromptIO {
+  input?: typeof process.stdin
+  output?: typeof process.stdout
+}
+
+interface InstallCommandContext {
+  cwd?: string
+  home?: string
+  logger?: Pick<typeof console, 'log' | 'error'>
+  promptCapability?: PromptCapability
+  promptIO?: PromptIO
+}
 
 export function applyInstallOptions(command: Command): Command {
   return command
@@ -27,20 +47,21 @@ export function applyInstallOptions(command: Command): Command {
 }
 
 async function resolveInstallSelection(
-  options: InstallCommandOptions
+  options: InstallCommandOptions,
+  context: InstallCommandContext
 ): Promise<InstallSelection> {
-  const normalized = normalizeInstallOptions(options)
+  const normalized = normalizeInstallOptions(options, context.promptCapability)
 
   if (normalized.mode === 'interactive') {
-    return promptForInstallChoices(normalized)
+    return promptForInstallChoices(normalized, context.promptIO)
   }
 
   return toInstallSelection(normalized)
 }
 
-function printInstallError(error: unknown): void {
+function printInstallError(error: unknown, logger: Pick<typeof console, 'error'>): void {
   if (error instanceof InstallValidationError) {
-    console.error(pc.red(`Error: ${error.message}`))
+    logger.error(pc.red(`Error: ${error.message}`))
     process.exitCode = 1
     return
   }
@@ -48,24 +69,43 @@ function printInstallError(error: unknown): void {
   throw error
 }
 
-export async function runInstallCommand(options: InstallCommandOptions = {}): Promise<void> {
-  try {
-    const selection = await resolveInstallSelection(options)
-    const plan = buildInstallPlan(selection)
+export async function runInstallCommand(
+  options: InstallCommandOptions = {},
+  context: InstallCommandContext = {}
+): Promise<void> {
+  const logger = context.logger ?? console
 
-    console.log(renderInstallSummary(plan))
+  try {
+    const selection = await resolveInstallSelection(options, context)
+    const plan = buildInstallPlan(selection, {
+      cwd: context.cwd,
+      home: context.home,
+    })
+
+    logger.log(renderInstallSummary(plan))
 
     if (selection.mode === 'interactive') {
-      const confirmed = await confirmInstallPlan(plan)
+      const confirmed = await confirmInstallPlan(plan, context.promptIO)
       if (!confirmed) {
-        console.log(pc.yellow(renderInstallCancelledMessage()))
+        logger.log(pc.yellow(renderInstallCancelledMessage()))
         return
       }
     }
 
-    console.log(renderInstallPendingMessage(plan))
+    const result = await executeInstallPlan(plan, {
+      confirmReplace:
+        selection.mode === 'interactive'
+          ? (request) => confirmInstallReplacement(request, context.promptIO)
+          : undefined,
+    })
+
+    logger.log(renderInstallExecutionResult(result))
+
+    if (result.status !== 'installed') {
+      process.exitCode = 1
+    }
   } catch (error) {
-    printInstallError(error)
+    printInstallError(error, logger)
   }
 }
 

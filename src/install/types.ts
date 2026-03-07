@@ -69,6 +69,21 @@ export interface InstallOwnedFile {
   checksum?: string
 }
 
+export interface InstallFileOperation {
+  assetId: string
+  runtime: RuntimeTarget
+  location: InstallLocation
+  kind: InstallAssetKind
+  sourcePath: string
+  relativeDestinationPath: string
+  targetPath: string
+  entrypoint?: string
+}
+
+export interface PlannedInstallTarget extends ResolvedInstallTarget {
+  operations: InstallFileOperation[]
+}
+
 export interface InstallOwnershipManifest {
   packageName: '@tayo-dev/rtl'
   runtime: RuntimeTarget
@@ -92,8 +107,26 @@ export interface InstallAssetConflict {
 export interface InstallPlan {
   packageName: '@tayo-dev/rtl'
   commandName: 'taro'
-  stage: 'prewrite-preview'
+  stage: 'prewrite-preview' | 'ready-to-write'
   source: InstallSelectionSource
   mode: 'interactive' | 'non-interactive'
-  targets: ResolvedInstallTarget[]
+  targets: PlannedInstallTarget[]
+}
+
+export interface RuntimeInstallResult {
+  runtime: RuntimeTarget
+  displayName: string
+  location: InstallLocation
+  destinationDirectory: string
+  verificationCommand: string
+  status: 'installed' | 'requires-replace-confirmation' | 'blocked'
+  writtenFiles: string[]
+  manifestPath?: string
+  conflicts: InstallAssetConflict[]
+}
+
+export interface InstallExecutionResult {
+  packageName: '@tayo-dev/rtl'
+  status: 'installed' | 'partial' | 'blocked'
+  targets: RuntimeInstallResult[]
 }
