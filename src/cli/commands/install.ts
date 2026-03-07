@@ -5,8 +5,14 @@ import {
   normalizeInstallOptions,
   toInstallSelection,
 } from '../../install/options.js'
+import { buildInstallPlan } from '../../install/planner.js'
 import { promptForInstallChoices } from '../../install/prompts.js'
-import { RUNTIME_METADATA } from '../../install/types.js'
+import {
+  confirmInstallPlan,
+  renderInstallCancelledMessage,
+  renderInstallPendingMessage,
+  renderInstallSummary,
+} from '../../install/summary.js'
 import type { InstallCommandOptions, InstallSelection } from '../../install/types.js'
 
 export function applyInstallOptions(command: Command): Command {
@@ -32,19 +38,6 @@ async function resolveInstallSelection(
   return toInstallSelection(normalized)
 }
 
-function renderSelectionSummary(selection: InstallSelection): string {
-  const lines = selection.runtimes.map((runtime) => {
-    return `- ${RUNTIME_METADATA[runtime].displayName}: ${selection.locations[runtime]}`
-  })
-
-  return [
-    pc.bold('Installer selection captured'),
-    ...lines,
-    '',
-    pc.dim('Prewrite install planning lands in the next plan.'),
-  ].join('\n')
-}
-
 function printInstallError(error: unknown): void {
   if (error instanceof InstallValidationError) {
     console.error(pc.red(`Error: ${error.message}`))
@@ -58,7 +51,19 @@ function printInstallError(error: unknown): void {
 export async function runInstallCommand(options: InstallCommandOptions = {}): Promise<void> {
   try {
     const selection = await resolveInstallSelection(options)
-    console.log(renderSelectionSummary(selection))
+    const plan = buildInstallPlan(selection)
+
+    console.log(renderInstallSummary(plan))
+
+    if (selection.mode === 'interactive') {
+      const confirmed = await confirmInstallPlan(plan)
+      if (!confirmed) {
+        console.log(pc.yellow(renderInstallCancelledMessage()))
+        return
+      }
+    }
+
+    console.log(renderInstallPendingMessage(plan))
   } catch (error) {
     printInstallError(error)
   }
