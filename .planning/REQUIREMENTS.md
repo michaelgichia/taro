@@ -15,10 +15,10 @@
 
 ### Package
 
-- [x] **PKG-01**: `package.json` has `name=@tayo/rtl`, `files`, `exports`, and `engines` fields correctly set
+- [x] **PKG-01**: `package.json` has `name=@tayo-dev/rtl`, `files`, `exports`, and `engines` fields correctly set
 - [x] **PKG-02**: Package version is bumped to 1.0.0
 - [x] **PKG-03**: `tsc` build produces a working `dist/` verified by running `node dist/index.js --help`
-- [x] **PKG-04**: `npx @tayo/rtl generate ./recording.js` installs and runs correctly after publish
+- [x] **PKG-04**: `npx @tayo-dev/rtl generate ./recording.js` installs and runs correctly after publish
 
 ## Future Requirements
 

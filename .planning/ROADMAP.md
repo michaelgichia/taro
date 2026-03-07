@@ -19,7 +19,7 @@ See [v1.0 roadmap archive](./milestones/v1.0-ROADMAP.md) for full phase details.
 **Milestone Goal:** Make Taro publicly installable and well-documented so any developer can discover, install, and use it.
 
 - [x] **Phase 8: README Documentation** - Comprehensive public-facing README covering what Taro is, how to install it, and how to use it (completed 2026-03-07)
-- [x] **Phase 9: Package & Publish** - Package fields, build verification, and npm publish so `npx @tayo/rtl generate` works out of the box (completed 2026-03-07)
+- [x] **Phase 9: Package & Publish** - Package fields, build verification, and npm publish so `npx @tayo-dev/rtl generate` works out of the box (completed 2026-03-07)
 
 ## Phase Details
 
@@ -40,14 +40,14 @@ Plans:
 - [x] 08-02-PLAN.md — Write Worked Example and Claude Code Skill guide (DOCS-04, DOCS-05)
 
 ### Phase 9: Package & Publish
-**Goal**: The `@tayo/rtl` package is correctly prepared, builds cleanly, and installs from npm so any developer can run `npx @tayo/rtl generate ./recording.js`
+**Goal**: The `@tayo-dev/rtl` package is correctly prepared, builds cleanly, and installs from npm so any developer can run `npx @tayo-dev/rtl generate ./recording.js`
 **Depends on**: Phase 8
 **Requirements**: PKG-01, PKG-02, PKG-03, PKG-04
 **Success Criteria** (what must be TRUE):
   1. `package.json` contains `name`, `files`, `exports`, and `engines` fields that correctly describe the package for npm consumers
   2. Package version reads `1.0.0` in `package.json`
   3. Running `tsc` produces a `dist/` directory and `node dist/index.js --help` prints the CLI help without error
-  4. After publishing, `npx @tayo/rtl generate ./recording.js` installs the package and runs the generate command correctly
+  4. After publishing, `npx @tayo-dev/rtl generate ./recording.js` installs the package and runs the generate command correctly
 **Plans**: 2 plans
 
 Plans:

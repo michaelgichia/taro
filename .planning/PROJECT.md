@@ -28,7 +28,7 @@ Reduce the effort to write and maintain tests by automatically generating high-q
 ### Active
 
 - [ ] Comprehensive README for public developers
-- [ ] npm package published as `@tayo/rtl`
+- [ ] npm package published as `@tayo-dev/rtl`
 - [ ] Package fields and build verified for npm distribution
 
 ### Out of Scope
@@ -43,7 +43,7 @@ Reduce the effort to write and maintain tests by automatically generating high-q
 
 **Target features:**
 - Comprehensive README covering install, setup, `taro generate` usage, configuration, examples, and Claude skill integration
-- npm package published as `@tayo/rtl` so `npx @tayo/rtl generate ./recording.js` works out of the box
+- npm package published as `@tayo-dev/rtl` so `npx @tayo-dev/rtl generate ./recording.js` works out of the box
 - Package preparation: `files` field, version bump, build verification, `.npmignore`
 
 ## Context

@@ -5,7 +5,7 @@ milestone_name: Documentation & Deployment
 status: completed
 stopped_at: Session resumed, proceeding to milestone completion
 last_updated: "2026-03-07T15:01:15Z"
-last_activity: 2026-03-07 — Completed package publish verification and confirmed npm publish for @tayo/rtl v1.0.0
+last_activity: 2026-03-07 — Completed package publish verification and confirmed npm publish for @tayo-dev/rtl v1.0.0
 progress:
   total_phases: 2
   completed_phases: 2
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-07)
 Phase: 9 of 9 (Package & Publish)
 Plan: 2 of 2
 Status: Complete
-Last activity: 2026-03-07 — Completed package publish verification and confirmed npm publish for @tayo/rtl v1.0.0
+Last activity: 2026-03-07 — Completed package publish verification and confirmed npm publish for @tayo-dev/rtl v1.0.0
 
 Progress: [████████████████████] 100%
 
@@ -60,14 +60,14 @@ Carried forward from v1.0:
 
 - [Phase 04]: Scoring is advisory only; low scores emit hints but do not block file writes
 - [Phase 06]: Visual and mock intelligence remain advisory; they inform generation without blocking writes
-- [v1.1]: Package name is `@tayo/rtl`; docs are README-first targeting any public developer
+- [v1.1]: Package name is `@tayo-dev/rtl`; docs are README-first targeting any public developer
 - [v1.1]: Phase 8 covers all README documentation (DOCS-01 through DOCS-05)
 - [v1.1]: Phase 9 covers all package preparation and publish verification (PKG-01 through PKG-04)
 - [Phase 08-readme-documentation]: All CLI flags documented from source code (generate.ts) — no fabricated features
 - [Phase 08-readme-documentation]: README-first documentation structure: Introduction, Quick Start, CLI Reference
 - [Phase 08-readme-documentation]: Worked example uses login flow as canonical scenario — covers navigate, click, change, and waitForElement step types
 - [Phase 08-readme-documentation]: Claude skill section provides both Option A (direct npx invocation) and Option B (SKILL.md registration) to serve different developer preferences
-- [Phase 09-package-publish]: Package name is @tayo/rtl with files whitelist, exports map, and node>=18 engine constraint at version 1.0.0
+- [Phase 09-package-publish]: Package name is @tayo-dev/rtl with files whitelist, exports map, and node>=18 engine constraint at version 1.0.0
 - [Phase 09-package-publish]: Release verification requires build success, CLI smoke checks, and npm dry-run before the credentialed publish step
 - [Phase 09-package-publish]: Use `NPM_CONFIG_CACHE=/tmp/taro-npm-cache` when local npm cache ownership blocks publish verification
 
