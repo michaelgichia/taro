@@ -39,10 +39,10 @@ updated: 2026-03-07T16:12:00Z
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 11-01-01 | 01 | 1 | RUNT-01..RUNT-05 | unit/build | `npm run build && npm run test:run -- src/install/registry.test.ts src/install/manifest.test.ts` | ❌ W0 | ⬜ pending |
+| 11-01-01 | 01 | 1 | RUNT-05 | unit/build | `npm run build && npm run test:run -- src/install/registry.test.ts src/install/manifest.test.ts` | ❌ W0 | ⬜ pending |
 | 11-02-01 | 02 | 2 | RUNT-01..RUNT-03 | integration | `npm run build && npm run test:run -- src/install/prompt-runtimes.test.ts` | ❌ W0 | ⬜ pending |
 | 11-03-01 | 03 | 2 | RUNT-04 | integration | `npm run build && npm run test:run -- src/install/codex-runtime.test.ts` | ❌ W0 | ⬜ pending |
-| 11-04-01 | 04 | 3 | RUNT-05 | integration/cli | `npm run build && npm run test:run -- src/install/write-execution.test.ts src/cli/commands/install.test.ts` | ❌ W0 | ⬜ pending |
+| 11-04-01 | 04 | 3 | RUNT-01..RUNT-05 | integration/cli | `npm run build && npm run test:run -- src/install/write-execution.test.ts src/cli/commands/install.test.ts` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -56,6 +56,7 @@ updated: 2026-03-07T16:12:00Z
 - [ ] `src/install/codex-runtime.test.ts` — covers one-folder-per-skill Codex output
 - [ ] `src/install/write-execution.test.ts` — covers multi-runtime `--all` execution and result reporting
 - [ ] `src/cli/commands/install.test.ts` — covers CLI-level installer smoke behavior if command tests are added in-repo
+- [ ] conflict assertions in `src/install/write-execution.test.ts` — prove replace-confirmation, protected-manual-edit, and colliding non-Tayo file behavior
 
 ---
 

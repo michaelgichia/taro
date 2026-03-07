@@ -56,7 +56,11 @@ See [v1.0 roadmap archive](./milestones/v1.0-ROADMAP.md) for full phase details.
   3. OpenCode installations expose `/@tayo-dev/rtl-help`
   4. Codex installations create `skills/@tayo-dev/rtl-*/SKILL.md` assets and expose `$@tayo-dev/rtl-help`
   5. `--all` installs all supported runtimes in one run and reports what was written
-**Plans**: Not yet created
+**Plans**:
+- [ ] 11-01 - Runtime registry, manifest, and package asset foundation
+- [ ] 11-02 - Prompt-runtime assets and temp-directory delivery tests
+- [ ] 11-03 - Codex skill suite and temp-directory delivery tests
+- [ ] 11-04 - Real write execution, conflict handling, and all-runtime reporting
 
 ### Phase 12: Verification, Updates & Release Docs
 **Goal**: Installer reruns are safe, verification commands are trustworthy, and the README documents the real shipped onboarding flow
@@ -80,5 +84,5 @@ Phases execute in numeric order: 10 → 11 → 12
 | 8. README Documentation | v1.1 | 2/2 | Complete | 2026-03-07 |
 | 9. Package & Publish | v1.1 | 2/2 | Complete | 2026-03-07 |
 | 10. Installer Core & Package Entry | v1.2 | 3/3 | Complete | 2026-03-07 |
-| 11. Runtime Targets & Asset Delivery | v1.2 | 0/0 | Not Started | — |
+| 11. Runtime Targets & Asset Delivery | v1.2 | 0/4 | Planned | — |
 | 12. Verification, Updates & Release Docs | v1.2 | 0/0 | Not Started | — |

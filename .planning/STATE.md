@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Runtime Installer Distribution
-status: in_progress
-stopped_at: Phase 10 complete; Phase 11 not yet planned
-last_updated: "2026-03-07T16:07:00Z"
-last_activity: 2026-03-07 — Captured Phase 11 runtime asset delivery context
+status: planned
+stopped_at: Phase 11 planned with 4 plans in 3 waves
+last_updated: "2026-03-07T16:18:00Z"
+last_activity: 2026-03-07 — Planned Phase 11 runtime targets and asset delivery
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 3
+  total_plans: 7
   completed_plans: 3
   percent: 33
 ---
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-07)
 
 **Core value:** Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, and Codex with near-zero setup friction
-**Current focus:** Phase 11 context captured — ready to plan runtime asset delivery
+**Current focus:** Phase 11 planned — ready to execute runtime asset delivery
 
 ## Current Position
 
 Phase: 11 of 12 (Runtime Targets & Asset Delivery)
 Plan: —
-Status: Context Gathered
-Last activity: 2026-03-07 — Captured Phase 11 runtime asset delivery context
+Status: Planned
+Last activity: 2026-03-07 — Planned Phase 11 runtime targets and asset delivery
 
 Progress: [██████░░░░░░░░░░░░░░] 33%
 
@@ -77,6 +77,8 @@ Carried forward from v1.0:
 - [Phase 11]: Codex should get a broader one-folder-per-skill suite under `skills/@tayo-dev/rtl-*`
 - [Phase 11]: Asset delivery should prefer isolated namespaced files, protect user edits, and write a visible ownership marker
 - [Phase 11]: Project-local installs should mirror hidden runtime dirs, with OpenCode local installs using `./.opencode`
+- [Phase 11 planned]: Use four plans in three waves: foundation, prompt/Codex delivery in parallel, then shared execution/reporting
+- [Phase 11 planned]: Conflict handling must explicitly cover replace-confirmation, protected manual edits, and blocking non-Tayo collisions
 
 ### Pending Todos
 
@@ -94,6 +96,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-07T16:07:00Z
-Stopped at: Phase 11 context captured; ready to plan
-Resume file: .planning/phases/11-runtime-targets-asset-delivery/11-CONTEXT.md
+Last session: 2026-03-07T16:18:00Z
+Stopped at: Phase 11 planned with 4 plans in 3 waves
+Resume file: .planning/phases/11-runtime-targets-asset-delivery/11-01-PLAN.md
