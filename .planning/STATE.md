@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Documentation & Deployment
-status: completed
-stopped_at: Completed quick task 1: rename taro to @tayo-dev/rtl
+milestone: v1.2
+milestone_name: Runtime Installer Distribution
+status: requirements
+stopped_at: Started milestone v1.2 and gathering requirements
 last_updated: "2026-03-07T15:06:19Z"
-last_activity: 2026-03-07 — Completed quick task 1: rename taro to @tayo-dev/rtl
+last_activity: 2026-03-07 — Started milestone v1.2 Runtime Installer Distribution
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
-  percent: 100
+  total_phases: 3
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -20,22 +20,22 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-03-07)
 
-**Core value:** Reduce the effort to write and maintain tests by automatically generating high-quality, codebase-aware React Testing Library tests from browser recordings
-**Current focus:** Milestone v1.1 complete — README documentation and package publish finished
+**Core value:** Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, and Codex with near-zero setup friction
+**Current focus:** Milestone v1.2 — defining installer-first requirements for multi-runtime distribution
 
 ## Current Position
 
-Phase: 9 of 9 (Package & Publish)
-Plan: 2 of 2
-Status: Complete
-Last activity: 2026-03-07 — Completed quick task 1: rename taro to @tayo-dev/rtl
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-07 — Started milestone v1.2 Runtime Installer Distribution
 
-Progress: [████████████████████] 100%
+Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4 (v1.1)
+- Total plans completed: 0 (v1.2)
 - Average duration: —
 - Total execution time: —
 
@@ -46,10 +46,7 @@ Progress: [████████████████████] 100%
 | - | - | - | - |
 
 *Updated after each plan completion*
-| Phase 08-readme-documentation P01 | 1 | 3 tasks | 1 files |
-| Phase 08-readme-documentation P02 | 1 | 2 tasks | 1 files |
-| Phase 09-package-publish P01 | 1 | 2 tasks | 2 files |
-| Phase 09-package-publish P02 | 1 | 3 tasks | 4 files |
+| - | - | - | - |
 
 ## Accumulated Context
 
@@ -70,6 +67,9 @@ Carried forward from v1.0:
 - [Phase 09-package-publish]: Package name is @tayo-dev/rtl with files whitelist, exports map, and node>=18 engine constraint at version 1.0.0
 - [Phase 09-package-publish]: Release verification requires build success, CLI smoke checks, and npm dry-run before the credentialed publish step
 - [Phase 09-package-publish]: Use `NPM_CONFIG_CACHE=/tmp/taro-npm-cache` when local npm cache ownership blocks publish verification
+- [v1.2]: Installer entrypoint stays in `@tayo-dev/rtl`; no separate umbrella package in this milestone
+- [v1.2]: Milestone focus is installer-first across Claude Code, OpenCode, Gemini CLI, and Codex
+- [v1.2]: Codex support must install skills under `skills/@tayo-dev/rtl-*/SKILL.md`, not custom prompts
 
 ### Pending Todos
 
@@ -88,5 +88,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-07T15:06:19Z
-Stopped at: Completed quick task 1: rename taro to @tayo-dev/rtl
+Stopped at: Started milestone v1.2 and gathering requirements
 Resume file: None
