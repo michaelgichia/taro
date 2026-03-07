@@ -93,15 +93,11 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-[From .planning/todos/pending/ — ideas captured during sessions]
-
-None yet.
+None.
 
 ### Blockers/Concerns
 
-[Issues that affect future work]
-
-None yet.
+None.
 
 ## Session Continuity
 

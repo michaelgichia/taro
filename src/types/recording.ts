@@ -8,14 +8,41 @@ export interface AssertedEvent {
   title?: string
 }
 
+export interface ChromeRecorderSettings {
+  url?: string
+  viewport?: {
+    width: number
+    height: number
+  }
+  [key: string]: unknown
+}
+
+export type NormalizedAction =
+  | 'click'
+  | 'fill'
+  | 'select'
+  | 'scroll'
+  | 'assert'
+  | 'navigate'
+  | 'keyDown'
+  | 'waitForSelector'
+  | 'doubleClick'
+  | 'unknown'
+
+export type StepType = Exclude<NormalizedAction, 'unknown'> | (string & {})
+export type RecordingSource = 'json' | 'js'
+
 export interface ChromeStep {
-  type: string
+  type: StepType
   target?: string
   selectors?: string[][]
   value?: string
   key?: string
   url?: string
   assertedEvents?: AssertedEvent[]
+  assert?: {
+    expression: string
+  }
   timeout?: number
   offsetX?: number
   offsetY?: number
@@ -27,25 +54,14 @@ export interface ChromeStep {
   isMobile?: boolean
   hasTouch?: boolean
   isLandscape?: boolean
+  modifiedTime?: number
 }
 
 export interface ChromeRecorderExport {
   title?: string
   steps: ChromeStep[]
-  settings?: Record<string, unknown>
+  settings?: ChromeRecorderSettings
 }
-
-export type NormalizedAction =
-  | 'click'
-  | 'fill'
-  | 'select'
-  | 'scroll'
-  | 'assert'
-  | 'navigate'
-  | 'keyDown'
-  | 'unknown'
-
-export type RecordingSource = 'json' | 'js'
 
 export interface NormalizedStep {
   action: NormalizedAction
@@ -61,12 +77,26 @@ export interface NormalizedStep {
   offsetY?: number
   x?: number
   y?: number
+  id?: string
+  type?: StepType
+  selector?: string
+  timestamp?: number
+  metadata?: Record<string, unknown>
+}
+
+export interface RecordingStep extends NormalizedStep {
+  id: string
+  type: StepType
+  action: Exclude<NormalizedAction, 'unknown'>
+  target: string
 }
 
 export interface NormalizedRecording {
   title: string
   steps: NormalizedStep[]
   rawStepCount: number
+  url?: string
+  settings?: ChromeRecorderSettings
 }
 
 export interface RecordingDiagnostics {
@@ -107,8 +137,6 @@ export interface VisualState {
   dialog: DialogState | null
 }
 
-// --- Phase 3 additions ---
-
 export type QueryQuality = 'excellent' | 'good' | 'acceptable' | 'fragile'
 
 export interface ElementInfo {
@@ -124,11 +152,11 @@ export interface ElementInfo {
 }
 
 export interface QueryResult {
-  query: string // e.g., `screen.getByRole('button', { name: 'Save' })`
+  query: string
   quality: QueryQuality
-  method: string // e.g., 'getByRole'
-  matcher?: string // e.g., '.toHaveValue()', '.toBeChecked()' — context-aware matcher
-  line?: number // source line in input JS (for quality summary)
+  method: string
+  matcher?: string
+  line?: number
 }
 
 export interface ItGroup {
