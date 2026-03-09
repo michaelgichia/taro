@@ -1,6 +1,6 @@
 {
   "name": "@tayo-dev/rtl",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Generate high-quality React Testing Library tests from Chrome Recorder recordings",
   "type": "module",
   "bin": {
