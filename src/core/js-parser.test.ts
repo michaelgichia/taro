@@ -223,4 +223,27 @@ describe('parseJsRecording', () => {
       ])
     )
   })
+
+  it('preserves selector-only evidence without inventing accessible queries', async () => {
+    const recording = await parseJsRecording(`
+      test('Recorder Flow', async () => {
+        await userEvent.click(document.querySelector('div.css-19bb58m'))
+      })
+    `)
+
+    expect(recording.selectors).toEqual([
+      expect.objectContaining({
+        selector: 'div.css-19bb58m',
+        selectorKind: 'document.querySelector',
+      }),
+    ])
+    expect(recording.steps[0]).toEqual(
+      expect.objectContaining({
+        target: 'div.css-19bb58m',
+        metadata: expect.not.objectContaining({
+          query: expect.anything(),
+        }),
+      })
+    )
+  })
 })
