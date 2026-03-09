@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: JS Baseline
-status: defining_requirements
-stopped_at: requirements definition in progress; roadmap pending
-last_updated: "2026-03-09T06:10:56Z"
-last_activity: 2026-03-09 — Milestone v1.3 JS Baseline started
+status: ready_to_plan
+stopped_at: roadmap created; phase 13 ready for planning
+last_updated: "2026-03-09T06:31:28Z"
+last_activity: 2026-03-09 — Roadmap created for milestone v1.3 JS Baseline
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,80 +21,47 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-09)
 
 **Core value:** Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, and Codex with near-zero setup friction
-**Current focus:** v1.3 JS Baseline — defining requirements
+**Current focus:** Phase 13 - JS Input Contract & AST Recovery
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-09 — Milestone v1.3 JS Baseline started
+Phase: 13 of 16 (JS Input Contract & AST Recovery)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-03-09 — Roadmap created for milestone v1.3 JS Baseline
 
 Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
-Previous milestone metrics preserved below for reference until v1.3 begins execution.
-
 **Velocity:**
-- Total plans completed: 10 (v1.2)
-- Average duration: phase summaries explicitly track ~11 min across the four plans that recorded duration
-- Milestone verification: 13/13 requirements complete, 10/10 plans summarized, Phase 12 score 4/4 must-haves verified
+- Total plans completed: 10
+- Average duration: mixed historical data from v1.2
+- Total execution time: mixed historical data from v1.2
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 10. Installer Core & Package Entry | 3 | ~27 min | ~9 min |
+| 10. Installer Core & Package Entry | 3 | Mixed | Mixed |
 | 11. Runtime Targets & Asset Delivery | 4 | Mixed | Mixed |
 | 12. Verification, Updates & Release Docs | 3 | Mixed | Mixed |
 
-**Shipped plan log:**
-
-- `10-01` — `46ea63b` — Installer-first CLI entry — 2026-03-07
-- `10-02` — `6ff4df8` — Installer selection flow — 2026-03-07
-- `10-03` — `2e84e7e` — Install plan preview — 2026-03-07
-- `11-01` — `9611f9c` — Runtime installer foundation — 2026-03-07
-- `11-02` — `974602d` — Prompt runtime asset delivery — 2026-03-07
-- `11-03` — `974602d` — Codex skill delivery — 2026-03-07
-- `11-04` — `974602d` — Real write execution and reporting — 2026-03-07
-- `12-01` — `6a62f12` — Safe rerun and repair semantics — 2026-03-07
-- `12-02` — `6a62f12` — Verified runtime commands and tarball proof — 2026-03-07
-- `12-03` — `6a62f12` — Installer-first README and release docs — 2026-03-07
+**Recent Trend:**
+- Last 5 plans: historical v1.2 completions
+- Trend: Stable
 
 ## Accumulated Context
 
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-Carried forward from v1.0:
+Recent decisions affecting current work:
 
-- [Phase 04]: Scoring is advisory only; low scores emit hints but do not block file writes
-- [Phase 06]: Visual and mock intelligence remain advisory; they inform generation without blocking writes
-- [v1.1]: Package name is `@tayo-dev/rtl`; docs are README-first targeting any public developer
-- [v1.1]: Phase 8 covers all README documentation (DOCS-01 through DOCS-05)
-- [v1.1]: Phase 9 covers all package preparation and publish verification (PKG-01 through PKG-04)
-- [Phase 08-readme-documentation]: All CLI flags documented from source code (generate.ts) — no fabricated features
-- [Phase 08-readme-documentation]: README-first documentation structure: Introduction, Quick Start, CLI Reference
-- [Phase 08-readme-documentation]: Worked example uses login flow as canonical scenario — covers navigate, click, change, and waitForElement step types
-- [Phase 08-readme-documentation]: Claude skill section provides both Option A (direct npx invocation) and Option B (SKILL.md registration) to serve different developer preferences
-- [Phase 09-package-publish]: Package name is @tayo-dev/rtl with files whitelist, exports map, and node>=18 engine constraint at version 1.0.0
-- [Phase 09-package-publish]: Release verification requires build success, CLI smoke checks, and npm dry-run before the credentialed publish step
-- [Phase 09-package-publish]: Use `NPM_CONFIG_CACHE=/tmp/taro-npm-cache` when local npm cache ownership blocks publish verification
-- [v1.2]: Installer entrypoint stays in `@tayo-dev/rtl`; no separate umbrella package in this milestone
-- [v1.2]: Milestone focus is installer-first across Claude Code, OpenCode, Gemini CLI, and Codex
-- [v1.2]: Codex support must install skills under `skills/@tayo-dev/rtl-*/SKILL.md`, not custom prompts
-- [v1.2]: Research is enabled for this milestone because runtime-specific install conventions and update behavior need validation
-- [Phase 11]: Prompt-based runtimes should get a minimal, mostly shared, fully namespaced `@tayo-dev/rtl` asset surface
-- [Phase 11]: Codex should get a broader one-folder-per-skill suite under `skills/@tayo-dev/rtl-*`
-- [Phase 11]: Asset delivery should prefer isolated namespaced files, protect user edits, and write a visible ownership marker
-- [Phase 11]: Project-local installs should mirror hidden runtime dirs, with OpenCode local installs using `./.opencode`
-- [Phase 11 planned]: Use four plans in three waves: foundation, prompt/Codex delivery in parallel, then shared execution/reporting
-- [Phase 11 planned]: Conflict handling must explicitly cover replace-confirmation, protected manual edits, and blocking non-Tayo collisions
-- [Phase 12 planned]: Use three sequential plans: safe reruns, runtime/package verification, then installer-first README and release docs
-- [Phase 12]: Reruns now refresh unchanged owned assets and repair missing owned assets automatically while still protecting manual edits
-- [Phase 12]: Install completion output now reports verified runtime command paths and package smoke proof covers the tarball boundary
-- [Milestone v1.2]: Closeout proceeded without a separate milestone audit artifact because all requirements, summaries, and verification reports were complete
+- [v1.3] Keep the milestone focused on JS baseline fidelity rather than installer or distribution work.
+- [v1.3] Treat recorder JS as a baseline artifact Taro must interpret and improve before writing a project test.
+- [v1.3] Preserve Chrome Recorder JSON support while JS baseline quality improves.
+- [v1.3] Continue phase numbering from 13 because v1.2 shipped through Phase 12.
 
 ### Pending Todos
 
@@ -102,16 +69,11 @@ None.
 
 ### Blockers/Concerns
 
-None.
-
-### Quick Tasks Completed
-
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 1 | rename taro to @tayo-dev/rtl | 2026-03-07 | 97cd071 | [1-rename-taro-to-tayo-dev-rtl](./quick/1-rename-taro-to-tayo-dev-rtl/) |
+- Render-target resolution may need explicit checkpoint rules during Phase 15 planning.
+- Optional live DOM enrichment needs a safe host policy during Phase 14 planning.
 
 ## Session Continuity
 
-Last session: 2026-03-09T06:10:56Z
-Stopped at: requirements definition in progress; roadmap pending
-Resume file: .planning/PROJECT.md
+Last session: 2026-03-09T06:31:28Z
+Stopped at: roadmap created; next step is `/gsd:plan-phase 13`
+Resume file: .planning/ROADMAP.md

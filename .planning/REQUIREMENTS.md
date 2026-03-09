@@ -58,26 +58,26 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INPUT-01 | — | Pending |
-| INPUT-02 | — | Pending |
-| INPUT-03 | — | Pending |
-| QUERY-01 | — | Pending |
-| QUERY-02 | — | Pending |
-| QUERY-03 | — | Pending |
-| QUERY-04 | — | Pending |
-| SUITE-01 | — | Pending |
-| SUITE-02 | — | Pending |
-| SUITE-03 | — | Pending |
-| SUITE-04 | — | Pending |
-| VERIFY-01 | — | Pending |
-| VERIFY-02 | — | Pending |
-| VERIFY-03 | — | Pending |
+| INPUT-01 | Phase 13 | Pending |
+| INPUT-02 | Phase 13 | Pending |
+| INPUT-03 | Phase 13 | Pending |
+| QUERY-01 | Phase 13 | Pending |
+| QUERY-02 | Phase 14 | Pending |
+| QUERY-03 | Phase 14 | Pending |
+| QUERY-04 | Phase 14 | Pending |
+| SUITE-01 | Phase 15 | Pending |
+| SUITE-02 | Phase 15 | Pending |
+| SUITE-03 | Phase 15 | Pending |
+| SUITE-04 | Phase 15 | Pending |
+| VERIFY-01 | Phase 16 | Pending |
+| VERIFY-02 | Phase 16 | Pending |
+| VERIFY-03 | Phase 16 | Pending |
 
 **Coverage:**
 - v1 requirements: 14 total
-- Mapped to phases: 0
-- Unmapped: 14 ⚠️
+- Mapped to phases: 14
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-09*
-*Last updated: 2026-03-09 after initial definition*
+*Last updated: 2026-03-09 after roadmap traceability update*
