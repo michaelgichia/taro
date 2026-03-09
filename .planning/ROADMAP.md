@@ -72,7 +72,7 @@ v1.3 focuses on turning Testing Library Recorder JS exports into a truthful base
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 13. JS Input Contract & AST Recovery | 2/4 | In Progress|  | - |
+| 13. JS Input Contract & AST Recovery | 3/4 | In Progress|  | - |
 | 14. Truthful Selector Recovery | v1.3 | 0/TBD | Not started | - |
 | 15. Structured Suite Planning & Repo-aware Generation | v1.3 | 0/TBD | Not started | - |
 | 16. Verification, JSON Parity & Product Surface | v1.3 | 0/TBD | Not started | - |
