@@ -98,6 +98,7 @@ export interface NormalizedRecording {
   rawStepCount: number
   url?: string
   settings?: ChromeRecorderSettings
+  baseline?: JsBaselineMetadata
 }
 
 export interface RecordingDiagnostics {

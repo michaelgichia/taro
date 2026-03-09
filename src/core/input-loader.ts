@@ -1,18 +1,13 @@
 import { readFile } from 'node:fs/promises'
 import { extname } from 'node:path'
-import { classifyQuery, parseJsRecording, type JsParseResult } from './js-parser.js'
+import { parseJsRecording, type JsParseResult } from './js-parser.js'
 import { parseRecording } from './parser.js'
 import {
   createStepId,
-  type AssertionDescriptor,
-  type JsBaselineMetadata,
   type NormalizedRecording,
   type NormalizedStep,
   type ParsedInput,
-  type QueryDescriptor,
   type RecordingSource,
-  type SelectorDescriptor,
-  type StepId,
 } from '../types/recording.js'
 
 const JSON_EXTENSIONS = new Set(['.json'])
@@ -63,77 +58,6 @@ function attachStepIds(source: RecordingSource, steps: NormalizedStep[]): Normal
   }))
 }
 
-function findNearestStepId(steps: NormalizedStep[], line?: number): StepId {
-  if (typeof line === 'number') {
-    const exactMatch = steps.find((step) => step.line === line)?.id
-    if (exactMatch) {
-      return exactMatch
-    }
-
-    const earlierMatch = [...steps]
-      .reverse()
-      .find((step) => typeof step.line === 'number' && step.line! <= line)?.id
-    if (earlierMatch) {
-      return earlierMatch
-    }
-  }
-
-  return steps[0]?.id ?? createStepId('js', 0)
-}
-
-function buildQueryDescriptors(steps: NormalizedStep[]): QueryDescriptor[] {
-  return steps
-    .filter((step) => step.originalType.startsWith('getBy'))
-    .map((step) => ({
-      stepId: step.id ?? createStepId('js', 0),
-      method: step.originalType,
-      queryRoot: 'screen',
-      line: step.line,
-      target: step.target,
-      quality: classifyQuery(step.originalType),
-      raw: step.target,
-    }))
-}
-
-function buildAssertionDescriptors(steps: NormalizedStep[]): AssertionDescriptor[] {
-  return steps
-    .filter((step) => step.action === 'assert')
-    .map((step) => ({
-      stepId: step.id ?? createStepId('js', 0),
-      kind: 'query-result',
-      line: step.line,
-      target: step.target,
-      queryMethod: step.originalType,
-      raw: step.target,
-    }))
-}
-
-function buildSelectorDescriptors(
-  jsResult: JsParseResult,
-  steps: NormalizedStep[]
-): SelectorDescriptor[] {
-  return jsResult.querySelectorCalls.map((call) => ({
-    stepId: findNearestStepId(steps, call.line),
-    selector: call.selector,
-    selectorKind: 'document.querySelector',
-    line: call.line,
-    raw: call.selector,
-  }))
-}
-
-function buildJsBaselineMetadata(
-  jsResult: JsParseResult,
-  steps: NormalizedStep[]
-): JsBaselineMetadata {
-  return {
-    environmentUrl: jsResult.environmentUrl,
-    queries: buildQueryDescriptors(steps),
-    selectors: buildSelectorDescriptors(jsResult, steps),
-    assertions: buildAssertionDescriptors(steps),
-    itGroups: jsResult.itGroups,
-  }
-}
-
 function toJsRecording(jsResult: JsParseResult): NormalizedRecording {
   const steps = attachStepIds('js', jsResult.steps)
   return {
@@ -141,6 +65,13 @@ function toJsRecording(jsResult: JsParseResult): NormalizedRecording {
     steps,
     rawStepCount: steps.length,
     url: jsResult.environmentUrl,
+    baseline: {
+      environmentUrl: jsResult.environmentUrl,
+      queries: jsResult.queries,
+      selectors: jsResult.selectors,
+      assertions: jsResult.assertions,
+      itGroups: jsResult.itGroups,
+    },
   }
 }
 
@@ -162,6 +93,6 @@ export async function loadInput(filePath: string): Promise<ParsedInput> {
   return {
     source,
     recording,
-    baseline: buildJsBaselineMetadata(jsResult, recording.steps),
+    baseline: recording.baseline!,
   }
 }
