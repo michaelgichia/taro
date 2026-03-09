@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: JS Baseline
 status: ready_to_execute
-stopped_at: phase 13 plan 01 complete; execute 13-02 next
-last_updated: "2026-03-09T16:17:59Z"
-last_activity: 2026-03-09 — Phase 13 plan 01 completed; shared input contract and loader boundary landed
+stopped_at: phase 13 plan 02 complete; execute 13-03 next
+last_updated: "2026-03-09T16:27:16Z"
+last_activity: 2026-03-09 — Phase 13 plan 02 completed; recorder AST recovery and sample-backed parser coverage landed
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
-  percent: 25
+  completed_plans: 2
+  percent: 50
 ---
 
 # Project State
@@ -21,21 +21,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-09)
 
 **Core value:** Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, and Codex with near-zero setup friction
-**Current focus:** Phase 13 - JS Input Contract & AST Recovery (13-02 next)
+**Current focus:** Phase 13 - JS Input Contract & AST Recovery (13-03 next)
 
 ## Current Position
 
 Phase: 13 of 16 (JS Input Contract & AST Recovery)
-Plan: 1 of 4 complete (13-02 next)
+Plan: 2 of 4 complete (13-03 next)
 Status: Ready to execute
-Last activity: 2026-03-09 — Phase 13 plan 01 completed; shared input contract and loader boundary landed
+Last activity: 2026-03-09 — Phase 13 plan 02 completed; recorder AST recovery and sample-backed parser coverage landed
 
-Progress: [█████░░░░░░░░░░░░░░░] 25%
+Progress: [██████████░░░░░░░░░░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11
+- Total plans completed: 12
 - Average duration: mixed historical data from v1.2
 - Total execution time: mixed historical data from v1.2
 
@@ -64,6 +64,8 @@ Recent decisions affecting current work:
 - [v1.3] Continue phase numbering from 13 because v1.2 shipped through Phase 12.
 - [13-01] Use a discriminated parsed-input envelope instead of another `isJsFormat` flag.
 - [13-01] Assign stable step IDs at the parse and load boundary so later AST recovery can reference preserved evidence safely.
+- [13-02] Preserve recorder query and assertion evidence as AST-derived source slices so semantics survive parsing before later normalization and generation work.
+- [13-02] Keep raw CSS selector evidence attached to step IDs without strengthening it before Phase 14.
 
 ### Pending Todos
 
@@ -76,6 +78,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-09T16:17:59Z
-Stopped at: phase 13 plan 01 complete; next step is `/gsd:execute-phase 13`
-Resume file: .planning/phases/13-js-input-contract-ast-recovery/13-02-PLAN.md
+Last session: 2026-03-09T16:27:16Z
+Stopped at: phase 13 plan 02 complete; next step is `/gsd:execute-phase 13`
+Resume file: .planning/phases/13-js-input-contract-ast-recovery/13-03-PLAN.md
