@@ -81,10 +81,43 @@ node dist/index.js --all --local
 
 # Or verify the publish boundary with a tarball
 env NPM_CONFIG_CACHE=/tmp/taro-npm-cache npm pack --pack-destination /tmp/taro-pack
-npx /tmp/taro-pack/tayo-dev-rtl-1.0.0.tgz --codex --local
+npx /tmp/taro-pack/tayo-dev-rtl-<version>.tgz --codex --local
 ```
 
 The tarball flow is the closest match to what end users get from npm.
+
+## Publishing
+
+Before publishing, confirm that the version in `package.json` is correct and that your npm session is authenticated for the `@tayo-dev` scope:
+
+```bash
+npm whoami
+npm view @tayo-dev/rtl versions --json
+```
+
+If `npm whoami` fails, or `npm publish` returns an `E404` that says `@tayo-dev/rtl` could not be found or you do not have permission, refresh the npm login for the scoped package before retrying:
+
+```bash
+npm logout
+npm login --scope=@tayo-dev --registry=https://registry.npmjs.org/
+npm whoami
+```
+
+Publish from the repo root with a fresh OTP from your authenticator:
+
+```bash
+# Stable release
+env NPM_CONFIG_CACHE=/tmp/taro-npm-cache npm publish --access public --otp=<otp>
+
+# Alpha / prerelease release
+env NPM_CONFIG_CACHE=/tmp/taro-npm-cache npm publish --tag alpha --access public --otp=<otp>
+```
+
+Notes:
+
+- Use `--tag alpha`, not `-tag alpha`
+- A scoped `E404` during publish often means the npm session does not have valid write access for `@tayo-dev`, even if the package already exists
+- Run the command promptly after generating the OTP so it does not expire mid-publish
 
 ## Generate RTL Tests
 
