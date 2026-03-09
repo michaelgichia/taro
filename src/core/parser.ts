@@ -9,10 +9,13 @@ import type {
   AssertedEvent,
   ChromeRecorderExport,
   ChromeStep,
+  ChromeRecorderSettings,
+  StepId,
   NormalizedAction,
   NormalizedRecording,
   NormalizedStep,
 } from '../types/recording.js'
+import { createStepId } from '../types/recording.js'
 
 function getFirstSelector(selectors?: string[][]): string | undefined {
   if (!selectors || selectors.length === 0) return undefined
@@ -110,6 +113,14 @@ export function normalizeStep(chromeStep: ChromeStep): NormalizedStep {
   })
 }
 
+function attachJsonStepIds(steps: NormalizedStep[]): NormalizedStep[] {
+  return steps.map((step, index) => ({
+    ...step,
+    id: (step.id ?? createStepId('json', index)) as StepId,
+    source: 'json',
+  }))
+}
+
 export async function parseRecording(filePath: string): Promise<NormalizedRecording> {
   let raw: string
   try {
@@ -135,11 +146,13 @@ export async function parseRecording(filePath: string): Promise<NormalizedRecord
     throw new Error('Invalid Chrome Recorder export: "steps" must be an array')
   }
 
-  const steps = recording.steps.map((step: ChromeStep) => normalizeStep(step))
+  const steps = attachJsonStepIds(recording.steps.map((step: ChromeStep) => normalizeStep(step)))
 
   return {
     title: recording.title ?? 'Untitled Recording',
     steps,
     rawStepCount: recording.steps.length,
+    url: recording.settings?.url,
+    settings: recording.settings as ChromeRecorderSettings | undefined,
   }
 }
