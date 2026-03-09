@@ -2,6 +2,7 @@ export interface ScoreDimensions {
   queryQuality: number
   assertionSpecificity: number
   testStructure: number
+  boundaryIsolation: number
 }
 
 export interface ScoreResult {
