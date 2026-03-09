@@ -17,7 +17,7 @@ v1.3 focuses on turning Testing Library Recorder JS exports into a truthful base
 - Integer phases (13, 14, 15, 16): planned milestone work
 - Decimal phases (13.1, 13.2): urgent insertions if needed later
 
-- [ ] **Phase 13: JS Input Contract & AST Recovery** - JS recorder exports become first-class baseline inputs with stable semantic extraction
+- [x] **Phase 13: JS Input Contract & AST Recovery** - JS recorder exports become first-class baseline inputs with stable semantic extraction
 - [ ] **Phase 14: Truthful Selector Recovery** - weak selector evidence is upgraded when justified and called out when it is not
 - [ ] **Phase 15: Structured Suite Planning & Repo-aware Generation** - generated output becomes scenario-based, helper-oriented, and grounded in repo context
 - [ ] **Phase 16: Verification, JSON Parity & Product Surface** - scoring, regression proof, and docs match the shipped JS baseline behavior
@@ -33,7 +33,20 @@ v1.3 focuses on turning Testing Library Recorder JS exports into a truthful base
   2. User receives regenerated project-test-shaped output from recorder JS exports instead of a copied-through executable transcript.
   3. Supported recorder JS patterns, including nested `userEvent(...)`, Testing Library queries, assertions, recorded URLs, and fallback DOM selectors, are recovered into stable baseline metadata.
   4. Accessible query intent present in the recorder JS is preserved when role/name, text, placeholder, or assertion context semantics exist.
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+
+- [x] 13-01: Shared input contract and loader boundary
+- [x] 13-02: AST recovery for recorder JS baseline intent
+- [x] 13-03: JS baseline normalization and shared CLI flow
+- [x] 13-04: Regression proof, JSON parity, and phase-boundary assertions
+
+**Details:**
+- `taro generate` now accepts recorder `.js` and Chrome Recorder `.json` through the same loader boundary and public flag surface.
+- Recorder JS is treated as a baseline artifact that Taro parses, normalizes, and transforms instead of replaying the exported transcript.
+- AST recovery preserves accessible queries, URL/title assertions, and raw selector evidence without inventing stronger queries early.
+- Regression coverage now protects the public CLI JS path, shared loader, intent grouping, and explicit JSON non-regression behavior.
 
 ### Phase 14: Truthful Selector Recovery
 **Goal**: Users can trust JS-derived selectors because Taro only strengthens them when it has evidence and stays explicit when it does not
@@ -72,7 +85,7 @@ v1.3 focuses on turning Testing Library Recorder JS exports into a truthful base
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 13. JS Input Contract & AST Recovery | 3/4 | In Progress|  | - |
+| 13. JS Input Contract & AST Recovery | v1.3 | 4/4 | Complete | 2026-03-09 |
 | 14. Truthful Selector Recovery | v1.3 | 0/TBD | Not started | - |
 | 15. Structured Suite Planning & Repo-aware Generation | v1.3 | 0/TBD | Not started | - |
 | 16. Verification, JSON Parity & Product Surface | v1.3 | 0/TBD | Not started | - |

@@ -7,13 +7,13 @@
 
 ### JS Baseline Input
 
-- [ ] **INPUT-01**: User can run `taro generate <file>` against a Testing Library Recorder JS export and use the same `--dry-run`, `--output`, and `--force` flow they use for JSON input.
-- [ ] **INPUT-02**: User receives a regenerated project test from a recorder JS export rather than a copied-through executable transcript.
-- [ ] **INPUT-03**: User gets stable baseline interpretation for supported recorder JS patterns, including nested `userEvent(...)`, Testing Library queries, assertions, recorded URLs, and fallback DOM selectors.
+- [x] **INPUT-01**: User can run `taro generate <file>` against a Testing Library Recorder JS export and use the same `--dry-run`, `--output`, and `--force` flow they use for JSON input.
+- [x] **INPUT-02**: User receives a regenerated project test from a recorder JS export rather than a copied-through executable transcript.
+- [x] **INPUT-03**: User gets stable baseline interpretation for supported recorder JS patterns, including nested `userEvent(...)`, Testing Library queries, assertions, recorded URLs, and fallback DOM selectors.
 
 ### Query & Assertion Recovery
 
-- [ ] **QUERY-01**: User gets preserved accessible query intent from recorder JS, including role/name, text, placeholder, and assertion context when those semantics exist in the export.
+- [x] **QUERY-01**: User gets preserved accessible query intent from recorder JS, including role/name, text, placeholder, and assertion context when those semantics exist in the export.
 - [ ] **QUERY-02**: User gets truthful handling of `document.querySelector(...)` steps, with stronger queries recovered when supported and explicit warnings or checkpoints when not.
 - [ ] **QUERY-03**: User does not receive invented selector fallbacks such as fake `data-testid` queries when Taro cannot recover trustworthy evidence from the recorder or live DOM.
 - [ ] **QUERY-04**: User can benefit from recorded URL or live DOM enrichment when available, without making a running browser session a hard requirement for baseline usefulness.
@@ -58,10 +58,10 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INPUT-01 | Phase 13 | Pending |
-| INPUT-02 | Phase 13 | Pending |
-| INPUT-03 | Phase 13 | Pending |
-| QUERY-01 | Phase 13 | Pending |
+| INPUT-01 | Phase 13 | Complete |
+| INPUT-02 | Phase 13 | Complete |
+| INPUT-03 | Phase 13 | Complete |
+| QUERY-01 | Phase 13 | Complete |
 | QUERY-02 | Phase 14 | Pending |
 | QUERY-03 | Phase 14 | Pending |
 | QUERY-04 | Phase 14 | Pending |
@@ -80,4 +80,4 @@
 
 ---
 *Requirements defined: 2026-03-09*
-*Last updated: 2026-03-09 after roadmap traceability update*
+*Last updated: 2026-03-09 after Phase 13 execution*
