@@ -19,6 +19,7 @@ import {
   emitQry03Warning,
 } from '../../core/resolver.js'
 import { scoreGeneratedTest } from '../../core/scorer.js'
+import { analyzeBoundaryIsolation } from '../../core/boundary-intelligence.js'
 import { verifySyntax } from '../../core/verifier.js'
 import {
   analyzeSingleTestFile,
@@ -34,6 +35,7 @@ import { analyzeMocks } from '../../core/mock-intelligence.js'
 import { generateTestFromGroups, emitQuerySummary } from '../../core/generator.js'
 import { loadInput } from '../../core/input-loader.js'
 import { normalizeJsBaseline } from '../../core/baseline-normalizer.js'
+import { planJsSuite } from '../../core/suite-planner.js'
 import type {
   AnalyzedRecording,
   ItGroup,
@@ -63,13 +65,15 @@ function logScore(scoreResult: ScoreResult): void {
       ` Score: ${scoreResult.total}/100 (${scoreResult.grade}) — ` +
       `query: ${scoreResult.dimensions.queryQuality}, ` +
       `assertions: ${scoreResult.dimensions.assertionSpecificity}, ` +
-      `structure: ${scoreResult.dimensions.testStructure}`
+      `structure: ${scoreResult.dimensions.testStructure}, ` +
+      `boundary: ${scoreResult.dimensions.boundaryIsolation}`
   )
 }
 
 function emitScoreHints(
   scoreResult: ScoreResult,
-  queryResults: QueryResult[] = []
+  queryResults: QueryResult[] = [],
+  boundaryIssues = analyzeBoundaryIsolation('')
 ): void {
   if (scoreResult.dimensions.queryQuality < 60) {
     const testIdCount = queryResults.filter((queryResult) => {
@@ -96,6 +100,13 @@ function emitScoreHints(
         '[taro] Tip: Split into multiple it() blocks for better test organization'
       )
     )
+  }
+
+  if (scoreResult.dimensions.boundaryIsolation < 60) {
+    for (const issue of boundaryIssues) {
+      console.warn(pc.yellow(`[taro] Boundary: ${issue.message}`))
+      console.warn(pc.yellow(`[taro] Tip: ${issue.suggestion}`))
+    }
   }
 }
 
@@ -212,6 +223,12 @@ function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
   const topWarning = mockAnalysis.instabilityWarnings[0]
   if (topWarning) {
     console.warn(pc.yellow(`[taro] Mock stability: ${topWarning.reason} (${topWarning.file})`))
+  }
+}
+
+function summarizeBoundaryWarnings(warnings: string[]): void {
+  for (const warning of warnings) {
+    console.warn(pc.yellow(`[taro] Boundary: ${warning}`))
   }
 }
 
@@ -444,15 +461,36 @@ export function createGenerateCommand(): Command {
         parsedInput.source === 'js' ? await resolveJsQueryResults(normalizedRecording) : []
 
       const outputPath = options.output ?? deriveOutputPath(filePath)
+      const jsSuitePlan =
+        parsedInput.source === 'js'
+          ? planJsSuite({
+              recording: normalizedRecording,
+              analyzedRecording,
+              mockAnalysis,
+              fallbackTitle: normalizedRecording.title,
+            })
+          : null
+
+      if (jsSuitePlan) {
+        summarizeBoundaryWarnings(jsSuitePlan.warnings)
+      }
+
       const generated =
         parsedInput.source === 'js'
-          ? generateTestFromGroups(normalizedRecording.title, toItGroups(analyzedRecording, normalizedRecording.title), {
+          ? generateTestFromGroups(normalizedRecording.title, jsSuitePlan?.itGroups ?? toItGroups(analyzedRecording, normalizedRecording.title), {
               outputPath,
               dryRun: options.dryRun,
               conventions,
               queryResults,
             })
           : generateTest(analyzedRecording, { outputPath, dryRun: options.dryRun })
+
+      if (jsSuitePlan?.warnings.length) {
+        generated.code = [
+          ...jsSuitePlan.warnings.map((warning) => `// taro-boundary-warning: ${warning}`),
+          generated.code,
+        ].join('\n')
+      }
 
       if (parsedInput.source === 'js') {
         emitQuerySummary(queryResults)
@@ -462,9 +500,10 @@ export function createGenerateCommand(): Command {
         parsedInput.source === 'js'
           ? scoreGeneratedTest(generated.code, queryResults)
           : scoreGeneratedTest(generated.code)
+      const boundaryIssues = analyzeBoundaryIsolation(generated.code)
 
       logScore(scoreResult)
-      emitScoreHints(scoreResult, queryResults)
+      emitScoreHints(scoreResult, queryResults, boundaryIssues)
 
       if (options.dryRun) {
         console.log(pc.yellow('\nDry run — test preview:\n'))

@@ -1,3 +1,4 @@
+import { calculateBoundaryIsolationScore } from './boundary-intelligence.js'
 import type { QueryResult } from '../types/recording.js'
 import type { ScoreDimensions, ScoreResult } from '../types/score.js'
 
@@ -59,6 +60,14 @@ export function calculateStructureScore(code: string): number {
     score -= 20
   }
 
+  if (code.includes('render(<App />)')) {
+    score -= 25
+  }
+
+  if (code.includes('taro-boundary-warning:')) {
+    score -= 20
+  }
+
   return clampScore(score)
 }
 
@@ -66,9 +75,10 @@ export function calculateAggregateScore(
   dimensions: ScoreDimensions
 ): Pick<ScoreResult, 'total' | 'grade'> {
   const total = clampScore(
-    dimensions.queryQuality * 0.4 +
-      dimensions.assertionSpecificity * 0.35 +
-      dimensions.testStructure * 0.25
+    dimensions.queryQuality * 0.3 +
+      dimensions.assertionSpecificity * 0.25 +
+      dimensions.testStructure * 0.2 +
+      dimensions.boundaryIsolation * 0.25
   )
 
   if (total >= 90) {
@@ -98,6 +108,7 @@ export function scoreGeneratedTest(
     queryQuality: calculateQueryScore(queryResults),
     assertionSpecificity: calculateAssertionScore(code),
     testStructure: calculateStructureScore(code),
+    boundaryIsolation: calculateBoundaryIsolationScore(code),
   }
 
   return {
