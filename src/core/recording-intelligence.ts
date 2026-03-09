@@ -20,6 +20,36 @@ export interface NoiseFilterResult {
   >
 }
 
+function getAssertionKind(step: NormalizedStep): string | undefined {
+  const assertion = step.metadata?.assertion
+  if (
+    assertion &&
+    typeof assertion === 'object' &&
+    'kind' in assertion &&
+    typeof assertion.kind === 'string'
+  ) {
+    return assertion.kind
+  }
+
+  if (step.target === 'location.href') {
+    return 'location'
+  }
+
+  if (step.target === 'document.title') {
+    return 'document-title'
+  }
+
+  return undefined
+}
+
+function isSyncAssertionStep(step: NormalizedStep): boolean {
+  if (step.action !== 'assert') {
+    return false
+  }
+
+  return ['location', 'document-title'].includes(getAssertionKind(step) ?? '')
+}
+
 function hasPointerMetadata(step: NormalizedStep): boolean {
   return [step.x, step.y, step.offsetX, step.offsetY].some(
     (value) => typeof value === 'number'
@@ -65,12 +95,13 @@ function pickRepresentativeClick(cluster: NormalizedStep[]): NormalizedStep {
 }
 
 function deriveIntentLabel(steps: NormalizedStep[]): string {
-  const navigateStep = steps.find((step) => step.action === 'navigate')
+  const meaningfulSteps = steps.filter((step) => !isSyncAssertionStep(step))
+  const navigateStep = meaningfulSteps.find((step) => step.action === 'navigate')
   if (navigateStep) {
     return navigateStep.target ? `navigate to ${navigateStep.target}` : 'navigation flow'
   }
 
-  const submitStep = steps.find(
+  const submitStep = meaningfulSteps.find(
     (step) =>
       step.action === 'click' &&
       /save|submit|confirm|continue|done|create|update/i.test(step.target ?? '')
@@ -79,15 +110,15 @@ function deriveIntentLabel(steps: NormalizedStep[]): string {
     return `submit ${submitStep.target}`
   }
 
-  const fillStep = steps.find(
+  const fillStep = meaningfulSteps.find(
     (step) => step.action === 'fill' || step.action === 'select'
   )
   if (fillStep?.target) {
     return `edit ${fillStep.target}`
   }
 
-  const clickStep = steps.find((step) => step.action === 'click')
-  if (clickStep?.target && steps.some((step) => step.action === 'assert')) {
+  const clickStep = meaningfulSteps.find((step) => step.action === 'click')
+  if (clickStep?.target && meaningfulSteps.some((step) => step.action === 'assert')) {
     return `confirm ${clickStep.target}`
   }
 
@@ -127,6 +158,10 @@ export function inferIntentGroups(steps: NormalizedStep[]): IntentGroup[] {
   }
 
   for (const step of steps) {
+    if (isSyncAssertionStep(step)) {
+      continue
+    }
+
     if (step.action === 'navigate') {
       flushGroup()
       currentGroup = [step]

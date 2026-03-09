@@ -90,10 +90,30 @@ function looksLikeCssSelector(target: string): boolean {
   )
 }
 
+function getRecoveredQuery(step: NormalizedStep): string | undefined {
+  const query = step.metadata?.query
+  if (
+    query &&
+    typeof query === 'object' &&
+    'raw' in query &&
+    typeof query.raw === 'string' &&
+    query.raw.length > 0
+  ) {
+    return query.raw
+  }
+
+  return undefined
+}
+
 function reconstructQuery(step: NormalizedStep): string {
   const target = step.target
   if (!target) {
     return 'document.body'
+  }
+
+  const recoveredQuery = getRecoveredQuery(step)
+  if (recoveredQuery) {
+    return recoveredQuery
   }
 
   if (isQueryExpression(target)) {
