@@ -1,7 +1,7 @@
 /**
  * Generate command
  * Full pipeline: parse → validate → generate → write
- * Converts Chrome Recorder exports into React Testing Library test files.
+ * Converts Recorder exports into React Testing Library test files.
  */
 
 import { Command } from 'commander'
@@ -379,8 +379,8 @@ export function createGenerateCommand(): Command {
   const generate = new Command('generate')
 
   generate
-    .description('Generate RTL test from Chrome Recorder export')
-    .argument('<file>', 'Path to the Chrome Recorder JSON export file')
+    .description('Generate RTL test from Recorder export')
+    .argument('<file>', 'Path to the recorder export file')
     .option('-o, --output <path>', 'Output file path for the generated test')
     .option('-d, --dry-run', 'Preview the generated test without writing to disk', false)
     .option('-f, --force', 'Overwrite existing test file', false)

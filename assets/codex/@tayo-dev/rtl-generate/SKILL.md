@@ -5,7 +5,7 @@ description: "Generate React Testing Library tests from Recorder exports with Ta
 
 # Tayo Generate
 
-Use `$@tayo-dev/rtl-generate` when the user wants to turn a Chrome Recorder export into a React Testing Library test.
+Use `$@tayo-dev/rtl-generate` when the user wants to turn a Recorder export into a React Testing Library test.
 
 ## Inputs
 

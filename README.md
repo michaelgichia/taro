@@ -1,6 +1,6 @@
 # Taro
 
-Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex, then generate React Testing Library tests from Chrome Recorder recordings.
+Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex, then generate React Testing Library tests from Testing Library Recorder recordings.
 
 Taro ships as an installer-first package. The package entrypoint bootstraps runtime-native commands or skills into your agent environment, and the generated runtime surface still routes back to `taro generate` when you want Recorder-to-RTL output.
 
@@ -94,14 +94,11 @@ After installation, use `taro generate` directly or call the runtime-native inst
 
 - Node.js 18 or later
 - A React project using `@testing-library/react`
-- Chrome DevTools Recorder (built into Chrome — no extension needed for JSON exports)
+- Chrome DevTools Recorder with the Testing Library Recorder extension installed
 
 ### Record a user flow
 
-Open Chrome DevTools → Recorder panel → click "Start new recording" → perform your user flow → click "End recording". Then either:
-
-- Export as JSON and save as `recording.json`
-- Export via Testing Library Recorder extension and save as `recording.js`
+Open Chrome DevTools → Recorder panel → click "Start new recording" → perform your user flow → click "End recording". Then export via the Testing Library Recorder extension and save as `recording.js`.
 
 ### Generate the test
 
@@ -124,13 +121,13 @@ On subsequent runs in the same project, Taro reads `.taro/conventions.json` to m
 
 ### `taro generate <file>`
 
-Generates a React Testing Library test from a Chrome Recorder export.
+Generates a React Testing Library test from a Testing Library Recorder export.
 
 **Arguments:**
 
 | Argument | Description |
 |----------|-------------|
-| `<file>` | Path to the recording file. Accepts Chrome Recorder JSON exports (`.json`) or Testing Library Recorder JS files (`.js`). |
+| `<file>` | Path to the recording file. Accepts Testing Library Recorder JS files (`.js`). |
 
 **Options:**
 
@@ -146,50 +143,48 @@ Generates a React Testing Library test from a Chrome Recorder export.
 
 ```bash
 # Generate and write a test next to the recording
-taro generate ./recordings/checkout-flow.json
+taro generate ./recordings/checkout-flow.js
 
 # Preview without writing (dry run)
-taro generate --dry-run ./recordings/checkout-flow.json
+taro generate --dry-run ./recordings/checkout-flow.js
 
 # Write to a specific path
-taro generate --output src/__tests__/checkout.test.tsx ./recordings/checkout-flow.json
+taro generate --output src/__tests__/checkout.test.tsx ./recordings/checkout-flow.js
 
 # Overwrite an existing test
-taro generate --force ./recordings/checkout-flow.json
+taro generate --force ./recordings/checkout-flow.js
 ```
 
 **Output file naming:**
-If `--output` is not provided, Taro derives the output path from the input file: `{input-dir}/{input-basename}.test.tsx`. For example, `./recordings/login.json` → `./recordings/login.test.tsx`.
+If `--output` is not provided, Taro derives the output path from the input file: `{input-dir}/{input-basename}.test.tsx`. For example, `./recordings/login.js` → `./recordings/login.test.tsx`.
 
 **Supported input formats:**
-- Chrome Recorder JSON (`.json`) — exported directly from Chrome DevTools Recorder
 - Testing Library Recorder JS (`.js`) — exported via the Testing Library Recorder Chrome extension; detected by `.js` extension or `@jest-environment-options` header
 
 ## Worked Example
 
-### Input: Chrome Recorder export (`login-flow.json`)
+### Input: Testing Library Recorder export (`login-flow.js`)
 
-Here is a typical Chrome Recorder JSON export capturing a login flow.
+Here is a typical Testing Library Recorder export capturing a login flow.
 
-```json
-{
-  "title": "login flow",
-  "steps": [
-    { "type": "navigate", "url": "http://localhost:3000/login" },
-    { "type": "click", "selectors": [["aria/Email address"]] },
-    { "type": "change", "value": "user@example.com", "selectors": [["#email"]] },
-    { "type": "click", "selectors": [["aria/Password"]] },
-    { "type": "change", "value": "secret123", "selectors": [["#password"]] },
-    { "type": "click", "selectors": [["aria/Sign in[role=\"button\"]"]] },
-    { "type": "waitForElement", "selectors": [["aria/Welcome back"]] }
-  ]
-}
+```js
+import { screen } from '@testing-library/dom'
+import userEvent from '@testing-library/user-event'
+
+test('login flow', async () => {
+  await userEvent.click(screen.getByRole('textbox', { name: 'Email address' }))
+  await userEvent.type(screen.getByRole('textbox', { name: 'Email address' }), 'user@example.com')
+  await userEvent.click(screen.getByRole('textbox', { name: 'Password' }))
+  await userEvent.type(screen.getByRole('textbox', { name: 'Password' }), 'secret123')
+  await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+  await userEvent.click(screen.getByText('Welcome back'))
+})
 ```
 
 ### Command
 
 ```bash
-taro generate ./login-flow.json
+taro generate ./login-flow.js
 ```
 
 ### Terminal output
