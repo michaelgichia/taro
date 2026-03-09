@@ -1,14 +1,37 @@
 /**
  * Babel AST-based parser for Testing Library Recorder JS output.
- * Parses the JavaScript recording format and produces structured NormalizedRecording.
+ * Parses the JavaScript recording format and produces truthful baseline metadata.
  */
 
 import * as babelParser from '@babel/parser'
 import _traverse from '@babel/traverse'
-import type { NormalizedStep, NormalizedAction, QueryQuality, ItGroup } from '../types/recording.js'
+import type { NodePath } from '@babel/traverse'
+import * as t from '@babel/types'
+import {
+  createStepId,
+  type AssertionDescriptor,
+  type ItGroup,
+  type NormalizedAction,
+  type NormalizedStep,
+  type QueryDescriptor,
+  type QueryQuality,
+  type SelectorDescriptor,
+} from '../types/recording.js'
 
 // ESM interop for @babel/traverse
 const traverse = (_traverse as any).default ?? _traverse
+
+interface RecoveredQueryDescriptor extends QueryDescriptor {
+  name?: string
+  options?: Record<string, string | number | boolean>
+  role?: string
+}
+
+interface RecoveredAssertionDescriptor extends AssertionDescriptor {
+  expected?: string
+  matcher?: string
+  subject?: string
+}
 
 /**
  * Quality classification map for RTL query methods
@@ -124,6 +147,7 @@ export function segmentIntoItGroups(steps: NormalizedStep[]): ItGroup[] {
 export interface QuerySelectorCall {
   selector: string
   line: number
+  stepId?: string
 }
 
 /**
@@ -133,23 +157,289 @@ export interface JsParseResult {
   title: string
   environmentUrl: string | undefined
   steps: NormalizedStep[]
+  queries: QueryDescriptor[]
+  selectors: SelectorDescriptor[]
+  assertions: AssertionDescriptor[]
   querySelectorCalls: QuerySelectorCall[]
   itGroups: ItGroup[]
 }
 
 /**
- * Extracts a string argument from a Babel AST node
+ * Extracts a string-like value from a Babel AST node
  */
-function extractStringArg(node: any): string | undefined {
+function extractLiteralValue(node?: t.Node | null): string | undefined {
   if (!node) return undefined
-  
-  if (node.type === 'StringLiteral') {
+
+  if (t.isStringLiteral(node)) {
     return node.value
   }
-  if (node.type === 'TemplateLiteral' && node.quasis.length > 0) {
-    return node.quasis[0].value.cooked
+
+  if (t.isNumericLiteral(node) || t.isBooleanLiteral(node)) {
+    return String(node.value)
   }
+
+  if (t.isTemplateLiteral(node) && node.expressions.length === 0) {
+    return node.quasis[0]?.value.cooked ?? undefined
+  }
+
   return undefined
+}
+
+function sliceSource(code: string, node?: t.Node | null): string | undefined {
+  if (!node || typeof node.start !== 'number' || typeof node.end !== 'number') {
+    return undefined
+  }
+
+  return code.slice(node.start, node.end)
+}
+
+function extractPlainObject(
+  node?: t.Node | null
+): Record<string, string | number | boolean> | undefined {
+  if (!t.isObjectExpression(node)) {
+    return undefined
+  }
+
+  const entries = node.properties.flatMap((property) => {
+    if (!t.isObjectProperty(property) || property.computed) {
+      return []
+    }
+
+    const key = t.isIdentifier(property.key)
+      ? property.key.name
+      : t.isStringLiteral(property.key)
+        ? property.key.value
+        : undefined
+    const value = extractLiteralValue(property.value)
+
+    if (!key || value === undefined) {
+      return []
+    }
+
+    return [[key, value]]
+  })
+
+  return Object.fromEntries(entries)
+}
+
+function memberExpressionToSubject(node?: t.Node | null): string | undefined {
+  if (!node) {
+    return undefined
+  }
+
+  if (t.isIdentifier(node)) {
+    return node.name
+  }
+
+  if (t.isThisExpression(node)) {
+    return 'this'
+  }
+
+  if (t.isMemberExpression(node) && !node.computed) {
+    const object = memberExpressionToSubject(node.object)
+    const property = t.isIdentifier(node.property) ? node.property.name : undefined
+    if (object && property) {
+      return `${object}.${property}`
+    }
+  }
+
+  return undefined
+}
+
+function getLine(node?: t.Node | null): number {
+  return node?.loc?.start?.line ?? 0
+}
+
+function isUserEventCall(node: t.CallExpression): boolean {
+  return (
+    t.isMemberExpression(node.callee) &&
+    t.isIdentifier(node.callee.object, { name: 'userEvent' }) &&
+    t.isIdentifier(node.callee.property)
+  )
+}
+
+function isPageGotoCall(node: t.CallExpression): boolean {
+  return (
+    t.isMemberExpression(node.callee) &&
+    t.isIdentifier(node.callee.object, { name: 'page' }) &&
+    t.isIdentifier(node.callee.property, { name: 'goto' })
+  )
+}
+
+function isScreenQueryCall(node: t.CallExpression): boolean {
+  return (
+    t.isMemberExpression(node.callee) &&
+    t.isIdentifier(node.callee.property) &&
+    node.callee.property.name.startsWith('getBy') &&
+    ((t.isIdentifier(node.callee.object, { name: 'screen' }) ||
+      (t.isCallExpression(node.callee.object) &&
+        t.isIdentifier(node.callee.object.callee, { name: 'within' }))) ||
+      t.isIdentifier(node.callee.object, { name: 'document' }))
+  )
+}
+
+function isSelectorCall(node: t.CallExpression): boolean {
+  return (
+    t.isMemberExpression(node.callee) &&
+    t.isIdentifier(node.callee.object, { name: 'document' }) &&
+    t.isIdentifier(node.callee.property) &&
+    ['querySelector', 'querySelectorAll'].includes(node.callee.property.name)
+  )
+}
+
+function isExpectationCall(node: t.CallExpression): boolean {
+  return (
+    t.isMemberExpression(node.callee) &&
+    t.isIdentifier(node.callee.property) &&
+    t.isCallExpression(node.callee.object) &&
+    t.isIdentifier(node.callee.object.callee, { name: 'expect' })
+  )
+}
+
+function isRecorderTitleCall(node: t.CallExpression): boolean {
+  return t.isIdentifier(node.callee) && ['test', 'it'].includes(node.callee.name)
+}
+
+function isStandaloneExpression(path: NodePath<t.CallExpression>): boolean {
+  return (
+    path.parentPath.isExpressionStatement() ||
+    (path.parentPath.isAwaitExpression() && path.parentPath.parentPath?.isExpressionStatement())
+  )
+}
+
+function mapAssertionKind(subject?: string): AssertionDescriptor['kind'] {
+  if (subject === 'location.href') {
+    return 'location'
+  }
+
+  if (subject === 'document.title') {
+    return 'document-title'
+  }
+
+  return 'custom'
+}
+
+function fallbackDocCommentTitle(code: string): string | undefined {
+  const titleMatch = code.match(/\/\*\*\s*\n\s*\*\s*([^@\*]+)/)
+  const title = titleMatch?.[1]?.trim()
+  return title ? title.replace(/\s+at\s+\d{1,2}:\d{2}:\d{2}/, '').replace(/-/g, ' ') : undefined
+}
+
+function extractQueryDescriptor(
+  code: string,
+  node: t.CallExpression,
+  stepId: string
+): RecoveredQueryDescriptor | undefined {
+  if (!isScreenQueryCall(node) || !t.isMemberExpression(node.callee) || !t.isIdentifier(node.callee.property)) {
+    return undefined
+  }
+
+  const method = node.callee.property.name
+  const queryRoot = t.isIdentifier(node.callee.object, { name: 'screen' })
+    ? 'screen'
+    : t.isCallExpression(node.callee.object) &&
+        t.isIdentifier(node.callee.object.callee, { name: 'within' })
+      ? 'within'
+      : 'document'
+  const primaryTarget = extractLiteralValue(node.arguments[0])
+  const options = extractPlainObject(node.arguments[1])
+  const name = typeof options?.name === 'string' ? options.name : undefined
+  const role = method === 'getByRole' ? primaryTarget : undefined
+
+  return {
+    stepId,
+    method,
+    queryRoot,
+    line: getLine(node),
+    target: name ?? primaryTarget,
+    quality: classifyQuery(method),
+    raw: sliceSource(code, node),
+    options,
+    role,
+    name,
+  }
+}
+
+function extractSelectorDescriptor(
+  code: string,
+  node: t.CallExpression,
+  stepId: string
+): SelectorDescriptor | undefined {
+  if (!isSelectorCall(node) || !t.isMemberExpression(node.callee) || !t.isIdentifier(node.callee.property)) {
+    return undefined
+  }
+
+  const selector = extractLiteralValue(node.arguments[0])
+  if (!selector) {
+    return undefined
+  }
+
+  return {
+    stepId,
+    selector,
+    selectorKind: `document.${node.callee.property.name}` as SelectorDescriptor['selectorKind'],
+    line: getLine(node),
+    raw: sliceSource(code, node),
+  }
+}
+
+function resolveTarget(
+  code: string,
+  node: t.CallExpression['arguments'][number] | undefined,
+  stepId: string
+): {
+  metadata?: Record<string, unknown>
+  query?: RecoveredQueryDescriptor
+  selector?: SelectorDescriptor
+  target?: string
+} {
+  if (!node || !t.isExpression(node)) {
+    return {}
+  }
+
+  if (t.isCallExpression(node)) {
+    const query = extractQueryDescriptor(code, node, stepId)
+    if (query) {
+      return {
+        query,
+        target: query.target ?? query.role ?? query.method,
+        metadata: {
+          query: {
+            method: query.method,
+            queryRoot: query.queryRoot,
+            target: query.target,
+            role: query.role,
+            name: query.name,
+            options: query.options,
+            raw: query.raw,
+          },
+        },
+      }
+    }
+
+    const selector = extractSelectorDescriptor(code, node, stepId)
+    if (selector) {
+      return {
+        selector,
+        target: selector.selector,
+        metadata: {
+          selector,
+        },
+      }
+    }
+  }
+
+  const literalValue = extractLiteralValue(node)
+  if (literalValue !== undefined) {
+    return { target: literalValue }
+  }
+
+  const subject = memberExpressionToSubject(node)
+  if (subject) {
+    return { target: subject }
+  }
+
+  return {}
 }
 
 /**
@@ -182,123 +472,186 @@ export async function parseJsRecording(code: string): Promise<JsParseResult> {
     )
   }
 
-  // Extract environment URL
   const environmentUrl = extractEnvironmentUrl(code)
-
-  // Extract title from file
-  let title = 'Recorded Flow'
-  const titleMatch = code.match(/\/\*\*\s*\n\s*\*\s*([^@\*]+)/)
-  if (titleMatch) {
-    title = titleMatch[1].trim()
-    // Sanitize: strip date suffix and replace hyphens
-    title = title.replace(/\s+at\s+\d{1,2}:\d{2}:\d{2}/, '').replace(/-/g, ' ')
-  }
 
   // Parse with Babel
   const ast = babelParser.parse(code, {
-    sourceType: 'commonjs',
+    plugins: ['jsx', 'typescript'],
+    sourceType: 'unambiguous',
   })
 
+  let title: string | undefined
   const steps: NormalizedStep[] = []
+  const queries: QueryDescriptor[] = []
+  const selectors: SelectorDescriptor[] = []
+  const assertions: AssertionDescriptor[] = []
   const querySelectorCalls: QuerySelectorCall[] = []
 
   // Traverse AST
   traverse(ast, {
-    CallExpression(path: any) {
-      const callee = path.node.callee
-      const line = path.node.loc?.start?.line ?? 0
+    CallExpression(path: NodePath<t.CallExpression>) {
+      if (!title && isRecorderTitleCall(path.node)) {
+        const candidateTitle = extractLiteralValue(path.node.arguments[0])
+        if (candidateTitle) {
+          title = candidateTitle
+        }
+      }
 
-      // Handle screen.getBy* calls
-      if (
-        callee.type === 'MemberExpression' &&
-        callee.object.type === 'Identifier' &&
-        callee.object.name === 'screen' &&
-        callee.property.type === 'Identifier'
-      ) {
-        const methodName = callee.property.name
-        if (methodName && methodName.startsWith('getBy')) {
-          const target = extractStringArg(path.node.arguments[0])
-          // All screen queries become asserts in this implementation
-          steps.push({
-            action: 'assert',
-            target: target ?? methodName,
-            value: undefined,
-            originalType: methodName,
-            line,
-            source: 'js',
+      if (isUserEventCall(path.node) && t.isMemberExpression(path.node.callee) && t.isIdentifier(path.node.callee.property)) {
+        const stepId = createStepId('js', steps.length)
+        const methodName = path.node.callee.property.name
+        const action = mapUserEventCall(methodName)
+        const resolvedTarget = resolveTarget(code, path.node.arguments[0], stepId)
+        const value = extractLiteralValue(path.node.arguments[1])
+
+        if (resolvedTarget.query) {
+          queries.push(resolvedTarget.query)
+        }
+
+        if (resolvedTarget.selector) {
+          selectors.push(resolvedTarget.selector)
+          querySelectorCalls.push({
+            selector: resolvedTarget.selector.selector,
+            line: resolvedTarget.selector.line ?? getLine(path.node),
+            stepId,
           })
         }
+
+        steps.push({
+          id: stepId,
+          action,
+          target: resolvedTarget.target ?? methodName,
+          value,
+          originalType: methodName,
+          line: getLine(path.node),
+          source: 'js',
+          metadata: {
+            ...resolvedTarget.metadata,
+          },
+        })
+
+        return
       }
 
-      // Handle document.querySelector calls
       if (
-        callee.type === 'MemberExpression' &&
-        callee.object.type === 'Identifier' &&
-        callee.object.name === 'document' &&
-        callee.property.type === 'Identifier' &&
-        callee.property.name === 'querySelector'
+        isExpectationCall(path.node) &&
+        t.isMemberExpression(path.node.callee) &&
+        t.isIdentifier(path.node.callee.property) &&
+        t.isCallExpression(path.node.callee.object)
       ) {
-        const selector = extractStringArg(path.node.arguments[0])
-        if (selector) {
-          querySelectorCalls.push({ selector, line })
+        const matcher = path.node.callee.property.name
+        const expectCall = path.node.callee.object
+        const subject = memberExpressionToSubject(expectCall.arguments[0])
+        const expected = extractLiteralValue(path.node.arguments[0])
+        const stepId = createStepId('js', steps.length)
+        const assertion: RecoveredAssertionDescriptor = {
+          stepId,
+          kind: mapAssertionKind(subject),
+          line: getLine(path.node),
+          target: subject,
+          raw: sliceSource(code, path.node),
+          expected,
+          matcher,
+          subject,
         }
+
+        assertions.push(assertion)
+        steps.push({
+          id: stepId,
+          action: 'assert',
+          target: subject ?? matcher,
+          value: expected,
+          originalType: matcher,
+          line: getLine(path.node),
+          source: 'js',
+          metadata: {
+            assertion,
+          },
+        })
+
+        return
       }
 
-      // Handle userEvent.* calls
-      if (
-        callee.type === 'MemberExpression' &&
-        callee.object.type === 'Identifier' &&
-        callee.object.name === 'userEvent'
-      ) {
-        const methodName = callee.property.name
-        if (methodName) {
-          const action = mapUserEventCall(methodName)
-          // Extract target from first argument (element reference)
-          const target = extractStringArg(path.node.arguments[0]) ?? methodName
-          // Extract value from second argument for type/keyboard
-          const value = extractStringArg(path.node.arguments[1])
-          
-          steps.push({
-            action,
-            target,
-            value,
-            originalType: methodName,
-            line,
-            source: 'js',
-          })
-        }
-      }
-
-      // Handle await page.goto(url)
-      if (
-        callee.type === 'MemberExpression' &&
-        callee.object.type === 'Identifier' &&
-        callee.object.name === 'page' &&
-        callee.property.type === 'Identifier' &&
-        callee.property.name === 'goto'
-      ) {
-        const target = extractStringArg(path.node.arguments[0])
+      if (isPageGotoCall(path.node)) {
+        const target = extractLiteralValue(path.node.arguments[0])
         if (target) {
+          const stepId = createStepId('js', steps.length)
           steps.push({
+            id: stepId,
             action: 'navigate',
             target,
             value: undefined,
             originalType: 'goto',
-            line,
+            line: getLine(path.node),
             source: 'js',
+          })
+        }
+
+        return
+      }
+
+      if (isStandaloneExpression(path)) {
+        const stepId = createStepId('js', steps.length)
+        const query = extractQueryDescriptor(code, path.node, stepId)
+        if (query) {
+          queries.push(query)
+          const assertion: AssertionDescriptor = {
+            stepId,
+            kind: 'query-result',
+            line: getLine(path.node),
+            target: query.target,
+            queryMethod: query.method,
+            raw: query.raw,
+          }
+          assertions.push(assertion)
+          steps.push({
+            id: stepId,
+            action: 'assert',
+            target: query.target ?? query.method,
+            value: undefined,
+            originalType: query.method,
+            line: getLine(path.node),
+            source: 'js',
+            metadata: {
+              query: {
+                method: query.method,
+                queryRoot: query.queryRoot,
+                target: query.target,
+                role: query.role,
+                name: query.name,
+                options: query.options,
+                raw: query.raw,
+              },
+              assertion,
+            },
+          })
+          return
+        }
+
+        const selector = extractSelectorDescriptor(code, path.node, stepId)
+        if (selector) {
+          selectors.push(selector)
+          querySelectorCalls.push({
+            selector: selector.selector,
+            line: selector.line ?? getLine(path.node),
+            stepId,
           })
         }
       }
     },
   })
 
+  const resolvedTitle = title ?? fallbackDocCommentTitle(code) ?? 'Recorded Flow'
   // Segment into ItGroups
   const itGroups = segmentIntoItGroups(steps)
 
   return {
-    title,
+    title: resolvedTitle,
     environmentUrl,
     steps,
+    queries,
+    selectors,
+    assertions,
     querySelectorCalls,
     itGroups,
   }
