@@ -1,38 +1,40 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: Runtime Installer Distribution
-status: complete
-stopped_at: v1.2 archived and tagged; next milestone definition pending
-last_updated: "2026-03-07T18:45:02Z"
-last_activity: 2026-03-07 — Archived v1.2 milestone and prepared the project for the next cycle
+milestone: v1.3
+milestone_name: JS Baseline
+status: defining_requirements
+stopped_at: requirements definition in progress; roadmap pending
+last_updated: "2026-03-09T06:10:56Z"
+last_activity: 2026-03-09 — Milestone v1.3 JS Baseline started
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 10
-  completed_plans: 10
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-07)
+See: .planning/PROJECT.md (updated 2026-03-09)
 
 **Core value:** Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, and Codex with near-zero setup friction
-**Current focus:** v1.2 is shipped; define the next milestone
+**Current focus:** v1.3 JS Baseline — defining requirements
 
 ## Current Position
 
-Phase: 12 of 12 (Runtime Installer Distribution complete)
+Phase: Not started (defining requirements)
 Plan: —
-Status: Milestone Archived
-Last activity: 2026-03-07 — Archived v1.2 milestone and prepared the project for the next cycle
+Status: Defining requirements
+Last activity: 2026-03-09 — Milestone v1.3 JS Baseline started
 
-Progress: [████████████████████] 100%
+Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
 
 ## Performance Metrics
+
+Previous milestone metrics preserved below for reference until v1.3 begins execution.
 
 **Velocity:**
 - Total plans completed: 10 (v1.2)
@@ -110,6 +112,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-07T18:45:02Z
-Stopped at: v1.2 archived and tagged; next milestone definition pending
+Last session: 2026-03-09T06:10:56Z
+Stopped at: requirements definition in progress; roadmap pending
 Resume file: .planning/PROJECT.md
