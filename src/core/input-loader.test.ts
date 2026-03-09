@@ -92,6 +92,7 @@ describe('loadInput', () => {
         "test('recording', async () => {",
         "  await userEvent.click(screen.getByRole('button', {name: 'Save'}))",
         "  await userEvent.click(document.querySelector('#line-items input'))",
+        "  screen.getByText('Saved')",
         '})',
       ].join('\n')
     )
@@ -106,13 +107,16 @@ describe('loadInput', () => {
         source: 'js',
       })
     )
-    expect(parsed.baseline.queries).toEqual([
-      expect.objectContaining({
-        method: 'getByRole',
-        quality: 'excellent',
-        queryRoot: 'screen',
-      }),
-    ])
+    expect(parsed.baseline.queries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          method: 'getByRole',
+          quality: 'excellent',
+          queryRoot: 'screen',
+          raw: "screen.getByRole('button', {name: 'Save'})",
+        }),
+      ])
+    )
     expect(parsed.baseline.selectors).toEqual([
       expect.objectContaining({
         selector: '#line-items input',
@@ -122,9 +126,39 @@ describe('loadInput', () => {
     expect(parsed.baseline.assertions).toEqual([
       expect.objectContaining({
         kind: 'query-result',
-        queryMethod: 'getByRole',
+        queryMethod: 'getByText',
+        target: 'Saved',
       }),
     ])
+  })
+
+  it('preserves nested query evidence on JS action steps', async () => {
+    const filePath = await writeTempFile(
+      'recording.js',
+      [
+        '/**',
+        ' * Add sale flow',
+        dashboardEnvOptionsLine,
+        ' */',
+        "test('recording', async () => {",
+        "  await userEvent.click(screen.getByRole('button', {name: 'Save'}))",
+        '})',
+      ].join('\n')
+    )
+
+    const parsed = await loadInput(filePath)
+
+    expect(parsed.source).toBe('js')
+    expect(parsed.recording.steps[0]).toEqual(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          query: expect.objectContaining({
+            method: 'getByRole',
+            raw: "screen.getByRole('button', {name: 'Save'})",
+          }),
+        }),
+      })
+    )
   })
 
   it('treats environment-options content as recorder JS even without a JS extension', async () => {
