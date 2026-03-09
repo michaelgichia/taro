@@ -1,10 +1,10 @@
 ---
-description: Generate RTL tests from Chrome Recorder exports with Taro
+description: Generate RTL tests from Recorder exports with Taro
 ---
 
 You are the installed `/@tayo-dev/rtl-generate` command for `@tayo-dev/rtl`.
 
-Generate a React Testing Library test from a Chrome Recorder export.
+Generate a React Testing Library test from a Recorder export.
 1. Confirm the recording path before running anything destructive.
 2. Run `taro generate <recording-file>` by default.
 3. Add `--dry-run`, `--output <path>`, or `--force` only when the user asks for them or the context requires them.

@@ -1,7 +1,7 @@
 /**
  * Generate command
  * Full pipeline: parse → validate → generate → write
- * Converts Chrome Recorder exports into React Testing Library test files.
+ * Converts Recorder exports into React Testing Library test files.
  */
 
 import { Command } from 'commander'
@@ -9,11 +9,8 @@ import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
 import { cwd } from 'node:process'
 import pc from 'picocolors'
-import { validateRecording, formatValidationErrors } from '../../core/validator.js'
-import { parseRecording } from '../../core/parser.js'
 import { generateTest } from '../../core/generator.js'
 import { writeTestFile } from '../../core/writer.js'
-import { parseJsRecording } from '../../core/js-parser.js'
 import {
   captureVisualState,
   inspectElements,
@@ -35,9 +32,13 @@ import {
 } from '../../core/recording-intelligence.js'
 import { analyzeMocks } from '../../core/mock-intelligence.js'
 import { generateTestFromGroups, emitQuerySummary } from '../../core/generator.js'
+import { loadInput } from '../../core/input-loader.js'
+import { normalizeJsBaseline } from '../../core/baseline-normalizer.js'
 import type {
   AnalyzedRecording,
   ItGroup,
+  NormalizedRecording,
+  QueryDescriptor,
   QueryResult,
   VisualState,
 } from '../../types/recording.js'
@@ -52,7 +53,7 @@ export interface GenerateOptions {
 
 function deriveOutputPath(inputPath: string): string {
   const dir = dirname(inputPath)
-  const name = basename(inputPath, '.js').replace(/\.(json)$/, '')
+  const name = basename(inputPath).replace(/\.(json|[cm]?[jt]sx?)$/, '')
   return join(dir, `${name}.test.tsx`)
 }
 
@@ -138,6 +139,19 @@ function toItGroups(analyzedRecording: AnalyzedRecording, fallbackTitle: string)
   ]
 }
 
+function queryDescriptorToResult(descriptor: QueryDescriptor): QueryResult {
+  return {
+    query: descriptor.raw ?? descriptor.target ?? descriptor.method,
+    quality: descriptor.quality ?? 'fragile',
+    method: descriptor.method,
+    line: descriptor.line,
+  }
+}
+
+function getPrimarySelector(recording: NormalizedRecording): string | undefined {
+  return recording.baseline?.selectors[0]?.selector
+}
+
 function summarizeVisualState(visualState: VisualState | null): void {
   if (!visualState) {
     return
@@ -202,7 +216,63 @@ function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
 }
 
 function findRecordingUrl(analyzedRecording: AnalyzedRecording): string | undefined {
-  return analyzedRecording.steps.find((step) => step.action === 'navigate')?.target
+  return analyzedRecording.url ?? analyzedRecording.steps.find((step) => step.action === 'navigate')?.target
+}
+
+async function resolveJsQueryResults(recording: NormalizedRecording): Promise<QueryResult[]> {
+  const baseline = recording.baseline
+  if (!baseline) {
+    return []
+  }
+
+  const queryResults = baseline.queries.map(queryDescriptorToResult)
+
+  if (baseline.selectors.length > 0 && recording.url) {
+    console.log(
+      pc.dim('[taro]') +
+        ` Resolving ${baseline.selectors.length} selector(s) via Playwright...`
+    )
+
+    const selectors = baseline.selectors.map((descriptor) => descriptor.selector)
+    const elementMap = await inspectElements(recording.url, selectors)
+
+    for (const descriptor of baseline.selectors) {
+      const info = elementMap.get(descriptor.selector) ?? null
+      if (!info) {
+        const fallbackResult = buildQuery(
+          {
+            tagName: 'div',
+            role: null,
+            ariaLabel: null,
+            ariaLabelledBy: null,
+            innerText: '',
+            value: undefined,
+            type: undefined,
+            placeholder: null,
+            isPresent: false,
+          },
+          descriptor.selector
+        )
+        queryResults.push({ ...fallbackResult, line: descriptor.line })
+        continue
+      }
+
+      const result = buildQuery(info, descriptor.selector)
+      if (result.quality === 'fragile') {
+        emitQry03Warning(descriptor.selector)
+      }
+
+      const matcher = selectMatcher(info, 'assert')
+      queryResults.push({ ...result, matcher, line: descriptor.line })
+    }
+  } else if (baseline.selectors.length > 0 && !recording.url) {
+    console.warn(
+      pc.yellow('[taro]') +
+        ' QRY-02: No @jest-environment-options URL found — cannot resolve document.querySelector selectors. Falling back to getByTestId.'
+    )
+  }
+
+  return queryResults
 }
 
 async function maybeCaptureVisualState(params: {
@@ -309,8 +379,8 @@ export function createGenerateCommand(): Command {
   const generate = new Command('generate')
 
   generate
-    .description('Generate RTL test from Chrome Recorder export')
-    .argument('<file>', 'Path to the Chrome Recorder JSON export file')
+    .description('Generate RTL test from Recorder export')
+    .argument('<file>', 'Path to the recorder export file')
     .option('-o, --output <path>', 'Output file path for the generated test')
     .option('-d, --dry-run', 'Preview the generated test without writing to disk', false)
     .option('-f, --force', 'Overwrite existing test file', false)
@@ -328,182 +398,34 @@ export function createGenerateCommand(): Command {
         process.exit(1)
       }
 
-      // 2. Read raw JSON
-      let rawContent: string
+      let parsedInput: Awaited<ReturnType<typeof loadInput>>
       try {
-        rawContent = await readFile(filePath, 'utf-8')
+        parsedInput = await loadInput(filePath)
       } catch (err) {
         console.error(
-          pc.red('Error:') + ` Failed to read file: ${pc.bold(filePath)}\n${String(err)}`
+          pc.red('Error:') + ` Failed to parse recording: ${pc.bold(filePath)}\n${String(err)}`
         )
         process.exit(1)
       }
 
-      // Detect JS format
-      const isJsFormat = filePath.endsWith('.js') || rawContent.includes('@jest-environment-options')
+      const normalizedRecording =
+        parsedInput.source === 'js' ? normalizeJsBaseline(parsedInput) : parsedInput.recording
 
-      if (isJsFormat) {
-        // Step 1: Context scan (CTX-01–05)
-        let conventions = await readConventions(projectRoot)
+      let conventions = undefined
+      if (parsedInput.source === 'js') {
+        conventions = await readConventions(projectRoot)
         if (!conventions) {
           console.log(pc.dim('[taro]') + ' Scanning project conventions...')
           conventions = await scanConventions(projectRoot)
         }
-
-        // Step 2: Parse JS file via Babel AST (QRY-01, TEST-01)
-        let jsResult
-        try {
-          jsResult = await parseJsRecording(rawContent)
-        } catch (err) {
-          console.error(pc.red('Error:') + ` Failed to parse JS recording: ${String(err)}`)
-          process.exit(1)
-        }
-
-        console.log(
-          pc.green('Parsed:') +
-            ` ${pc.bold(jsResult.title)} — ${jsResult.steps.length} steps, ${jsResult.itGroups.length} test group(s)`
-        )
-
-        const analyzedRecording = analyzeRecording({
-          title: jsResult.title,
-          steps: jsResult.steps,
-          rawStepCount: jsResult.steps.length,
-        })
-
-        summarizeCleanup(analyzedRecording)
-        const visualState = await maybeCaptureVisualState({
-          analyzedRecording,
-          projectRoot,
-          selector: jsResult.querySelectorCalls[0]?.selector,
-          url: jsResult.environmentUrl,
-        })
-        summarizeVisualState(visualState)
-        const mockAnalysis = await maybeAnalyzeMocks(projectRoot)
-        summarizeMockAnalysis(mockAnalysis)
-
-        // Step 3: Resolve document.querySelector selectors via Playwright (QRY-02, QRY-03)
-        const queryResults: QueryResult[] = []
-
-        if (jsResult.querySelectorCalls.length > 0 && jsResult.environmentUrl) {
-          console.log(
-            pc.dim('[taro]') +
-              ` Resolving ${jsResult.querySelectorCalls.length} selector(s) via Playwright...`
-          )
-          const selectors = jsResult.querySelectorCalls.map((c) => c.selector)
-          const elementMap = await inspectElements(jsResult.environmentUrl, selectors)
-
-          for (const call of jsResult.querySelectorCalls) {
-            const info = elementMap.get(call.selector) ?? null
-            if (!info) {
-              // App not running or element not found — emit QRY-02 warning (handled inside inspectElements)
-              // Use getByTestId fallback
-              const fallbackResult = buildQuery(
-                { tagName: 'div', role: null, ariaLabel: null, ariaLabelledBy: null,
-                  innerText: '', value: undefined, type: undefined, placeholder: null, isPresent: false },
-                call.selector
-              )
-              queryResults.push({ ...fallbackResult, line: call.line })
-            } else {
-              const result = buildQuery(info, call.selector)
-              if (result.quality === 'fragile') emitQry03Warning(call.selector)
-              const matcher = selectMatcher(info, 'assert')
-              queryResults.push({ ...result, matcher, line: call.line })
-            }
-          }
-        } else if (jsResult.querySelectorCalls.length > 0 && !jsResult.environmentUrl) {
-          console.warn(
-            pc.yellow('[taro]') +
-              ' QRY-02: No @jest-environment-options URL found — cannot resolve document.querySelector selectors. Falling back to getByTestId.'
-          )
-        }
-
-        // Step 4: Generate test code with multi-it() blocks (TEST-01, TEST-03)
-        const outputPath = options.output ?? deriveOutputPath(filePath)
-        const generated = generateTestFromGroups(jsResult.title, toItGroups(analyzedRecording, jsResult.title), {
-          outputPath,
-          dryRun: options.dryRun,
-          conventions,
-          queryResults,
-        })
-
-        // Step 5: Emit query quality summary (QRY-01)
-        emitQuerySummary(queryResults)
-
-        // Pre-write audit: compute score before writing
-        const scoreResult = scoreGeneratedTest(generated.code, queryResults)
-        logScore(scoreResult)
-        emitScoreHints(scoreResult, queryResults)
-
-        // Step 6: Write or preview
-        if (options.dryRun) {
-          console.log(pc.yellow('\nDry run — test preview:\n'))
-          console.log(pc.dim('─'.repeat(60)))
-          console.log(generated.code)
-          console.log(pc.dim('─'.repeat(60)))
-          console.log(pc.dim(`\n[taro] Score: ${scoreResult.total}/100 (${scoreResult.grade})`))
-          console.log(pc.yellow(`\nWould write to: ${pc.bold(outputPath)}`))
-          return
-        }
-
-        try {
-          const result = await writeTestFile(generated.code, outputPath, {
-            force: options.force,
-            createDir: true,
-          })
-
-          await finalizeGeneratedOutput({
-            code: generated.code,
-            outputPath: result.filePath,
-            projectRoot,
-            recordingFile: filePath,
-            scoreResult,
-          })
-
-          const action = result.overwritten ? pc.yellow('Updated') : pc.green('Created')
-          console.log(`${action}: ${pc.bold(result.filePath)}`)
-        } catch (err) {
-          console.error(pc.red('Error:') + ` ${String(err)}`)
-          process.exit(1)
-        }
-
-        return  // Exit action for JS path — do not fall through to JSON pipeline
-      }
-
-      // 3. Parse JSON
-      let parsedJson: unknown
-      try {
-        parsedJson = JSON.parse(rawContent)
-      } catch {
-        console.error(
-          pc.red('Error:') +
-            ` Invalid JSON in file: ${pc.bold(filePath)}\nEnsure the file is a valid Chrome Recorder export.`
-        )
-        process.exit(1)
-      }
-
-      // 4. Validate schema
-      const validation = validateRecording(parsedJson)
-      if (!validation.valid) {
-        console.error(
-          pc.red('Error:') +
-            ` Invalid Chrome Recorder format in ${pc.bold(filePath)}\n` +
-            formatValidationErrors(validation.errors)
-        )
-        process.exit(1)
-      }
-
-      // 5. Normalize steps
-      let normalizedRecording
-      try {
-        normalizedRecording = await parseRecording(filePath)
-      } catch (err) {
-        console.error(pc.red('Error:') + ` Failed to parse recording: ${String(err)}`)
-        process.exit(1)
       }
 
       console.log(
         pc.green('Parsed:') +
-          ` ${pc.bold(normalizedRecording.title)} — ${normalizedRecording.steps.length} steps`
+          ` ${pc.bold(normalizedRecording.title)} — ${normalizedRecording.steps.length} steps` +
+          (parsedInput.source === 'js'
+            ? `, ${normalizedRecording.baseline?.itGroups.length ?? 0} test group(s)`
+            : '')
       )
 
       const analyzedRecording = analyzeRecording(normalizedRecording)
@@ -511,21 +433,39 @@ export function createGenerateCommand(): Command {
       const visualState = await maybeCaptureVisualState({
         analyzedRecording,
         projectRoot,
+        selector: getPrimarySelector(normalizedRecording),
         url: findRecordingUrl(analyzedRecording),
       })
       summarizeVisualState(visualState)
       const mockAnalysis = await maybeAnalyzeMocks(projectRoot)
       summarizeMockAnalysis(mockAnalysis)
 
-      // 6. Generate test code
+      const queryResults =
+        parsedInput.source === 'js' ? await resolveJsQueryResults(normalizedRecording) : []
+
       const outputPath = options.output ?? deriveOutputPath(filePath)
-      const generated = generateTest(analyzedRecording, { outputPath, dryRun: options.dryRun })
-      const scoreResult = scoreGeneratedTest(generated.code)
+      const generated =
+        parsedInput.source === 'js'
+          ? generateTestFromGroups(normalizedRecording.title, toItGroups(analyzedRecording, normalizedRecording.title), {
+              outputPath,
+              dryRun: options.dryRun,
+              conventions,
+              queryResults,
+            })
+          : generateTest(analyzedRecording, { outputPath, dryRun: options.dryRun })
+
+      if (parsedInput.source === 'js') {
+        emitQuerySummary(queryResults)
+      }
+
+      const scoreResult =
+        parsedInput.source === 'js'
+          ? scoreGeneratedTest(generated.code, queryResults)
+          : scoreGeneratedTest(generated.code)
 
       logScore(scoreResult)
-      emitScoreHints(scoreResult)
+      emitScoreHints(scoreResult, queryResults)
 
-      // 7. Write or preview
       if (options.dryRun) {
         console.log(pc.yellow('\nDry run — test preview:\n'))
         console.log(pc.dim('─'.repeat(60)))

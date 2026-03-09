@@ -123,6 +123,53 @@ describe('analyzeRecording', () => {
 })
 
 describe('inferIntentGroups', () => {
+  it('ignores JS environment sync assertions when grouping recorder intent', () => {
+    const analyzed = analyzeRecording({
+      title: 'Recorder flow',
+      rawStepCount: 4,
+      steps: [
+        {
+          action: 'assert',
+          target: 'location.href',
+          value: 'http://localhost:3000/sales',
+          originalType: 'toBe',
+          source: 'js',
+          metadata: {
+            assertion: { kind: 'location' },
+            sync: true,
+          },
+        },
+        {
+          action: 'assert',
+          target: 'document.title',
+          value: 'DigiTax',
+          originalType: 'toBe',
+          source: 'js',
+          metadata: {
+            assertion: { kind: 'document-title' },
+            sync: true,
+          },
+        },
+        {
+          action: 'click',
+          target: 'Add Sale',
+          originalType: 'click',
+          source: 'js',
+        },
+        {
+          action: 'assert',
+          target: 'Add Sale',
+          originalType: 'getByRole',
+          source: 'js',
+        },
+      ],
+    })
+
+    expect(analyzed.intentGroups).toHaveLength(1)
+    expect(analyzed.intentGroups[0]?.name).toBe('confirm Add Sale')
+    expect(analyzed.intentGroups[0]?.steps).toHaveLength(2)
+  })
+
   it('splits a cleaned recording into deterministic intent groups', () => {
     const steps: NormalizedStep[] = [
       {

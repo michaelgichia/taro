@@ -31,6 +31,7 @@ export type NormalizedAction =
 
 export type StepType = Exclude<NormalizedAction, 'unknown'> | (string & {})
 export type RecordingSource = 'json' | 'js'
+export type StepId = `${RecordingSource}-step-${number}` | (string & {})
 
 export interface ChromeStep {
   type: StepType
@@ -77,7 +78,7 @@ export interface NormalizedStep {
   offsetY?: number
   x?: number
   y?: number
-  id?: string
+  id?: StepId
   type?: StepType
   selector?: string
   timestamp?: number
@@ -85,7 +86,7 @@ export interface NormalizedStep {
 }
 
 export interface RecordingStep extends NormalizedStep {
-  id: string
+  id: StepId
   type: StepType
   action: Exclude<NormalizedAction, 'unknown'>
   target: string
@@ -97,6 +98,7 @@ export interface NormalizedRecording {
   rawStepCount: number
   url?: string
   settings?: ChromeRecorderSettings
+  baseline?: JsBaselineMetadata
 }
 
 export interface RecordingDiagnostics {
@@ -139,6 +141,43 @@ export interface VisualState {
 
 export type QueryQuality = 'excellent' | 'good' | 'acceptable' | 'fragile'
 
+export type QueryRoot = 'screen' | 'within' | 'document'
+export type SelectorEvidenceKind = 'document.querySelector' | 'document.querySelectorAll'
+export type AssertionEvidenceKind =
+  | 'query-result'
+  | 'marker'
+  | 'location'
+  | 'document-title'
+  | 'custom'
+
+export interface QueryDescriptor {
+  stepId: StepId
+  method: string
+  queryRoot: QueryRoot
+  line?: number
+  target?: string
+  quality?: QueryQuality
+  matcher?: string
+  raw?: string
+}
+
+export interface SelectorDescriptor {
+  stepId: StepId
+  selector: string
+  selectorKind: SelectorEvidenceKind
+  line?: number
+  raw?: string
+}
+
+export interface AssertionDescriptor {
+  stepId: StepId
+  kind: AssertionEvidenceKind
+  line?: number
+  target?: string
+  queryMethod?: string
+  raw?: string
+}
+
 export interface ElementInfo {
   tagName: string
   role: string | null
@@ -168,4 +207,29 @@ export interface GeneratedItBlock {
   name: string
   stepLines: string[]
   hasUserEvent: boolean
+}
+
+export interface JsBaselineMetadata {
+  environmentUrl?: string
+  queries: QueryDescriptor[]
+  selectors: SelectorDescriptor[]
+  assertions: AssertionDescriptor[]
+  itGroups: ItGroup[]
+}
+
+export interface ParsedJsonInput {
+  source: 'json'
+  recording: NormalizedRecording
+}
+
+export interface ParsedJsInput {
+  source: 'js'
+  recording: NormalizedRecording
+  baseline: JsBaselineMetadata
+}
+
+export type ParsedInput = ParsedJsonInput | ParsedJsInput
+
+export function createStepId(source: RecordingSource, index: number): StepId {
+  return `${source}-step-${index + 1}`
 }

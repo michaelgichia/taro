@@ -1,10 +1,10 @@
 ---
 name: "@tayo-dev/rtl:generate"
-description: "Generate RTL tests from Chrome Recorder exports with Taro"
+description: "Generate RTL tests from Recorder exports with Taro"
 ---
 
 <objective>
-Generate a React Testing Library test from a Chrome Recorder export.
+Generate a React Testing Library test from a Recorder export.
 </objective>
 
 <process>
