@@ -15,6 +15,8 @@ import {
   type NormalizedStep,
   type QueryDescriptor,
   type QueryQuality,
+  type SemanticMarkerCandidate,
+  type SemanticMarkerProofSubject,
   type SelectorDescriptor,
 } from '../types/recording.js'
 
@@ -150,6 +152,13 @@ export interface QuerySelectorCall {
   stepId?: string
 }
 
+interface ResolvedTargetDetails {
+  metadata?: Record<string, unknown>
+  query?: RecoveredQueryDescriptor
+  selector?: SelectorDescriptor
+  target?: string
+}
+
 /**
  * Result of parsing a JS recording
  */
@@ -160,6 +169,7 @@ export interface JsParseResult {
   queries: QueryDescriptor[]
   selectors: SelectorDescriptor[]
   assertions: AssertionDescriptor[]
+  semanticMarkerCandidates: SemanticMarkerCandidate[]
   querySelectorCalls: QuerySelectorCall[]
   itGroups: ItGroup[]
 }
@@ -387,12 +397,7 @@ function resolveTarget(
   code: string,
   node: t.CallExpression['arguments'][number] | undefined,
   stepId: string
-): {
-  metadata?: Record<string, unknown>
-  query?: RecoveredQueryDescriptor
-  selector?: SelectorDescriptor
-  target?: string
-} {
+): ResolvedTargetDetails {
   if (!node || !t.isExpression(node)) {
     return {}
   }
@@ -442,6 +447,88 @@ function resolveTarget(
   return {}
 }
 
+function normalizeProofText(value?: string): string | undefined {
+  const normalized = value?.replace(/\s+/g, ' ').trim()
+  return normalized ? normalized : undefined
+}
+
+function looksLikeConcreteValue(value?: string): boolean {
+  if (!value) {
+    return false
+  }
+
+  return (
+    /@/.test(value) ||
+    /^\+?[\d()\s.-]{6,}$/.test(value) ||
+    /(?:KES|USD|EUR|GBP|\$|€|£)\s?[\d,.]+/.test(value)
+  )
+}
+
+function looksLikeVisibleMessage(value?: string): boolean {
+  if (!value) {
+    return false
+  }
+
+  return /^(please|saved|success|error|warning|failed|updated|deleted)\b/i.test(value)
+}
+
+function classifySemanticMarkerProofSubject(
+  resolvedTarget: ResolvedTargetDetails
+): SemanticMarkerProofSubject {
+  const proofText = normalizeProofText(resolvedTarget.query?.target ?? resolvedTarget.target)
+
+  if (resolvedTarget.query?.role === 'heading') {
+    return 'heading'
+  }
+
+  if (resolvedTarget.query?.role === 'alert' || resolvedTarget.query?.role === 'status') {
+    return 'visible-message'
+  }
+
+  if (resolvedTarget.query?.method === 'getByDisplayValue' || looksLikeConcreteValue(proofText)) {
+    return 'concrete-value'
+  }
+
+  if (looksLikeVisibleMessage(proofText)) {
+    return 'visible-message'
+  }
+
+  if (resolvedTarget.selector) {
+    return 'selector-target'
+  }
+
+  if (resolvedTarget.query?.method === 'getByText' || resolvedTarget.query?.method === 'getByLabelText') {
+    return 'field-label'
+  }
+
+  return 'unknown'
+}
+
+function buildSemanticMarkerCandidate(
+  code: string,
+  node: t.CallExpression,
+  stepId: string,
+  resolvedTarget: ResolvedTargetDetails
+): SemanticMarkerCandidate {
+  return {
+    stepId,
+    status: 'unresolved',
+    originalGesture: 'dblClick',
+    proofSubject: classifySemanticMarkerProofSubject(resolvedTarget),
+    target: resolvedTarget.target,
+    proofText: normalizeProofText(resolvedTarget.query?.target ?? resolvedTarget.target),
+    line: getLine(node),
+    sourceContext: {
+      line: getLine(node),
+      originalType: 'dblClick',
+      raw: sliceSource(code, node),
+    },
+    query: resolvedTarget.query,
+    selector: resolvedTarget.selector,
+    anchor: {},
+  }
+}
+
 /**
  * Maps userEvent method calls to NormalizedAction
  */
@@ -485,6 +572,7 @@ export async function parseJsRecording(code: string): Promise<JsParseResult> {
   const queries: QueryDescriptor[] = []
   const selectors: SelectorDescriptor[] = []
   const assertions: AssertionDescriptor[] = []
+  const semanticMarkerCandidates: SemanticMarkerCandidate[] = []
   const querySelectorCalls: QuerySelectorCall[] = []
 
   // Traverse AST
@@ -503,6 +591,10 @@ export async function parseJsRecording(code: string): Promise<JsParseResult> {
         const action = mapUserEventCall(methodName)
         const resolvedTarget = resolveTarget(code, path.node.arguments[0], stepId)
         const value = extractLiteralValue(path.node.arguments[1])
+        const semanticMarkerCandidate =
+          methodName === 'dblClick'
+            ? buildSemanticMarkerCandidate(code, path.node, stepId, resolvedTarget)
+            : undefined
 
         if (resolvedTarget.query) {
           queries.push(resolvedTarget.query)
@@ -517,6 +609,10 @@ export async function parseJsRecording(code: string): Promise<JsParseResult> {
           })
         }
 
+        if (semanticMarkerCandidate) {
+          semanticMarkerCandidates.push(semanticMarkerCandidate)
+        }
+
         steps.push({
           id: stepId,
           action,
@@ -525,8 +621,10 @@ export async function parseJsRecording(code: string): Promise<JsParseResult> {
           originalType: methodName,
           line: getLine(path.node),
           source: 'js',
+          semanticMarkerCandidate,
           metadata: {
             ...resolvedTarget.metadata,
+            ...(semanticMarkerCandidate ? { semanticMarkerCandidate } : {}),
           },
         })
 
@@ -652,6 +750,7 @@ export async function parseJsRecording(code: string): Promise<JsParseResult> {
     queries,
     selectors,
     assertions,
+    semanticMarkerCandidates,
     querySelectorCalls,
     itGroups,
   }

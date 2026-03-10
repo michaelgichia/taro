@@ -81,6 +81,14 @@ function sanitizeCommentText(value: string): string {
   return value.replace(/\s+/g, ' ').trim()
 }
 
+function normalizeAssertionMatcher(matcher: string): string {
+  if (matcher.startsWith('.')) {
+    return /\)\s*$/u.test(matcher) ? matcher : `${matcher}()`
+  }
+
+  return /\)\s*$/u.test(matcher) ? `.${matcher}` : `.${matcher}()`
+}
+
 export function stepTemplate(opts: StepTemplateOptions): string {
   const { action, query, value = '' } = opts
   const escapedValue = escapeSingleQuote(value)
@@ -123,6 +131,13 @@ export function stepTemplate(opts: StepTemplateOptions): string {
     default:
       return `// TODO: unsupported step — original selector: ${query}`
   }
+}
+
+export function markerAssertionTemplate(opts: {
+  queryExpression: string
+  matcher?: string
+}): string {
+  return `expect(await ${opts.queryExpression})${normalizeAssertionMatcher(opts.matcher ?? 'toBeVisible')}`
 }
 
 export function describeBlock(

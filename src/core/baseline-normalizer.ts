@@ -5,13 +5,17 @@ import type {
   NormalizedStep,
   ParsedJsInput,
   QueryDescriptor,
+  SemanticMarkerCandidate,
+  SemanticMarkerLink,
   SelectorDescriptor,
   StepId,
+  UnresolvedSemanticMarker,
 } from '../types/recording.js'
 
 type EvidenceMaps = {
   assertions: Map<StepId, AssertionDescriptor[]>
   queries: Map<StepId, QueryDescriptor[]>
+  semanticMarkerCandidates: Map<StepId, SemanticMarkerCandidate[]>
   selectors: Map<StepId, SelectorDescriptor[]>
 }
 
@@ -31,12 +35,55 @@ function createEvidenceMaps(baseline: JsBaselineMetadata): EvidenceMaps {
   return {
     assertions: groupByStepId(baseline.assertions),
     queries: groupByStepId(baseline.queries),
+    semanticMarkerCandidates: groupByStepId(baseline.semanticMarkerCandidates ?? []),
     selectors: groupByStepId(baseline.selectors),
   }
 }
 
 function isSyncAssertion(assertion?: AssertionDescriptor): boolean {
   return assertion?.kind === 'location' || assertion?.kind === 'document-title'
+}
+
+function isSemanticMarkerCandidate(value: unknown): value is SemanticMarkerCandidate {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'stepId' in value &&
+    typeof value.stepId === 'string' &&
+    'originalGesture' in value &&
+    value.originalGesture === 'dblClick'
+  )
+}
+
+function isSemanticMarkerLink(value: unknown): value is SemanticMarkerLink {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'markerStepId' in value &&
+    typeof value.markerStepId === 'string' &&
+    'anchorStepId' in value &&
+    typeof value.anchorStepId === 'string'
+  )
+}
+
+function isUnresolvedSemanticMarker(value: unknown): value is UnresolvedSemanticMarker {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'stepId' in value &&
+    typeof value.stepId === 'string' &&
+    'reason' in value &&
+    typeof value.reason === 'string'
+  )
+}
+
+function getMetadataEntry<T>(
+  step: NormalizedStep,
+  key: string,
+  guard: (value: unknown) => value is T
+): T | undefined {
+  const value = step.metadata?.[key]
+  return guard(value) ? value : undefined
 }
 
 function mergeStepEvidence(step: NormalizedStep, evidenceMaps: EvidenceMaps): NormalizedStep {
@@ -48,13 +95,29 @@ function mergeStepEvidence(step: NormalizedStep, evidenceMaps: EvidenceMaps): No
   const queryEvidence = evidenceMaps.queries.get(stepId)?.[0]
   const assertionEvidence = evidenceMaps.assertions.get(stepId)?.[0]
   const selectorEvidence = evidenceMaps.selectors.get(stepId)
+  const semanticMarkerCandidate =
+    step.semanticMarkerCandidate ??
+    getMetadataEntry(step, 'semanticMarkerCandidate', isSemanticMarkerCandidate) ??
+    evidenceMaps.semanticMarkerCandidates.get(stepId)?.[0]
+  const semanticMarkerLink =
+    step.semanticMarkerLink ??
+    getMetadataEntry(step, 'semanticMarkerLink', isSemanticMarkerLink)
+  const unresolvedSemanticMarker =
+    step.unresolvedSemanticMarker ??
+    getMetadataEntry(step, 'unresolvedSemanticMarker', isUnresolvedSemanticMarker)
 
   return {
     ...step,
+    ...(semanticMarkerCandidate ? { semanticMarkerCandidate } : {}),
+    ...(semanticMarkerLink ? { semanticMarkerLink } : {}),
+    ...(unresolvedSemanticMarker ? { unresolvedSemanticMarker } : {}),
     metadata: {
       ...step.metadata,
       ...(queryEvidence ? { query: queryEvidence } : {}),
       ...(assertionEvidence ? { assertion: assertionEvidence } : {}),
+      ...(semanticMarkerCandidate ? { semanticMarkerCandidate } : {}),
+      ...(semanticMarkerLink ? { semanticMarkerLink } : {}),
+      ...(unresolvedSemanticMarker ? { unresolvedSemanticMarker } : {}),
       ...(selectorEvidence && selectorEvidence.length > 0
         ? {
             selector: selectorEvidence[0],

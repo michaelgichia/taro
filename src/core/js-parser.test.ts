@@ -124,6 +124,7 @@ describe('parseJsRecording', () => {
         stepId: expect.any(String),
       }),
     ])
+    expect(recording.semanticMarkerCandidates).toEqual([])
   })
 
   it('recovers the real sample recorder fixture without fake action targets', async () => {
@@ -179,6 +180,13 @@ describe('parseJsRecording', () => {
         action: 'click',
         source: 'js',
         target: 'Add Sale (Invoice)',
+        originalType: 'dblClick',
+        semanticMarkerCandidate: expect.objectContaining({
+          status: 'unresolved',
+          originalGesture: 'dblClick',
+          proofSubject: 'heading',
+          proofText: 'Add Sale (Invoice)',
+        }),
         metadata: expect.objectContaining({
           query: expect.objectContaining({
             method: 'getByRole',
@@ -188,6 +196,37 @@ describe('parseJsRecording', () => {
         }),
       }),
     ])
+    expect(recording.semanticMarkerCandidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: 'unresolved',
+          proofSubject: 'heading',
+          proofText: 'Add Sale (Invoice)',
+          query: expect.objectContaining({
+            method: 'getByRole',
+            role: 'heading',
+          }),
+        }),
+        expect.objectContaining({
+          status: 'unresolved',
+          proofSubject: 'visible-message',
+          proofText: 'Please enter quantity',
+          query: expect.objectContaining({
+            method: 'getByText',
+            target: 'Please enter quantity',
+          }),
+        }),
+        expect.objectContaining({
+          status: 'unresolved',
+          proofSubject: 'concrete-value',
+          proofText: 'KES 4,800.00',
+          query: expect.objectContaining({
+            method: 'getByText',
+            target: 'KES 4,800.00',
+          }),
+        }),
+      ])
+    )
     expect(recording.querySelectorCalls).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -222,6 +261,39 @@ describe('parseJsRecording', () => {
         }),
       ])
     )
+  })
+
+  it('keeps field-label dblClick steps distinguishable as unresolved non-proof candidates', async () => {
+    const recording = await parseJsRecording(`
+      test('Recorder Flow', async () => {
+        await userEvent.dblClick(screen.getByText('Customer PIN'))
+      })
+    `)
+
+    expect(recording.steps[0]).toEqual(
+      expect.objectContaining({
+        action: 'click',
+        originalType: 'dblClick',
+        target: 'Customer PIN',
+        semanticMarkerCandidate: expect.objectContaining({
+          status: 'unresolved',
+          originalGesture: 'dblClick',
+          proofSubject: 'field-label',
+          proofText: 'Customer PIN',
+          query: expect.objectContaining({
+            method: 'getByText',
+            target: 'Customer PIN',
+          }),
+        }),
+      })
+    )
+    expect(recording.semanticMarkerCandidates).toEqual([
+      expect.objectContaining({
+        status: 'unresolved',
+        proofSubject: 'field-label',
+        proofText: 'Customer PIN',
+      }),
+    ])
   })
 
   it('preserves selector-only evidence without inventing accessible queries', async () => {

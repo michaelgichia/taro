@@ -41,12 +41,14 @@ import type {
   NormalizedStep,
   QueryDescriptor,
   QueryResult,
+  SemanticMarkerAssertionUnresolvedReason,
   SelectorDescriptor,
   SelectorResolutionResult,
   StepId,
+  UnresolvedSemanticMarkerAssertionResolution,
   VisualState,
 } from '../../types/recording.js'
-import type { HistoryEntry, ScoreResult } from '../../types/score.js'
+import type { HistoryEntry, MarkerCoverageTotals, ScoreResult } from '../../types/score.js'
 import type { MockAnalysis } from '../../core/mock-intelligence.js'
 import type { RepoRenderTargetCandidate } from '../../core/scanner.js'
 import type { JsSuitePlan } from '../../core/suite-planner.js'
@@ -57,6 +59,38 @@ export interface GenerateOptions {
   force?: boolean
 }
 
+const EMPTY_MARKER_COVERAGE: MarkerCoverageTotals = {
+  detected: 0,
+  emitted: 0,
+  unresolved: 0,
+}
+
+const UNRESOLVED_MARKER_REASON_GUIDANCE: Record<
+  SemanticMarkerAssertionUnresolvedReason,
+  string
+> = {
+  'missing-marker-candidate':
+    'Semantic marker candidate metadata is missing. Re-record or keep marker metadata intact.',
+  'missing-anchor':
+    'Marker has no reliable anchor step. Re-record with marker near the intended assertion moment.',
+  'missing-query':
+    'Recorder evidence is missing an accessible query. Capture a clearer role/name or visible text.',
+  'unsupported-proof-subject':
+    'Marker proof subject is unsupported for safe RTL conversion. Use role/name or visible text proof.',
+  'ambiguous-field-context':
+    'Field context is ambiguous. Capture a single, specific field label or value target.',
+  'unsupported-field-context':
+    'Field context could not map to a trusted RTL field query. Record a clearer label/placeholder.',
+  'generic-container':
+    'Marker points to a generic container. Capture the concrete user-facing element instead.',
+  'css-only-evidence':
+    'Marker is backed only by CSS-like evidence. Capture semantic role/name or visible text evidence.',
+  'icon-only-target':
+    'Marker target is icon-only and ambiguous. Capture surrounding accessible text context.',
+  'hidden-evidence':
+    'Marker evidence depends on hidden/implementation selectors. Capture user-visible evidence instead.',
+}
+
 function deriveOutputPath(inputPath: string): string {
   const dir = dirname(inputPath)
   const name = basename(inputPath).replace(/\.(json|[cm]?[jt]sx?)$/, '')
@@ -64,14 +98,105 @@ function deriveOutputPath(inputPath: string): string {
 }
 
 function logScore(scoreResult: ScoreResult): void {
+  const markerCoverageSummary =
+    `markers: detected=${scoreResult.markerCoverage.detected}, ` +
+    `emitted=${scoreResult.markerCoverage.emitted}, ` +
+    `unresolved=${scoreResult.markerCoverage.unresolved}`
   console.log(
     pc.dim('[tayo]') +
       ` Score: ${scoreResult.total}/100 (${scoreResult.grade}) — ` +
       `query: ${scoreResult.dimensions.queryQuality}, ` +
       `assertions: ${scoreResult.dimensions.assertionSpecificity}, ` +
       `structure: ${scoreResult.dimensions.testStructure}, ` +
-      `boundary: ${scoreResult.dimensions.boundaryIsolation}`
+      `boundary: ${scoreResult.dimensions.boundaryIsolation}, ` +
+      markerCoverageSummary
   )
+}
+
+function emitMarkerCoverageSection(scoreResult: ScoreResult): void {
+  const gateStatus = scoreResult.markerQualityGate.failing ? pc.red('FAIL') : pc.green('PASS')
+  console.log(pc.dim('[tayo]') + ' Marker coverage:')
+  console.log(pc.dim('[tayo]') + `   detected: ${scoreResult.markerCoverage.detected}`)
+  console.log(pc.dim('[tayo]') + `   emitted: ${scoreResult.markerCoverage.emitted}`)
+  console.log(pc.dim('[tayo]') + `   unresolved: ${scoreResult.markerCoverage.unresolved}`)
+  console.log(
+    pc.dim('[tayo]') +
+      `   QUAL-02 gate: ${gateStatus} (${scoreResult.markerQualityGate.reason})`
+  )
+
+  if (scoreResult.markerQualityGate.failing) {
+    console.error(pc.red(`[tayo] QUAL-02 FAIL: ${scoreResult.markerQualityGate.message}`))
+  }
+}
+
+function normalizeUnresolvedMarkerHint(
+  marker: UnresolvedSemanticMarkerAssertionResolution
+): string {
+  const hint = marker.proofText ?? marker.target ?? marker.query?.raw ?? marker.selector?.selector
+  const normalized = hint?.replace(/\s+/g, ' ').trim()
+  return normalized && normalized.length > 0 ? normalized : 'none'
+}
+
+function formatUnresolvedMarkerLine(
+  marker: UnresolvedSemanticMarkerAssertionResolution
+): string {
+  const line = marker.line ?? marker.sourceContext.line
+  return Number.isFinite(line) ? String(line) : 'unknown'
+}
+
+function formatUnresolvedMarkerWarning(
+  marker: UnresolvedSemanticMarkerAssertionResolution
+): string {
+  const line = formatUnresolvedMarkerLine(marker)
+  const hint = normalizeUnresolvedMarkerHint(marker)
+  const guidance = UNRESOLVED_MARKER_REASON_GUIDANCE[marker.reason]
+
+  return (
+    `MKR-03 unresolved-marker marker=${marker.markerStepId} ` +
+    `line: ${line} reason=${marker.reason} ` +
+    `detail="${guidance}" hint="${hint}"`
+  )
+}
+
+function collectUnresolvedMarkerAssertions(
+  suitePlan: JsSuitePlan
+): UnresolvedSemanticMarkerAssertionResolution[] {
+  const seenMarkerStepIds = new Set<string>()
+  const unresolvedMarkers: UnresolvedSemanticMarkerAssertionResolution[] = []
+
+  for (const scenario of suitePlan.scenarios) {
+    for (const unresolvedMarker of scenario.unresolvedMarkerAssertions ?? []) {
+      if (seenMarkerStepIds.has(unresolvedMarker.markerStepId)) {
+        continue
+      }
+
+      seenMarkerStepIds.add(unresolvedMarker.markerStepId)
+      unresolvedMarkers.push(unresolvedMarker)
+    }
+  }
+
+  return unresolvedMarkers
+}
+
+function emitUnresolvedMarkerWarnings(suitePlan: JsSuitePlan | null): void {
+  if (!suitePlan) {
+    return
+  }
+
+  const unresolvedMarkers = collectUnresolvedMarkerAssertions(suitePlan)
+  for (const unresolvedMarker of unresolvedMarkers) {
+    console.warn(pc.yellow(`[tayo] ${formatUnresolvedMarkerWarning(unresolvedMarker)}`))
+  }
+}
+
+function enforceMarkerGateExit(scoreResult: ScoreResult, mode: 'dry-run' | 'write'): void {
+  if (!scoreResult.markerQualityGate.failing) {
+    return
+  }
+
+  process.exitCode = 1
+  const modeLabel = mode === 'dry-run' ? '--dry-run preview' : 'write mode output'
+  console.error(pc.red(`[tayo] Exiting with code 1: QUAL-02 gate failed after ${modeLabel}.`))
 }
 
 function emitLowConfidenceBanner(scoreResult: ScoreResult): void {
@@ -138,6 +263,14 @@ function summarizeCleanup(analyzedRecording: AnalyzedRecording): void {
     parts.push(`${diagnostics.removedRedundantClicks} redundant click(s)`)
   }
 
+  if ((diagnostics.preservedSemanticMarkers ?? 0) > 0) {
+    parts.push(`${diagnostics.preservedSemanticMarkers} preserved semantic marker(s)`)
+  }
+
+  if ((diagnostics.unresolvedSemanticMarkers ?? 0) > 0) {
+    parts.push(`${diagnostics.unresolvedSemanticMarkers} unresolved semantic marker(s)`)
+  }
+
   if (diagnostics.removedDoubleClickNoise > 0) {
     parts.push(`${diagnostics.removedDoubleClickNoise} dblClick noise event(s)`)
   }
@@ -155,6 +288,98 @@ function summarizeCleanup(analyzedRecording: AnalyzedRecording): void {
   }
 
   console.log(pc.dim('[tayo]') + ` Recording cleanup: ${parts.join(', ')}`)
+}
+
+function countPlannedScenarioMarkers(
+  scenarios: JsSuitePlan['scenarios']
+): Pick<MarkerCoverageTotals, 'emitted' | 'unresolved'> {
+  return scenarios.reduce(
+    (totals, scenario) => ({
+      emitted: totals.emitted + (scenario.markerAssertions?.length ?? 0),
+      unresolved: totals.unresolved + (scenario.unresolvedMarkerAssertions?.length ?? 0),
+    }),
+    {
+      emitted: 0,
+      unresolved: 0,
+    }
+  )
+}
+
+function buildMarkerCoverageSummary(params: {
+  source: 'js' | 'json'
+  analyzedRecording: AnalyzedRecording
+  suitePlan: JsSuitePlan | null
+}): MarkerCoverageTotals {
+  const { source, analyzedRecording, suitePlan } = params
+  if (source !== 'js') {
+    return EMPTY_MARKER_COVERAGE
+  }
+
+  const preservedMarkers = analyzedRecording.diagnostics.preservedSemanticMarkers ?? 0
+  const diagnosticUnresolvedMarkers = analyzedRecording.diagnostics.unresolvedSemanticMarkers ?? 0
+
+  if (!suitePlan) {
+    return {
+      detected: preservedMarkers + diagnosticUnresolvedMarkers,
+      emitted: 0,
+      unresolved: diagnosticUnresolvedMarkers,
+    }
+  }
+
+  const plannedMarkerTotals = countPlannedScenarioMarkers(suitePlan.scenarios)
+  const unresolved = plannedMarkerTotals.unresolved
+  const detected = Math.max(
+    preservedMarkers + unresolved,
+    plannedMarkerTotals.emitted + unresolved
+  )
+
+  return {
+    detected,
+    emitted: plannedMarkerTotals.emitted,
+    unresolved,
+  }
+}
+
+function mergeAnalyzedStepState(
+  recording: NormalizedRecording,
+  analyzedRecording: AnalyzedRecording
+): NormalizedRecording {
+  const analyzedStepsById = new Map(
+    analyzedRecording.steps
+      .filter((step): step is NormalizedStep & { id: StepId } => Boolean(step.id))
+      .map((step) => [step.id, step])
+  )
+
+  return {
+    ...recording,
+    steps: recording.steps.map((step) => {
+      if (!step.id) {
+        return step
+      }
+
+      const analyzedStep = analyzedStepsById.get(step.id)
+      if (!analyzedStep) {
+        return step
+      }
+
+      return {
+        ...step,
+        ...(analyzedStep.semanticMarkerCandidate
+          ? { semanticMarkerCandidate: analyzedStep.semanticMarkerCandidate }
+          : {}),
+        ...(analyzedStep.semanticMarkerLink
+          ? { semanticMarkerLink: analyzedStep.semanticMarkerLink }
+          : {}),
+        ...(analyzedStep.unresolvedSemanticMarker
+          ? { unresolvedSemanticMarker: analyzedStep.unresolvedSemanticMarker }
+          : {}),
+        metadata: {
+          ...step.metadata,
+          ...analyzedStep.metadata,
+        },
+      }
+    }),
+  }
 }
 
 function toItGroups(analyzedRecording: AnalyzedRecording, fallbackTitle: string): ItGroup[] {
@@ -262,6 +487,48 @@ function rehydrateSuitePlan(plan: JsSuitePlan, steps: NormalizedStep[]): JsSuite
       steps: scenario.steps.map(mapStep),
     })),
   }
+}
+
+function isSemanticMarkerStep(step: NormalizedStep): boolean {
+  return Boolean(step.semanticMarkerLink || step.unresolvedSemanticMarker)
+}
+
+function stripSemanticMarkerStepsFromItGroups(itGroups: ItGroup[]): ItGroup[] {
+  return itGroups
+    .map((group) => ({
+      ...group,
+      steps: group.steps.filter((step) => !isSemanticMarkerStep(step)),
+    }))
+    .filter((group) => group.steps.length > 0)
+}
+
+function stripSemanticMarkerStepsFromHelpers(helpers: JsSuitePlan['helpers']): JsSuitePlan['helpers'] {
+  return helpers
+    .map((helper) => ({
+      ...helper,
+      steps: helper.steps.filter((step) => !isSemanticMarkerStep(step)),
+    }))
+    .filter((helper) => helper.steps.length > 0)
+}
+
+function stripSemanticMarkerStepsFromScenarios(
+  scenarios: JsSuitePlan['scenarios'],
+  helpers: JsSuitePlan['helpers']
+): JsSuitePlan['scenarios'] {
+  const helperNames = new Set(helpers.map((helper) => helper.name))
+
+  return scenarios
+    .map((scenario) => ({
+      ...scenario,
+      steps: scenario.steps.filter((step) => !isSemanticMarkerStep(step)),
+      helperRefs: scenario.helperRefs.filter((helperRef) => helperNames.has(helperRef)),
+    }))
+    .filter(
+      (scenario) =>
+        scenario.steps.length > 0 ||
+        scenario.helperRefs.length > 0 ||
+        (scenario.markerAssertions?.length ?? 0) > 0
+    )
 }
 
 function dedupeQueryResults(queryResults: QueryResult[]): QueryResult[] {
@@ -714,6 +981,10 @@ export function createGenerateCommand(): Command {
       )
 
       const analyzedRecording = analyzeRecording(normalizedRecording)
+      const markerAwareRecording =
+        parsedInput.source === 'js'
+          ? mergeAnalyzedStepState(normalizedRecording, analyzedRecording)
+          : normalizedRecording
       summarizeCleanup(analyzedRecording)
       const visualState = await maybeCaptureVisualState({
         analyzedRecording,
@@ -729,7 +1000,7 @@ export function createGenerateCommand(): Command {
       const rawJsSuitePlan =
         parsedInput.source === 'js'
           ? planJsSuite({
-              recording: normalizedRecording,
+              recording: markerAwareRecording,
               analyzedRecording,
               mockAnalysis,
               fallbackTitle: normalizedRecording.title,
@@ -757,7 +1028,7 @@ export function createGenerateCommand(): Command {
       const resolvedJsGeneration =
         parsedInput.source === 'js'
           ? await resolveJsGeneration(
-              normalizedRecording,
+              markerAwareRecording,
               jsSuitePlan?.itGroups ?? toItGroups(analyzedRecording, normalizedRecording.title)
             )
           : null
@@ -770,22 +1041,42 @@ export function createGenerateCommand(): Command {
         parsedInput.source === 'js' && jsSuitePlan
           ? rehydrateSuitePlan(
               jsSuitePlan,
-              resolvedJsGeneration?.recording.steps ?? normalizedRecording.steps
+              resolvedJsGeneration?.recording.steps ?? markerAwareRecording.steps
             )
           : jsSuitePlan
+      const generationHelpers = hydratedSuitePlan
+        ? stripSemanticMarkerStepsFromHelpers(hydratedSuitePlan.helpers)
+        : undefined
+      const generationScenarios =
+        hydratedSuitePlan && generationHelpers
+          ? stripSemanticMarkerStepsFromScenarios(hydratedSuitePlan.scenarios, generationHelpers)
+          : undefined
+      const generationItGroups =
+        parsedInput.source === 'js'
+          ? stripSemanticMarkerStepsFromItGroups(
+              resolvedJsGeneration?.itGroups ??
+                hydratedSuitePlan?.itGroups ??
+                toItGroups(analyzedRecording, normalizedRecording.title)
+            )
+          : toItGroups(analyzedRecording, normalizedRecording.title)
 
       const generated =
         parsedInput.source === 'js'
-          ? generateTestFromGroups(normalizedRecording.title, resolvedJsGeneration?.itGroups ?? hydratedSuitePlan?.itGroups ?? toItGroups(analyzedRecording, normalizedRecording.title), {
+          ? generateTestFromGroups(normalizedRecording.title, generationItGroups, {
               outputPath,
               dryRun: options.dryRun,
               conventions,
               queryResults: resolvedJsGeneration?.queryResults ?? [],
-              helpers: hydratedSuitePlan?.helpers,
-              scenarios: hydratedSuitePlan?.scenarios,
+              helpers: generationHelpers,
+              scenarios: generationScenarios,
               renderTarget: repoRenderTarget,
             })
           : generateTest(analyzedRecording, { outputPath, dryRun: options.dryRun })
+      const markerCoverage = buildMarkerCoverageSummary({
+        source: parsedInput.source,
+        analyzedRecording,
+        suitePlan: hydratedSuitePlan,
+      })
 
       if (hydratedSuitePlan?.warnings.length) {
         generated.code = [
@@ -800,11 +1091,16 @@ export function createGenerateCommand(): Command {
 
       const scoreResult =
         parsedInput.source === 'js'
-          ? scoreGeneratedTest(generated.code, resolvedJsGeneration?.queryResults ?? [])
-          : scoreGeneratedTest(generated.code)
+          ? scoreGeneratedTest(generated.code, {
+              queryResults: resolvedJsGeneration?.queryResults ?? [],
+              markerCoverage,
+            })
+          : scoreGeneratedTest(generated.code, { markerCoverage })
       const boundaryIssues = analyzeBoundaryIsolation(generated.code)
 
       logScore(scoreResult)
+      emitMarkerCoverageSection(scoreResult)
+      emitUnresolvedMarkerWarnings(hydratedSuitePlan)
       emitLowConfidenceBanner(scoreResult)
       emitScoreHints(scoreResult, resolvedJsGeneration?.queryResults ?? [], boundaryIssues)
 
@@ -815,6 +1111,7 @@ export function createGenerateCommand(): Command {
         console.log(pc.dim('─'.repeat(60)))
         console.log(pc.dim(`\n[tayo] Score: ${scoreResult.total}/100 (${scoreResult.grade})`))
         console.log(pc.yellow(`\nWould write to: ${pc.bold(outputPath)}`))
+        enforceMarkerGateExit(scoreResult, 'dry-run')
         return
       }
 
@@ -832,6 +1129,7 @@ export function createGenerateCommand(): Command {
         })
         const action = result.overwritten ? pc.yellow('Updated') : pc.green('Created')
         console.log(`${action}: ${pc.bold(result.filePath)}`)
+        enforceMarkerGateExit(scoreResult, 'write')
       } catch (err) {
         console.error(pc.red('Error:') + ` ${String(err)}`)
         process.exit(1)

@@ -51,6 +51,17 @@ describe('sale flow', () => {
       'The generated test still renders <App /> instead of a resolved repo target.',
       'Boundary warnings remain in the generated file, so the render/mock boundary still needs cleanup.',
     ])
+    expect(score.markerCoverage).toEqual({
+      detected: 0,
+      emitted: 0,
+      unresolved: 0,
+    })
+    expect(score.markerQualityGate).toEqual({
+      status: 'pass',
+      reason: 'no-markers-detected',
+      failing: false,
+      message: 'No semantic markers were detected in this run.',
+    })
     expect(score.reasons).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -93,6 +104,11 @@ describe('sale flow', () => {
     expect(score.signals.queryCheckpointCount).toBe(0)
     expect(score.signals.multipleTestBlocks).toBe(true)
     expect(score.blockers).toEqual([])
+    expect(score.markerCoverage).toEqual({
+      detected: 0,
+      emitted: 0,
+      unresolved: 0,
+    })
     expect(score.reasons).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -105,5 +121,75 @@ describe('sale flow', () => {
         }),
       ])
     )
+  })
+
+  it('returns marker coverage and non-failing marker gate defaults when marker context is absent', () => {
+    const score = scoreGeneratedTest("test('placeholder', () => expect(true).toBe(true))")
+
+    expect(score.markerCoverage).toEqual({
+      detected: 0,
+      emitted: 0,
+      unresolved: 0,
+    })
+    expect(score.markerQualityGate).toEqual({
+      status: 'pass',
+      reason: 'no-markers-detected',
+      failing: false,
+      message: 'No semantic markers were detected in this run.',
+    })
+  })
+
+  it('returns normalized marker coverage and deterministic marker gate metadata when context is provided', () => {
+    const withCoverage = scoreGeneratedTest("test('flow', () => expect(true).toBe(true))", {
+      markerCoverage: {
+        detected: 4,
+        emitted: 2,
+        unresolved: 2,
+      },
+    })
+
+    expect(withCoverage.markerCoverage).toEqual({
+      detected: 4,
+      emitted: 2,
+      unresolved: 2,
+    })
+    expect(withCoverage.markerQualityGate).toEqual({
+      status: 'pass',
+      reason: 'markers-converted',
+      failing: false,
+      message: 'Marker-derived assertions were emitted for this run.',
+    })
+
+    const zeroConversion = scoreGeneratedTest("test('flow', () => expect(true).toBe(true))", {
+      markerCoverage: {
+        detected: 3,
+        emitted: 0,
+        unresolved: 1,
+      },
+    })
+
+    expect(zeroConversion.markerCoverage).toEqual({
+      detected: 3,
+      emitted: 0,
+      unresolved: 1,
+    })
+    expect(zeroConversion.markerQualityGate).toEqual({
+      status: 'fail',
+      reason: 'zero-marker-conversion',
+      failing: true,
+      message: 'Semantic markers were detected, but no marker-derived assertions were emitted.',
+    })
+    expect(zeroConversion.reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'marker-quality-gate-fail',
+          impact: 'negative',
+        }),
+      ])
+    )
+    expect(zeroConversion.blockers).toContain(
+      'QUAL-02 failed: Semantic markers were detected, but no marker-derived assertions were emitted.'
+    )
+    expect(zeroConversion.requiresReview).toBe(true)
   })
 })

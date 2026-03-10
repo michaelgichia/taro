@@ -11,6 +11,7 @@ import type {
   JsScenarioPlan,
   NormalizedRecording,
   NormalizedStep,
+  PlannedMarkerAssertion,
   QueryResult,
   ItGroup,
   QueryQuality,
@@ -22,6 +23,7 @@ import type { ConventionsSchema } from '../types/conventions.js'
 import {
   importBlock,
   describeBlock,
+  markerAssertionTemplate,
   stepTemplate,
   describeBlockMultiIt,
 } from '../templates/test-template.js'
@@ -347,6 +349,61 @@ function buildHelperStepLines(
   })
 }
 
+function getMarkerAssertionProofRank(markerAssertion: PlannedMarkerAssertion): number {
+  switch (markerAssertion.assertion.proofKind) {
+    case 'role-name':
+      return 0
+    case 'visible-text':
+    case 'visible-value':
+      return 1
+    case 'label-text':
+      return 2
+    case 'placeholder-text':
+      return 3
+  }
+}
+
+function selectStrongestMarkerAssertions(
+  markerAssertions: PlannedMarkerAssertion[]
+): PlannedMarkerAssertion[] {
+  const strongestByAnchor = new Map<
+    string,
+    {
+      markerAssertion: PlannedMarkerAssertion
+      proofRank: number
+      sourceOrder: number
+    }
+  >()
+
+  for (const [sourceOrder, markerAssertion] of markerAssertions.entries()) {
+    const proofRank = getMarkerAssertionProofRank(markerAssertion)
+    const existing = strongestByAnchor.get(markerAssertion.anchorStepId)
+
+    if (
+      !existing ||
+      proofRank < existing.proofRank ||
+      (proofRank === existing.proofRank && sourceOrder < existing.sourceOrder)
+    ) {
+      strongestByAnchor.set(markerAssertion.anchorStepId, {
+        markerAssertion,
+        proofRank,
+        sourceOrder,
+      })
+    }
+  }
+
+  return [...strongestByAnchor.values()]
+    .sort((left, right) => left.sourceOrder - right.sourceOrder)
+    .map((entry) => entry.markerAssertion)
+}
+
+function renderMarkerAssertion(markerAssertion: PlannedMarkerAssertion): string {
+  return markerAssertionTemplate({
+    queryExpression: markerAssertion.assertion.queryExpression,
+    matcher: markerAssertion.assertion.matcher,
+  })
+}
+
 export function generateTestFromGroups(
   title: string,
   itGroups: ItGroup[],
@@ -363,11 +420,6 @@ export function generateTestFromGroups(
   } = options
   const importStyle = conventions?.importStyle ?? 'esm'
 
-  // Determine if any it block uses user events
-  const globalHasUserEvents = itGroups.some((group) =>
-    group.steps.some((s) => ['click', 'fill', 'select', 'keyDown'].includes(s.action))
-  )
-
   // Build query -> matcher map for context-aware assert matchers
   const matcherMap = new Map<string, string>()
   for (const qr of queryResults) {
@@ -376,7 +428,7 @@ export function generateTestFromGroups(
     }
   }
 
-  const scenarioPlans =
+  const scenarioPlans: JsScenarioPlan[] =
     scenarios && scenarios.length > 0
       ? scenarios
       : itGroups.map((group) => ({
@@ -385,7 +437,19 @@ export function generateTestFromGroups(
           steps: group.steps,
           helperRefs: [],
           requiresFreshRender: true,
+          markerAssertions: [],
+          unresolvedMarkerAssertions: [],
         }))
+
+  const globalHasUserEvents =
+    helpers.length > 0 ||
+    scenarioPlans.some(
+      (scenario) =>
+        scenario.helperRefs.length > 0 ||
+        scenario.steps.some((step) =>
+          ['click', 'fill', 'select', 'keyDown'].includes(step.action)
+        )
+    )
 
   const helperByName = new Map(helpers.map((helper) => [helper.name, helper]))
   const helperBlocks = helpers
@@ -406,6 +470,36 @@ export function generateTestFromGroups(
     const helperRefs = getScenarioHelperRefs(scenario, helpers)
     const helperSteps = helperRefs.flatMap((helperName) => helperByName.get(helperName)?.steps ?? [])
     const helperStepSet = new Set(helperSteps)
+    const helperNameByStepId = new Map(
+      helperRefs.flatMap((helperName) =>
+        (helperByName.get(helperName)?.steps ?? [])
+          .filter((step): step is NormalizedStep & { id: string } => Boolean(step.id))
+          .map((step) => [step.id, helperName] as const)
+      )
+    )
+    const markerAssertions = selectStrongestMarkerAssertions(scenario.markerAssertions ?? [])
+    const markerAssertionsAfterStep = new Map<string, string[]>()
+    const markerAssertionsAfterHelper = new Map<string, string[]>()
+
+    for (const markerAssertion of markerAssertions) {
+      const renderedAssertion = renderMarkerAssertion(markerAssertion)
+      const helperPlacementName =
+        markerAssertion.placement.kind === 'after-helper'
+          ? markerAssertion.placement.helperName
+          : helperNameByStepId.get(markerAssertion.placement.stepId)
+
+      if (helperPlacementName) {
+        const existing = markerAssertionsAfterHelper.get(helperPlacementName) ?? []
+        existing.push(renderedAssertion)
+        markerAssertionsAfterHelper.set(helperPlacementName, existing)
+        continue
+      }
+
+      const existing = markerAssertionsAfterStep.get(markerAssertion.placement.stepId) ?? []
+      existing.push(renderedAssertion)
+      markerAssertionsAfterStep.set(markerAssertion.placement.stepId, existing)
+    }
+
     const bodyLines = scenario.steps.flatMap((step) => {
       if (step.action !== 'assert' && helperStepSet.has(step)) {
         return []
@@ -431,7 +525,7 @@ export function generateTestFromGroups(
       }
 
       const matcher = step.action === 'assert' && query ? matcherMap.get(query) : undefined
-      return [
+      const stepLines = [
         stepTemplate({
           action: step.action,
           query: query ?? 'document.body',
@@ -439,14 +533,27 @@ export function generateTestFromGroups(
           matcher,
         }),
       ]
+
+      if (step.id) {
+        stepLines.push(...(markerAssertionsAfterStep.get(step.id) ?? []))
+      }
+
+      return stepLines
     })
 
     const stepLines = [
-      ...helperRefs.map((helperName) => `await ${helperName}(user)`),
+      ...helperRefs.flatMap((helperName) => [
+        `await ${helperName}(user)`,
+        ...(markerAssertionsAfterHelper.get(helperName) ?? []),
+      ]),
       ...bodyLines,
     ]
 
-    return { name: scenario.name, stepLines, hasUserEvents }
+    return {
+      name: scenario.name,
+      stepLines,
+      hasUserEvents: hasUserEvents || helperRefs.length > 0,
+    }
   })
 
   const imports = importBlock(globalHasUserEvents, importStyle, {
