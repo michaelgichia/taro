@@ -7,6 +7,8 @@ import { detectInputSource, loadInput } from './input-loader.js'
 const tempDirs: string[] = []
 const envOptionsLine = ` * @jest-environment${'-options'} {"url":"http://localhost:3000"}`
 const dashboardEnvOptionsLine = ` * @jest-environment${'-options'} {"url":"http://localhost:3000/dashboard"}`
+const sampleJsonBasicPath = join(process.cwd(), 'sample/sample-json-recording-basic.json')
+const sampleJsonDialogPath = join(process.cwd(), 'sample/sample-json-recording-dialog.json')
 
 async function writeTempFile(name: string, content: string): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), 'taro-input-loader-'))
@@ -79,6 +81,49 @@ describe('loadInput', () => {
       })
     )
     expect('baseline' in parsed).toBe(false)
+  })
+
+  it('loads representative JSON fixtures through the shared input boundary', async () => {
+    const [basic, dialog] = await Promise.all([
+      loadInput(sampleJsonBasicPath),
+      loadInput(sampleJsonDialogPath),
+    ])
+
+    expect(basic).toMatchObject({
+      source: 'json',
+      recording: {
+        title: 'JSON basic sale flow',
+        url: 'http://localhost:3000/sales',
+        rawStepCount: 7,
+      },
+    })
+    expect(basic.recording.steps.map((step) => step.id)).toEqual([
+      'json-step-1',
+      'json-step-2',
+      'json-step-3',
+      'json-step-4',
+      'json-step-5',
+      'json-step-6',
+      'json-step-7',
+    ])
+    expect(dialog).toMatchObject({
+      source: 'json',
+      recording: {
+        title: 'JSON dialog sale flow',
+        url: 'http://localhost:3000/sales',
+        rawStepCount: 7,
+      },
+    })
+    expect(dialog.recording.steps[1]).toEqual(
+      expect.objectContaining({
+        id: 'json-step-2',
+        action: 'click',
+        originalType: 'doubleClick',
+        target: 'Open Add Sale dialog',
+      })
+    )
+    expect('baseline' in basic).toBe(false)
+    expect('baseline' in dialog).toBe(false)
   })
 
   it('loads recorder JS input with preserved baseline metadata', async () => {
