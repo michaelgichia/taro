@@ -46,6 +46,8 @@ vi.mock('../../core/scanner.js', () => ({
 
 const sandboxes: string[] = []
 const samplePath = resolve(process.cwd(), 'sample/sample-rest-recordingextension-output.js')
+const sampleJsonBasicPath = resolve(process.cwd(), 'sample/sample-json-recording-basic.json')
+const sampleJsonDialogPath = resolve(process.cwd(), 'sample/sample-json-recording-dialog.json')
 const accessibleSelector = 'div.css-19bb58m'
 const inspectionFailureSelector =
   '#radix-_r_8s_-content-items > div:nth-of-type(1) > div:nth-of-type(2) span'
@@ -417,5 +419,58 @@ describe('createGenerateCommand', () => {
     )
     expect(result.logs).toContain('render(<App />)')
     expect(result.logs).not.toContain("import SalesModule from './SalesModule'")
+  })
+
+  it('supports representative JSON recordings through the public dry-run generate flow', async () => {
+    const sandbox = await createSandbox('json-dry-run')
+    const outputPath = join(sandbox.outputDir, 'json-basic.test.tsx')
+
+    const result = await runGenerate(
+      [sampleJsonBasicPath, '--dry-run', '--output', outputPath],
+      sandbox.outputDir
+    )
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.errors).toBe('')
+    expect(result.logs).toContain('Parsed: JSON basic sale flow — 7 steps')
+    expect(result.logs).toContain(`Would write to: ${outputPath}`)
+    expect(result.logs).toContain("screen.getByTestId(/* TODO: replace with RTL query — CSS: 'Add Sale' */ '')")
+    expect(result.logs).toContain(
+      "screen.getByTestId(/* TODO: replace with RTL query — CSS: 'Customer Name' */ '')"
+    )
+    expect(result.logs).toContain(
+      "screen.getByTestId(/* TODO: replace with RTL query — CSS: 'Sale created' */ '')"
+    )
+    expect(result.logs).toContain('[taro] Score:')
+    expect(result.logs).not.toContain('taro-query-checkpoint')
+    expect(result.logs).not.toContain('taro-boundary-warning:')
+    expect(result.warnings).toContain('Manual review required')
+  })
+
+  it('writes representative dialog JSON recordings without requiring JS-only resolver features', async () => {
+    const sandbox = await createSandbox('json-write')
+    const outputPath = join(sandbox.outputDir, 'json-dialog.test.tsx')
+
+    const result = await runGenerate(
+      [sampleJsonDialogPath, '--output', outputPath],
+      sandbox.outputDir
+    )
+    const written = await readFile(outputPath, 'utf-8')
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.errors).toBe('')
+    expect(result.logs).toContain(`Created: ${outputPath}`)
+    expect(written).toContain(
+      "screen.getByTestId(/* TODO: replace with RTL query — CSS: 'Open Add Sale dialog' */ '')"
+    )
+    expect(written).toContain(
+      "screen.getByTestId(/* TODO: replace with RTL query — CSS: 'Reference' */ '')"
+    )
+    expect(written).toContain(
+      "screen.getByTestId(/* TODO: replace with RTL query — CSS: 'Draft saved' */ '')"
+    )
+    expect(written).not.toContain('taro-query-checkpoint')
+    expect(written).not.toContain('taro-boundary-warning:')
+    expect(result.warnings).toContain('Manual review required')
   })
 })
