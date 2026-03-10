@@ -1,6 +1,13 @@
 import { analyzeBoundaryIsolation, calculateBoundaryIsolationScore } from './boundary-intelligence.js'
 import type { QueryResult } from '../types/recording.js'
-import type { ScoreDimensions, ScoreReason, ScoreResult, ScoreSignals } from '../types/score.js'
+import type {
+  MarkerCoverageTotals,
+  MarkerQualityGateState,
+  ScoreDimensions,
+  ScoreReason,
+  ScoreResult,
+  ScoreSignals,
+} from '../types/score.js'
 
 const QUERY_WEIGHTS: Record<string, number> = {
   getByRole: 1.0,
@@ -24,6 +31,14 @@ function clampScore(score: number): number {
 
 function countMatches(input: string, pattern: RegExp): number {
   return input.match(pattern)?.length ?? 0
+}
+
+function normalizeCount(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return 0
+  }
+
+  return Math.max(0, Math.round(value))
 }
 
 export function calculateQueryScore(queryResults: QueryResult[]): number {
@@ -289,10 +304,82 @@ export function calculateAggregateScore(
   return { total, grade: 'F' }
 }
 
+export interface ScoreGeneratedTestOptions {
+  queryResults?: QueryResult[]
+  markerCoverage?: Partial<MarkerCoverageTotals>
+}
+
+function resolveMarkerCoverage(
+  markerCoverage?: Partial<MarkerCoverageTotals>
+): MarkerCoverageTotals {
+  return {
+    detected: normalizeCount(markerCoverage?.detected),
+    emitted: normalizeCount(markerCoverage?.emitted),
+    unresolved: normalizeCount(markerCoverage?.unresolved),
+  }
+}
+
+function deriveMarkerQualityGate(
+  markerCoverage: MarkerCoverageTotals
+): MarkerQualityGateState {
+  if (markerCoverage.detected === 0) {
+    return {
+      status: 'not-applicable',
+      reason: 'no-markers-detected',
+      failing: false,
+      message: 'No semantic markers were detected in this run.',
+    }
+  }
+
+  if (markerCoverage.emitted === 0) {
+    return {
+      status: 'fail',
+      reason: 'zero-marker-conversion',
+      failing: true,
+      message: 'Semantic markers were detected, but no marker-derived assertions were emitted.',
+    }
+  }
+
+  return {
+    status: 'pass',
+    reason: 'markers-converted',
+    failing: false,
+    message: 'Marker-derived assertions were emitted for this run.',
+  }
+}
+
+function resolveScoreGeneratedTestOptions(
+  input: QueryResult[] | ScoreGeneratedTestOptions | undefined
+): {
+  queryResults: QueryResult[]
+  markerCoverage: MarkerCoverageTotals
+} {
+  if (Array.isArray(input)) {
+    return {
+      queryResults: input,
+      markerCoverage: resolveMarkerCoverage(),
+    }
+  }
+
+  if (input && typeof input === 'object') {
+    return {
+      queryResults: input.queryResults ?? [],
+      markerCoverage: resolveMarkerCoverage(input.markerCoverage),
+    }
+  }
+
+  return {
+    queryResults: [],
+    markerCoverage: resolveMarkerCoverage(),
+  }
+}
+
 export function scoreGeneratedTest(
   code: string,
-  queryResults: QueryResult[] = []
+  input: QueryResult[] | ScoreGeneratedTestOptions = []
 ): ScoreResult {
+  const { queryResults, markerCoverage } = resolveScoreGeneratedTestOptions(input)
+  const markerQualityGate = deriveMarkerQualityGate(markerCoverage)
   const boundaryIssues = analyzeBoundaryIsolation(code)
   const boundaryIsolation = calculateBoundaryIsolationScore(code)
   const signals = collectSignals(code, queryResults, boundaryIssues.length)
@@ -319,5 +406,7 @@ export function scoreGeneratedTest(
     reasons,
     blockers,
     requiresReview: aggregate.total < 80,
+    markerCoverage,
+    markerQualityGate,
   }
 }

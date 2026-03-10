@@ -25,6 +25,26 @@ export interface ScoreReason {
   message: string
 }
 
+export interface MarkerCoverageTotals {
+  detected: number
+  emitted: number
+  unresolved: number
+}
+
+export type MarkerQualityGateStatus = 'not-applicable' | 'pass' | 'fail'
+
+export type MarkerQualityGateReason =
+  | 'no-markers-detected'
+  | 'markers-converted'
+  | 'zero-marker-conversion'
+
+export interface MarkerQualityGateState {
+  status: MarkerQualityGateStatus
+  reason: MarkerQualityGateReason
+  failing: boolean
+  message: string
+}
+
 export interface ScoreResult {
   total: number
   grade: 'A' | 'B' | 'C' | 'D' | 'F'
@@ -33,6 +53,8 @@ export interface ScoreResult {
   reasons: ScoreReason[]
   blockers: string[]
   requiresReview: boolean
+  markerCoverage: MarkerCoverageTotals
+  markerQualityGate: MarkerQualityGateState
 }
 
 export interface HistoryEntry {
