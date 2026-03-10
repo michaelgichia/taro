@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: JS Baseline
-status: planning
-stopped_at: Phase 16 context gathered
-last_updated: "2026-03-10T05:58:57.462Z"
-last_activity: 2026-03-10 — Phase 16 context gathered; scoring trust contract, JSON parity proof bar, and docs/example emphasis are now locked for planning
+status: ready-to-execute
+stopped_at: Planned Phase 16
+last_updated: "2026-03-10T06:03:30Z"
+last_activity: 2026-03-10 — Phase 16 planned; scoring trust messaging, JSON parity proof, and product-surface alignment are split into three executable waves
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 10
+  total_plans: 13
   completed_plans: 10
   percent: 75
 ---
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-09)
 
 **Core value:** Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, and Codex with near-zero setup friction
-**Current focus:** Phase 16 - Verification, JSON Parity & Product Surface (ready to plan)
+**Current focus:** Phase 16 - Verification, JSON Parity & Product Surface (ready to execute)
 
 ## Current Position
 
-Phase: 16 of 16 ready to plan (Verification, JSON Parity & Product Surface)
-Plan: 0 of TBD complete
-Status: Ready to plan
-Last activity: 2026-03-10 — Phase 16 context gathered; scoring trust contract, JSON parity proof bar, and docs/example emphasis are now locked for planning
+Phase: 16 of 16 ready to execute (Verification, JSON Parity & Product Surface)
+Plan: 0 of 3 complete
+Status: Ready to execute
+Last activity: 2026-03-10 — Phase 16 planned; scoring trust messaging, JSON parity proof, and product-surface alignment are split into three executable waves
 
 Progress: [███████████████░░░░░] 75%
 
@@ -48,7 +48,7 @@ Progress: [███████████████░░░░░] 75%
 | 12. Verification, Updates & Release Docs | 3 | Mixed | Mixed |
 
 **Recent Trend:**
-- Last 5 plans: Phase 15 execution plans 15-01, 15-02, and 15-03, plus Phase 15 verification and readiness handoff to Phase 16
+- Last 5 plans: Phase 15 execution plans 15-02 and 15-03, Phase 15 verification, Phase 16 context gathering, and Phase 16 planning
 - Trend: Improving
 
 **Recent Executions:**
@@ -96,9 +96,10 @@ None.
 ### Blockers/Concerns
 
 - Phase 13 still needs a verification artifact before v1.3 can pass milestone audit.
+- Phase 16 execution must create representative JSON fixtures because the repo currently has no canonical JSON samples under `sample/`.
 
 ## Session Continuity
 
-Last session: 2026-03-10T05:58:57.458Z
-Stopped at: Phase 16 context gathered
-Resume file: .planning/phases/16-verification-json-parity-product-surface/16-CONTEXT.md
+Last session: 2026-03-10T06:03:30Z
+Stopped at: Planned Phase 16
+Resume file: .planning/phases/16-verification-json-parity-product-surface/16-01-PLAN.md

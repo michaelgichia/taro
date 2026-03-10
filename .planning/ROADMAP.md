@@ -93,7 +93,13 @@ Plans:
   2. User can continue generating from Chrome Recorder JSON exports without regression while v1.3 improves JS baseline fidelity.
   3. User sees matching CLI help, README guidance, and examples for JSON and JS input support, including the fact that recorder JS is treated as a baseline artifact Taro transforms.
   4. The milestone has verification artifacts strong enough to mark Phase 13's implemented INPUT-01, INPUT-02, INPUT-03, and QUERY-01 requirements satisfied at audit time.
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+
+- [ ] 16-01: Scoring trust contract and low-confidence messaging
+- [ ] 16-02: JSON parity fixtures and public-flow regression proof
+- [ ] 16-03: Docs/help alignment and Phase 13 verification backfill
 
 ## Progress
 
@@ -104,4 +110,4 @@ Plans:
 | 13. JS Input Contract & AST Recovery | v1.3 | 4/4 | Complete | 2026-03-09 |
 | 14. Truthful Selector Recovery | v1.3 | 3/3 | Complete | 2026-03-10 |
 | 15. Structured Suite Planning & Repo-aware Generation | v1.3 | 3/3 | Complete | 2026-03-10 |
-| 16. Verification, JSON Parity & Product Surface | v1.3 | 0/TBD | Not started | - |
+| 16. Verification, JSON Parity & Product Surface | v1.3 | 0/3 | Planned | - |
