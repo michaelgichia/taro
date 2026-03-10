@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: JS Baseline
 status: executing
-stopped_at: Completed 15-01-PLAN.md
-last_updated: "2026-03-10T05:39:00Z"
-last_activity: 2026-03-10 — Phase 15-01 completed; suite planning now exposes scenario, helper, and state-safety decisions for later repo-aware generation
+stopped_at: Completed 15-02-PLAN.md
+last_updated: "2026-03-10T05:58:00Z"
+last_activity: 2026-03-10 — Phase 15-02 completed; JS generation now resolves repo render targets and emits helper-oriented module output for supported flows
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 10
-  completed_plans: 8
+  completed_plans: 9
   percent: 50
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-09)
 
 **Core value:** Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, and Codex with near-zero setup friction
-**Current focus:** Phase 15 - Structured Suite Planning & Repo-aware Generation (executing 15-02 next)
+**Current focus:** Phase 15 - Structured Suite Planning & Repo-aware Generation (executing 15-03 next)
 
 ## Current Position
 
 Phase: 15 of 16 executing (Structured Suite Planning & Repo-aware Generation)
-Plan: 1 of 3 complete
+Plan: 2 of 3 complete
 Status: Executing
-Last activity: 2026-03-10 — Phase 15-01 completed; suite planning now exposes scenario, helper, and state-safety decisions for later repo-aware generation
+Last activity: 2026-03-10 — Phase 15-02 completed; JS generation now resolves repo render targets and emits helper-oriented module output for supported flows
 
 Progress: [██████████░░░░░░░░░░] 50%
 
@@ -48,11 +48,11 @@ Progress: [██████████░░░░░░░░░░] 50%
 | 12. Verification, Updates & Release Docs | 3 | Mixed | Mixed |
 
 **Recent Trend:**
-- Last 5 plans: Phase 14 execution plans 14-02 and 14-03, Phase 14 verification, Phase 15 planning, and Phase 15-01 execution
+- Last 5 plans: Phase 14 execution plan 14-03, Phase 14 verification, Phase 15 planning, and Phase 15 execution plans 15-01 and 15-02
 - Trend: Improving
 
 **Recent Executions:**
-- Phase 15-01 | 16min | 2 tasks | 3 files
+- Phase 15-02 | 18min | 2 tasks | 6 files
 
 ## Accumulated Context
 
@@ -83,6 +83,8 @@ Recent decisions affecting current work:
 - [Phase 15 planning] Use the Add Sale gold-standard sample as the anchor for supported repo-aware output rather than aiming for abstract multi-it improvements only.
 - [Phase 15-01] Keep `itGroups` as a compatibility seam while adding richer scenario/helper/state-safety metadata so Wave 2 can adopt the new contract incrementally.
 - [Phase 15-01] Mark helper plans as `sync-only` to keep load-bearing assertions in the scenario body.
+- [Phase 15-02] Resolve repo-aware render targets from existing rendered-component tests instead of guessing from boundary warnings alone.
+- [Phase 15-02] Rehydrate suite-plan helper/scenario steps after selector resolution so helper checkpoints preserve truthful Phase 14 reasons.
 
 ### Pending Todos
 
@@ -94,6 +96,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-10T05:39:00Z
-Stopped at: Completed 15-01-PLAN.md
+Last session: 2026-03-10T05:58:00Z
+Stopped at: Completed 15-02-PLAN.md
 Resume file: None
