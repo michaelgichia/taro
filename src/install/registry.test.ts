@@ -20,9 +20,9 @@ describe('RUNTIME_REGISTRY', () => {
 })
 
 describe('resolveAssetSource', () => {
-  it('resolves runtime asset paths from the package root', () => {
-    expect(resolveAssetSource('claude', ['commands', 'help.md'])).toContain(
-      '/assets/claude/commands/help.md'
+  it('resolves authored install sources from the package root', () => {
+    expect(resolveAssetSource(['commands', 'claude', '@tayo-dev', 'rtl', 'help.md'])).toContain(
+      '/commands/claude/@tayo-dev/rtl/help.md'
     )
   })
 })
