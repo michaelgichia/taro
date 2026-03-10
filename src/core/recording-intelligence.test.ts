@@ -13,6 +13,87 @@ import type { ChromeStep, NormalizedRecording, NormalizedStep } from '../types/r
 const sampleJsonBasicPath = resolve(process.cwd(), 'sample/sample-json-recording-basic.json')
 const sampleJsonDialogPath = resolve(process.cwd(), 'sample/sample-json-recording-dialog.json')
 
+function createJsClickStep(id: string, target: string): NormalizedStep {
+  return {
+    id,
+    action: 'click',
+    target,
+    originalType: 'click',
+    source: 'js',
+  }
+}
+
+function createJsFillStep(id: string, target: string, value: string): NormalizedStep {
+  return {
+    id,
+    action: 'fill',
+    target,
+    value,
+    originalType: 'change',
+    source: 'js',
+  }
+}
+
+function createJsMarkerStep(options: {
+  id: string
+  target: string
+  proofSubject:
+    | 'heading'
+    | 'visible-message'
+    | 'concrete-value'
+    | 'field-label'
+    | 'selector-target'
+    | 'unknown'
+  method?: string
+  role?: string
+  line?: number
+}): NormalizedStep {
+  const {
+    id,
+    target,
+    proofSubject,
+    method = 'getByText',
+    role,
+    line = 1,
+  } = options
+
+  const semanticMarkerCandidate = {
+    stepId: id,
+    status: 'unresolved' as const,
+    originalGesture: 'dblClick' as const,
+    proofSubject,
+    target,
+    proofText: target,
+    line,
+    sourceContext: {
+      line,
+      originalType: 'dblClick',
+    },
+    query: {
+      stepId: id,
+      method,
+      queryRoot: 'screen' as const,
+      target,
+      ...(role ? { role } : {}),
+      line,
+    },
+    anchor: {},
+  }
+
+  return {
+    id,
+    action: 'click',
+    target,
+    originalType: 'dblClick',
+    source: 'js',
+    line,
+    semanticMarkerCandidate,
+    metadata: {
+      semanticMarkerCandidate,
+    },
+  }
+}
+
 describe('normalizeStep', () => {
   it('preserves recorder metadata needed for noise heuristics', () => {
     const step: ChromeStep = {
@@ -98,6 +179,101 @@ describe('filterNoiseSteps', () => {
     ])
     expect(result.diagnostics.removedCursorWander).toBe(2)
   })
+
+  it('preserves qualified JS dblClick markers and drops non-interactive trailing clicks', () => {
+    const steps: NormalizedStep[] = [
+      createJsClickStep('js-step-1', 'Continue'),
+      createJsMarkerStep({
+        id: 'js-step-2',
+        target: 'Review Sale',
+        proofSubject: 'heading',
+        role: 'heading',
+      }),
+      createJsClickStep('js-step-3', 'Review Sale'),
+    ]
+
+    const result = filterNoiseSteps(steps)
+
+    expect(result.steps).toHaveLength(2)
+    expect(result.steps[1]).toMatchObject({
+      id: 'js-step-2',
+      semanticMarkerLink: {
+        markerStepId: 'js-step-2',
+        anchorStepId: 'js-step-1',
+        relation: 'follows',
+        proofSubject: 'heading',
+      },
+      semanticMarkerCandidate: {
+        status: 'qualified',
+        anchor: {
+          anchorStepId: 'js-step-1',
+          relation: 'follows',
+        },
+      },
+    })
+    expect(result.diagnostics).toMatchObject({
+      preservedSemanticMarkers: 1,
+      unresolvedSemanticMarkers: 0,
+      removedDoubleClickNoise: 0,
+      removedRedundantClicks: 1,
+    })
+  })
+
+  it('keeps trailing clicks for interactive same-target marker pairs', () => {
+    const steps: NormalizedStep[] = [
+      createJsClickStep('js-step-1', 'Save'),
+      createJsMarkerStep({
+        id: 'js-step-2',
+        target: '$1,200.00',
+        proofSubject: 'concrete-value',
+        method: 'getByRole',
+        role: 'button',
+      }),
+      createJsClickStep('js-step-3', '$1,200.00'),
+    ]
+
+    const result = filterNoiseSteps(steps)
+
+    expect(result.steps).toHaveLength(3)
+    expect(result.steps[1]?.semanticMarkerLink).toMatchObject({
+      markerStepId: 'js-step-2',
+      anchorStepId: 'js-step-1',
+      proofSubject: 'concrete-value',
+    })
+    expect(result.steps[2]).toMatchObject({
+      id: 'js-step-3',
+      originalType: 'click',
+    })
+    expect(result.diagnostics).toMatchObject({
+      preservedSemanticMarkers: 1,
+      unresolvedSemanticMarkers: 0,
+      removedRedundantClicks: 0,
+      removedDoubleClickNoise: 0,
+    })
+  })
+
+  it('treats field labels as dblClick noise instead of semantic markers', () => {
+    const steps: NormalizedStep[] = [
+      createJsClickStep('js-step-1', 'Save'),
+      createJsMarkerStep({
+        id: 'js-step-2',
+        target: 'Customer Name',
+        proofSubject: 'field-label',
+        method: 'getByLabelText',
+      }),
+      createJsClickStep('js-step-3', 'Customer Name'),
+    ]
+
+    const result = filterNoiseSteps(steps)
+
+    expect(result.steps).toEqual([createJsClickStep('js-step-1', 'Save')])
+    expect(result.diagnostics).toMatchObject({
+      preservedSemanticMarkers: 0,
+      unresolvedSemanticMarkers: 0,
+      removedDoubleClickNoise: 1,
+      removedRedundantClicks: 1,
+    })
+  })
 })
 
 describe('analyzeRecording', () => {
@@ -119,11 +295,117 @@ describe('analyzeRecording', () => {
       removedRedundantClicks: 0,
       removedDoubleClickNoise: 1,
       removedCursorWander: 0,
+      preservedSemanticMarkers: 0,
+      unresolvedSemanticMarkers: 0,
       rawStepCount: 3,
       filteredStepCount: 2,
       intentGroupCount: 1,
     })
     expect(result.intentGroups[0]?.name).toBe('submit #save')
+  })
+
+  it('links qualified markers to the nearest prior major transition step', () => {
+    const recording: NormalizedRecording = {
+      title: 'Review flow',
+      rawStepCount: 4,
+      steps: [
+        createJsClickStep('js-step-1', 'Open sale'),
+        createJsFillStep('js-step-2', 'Reference', 'INV-001'),
+        createJsClickStep('js-step-3', 'Continue'),
+        createJsMarkerStep({
+          id: 'js-step-4',
+          target: 'Review Sale',
+          proofSubject: 'heading',
+          role: 'heading',
+        }),
+      ],
+    }
+
+    const result = analyzeRecording(recording)
+
+    expect(result.semanticMarkerLinks).toEqual([
+      expect.objectContaining({
+        markerStepId: 'js-step-4',
+        anchorStepId: 'js-step-3',
+        relation: 'follows',
+        proofSubject: 'heading',
+      }),
+    ])
+    expect(result.unresolvedSemanticMarkers).toEqual([])
+    expect(result.steps[3]?.semanticMarkerCandidate).toMatchObject({
+      status: 'qualified',
+      anchor: {
+        anchorStepId: 'js-step-3',
+        relation: 'follows',
+      },
+    })
+    expect(result.diagnostics).toMatchObject({
+      preservedSemanticMarkers: 1,
+      unresolvedSemanticMarkers: 0,
+    })
+  })
+
+  it('keeps proof-like JS markers unresolved when no valid anchor exists', () => {
+    const recording: NormalizedRecording = {
+      title: 'Detached proof',
+      rawStepCount: 2,
+      steps: [
+        createJsFillStep('js-step-1', 'Customer Name', 'Acme'),
+        createJsMarkerStep({
+          id: 'js-step-2',
+          target: 'Saved successfully',
+          proofSubject: 'visible-message',
+          role: 'status',
+        }),
+      ],
+    }
+
+    const result = analyzeRecording(recording)
+
+    expect(result.semanticMarkerLinks).toEqual([])
+    expect(result.unresolvedSemanticMarkers).toEqual([
+      expect.objectContaining({
+        stepId: 'js-step-2',
+        reason: 'missing-anchor',
+        proofSubject: 'visible-message',
+      }),
+    ])
+    expect(result.steps[1]?.semanticMarkerCandidate).toMatchObject({
+      status: 'unresolved',
+    })
+    expect(result.diagnostics).toMatchObject({
+      preservedSemanticMarkers: 0,
+      unresolvedSemanticMarkers: 1,
+      removedDoubleClickNoise: 0,
+    })
+  })
+
+  it('keeps JSON dblClick cleanup behavior unchanged and marker-free', () => {
+    const recording: NormalizedRecording = {
+      title: 'JSON cleanup',
+      rawStepCount: 3,
+      steps: [
+        { action: 'click', target: '#save', originalType: 'click', source: 'json' },
+        { action: 'click', target: '#save', originalType: 'doubleClick', source: 'json' },
+        { action: 'assert', target: 'Saved', originalType: 'assertElementVisible', source: 'json' },
+      ],
+    }
+
+    const result = analyzeRecording(recording)
+
+    expect(result.steps).toHaveLength(2)
+    expect(result.semanticMarkerLinks).toEqual([])
+    expect(result.unresolvedSemanticMarkers).toEqual([])
+    expect(result.diagnostics).toEqual({
+      removedRedundantClicks: 0,
+      removedDoubleClickNoise: 1,
+      removedCursorWander: 0,
+      preservedSemanticMarkers: 0,
+      unresolvedSemanticMarkers: 0,
+      rawStepCount: 3,
+      filteredStepCount: 2,
+      intentGroupCount: 1,
+    })
   })
 })
 

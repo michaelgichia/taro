@@ -84,6 +84,8 @@ export interface NormalizedStep {
   timestamp?: number
   metadata?: Record<string, unknown>
   semanticMarkerCandidate?: SemanticMarkerCandidate
+  semanticMarkerLink?: SemanticMarkerLink
+  unresolvedSemanticMarker?: UnresolvedSemanticMarker
 }
 
 export interface RecordingStep extends NormalizedStep {
@@ -106,6 +108,8 @@ export interface RecordingDiagnostics {
   removedRedundantClicks: number
   removedDoubleClickNoise: number
   removedCursorWander: number
+  preservedSemanticMarkers?: number
+  unresolvedSemanticMarkers?: number
   rawStepCount: number
   filteredStepCount: number
   intentGroupCount: number
@@ -119,6 +123,8 @@ export interface IntentGroup {
 export interface AnalyzedRecording extends NormalizedRecording {
   diagnostics: RecordingDiagnostics
   intentGroups: IntentGroup[]
+  semanticMarkerLinks?: SemanticMarkerLink[]
+  unresolvedSemanticMarkers?: UnresolvedSemanticMarker[]
 }
 
 export interface DialogState {
@@ -157,6 +163,7 @@ export interface QueryDescriptor {
   queryRoot: QueryRoot
   line?: number
   target?: string
+  role?: string
   quality?: QueryQuality
   matcher?: string
   raw?: string
@@ -179,7 +186,7 @@ export interface AssertionDescriptor {
   raw?: string
 }
 
-export type SemanticMarkerCandidateStatus = 'unresolved'
+export type SemanticMarkerCandidateStatus = 'qualified' | 'unresolved'
 export type SemanticMarkerProofSubject =
   | 'heading'
   | 'visible-message'
@@ -195,6 +202,23 @@ export interface SemanticMarkerAnchorLink {
   relation?: SemanticMarkerAnchorRelation
 }
 
+export interface SemanticMarkerLink {
+  markerStepId: StepId
+  anchorStepId: StepId
+  relation: SemanticMarkerAnchorRelation
+  proofSubject: SemanticMarkerProofSubject
+  target?: string
+  proofText?: string
+  line?: number
+  sourceContext: SemanticMarkerSourceContext
+  query?: QueryDescriptor
+  selector?: SelectorDescriptor
+}
+
+export type UnresolvedSemanticMarkerReason =
+  | 'missing-anchor'
+  | 'unsupported-proof-subject'
+
 export interface SemanticMarkerSourceContext {
   line?: number
   originalType: string
@@ -205,6 +229,19 @@ export interface SemanticMarkerCandidate {
   stepId: StepId
   status: SemanticMarkerCandidateStatus
   originalGesture: SemanticMarkerGesture
+  proofSubject: SemanticMarkerProofSubject
+  target?: string
+  proofText?: string
+  line?: number
+  sourceContext: SemanticMarkerSourceContext
+  query?: QueryDescriptor
+  selector?: SelectorDescriptor
+  anchor?: SemanticMarkerAnchorLink
+}
+
+export interface UnresolvedSemanticMarker {
+  stepId: StepId
+  reason: UnresolvedSemanticMarkerReason
   proofSubject: SemanticMarkerProofSubject
   target?: string
   proofText?: string
