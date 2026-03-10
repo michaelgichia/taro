@@ -37,7 +37,7 @@ completed: 2026-03-07
 ## Accomplishments
 
 - Removed the Phase 11 replace-confirmation stop for unchanged owned files and replaced it with deterministic refresh behavior.
-- Added repair detection for missing owned assets when the manifest proves Taro owns the runtime install.
+- Added repair detection for missing owned assets when the manifest proves Tayo owns the runtime install.
 - Updated runtime result reporting so the CLI distinguishes first install, updated rerun, repaired rerun, and blocked/manual-edit paths.
 - Extended write and CLI tests to cover rerun success and missing-asset repair flows.
 

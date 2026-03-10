@@ -87,7 +87,7 @@ export function stepTemplate(opts: StepTemplateOptions): string {
 
   if (opts.checkpoint) {
     return [
-      `// taro-query-checkpoint: ${action} step requires manual RTL query recovery`,
+      `// tayo-query-checkpoint: ${action} step requires manual RTL query recovery`,
       `// selector: ${sanitizeCommentText(opts.checkpoint.selector)}`,
       `// reason: ${sanitizeCommentText(opts.checkpoint.reason)}`,
       '// TODO: replace this checkpoint with a trustworthy RTL query before keeping the generated test',

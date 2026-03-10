@@ -60,7 +60,7 @@ created: 2026-03-07
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| CLI generation removes noisy recorder actions without breaking output | REC-01, REC-02, REC-03 | Requires end-to-end inspection of generated test file | Run `taro generate <noisy-recording.json>` and confirm duplicate clicks and cursor-noise steps are absent from the emitted test |
+| CLI generation removes noisy recorder actions without breaking output | REC-01, REC-02, REC-03 | Requires end-to-end inspection of generated test file | Run `tayo generate <noisy-recording.json>` and confirm duplicate clicks and cursor-noise steps are absent from the emitted test |
 | Intent reduction preserves the meaningful user flow | REC-04 | Requires reviewing generated flow semantics | Generate from a fixture with open/fill/submit/assert sequence and confirm the surviving steps still represent the intended user journey |
 
 ---

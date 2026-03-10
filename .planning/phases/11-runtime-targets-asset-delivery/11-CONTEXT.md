@@ -16,7 +16,7 @@ Install the actual runtime-native assets for Claude Code, OpenCode, Gemini CLI, 
 ### Prompt-based runtime asset surface
 - Claude Code, Gemini CLI, and OpenCode should get a minimal installed surface: a help entrypoint plus the core runtime command(s) needed to use Tayo
 - The prompt-based runtimes should keep a mostly shared command vocabulary where their runtimes allow it; syntax differences are acceptable, but the surface should feel aligned
-- Installed prompt-based assets should be fully namespaced to `@tayo-dev/rtl`; do not depend on plain `taro`-named runtime files in this phase
+- Installed prompt-based assets should be fully namespaced to `@tayo-dev/rtl`; do not depend on plain `tayo`-named runtime files in this phase
 
 ### Codex skill surface
 - Codex should get a broader skill suite than the prompt-based runtimes, not just a single help skill
@@ -80,7 +80,7 @@ Install the actual runtime-native assets for Claude Code, OpenCode, Gemini CLI, 
 - Rerun/update repair semantics for existing installs — Phase 12
 - README and release documentation for the shipped runtime assets — Phase 12
 - Uninstall/doctor flows — future milestone
-- Broad product-wide rename away from `taro` — future milestone
+- Broad product-wide rename away from `tayo` — future milestone
 
 </deferred>
 

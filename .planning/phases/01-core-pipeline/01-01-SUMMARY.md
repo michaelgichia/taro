@@ -42,7 +42,7 @@ metrics:
 
 ## What Was Done
 
-Set up the complete project skeleton for the Taro CLI tool. This establishes the foundation that all subsequent Phase 1 plans will build upon.
+Set up the complete project skeleton for the Tayo CLI tool. This establishes the foundation that all subsequent Phase 1 plans will build upon.
 
 ### Tasks Completed
 

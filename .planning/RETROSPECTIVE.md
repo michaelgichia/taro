@@ -2,7 +2,7 @@
 
 *A living document updated after each milestone. Lessons feed forward into future planning.*
 
-## Milestone: v1.0 — Taro v1.0
+## Milestone: v1.0 — Tayo v1.0
 
 **Shipped:** 2026-03-07
 **Phases:** 7 | **Plans:** 28 | **Sessions:** 2
@@ -10,7 +10,7 @@
 ### What Was Built
 - Core CLI pipeline for parsing Chrome Recorder exports and generating RTL tests
 - Query/test-design intelligence with JS AST parsing, DOM-aware query upgrades, grouped tests, and meaningful matchers
-- Scoring, post-write verification, and convention learning with `.taro/` state
+- Scoring, post-write verification, and convention learning with `.tayo/` state
 - Recording, visual, and mock intelligence recovery plus final traceability reconciliation
 
 ### What Worked

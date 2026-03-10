@@ -1,5 +1,5 @@
 /**
- * Core orchestrator for Taro test generation pipeline
+ * Core orchestrator for Tayo test generation pipeline
  * Coordinates parsing, optional visual inspection, and test generation
  */
 
@@ -56,7 +56,7 @@ export interface OrchestratorOptions {
 export async function run(options: OrchestratorOptions): Promise<void> {
   const { recordingPath, outputPath = './tests', visual = false, mocks = true, url } = options;
 
-  console.log(`\n📼 Taro - Chrome Recorder to RTL Test Generator\n`);
+  console.log(`\n📼 Tayo - Chrome Recorder to RTL Test Generator\n`);
   console.log(`📂 Recording: ${recordingPath}`);
   if (visual) {
     console.log(`👁️  Visual inspection: ENABLED`);
@@ -79,7 +79,7 @@ export async function run(options: OrchestratorOptions): Promise<void> {
 
   // Step 2: Detect API calls for mocking (optional)
   let mockContext: MockInspectionContext = { enabled: false };
-  
+
   if (mocks) {
     console.log('2/4 Detecting API calls for mocking...');
     mockContext = await runMockDetection(recording, outputPath);
@@ -90,7 +90,7 @@ export async function run(options: OrchestratorOptions): Promise<void> {
 
   // Visual inspection (optional)
   let visualContext: VisualInspectionContext = { enabled: false };
-  
+
   if (visual) {
     console.log('3/4 Running visual inspection...');
     visualContext = await runVisualInspection(recording, url);
@@ -101,7 +101,7 @@ export async function run(options: OrchestratorOptions): Promise<void> {
 
   // Step 4: Generate tests with scoring and verification
   console.log('4/4 Generating tests with quality gates...');
-  
+
   // 4a: Get existing conventions (if any)
   const conventions = getConventions(process.cwd());
   if (conventions) {
@@ -109,10 +109,10 @@ export async function run(options: OrchestratorOptions): Promise<void> {
   } else {
     console.log('   ℹ No existing conventions found (will learn from generated tests)');
   }
-  
+
   // 4b: Generate test code (placeholder for now)
   const testCode = generatePlaceholderTest(recording);
-  
+
   // 4c: Score the test to give user visibility
   console.log('   📊 Scoring test quality...');
   const scoring = scoreTest(testCode);
@@ -121,18 +121,18 @@ export async function run(options: OrchestratorOptions): Promise<void> {
   console.log(`      Queries: ${scoring.score.criteria.queries}/100`);
   console.log(`      Matchers: ${scoring.score.criteria.matchers}/100`);
   console.log(`      Robustness: ${scoring.score.criteria.noFragility}/100`);
-  
+
   if (scoring.score.issues.length > 0) {
     console.log(`   Issues found: ${scoring.score.issues.length}`);
     for (const issue of scoring.score.issues.slice(0, 3)) {
       console.log(`      [${issue.severity}] ${issue.message}`);
     }
   }
-  
+
   // 4d: Pre-write audit - validate before writing
   console.log('   🔍 Running pre-write audit...');
   const audit = preWriteAudit(testCode);
-  
+
   if (!audit.valid) {
     console.log('   ✗ Pre-write audit failed:');
     for (const issue of audit.blocking) {
@@ -141,7 +141,7 @@ export async function run(options: OrchestratorOptions): Promise<void> {
     console.log('   ⚠ File not written due to blocking issues');
   } else {
     console.log('   ✓ Pre-write audit passed');
-    
+
     // 4d: Write the test file
     const outputFile = resolve(outputPath, 'generated.test.ts');
     // Ensure output directory exists
@@ -151,7 +151,7 @@ export async function run(options: OrchestratorOptions): Promise<void> {
     // Write the test file to disk
     writeFileSync(outputFile, testCode);
     console.log(`   ✓ Written: ${outputFile}`);
-    
+
     // 4e: Post-write verification
     console.log('   🔍 Running post-write verification...');
     const verification = postWriteVerification(outputFile);
@@ -163,7 +163,7 @@ export async function run(options: OrchestratorOptions): Promise<void> {
         console.log(`      - ${error}`);
       }
     }
-    
+
     // 4f: Learn from generated test for future runs
     console.log('   📚 Learning conventions from generated test...');
     try {
@@ -173,7 +173,7 @@ export async function run(options: OrchestratorOptions): Promise<void> {
       console.log(`   ⚠ Convention learning skipped: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
-  
+
   // Cleanup
   if (visualContext.browser) {
     await visualContext.browser.close();
@@ -190,7 +190,7 @@ async function runVisualInspection(
   urlFromCli?: string
 ): Promise<VisualInspectionContext> {
   const visualContext: VisualInspectionContext = { enabled: true };
-  
+
   // Determine URL to inspect
   const url = urlFromCli || recording.url;
   if (!url) {
@@ -199,7 +199,7 @@ async function runVisualInspection(
   }
 
   // Create screenshots directory
-  const screenshotsDir = resolve('.taro/visuals');
+  const screenshotsDir = resolve('.tayo/visuals');
   if (!existsSync(screenshotsDir)) {
     mkdirSync(screenshotsDir, { recursive: true });
   }
@@ -207,7 +207,7 @@ async function runVisualInspection(
   // Launch browser
   let browser: Browser | undefined;
   let page: Page | undefined;
-  
+
   try {
     console.log(`   🌐 Launching browser to: ${url}`);
     browser = await launchBrowser();
@@ -240,13 +240,13 @@ async function runVisualInspection(
     // Analyze page elements
     console.log(`   🔍 Analyzing interactive elements...`);
     const elements = await analyzePageElements(page);
-    
+
     // Build element map by selector
     const elementMap = new Map<string, AccessibilityProperties>();
     for (const { selector, properties } of elements) {
       elementMap.set(selector, properties);
     }
-    
+
     visualContext.elements = elementMap;
     console.log(`   ✓ Found ${elements.length} interactive elements`);
 
@@ -346,7 +346,7 @@ async function runMockDetection(
 function generatePlaceholderTest(recording: NormalizedRecording): string {
   // Placeholder test generation - actual generation would use mockContext and visualContext
   const testName = recording.title || 'Generated Test';
-  
+
   return `import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -364,9 +364,9 @@ describe('${testName}', () => {
  */
 export function createCommand(): Command {
   const program = new Command();
-  
+
   program
-    .name('taro')
+    .name('tayo')
     .description('Chrome Recorder to React Testing Library test generator')
     .version('0.1.0');
 

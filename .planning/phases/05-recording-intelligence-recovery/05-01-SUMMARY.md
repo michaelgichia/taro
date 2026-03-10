@@ -51,4 +51,4 @@ Established the recording-intelligence foundation by preserving recorder metadat
 
 ## Outcome
 
-Taro now has a dedicated recording-intelligence foundation with analyzable step metadata and deterministic cleanup heuristics. The next plan can build REC-04 intent inference on top of this cleaned recording model instead of trying to infer intent from lossy raw recorder output.
+Tayo now has a dedicated recording-intelligence foundation with analyzable step metadata and deterministic cleanup heuristics. The next plan can build REC-04 intent inference on top of this cleaned recording model instead of trying to infer intent from lossy raw recorder output.

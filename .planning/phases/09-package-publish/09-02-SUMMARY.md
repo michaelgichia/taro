@@ -33,7 +33,7 @@ key-files:
 key-decisions:
   - "Publish readiness is proven locally with build, CLI smoke tests, and npm dry-run before the credentialed publish step"
   - "Actual npm publish remains a user-owned action because it requires npm credentials outside the agent session"
-  - "Dry-run verification uses NPM_CONFIG_CACHE=/tmp/taro-npm-cache when ~/.npm contains root-owned cache files"
+  - "Dry-run verification uses NPM_CONFIG_CACHE=/tmp/tayo-npm-cache when ~/.npm contains root-owned cache files"
 
 patterns-established:
   - "Verification-only plans may complete with no source commit when all checks pass and no tracked files change"
@@ -103,7 +103,7 @@ Verification tasks produced no tracked source changes, so there were no per-task
 
 ## Issues Encountered
 
-- `npm publish --dry-run` required `NPM_CONFIG_CACHE=/tmp/taro-npm-cache` because the default `~/.npm` cache contained root-owned files. The dry-run succeeded once the cache path was redirected.
+- `npm publish --dry-run` required `NPM_CONFIG_CACHE=/tmp/tayo-npm-cache` because the default `~/.npm` cache contained root-owned files. The dry-run succeeded once the cache path was redirected.
 
 ## User Setup Required
 

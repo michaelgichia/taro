@@ -113,7 +113,7 @@ export interface InstallAssetConflict {
 
 export interface InstallPlan {
   packageName: '@tayo-dev/rtl'
-  commandName: 'taro'
+  commandName: 'tayo'
   stage: 'prewrite-preview' | 'ready-to-write'
   source: InstallSelectionSource
   mode: 'interactive' | 'non-interactive'

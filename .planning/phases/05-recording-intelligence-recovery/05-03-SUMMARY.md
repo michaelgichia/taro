@@ -10,7 +10,7 @@ duration: ~5min
 
 ## What Was Done
 
-Integrated the recording-intelligence layer into both `taro generate` input paths and verified that cleanup, scoring, and post-write verification still coexist in the real CLI flow.
+Integrated the recording-intelligence layer into both `tayo generate` input paths and verified that cleanup, scoring, and post-write verification still coexist in the real CLI flow.
 
 ## Changes Made
 
@@ -41,11 +41,11 @@ Automated:
 - `npm run build` ✓
 
 Manual:
-- `node dist/index.js generate /tmp/taro-phase5-noisy.json -o /tmp/taro-phase5-noisy.test.tsx --force` ✓
+- `node dist/index.js generate /tmp/tayo-phase5-noisy.json -o /tmp/tayo-phase5-noisy.test.tsx --force` ✓
   - cleanup summary reported dblClick noise + cursor wander removal
   - post-write verification ran
   - output contained one semantic click instead of the noisy cluster
-- `node dist/index.js generate /tmp/taro-phase5-valid-js.js -o /tmp/taro-phase5-valid-js.test.tsx --force` ✓
+- `node dist/index.js generate /tmp/tayo-phase5-valid-js.js -o /tmp/tayo-phase5-valid-js.test.tsx --force` ✓
   - cleanup summary reported dblClick noise + intent groups
   - post-write verification ran
   - generated output used analyzer-derived intent grouping

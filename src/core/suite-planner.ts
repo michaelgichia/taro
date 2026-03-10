@@ -176,7 +176,7 @@ export function assessRenderBoundary(params: {
       confidence: 'medium',
       resolvedTarget: null,
       reason:
-        'This flow spans multiple user-visible steps and repo evidence shows data/mutation setup around it, so Taro should prefer a container/module boundary rather than a leaf component test.',
+        'This flow spans multiple user-visible steps and repo evidence shows data/mutation setup around it, so Tayo should prefer a container/module boundary rather than a leaf component test.',
       signals,
     }
   }
@@ -187,7 +187,7 @@ export function assessRenderBoundary(params: {
       confidence: 'low',
       resolvedTarget: null,
       reason:
-        'This flow behaves like a stateful wizard, but Taro cannot resolve the owning render target from repo context yet.',
+        'This flow behaves like a stateful wizard, but Tayo cannot resolve the owning render target from repo context yet.',
       signals,
     }
   }
@@ -221,7 +221,7 @@ export function planJsSuite(params: {
 
   if (renderBoundary.kind !== 'component' && !renderBoundary.resolvedTarget) {
     warnings.push(
-      'Taro could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.'
+      'Tayo could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.'
     )
   }
 
@@ -265,7 +265,7 @@ export function planJsSuite(params: {
 
   if (stateSafety.status !== 'safe-multi-it' && baseGroups.length > 1) {
     warnings.push(
-      'Keep this flow in a single end-to-end scenario until Taro can prove that downstream state can be recreated safely per test.'
+      'Keep this flow in a single end-to-end scenario until Tayo can prove that downstream state can be recreated safely per test.'
     )
   }
 

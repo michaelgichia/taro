@@ -2,10 +2,10 @@
 
 ## Phase Scope
 
-**Goal:** users can feed recorder JS exports into the normal generation flow and have Taro recover baseline intent instead of replaying raw transcript code.
+**Goal:** users can feed recorder JS exports into the normal generation flow and have Tayo recover baseline intent instead of replaying raw transcript code.
 
 **This phase must satisfy:**
-- `INPUT-01`: `.js` input works through the same `taro generate <file>` flow and flags as JSON.
+- `INPUT-01`: `.js` input works through the same `tayo generate <file>` flow and flags as JSON.
 - `INPUT-02`: output is regenerated RTL-shaped code, not a copied-through recorder transcript.
 - `INPUT-03`: supported recorder JS patterns become stable baseline metadata.
 - `QUERY-01`: accessible query intent is preserved when the recorder export already contains it.
@@ -315,7 +315,7 @@ Why third:
 
 Deliverables:
 - parser fixtures based on the real sample export
-- integration coverage for `taro generate sample.js --dry-run`
+- integration coverage for `tayo generate sample.js --dry-run`
 - JSON regression coverage proving no breakage
 
 Why fourth:

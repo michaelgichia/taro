@@ -65,7 +65,7 @@ function deriveOutputPath(inputPath: string): string {
 
 function logScore(scoreResult: ScoreResult): void {
   console.log(
-    pc.dim('[taro]') +
+    pc.dim('[tayo]') +
       ` Score: ${scoreResult.total}/100 (${scoreResult.grade}) — ` +
       `query: ${scoreResult.dimensions.queryQuality}, ` +
       `assertions: ${scoreResult.dimensions.assertionSpecificity}, ` +
@@ -81,12 +81,12 @@ function emitLowConfidenceBanner(scoreResult: ScoreResult): void {
 
   console.warn(
     pc.yellow(
-      `[taro] Manual review required — this generated test is still a draft (${scoreResult.total}/100, ${scoreResult.grade}).`
+      `[tayo] Manual review required — this generated test is still a draft (${scoreResult.total}/100, ${scoreResult.grade}).`
     )
   )
 
   if (scoreResult.blockers.length > 0) {
-    console.warn(pc.yellow(`[taro] Top blockers: ${scoreResult.blockers.join(' | ')}`))
+    console.warn(pc.yellow(`[tayo] Top blockers: ${scoreResult.blockers.join(' | ')}`))
   }
 }
 
@@ -101,7 +101,7 @@ function emitScoreHints(
     }).length
     console.log(
       pc.yellow(
-        `[taro] Tip: ${testIdCount} getByTestId queries — consider adding aria-label`
+        `[tayo] Tip: ${testIdCount} getByTestId queries — consider adding aria-label`
       )
     )
   }
@@ -109,7 +109,7 @@ function emitScoreHints(
   if (scoreResult.dimensions.assertionSpecificity < 60) {
     console.log(
       pc.yellow(
-        '[taro] Tip: Add specific matchers like toHaveValue() for better assertions'
+        '[tayo] Tip: Add specific matchers like toHaveValue() for better assertions'
       )
     )
   }
@@ -117,15 +117,15 @@ function emitScoreHints(
   if (scoreResult.dimensions.testStructure < 60) {
     console.log(
       pc.yellow(
-        '[taro] Tip: Split into multiple it() blocks for better test organization'
+        '[tayo] Tip: Split into multiple it() blocks for better test organization'
       )
     )
   }
 
   if (scoreResult.dimensions.boundaryIsolation < 60) {
     for (const issue of boundaryIssues) {
-      console.warn(pc.yellow(`[taro] Boundary: ${issue.message}`))
-      console.warn(pc.yellow(`[taro] Tip: ${issue.suggestion}`))
+      console.warn(pc.yellow(`[tayo] Boundary: ${issue.message}`))
+      console.warn(pc.yellow(`[tayo] Tip: ${issue.suggestion}`))
     }
   }
 }
@@ -154,7 +154,7 @@ function summarizeCleanup(analyzedRecording: AnalyzedRecording): void {
     return
   }
 
-  console.log(pc.dim('[taro]') + ` Recording cleanup: ${parts.join(', ')}`)
+  console.log(pc.dim('[tayo]') + ` Recording cleanup: ${parts.join(', ')}`)
 }
 
 function toItGroups(analyzedRecording: AnalyzedRecording, fallbackTitle: string): ItGroup[] {
@@ -295,7 +295,7 @@ function summarizeVisualState(visualState: VisualState | null): void {
     parts.push(`screenshot=${visualState.screenshotPath}`)
   }
 
-  console.log(pc.dim('[taro]') + ` Visual state: ${parts.join(', ')}`)
+  console.log(pc.dim('[tayo]') + ` Visual state: ${parts.join(', ')}`)
 }
 
 function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
@@ -321,12 +321,12 @@ function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
     return
   }
 
-  console.log(pc.dim('[taro]') + ` Mock analysis: ${parts.join(', ')}`)
+  console.log(pc.dim('[tayo]') + ` Mock analysis: ${parts.join(', ')}`)
 
   const topRecommendation = mockAnalysis.recommendations[0]
   if (topRecommendation) {
     console.log(
-      pc.dim('[taro]') +
+      pc.dim('[tayo]') +
         ` Mock hint: ${topRecommendation.kind} ${topRecommendation.target} (${topRecommendation.count} file(s))`
     )
   }
@@ -334,20 +334,20 @@ function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
   const topLifecycle = mockAnalysis.mutationLifecycles[0]
   if (topLifecycle) {
     console.log(
-      pc.dim('[taro]') +
+      pc.dim('[tayo]') +
         ` Mutation lifecycle: ${topLifecycle.stages.join(' -> ')} in ${topLifecycle.file}`
     )
   }
 
   const topWarning = mockAnalysis.instabilityWarnings[0]
   if (topWarning) {
-    console.warn(pc.yellow(`[taro] Mock stability: ${topWarning.reason} (${topWarning.file})`))
+    console.warn(pc.yellow(`[tayo] Mock stability: ${topWarning.reason} (${topWarning.file})`))
   }
 }
 
 function summarizeBoundaryWarnings(warnings: string[]): void {
   for (const warning of warnings) {
-    console.warn(pc.yellow(`[taro] Boundary: ${warning}`))
+    console.warn(pc.yellow(`[tayo] Boundary: ${warning}`))
   }
 }
 
@@ -437,7 +437,7 @@ function applyRepoRenderTarget(
     },
     warnings: suitePlan.warnings.filter(
       (warning) =>
-        !warning.includes('Taro could not resolve the exact render target from repo context') &&
+        !warning.includes('Tayo could not resolve the exact render target from repo context') &&
         !warning.includes('Prefer a repo-local module/container render boundary')
     ),
   }
@@ -478,7 +478,7 @@ async function resolveJsGeneration(
 
   if (selectorGroups.size > 0 && recording.url) {
     console.log(
-      pc.dim('[taro]') +
+      pc.dim('[tayo]') +
         ` Resolving ${baseline.selectors.length} selector(s) via Playwright...`
     )
   }
@@ -554,7 +554,7 @@ async function resolveJsGeneration(
 
 function summarizeSelectorWarnings(warnings: string[]): void {
   for (const warning of warnings) {
-    console.warn(pc.yellow(`[taro] ${warning}`))
+    console.warn(pc.yellow(`[tayo] ${warning}`))
   }
 }
 
@@ -570,7 +570,7 @@ async function maybeCaptureVisualState(params: {
   }
 
   const candidates = findVisualCaptureCandidates(analyzedRecording)
-  const visualDir = join(projectRoot, '.taro', 'visual')
+  const visualDir = join(projectRoot, '.tayo', 'visual')
 
   if (candidates.length > 0) {
     await mkdir(visualDir, { recursive: true })
@@ -605,7 +605,7 @@ async function appendHistoryEntry(
   projectRoot: string,
   historyEntry: HistoryEntry
 ): Promise<void> {
-  const taroDir = join(projectRoot, '.taro')
+  const taroDir = join(projectRoot, '.tayo')
   await mkdir(taroDir, { recursive: true })
 
   const historyPath = join(taroDir, 'history.json')
@@ -634,13 +634,13 @@ async function finalizeGeneratedOutput(params: {
 
   const verification = verifySyntax(code, outputPath)
   if (!verification.valid) {
-    console.error(pc.red('[taro] Error: Post-write verification failed'))
+    console.error(pc.red('[tayo] Error: Post-write verification failed'))
     console.error(pc.red(`  ${verification.error}`))
-    console.error(pc.red('  This is a Taro bug. Please report it.'))
+    console.error(pc.red('  This is a Tayo bug. Please report it.'))
     process.exit(1)
   }
 
-  console.log(pc.green('[taro] ✓ post-write verified'))
+  console.log(pc.green('[tayo] ✓ post-write verified'))
 
   await appendHistoryEntry(projectRoot, {
     timestamp: new Date().toISOString(),
@@ -699,7 +699,7 @@ export function createGenerateCommand(): Command {
       if (parsedInput.source === 'js') {
         conventions = await readConventions(projectRoot)
         if (!conventions) {
-          console.log(pc.dim('[taro]') + ' Scanning project conventions...')
+          console.log(pc.dim('[tayo]') + ' Scanning project conventions...')
           conventions = await scanConventions(projectRoot)
         }
         repoRenderTargets = await discoverRepoRenderTargets(projectRoot)
@@ -789,7 +789,7 @@ export function createGenerateCommand(): Command {
 
       if (hydratedSuitePlan?.warnings.length) {
         generated.code = [
-          ...hydratedSuitePlan.warnings.map((warning) => `// taro-boundary-warning: ${warning}`),
+          ...hydratedSuitePlan.warnings.map((warning) => `// tayo-boundary-warning: ${warning}`),
           generated.code,
         ].join('\n')
       }
@@ -813,7 +813,7 @@ export function createGenerateCommand(): Command {
         console.log(pc.dim('─'.repeat(60)))
         console.log(generated.code)
         console.log(pc.dim('─'.repeat(60)))
-        console.log(pc.dim(`\n[taro] Score: ${scoreResult.total}/100 (${scoreResult.grade})`))
+        console.log(pc.dim(`\n[tayo] Score: ${scoreResult.total}/100 (${scoreResult.grade})`))
         console.log(pc.yellow(`\nWould write to: ${pc.bold(outputPath)}`))
         return
       }

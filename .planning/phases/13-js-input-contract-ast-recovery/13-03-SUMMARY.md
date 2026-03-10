@@ -32,14 +32,14 @@ completed: 2026-03-09
 
 # Phase 13 Plan 03: Normalization & CLI Summary
 
-**Recorder JS now enters the shipped `taro generate` flow through the shared loader and a dedicated baseline normalizer, carrying recovered query evidence into the common analysis and dry-run path.**
+**Recorder JS now enters the shipped `tayo generate` flow through the shared loader and a dedicated baseline normalizer, carrying recovered query evidence into the common analysis and dry-run path.**
 
 ## Accomplishments
 
-- Added [`src/core/baseline-normalizer.ts`](/Users/michaelgichia/workspace/taro/src/core/baseline-normalizer.ts) to merge JS query, selector, and assertion evidence back onto shared recording steps and preserve normalized baseline metadata.
-- Extended [`src/types/recording.ts`](/Users/michaelgichia/workspace/taro/src/types/recording.ts) and [`src/core/input-loader.ts`](/Users/michaelgichia/workspace/taro/src/core/input-loader.ts) so the richer AST-derived baseline travels intact from parsing into normalization.
-- Refactored [`src/cli/commands/generate.ts`](/Users/michaelgichia/workspace/taro/src/cli/commands/generate.ts) to use `loadInput()` for both JSON and recorder JS, with JS routed through `normalizeJsBaseline()` instead of an early special-case branch.
-- Updated [`src/core/recording-intelligence.ts`](/Users/michaelgichia/workspace/taro/src/core/recording-intelligence.ts) and [`src/core/generator.ts`](/Users/michaelgichia/workspace/taro/src/core/generator.ts) so environment-sync assertions stop fragmenting intent groups and recovered `screen.getBy...` evidence survives into generated dry-run output.
+- Added [`src/core/baseline-normalizer.ts`](/Users/michaelgichia/workspace/tayo/src/core/baseline-normalizer.ts) to merge JS query, selector, and assertion evidence back onto shared recording steps and preserve normalized baseline metadata.
+- Extended [`src/types/recording.ts`](/Users/michaelgichia/workspace/tayo/src/types/recording.ts) and [`src/core/input-loader.ts`](/Users/michaelgichia/workspace/tayo/src/core/input-loader.ts) so the richer AST-derived baseline travels intact from parsing into normalization.
+- Refactored [`src/cli/commands/generate.ts`](/Users/michaelgichia/workspace/tayo/src/cli/commands/generate.ts) to use `loadInput()` for both JSON and recorder JS, with JS routed through `normalizeJsBaseline()` instead of an early special-case branch.
+- Updated [`src/core/recording-intelligence.ts`](/Users/michaelgichia/workspace/tayo/src/core/recording-intelligence.ts) and [`src/core/generator.ts`](/Users/michaelgichia/workspace/tayo/src/core/generator.ts) so environment-sync assertions stop fragmenting intent groups and recovered `screen.getBy...` evidence survives into generated dry-run output.
 
 ## Verification
 

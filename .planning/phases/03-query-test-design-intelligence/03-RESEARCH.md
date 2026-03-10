@@ -32,7 +32,7 @@
 **Accessibility Gap Handling (QRY-03)**
 - If Playwright finds the element but it has no accessible role or name:
   - Replace with `screen.getByTestId('...')` (generated ID)
-  - Emit: `[taro] QRY-03: No accessible query for #radix-... — consider adding aria-label or data-testid to this element`
+  - Emit: `[tayo] QRY-03: No accessible query for #radix-... — consider adding aria-label or data-testid to this element`
 
 **Test Concern Distribution (TEST-01)**
 - Modal boundary rule: `click button('X')` → next step targets `heading('X')` → new `it()` block
@@ -52,25 +52,25 @@
 - Infer from element's role/type extracted during Playwright inspection
 
 **Context Scanning (CTX-01–04)**
-- Scan on first run only — if `.taro/conventions.json` exists, use cached
-- Developer can force refresh with `taro scan` command
+- Scan on first run only — if `.tayo/conventions.json` exists, use cached
+- Developer can force refresh with `tayo scan` command
 - Scan: test files (`*.test.ts/tsx`, `*.spec.ts/tsx`), folder/naming conventions, shared mock files
 - NOT package.json/tsconfig
 
 **Convention Storage (CTX-05)**
-- Store in `.taro/conventions.json`
+- Store in `.tayo/conventions.json`
 - Format: JSON (machine-readable, fast to parse)
 - Updated after each run with any new patterns observed
 
 ### Claude's Discretion
-- Exact `.taro/conventions.json` schema
+- Exact `.tayo/conventions.json` schema
 - How to handle Playwright timeout / app-not-running gracefully
 - Whether to lint-fix the generated output automatically
-- `taro scan` CLI command design (flags, output format)
+- `tayo scan` CLI command design (flags, output format)
 
 ### Deferred Ideas (OUT OF SCOPE)
 - Helper function generation (extract repeated setup sequences into assertion-free helpers) — future phase
-- `taro scan` as a standalone command — Phase 3 adds auto-scan; explicit `taro scan` command can come later
+- `tayo scan` as a standalone command — Phase 3 adds auto-scan; explicit `tayo scan` command can come later
 - Support for both JS and JSON input formats — Phase 3 is JS-only; JSON format support deferred
 </user_constraints>
 
@@ -89,7 +89,7 @@
 | CTX-02 | Analyze existing test patterns | Import/describe/it/matcher pattern extraction via AST |
 | CTX-03 | Detect folder structure and naming conventions | fs.glob for *.test.* and *.spec.* file locations |
 | CTX-04 | Analyze shared mocks | Scan __mocks__/ dirs, vi.mock/jest.mock call detection via AST |
-| CTX-05 | Update internal state after each run | .taro/conventions.json JSON file with mkdir -p pattern (reuse writer.ts approach) |
+| CTX-05 | Update internal state after each run | .tayo/conventions.json JSON file with mkdir -p pattern (reuse writer.ts approach) |
 </phase_requirements>
 
 ---
@@ -102,7 +102,7 @@ Phase 3 is fundamentally an **architecture pivot**: the existing JSON-based pars
 
 **Pillar 2 — Playwright DOM Inspection.** For each `document.querySelector` call found, Playwright launches headless Chromium, navigates to the URL extracted from the file header, and inspects the element at that CSS selector. `locator.evaluate()` extracts `tagName`, `role` attribute, `aria-label`, `aria-labelledby`, `innerText`, and `value`. This data drives the query upgrade decision (getByRole → getByLabelText → getByTestId) and the matcher selection (toHaveValue, toBeChecked, etc.). Playwright is not yet installed — it must be added as a dependency.
 
-**Pillar 3 — Codebase Convention Scanning.** On first invocation, Taro scans the project for `*.test.ts/tsx` and `*.spec.ts/tsx` files using Node.js `glob`, then runs lightweight Babel AST parsing on each to extract import style, describe/it patterns, and mock conventions. Results are persisted to `.taro/conventions.json` and reused on subsequent runs.
+**Pillar 3 — Codebase Convention Scanning.** On first invocation, Tayo scans the project for `*.test.ts/tsx` and `*.spec.ts/tsx` files using Node.js `glob`, then runs lightweight Babel AST parsing on each to extract import style, describe/it patterns, and mock conventions. Results are persisted to `.tayo/conventions.json` and reused on subsequent runs.
 
 **Primary recommendation:** Build a new `src/core/js-parser.ts` module for AST-based JS input, a `src/core/resolver.ts` for Playwright inspection, a `src/core/scanner.ts` for convention scanning, and extend `src/templates/test-template.ts` to support multiple `it()` blocks. The existing `NormalizedRecording` and `NormalizedStep` types remain valid internal representations.
 
@@ -165,7 +165,7 @@ src/
 │   ├── recording.ts         # Extend: add query quality metadata, it-group concept
 │   └── conventions.ts       # NEW: TypeScript types for conventions.json schema
 └── index.ts
-.taro/
+.tayo/
 └── conventions.json         # Runtime: persisted codebase conventions (created on first run)
 ```
 
@@ -440,7 +440,7 @@ function segmentIntoItGroups(steps: NormalizedStep[]): ItGroup[] {
 
 ### Pattern 6: Convention File Scanning (CTX-01–04)
 
-**What:** Walk the project for test files, extract conventions via Babel AST, persist to `.taro/conventions.json`.
+**What:** Walk the project for test files, extract conventions via Babel AST, persist to `.tayo/conventions.json`.
 
 **When to use:** On first run (or `--force-scan`); skip if conventions.json exists.
 
@@ -496,7 +496,7 @@ function selectMatcher(info: ElementInfo, action: string): string {
 - **One massive `it()` block for multi-step flows:** Fails fast and hard to debug; distribute by modal boundary.
 - **Re-launching Playwright per element:** Launch once per file, inspect all querySelector calls in one browser session.
 - **Scanning node_modules during convention scanning:** Exclude `node_modules`, `dist`, `.git` directories explicitly.
-- **Re-scanning on every run:** Check for `.taro/conventions.json` first; skip if present (CTX-05 caching).
+- **Re-scanning on every run:** Check for `.tayo/conventions.json` first; skip if present (CTX-05 caching).
 
 ---
 
@@ -525,7 +525,7 @@ function selectMatcher(info: ElementInfo, action: string): string {
 ### Pitfall 2: Playwright Timeout When App Is Not Running
 **What goes wrong:** `page.goto()` throws `TimeoutError` if the dev server is not running at the URL in the file header.
 **Why it happens:** URL is extracted from `@jest-environment-options` which assumes the app is running locally.
-**How to avoid:** Wrap the entire `inspectElement()` in try/catch with a 5-second `timeout`; return `null` on any error; fall through to QRY-03 handling with a clear error message: `[taro] QRY-02: App not reachable at http://... — run your dev server and retry, or accept getByTestId fallback`.
+**How to avoid:** Wrap the entire `inspectElement()` in try/catch with a 5-second `timeout`; return `null` on any error; fall through to QRY-03 handling with a clear error message: `[tayo] QRY-02: App not reachable at http://... — run your dev server and retry, or accept getByTestId fallback`.
 **Warning signs:** Unhandled promise rejection during browser inspection step.
 
 ### Pitfall 3: Multiple Playwright Browser Instances
@@ -543,8 +543,8 @@ function selectMatcher(info: ElementInfo, action: string): string {
 ### Pitfall 5: Convention Scan Missing Test Files
 **What goes wrong:** Convention scanner misses test files in nested `__tests__/` directories or finds none because the project uses an unusual naming convention.
 **Why it happens:** Glob pattern too narrow; or project hasn't been set up yet.
-**How to avoid:** Scan for both `*.test.*` and `*.spec.*` at any depth; if zero files found, log `[taro] CTX: No test files found — conventions will use defaults` and proceed with a sensible default conventions object.
-**Warning signs:** `.taro/conventions.json` contains empty arrays for all fields.
+**How to avoid:** Scan for both `*.test.*` and `*.spec.*` at any depth; if zero files found, log `[tayo] CTX: No test files found — conventions will use defaults` and proceed with a sensible default conventions object.
+**Warning signs:** `.tayo/conventions.json` contains empty arrays for all fields.
 
 ### Pitfall 6: `@babel/traverse` Default Import Issue
 **What goes wrong:** `import traverse from '@babel/traverse'` fails at runtime in ESM with "traverse is not a function".
@@ -627,7 +627,7 @@ function emitQuerySummary(summaries: QuerySummary[]): void {
   for (const s of summaries) {
     const lineInfo = s.quality === 'fragile' ? ` — see line${s.lines.length > 1 ? 's' : ''} ${s.lines.join(', ')}` : ''
     console.log(
-      pc.dim(`[taro]`) +
+      pc.dim(`[tayo]`) +
         ` ${s.count} ${s.method} (${qualityLabel[s.quality]}${lineInfo})`
     )
   }
@@ -653,7 +653,7 @@ const traverse = (_traverse as any).default ?? _traverse
 | Single `it()` block for entire flow | Multiple `it()` blocks by modal boundary | Phase 3 | Template must support it-group arrays |
 | CSS selector → heuristic query conversion | CSS selector → live Playwright inspection → RTL query | Phase 3 | Much higher query quality; requires running app |
 | All queries generic `toBeInTheDocument()` | Context-driven matchers based on element type | Phase 3 | Tests assert meaningful state |
-| No convention awareness | `.taro/conventions.json` caching | Phase 3 | Generation respects project patterns |
+| No convention awareness | `.tayo/conventions.json` caching | Phase 3 | Generation respects project patterns |
 
 **Deprecated/outdated approaches for this phase:**
 - `selectorToQuery()` in `generator.ts`: This static heuristic-based function is superseded by the Playwright resolver for `document.querySelector` calls. RTL queries already in the JS input are kept as-is.
@@ -705,7 +705,7 @@ const traverse = (_traverse as any).default ?? _traverse
 | TEST-02 | Scanner flags helpers with expect() in existing test files | unit | `npm run test:run -- src/core/scanner.test.ts` | ❌ Wave 0 |
 | TEST-03 | Matcher selection returns correct matcher for checkbox/input/text | unit | `npm run test:run -- src/core/resolver.test.ts` | ❌ Wave 0 |
 | CTX-01–04 | Scanner reads test files and extracts import style, mock patterns | unit | `npm run test:run -- src/core/scanner.test.ts` | ❌ Wave 0 |
-| CTX-05 | Conventions saved to `.taro/conventions.json`, read on subsequent runs | integration | `npm run test:run -- src/core/scanner.test.ts` | ❌ Wave 0 |
+| CTX-05 | Conventions saved to `.tayo/conventions.json`, read on subsequent runs | integration | `npm run test:run -- src/core/scanner.test.ts` | ❌ Wave 0 |
 
 ### Sampling Rate
 - **Per task commit:** `npm run test:run`

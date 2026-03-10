@@ -11,7 +11,7 @@ const sampleJsonBasicPath = join(process.cwd(), 'sample/sample-json-recording-ba
 const sampleJsonDialogPath = join(process.cwd(), 'sample/sample-json-recording-dialog.json')
 
 async function writeTempFile(name: string, content: string): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), 'taro-input-loader-'))
+  const directory = await mkdtemp(join(tmpdir(), 'tayo-input-loader-'))
   tempDirs.push(directory)
   const filePath = join(directory, name)
   await writeFile(filePath, content, 'utf-8')

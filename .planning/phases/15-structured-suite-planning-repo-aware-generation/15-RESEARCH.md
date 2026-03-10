@@ -2,7 +2,7 @@
 
 ## Phase Intent
 
-Phase 14 made selector recovery truthful, but the generated JS path is still architecturally shallow. Taro can now tell when a selector is unresolved, yet it still emits a low-fidelity suite shape: weak scenario boundaries, placeholder `render(<App />)` setup, and boundary warnings instead of repo-grounded module tests.
+Phase 14 made selector recovery truthful, but the generated JS path is still architecturally shallow. Tayo can now tell when a selector is unresolved, yet it still emits a low-fidelity suite shape: weak scenario boundaries, placeholder `render(<App />)` setup, and boundary warnings instead of repo-grounded module tests.
 
 Phase 15 should convert that truthful baseline into maintainable RTL suites that:
 - split at meaningful scenario boundaries only when state can be recreated safely,
@@ -14,14 +14,14 @@ Phase 15 should convert that truthful baseline into maintainable RTL suites that
 
 ### SUITE-01
 
-- Taro must stop treating `itGroups` as a lightly renamed recorder transcript.
+- Tayo must stop treating `itGroups` as a lightly renamed recorder transcript.
 - Scenario boundaries need to come from user-visible milestones, not just parser artifacts.
 - Generated helpers must not bury meaningful assertions; the gold standard keeps assertions in test bodies and uses helpers only for setup/navigation.
 
 ### SUITE-02
 
 - Multiple `it(...)` blocks are only valid when each block can recreate the necessary UI state independently.
-- Wizard-style flows with cross-step mutation state should stay single-flow unless Taro can emit reusable setup helpers that safely reconstruct downstream state.
+- Wizard-style flows with cross-step mutation state should stay single-flow unless Tayo can emit reusable setup helpers that safely reconstruct downstream state.
 - Positional control recovery like `getAllByRole(...)[0]` should be avoided; state-safe boundaries must also create query-safe scopes.
 
 ### SUITE-03
@@ -32,7 +32,7 @@ Phase 15 should convert that truthful baseline into maintainable RTL suites that
 
 ### SUITE-04
 
-- Taro must replace placeholder render targets with repo-grounded module/container targets when the repo provides enough evidence.
+- Tayo must replace placeholder render targets with repo-grounded module/container targets when the repo provides enough evidence.
 - Boundary warnings are useful as a fallback, but supported flows should graduate from “boundary draft” to an actual render target plus matching imports.
 - The gold-standard Add Sale sample shows the right boundary: render `SalesModule`, keep module-level mocks shared, and scope interactions with `within(...)` instead of testing `AddSaleForm` directly.
 
@@ -101,7 +101,7 @@ What is missing is the bridge from those signals into generation decisions:
 
 ## Gold Standard Implications From The Add Sale Samples
 
-Comparing `sample/AddSaleForm.test.tsx` with `sample/sample-add-sale-test.tsx` shows the exact boundary Taro must learn:
+Comparing `sample/AddSaleForm.test.tsx` with `sample/sample-add-sale-test.tsx` shows the exact boundary Tayo must learn:
 
 - Render the owning module (`SalesModule`), not the leaf form (`AddSaleForm`).
 - Keep shared module mocks at the top level; do not re-mock every internal query hook inline.
@@ -114,7 +114,7 @@ Comparing `sample/AddSaleForm.test.tsx` with `sample/sample-add-sale-test.tsx` s
   - pending/save-disabled state.
 - Scope repeated controls with `within(dialog)` and stable labels instead of positional arrays unless there is no accessible alternative.
 
-This sample pair should anchor the phase: if Taro cannot move generated output toward the gold standard, Phase 15 is not done.
+This sample pair should anchor the phase: if Tayo cannot move generated output toward the gold standard, Phase 15 is not done.
 
 ## Recommended Implementation Shape
 

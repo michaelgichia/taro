@@ -4,7 +4,7 @@
   "description": "Generate high-quality React Testing Library tests from Recorder exports",
   "type": "module",
   "bin": {
-    "taro": "dist/index.js"
+    "tayo": "dist/index.js"
   },
   "files": [
     "dist",
@@ -29,11 +29,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/michaelgichia/taro.git"
+    "url": "git+https://github.com/michaelgichia/tayo.git"
   },
-  "homepage": "https://github.com/michaelgichia/taro#readme",
+  "homepage": "https://github.com/michaelgichia/tayo#readme",
   "bugs": {
-    "url": "https://github.com/michaelgichia/taro/issues"
+    "url": "https://github.com/michaelgichia/tayo/issues"
   },
   "keywords": [
     "testing",

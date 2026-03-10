@@ -9,7 +9,7 @@ gaps: []
 
 # Phase 5: Recording Intelligence Recovery Verification Report
 
-**Phase Goal:** Restore the missing recording-intelligence layer so Taro filters noisy recorder input and infers user intent before query generation.
+**Phase Goal:** Restore the missing recording-intelligence layer so Tayo filters noisy recorder input and infers user intent before query generation.
 
 **Verified:** 2026-03-07T10:11:18Z
 **Status:** passed
@@ -24,7 +24,7 @@ gaps: []
 | 1 | Recorder metadata now survives parsing long enough for noise heuristics to inspect it | ✓ VERIFIED | `src/types/recording.ts` extends `NormalizedStep` with `selectors`, `assertedEvents`, `line`, `x`, `y`, `offsetX`, and `offsetY`; `src/core/parser.ts` preserves those fields via `withMetadata()`. |
 | 2 | Redundant clicks, dblClick noise, and cursor wandering are filtered before generation | ✓ VERIFIED | `filterNoiseSteps()` in `src/core/recording-intelligence.ts` consolidates same-target click bursts, separately counts dblClick noise, and removes movement-only steps; `src/core/recording-intelligence.test.ts` covers all three behaviors. |
 | 3 | Cleaned recordings are reduced into deterministic intent groups | ✓ VERIFIED | `inferIntentGroups()` in `src/core/recording-intelligence.ts` splits cleaned steps into navigation, confirmation, and submit/edit groups; focused tests prove stable grouping and naming. |
-| 4 | `taro generate` now routes both JSON and JS inputs through recording intelligence before generation, while keeping Phase 4 scoring and post-write verification active | ✓ VERIFIED | `src/cli/commands/generate.ts` calls `analyzeRecording()` in both branches, logs cleanup summaries, then continues into scoring and `finalizeGeneratedOutput()` unchanged. |
+| 4 | `tayo generate` now routes both JSON and JS inputs through recording intelligence before generation, while keeping Phase 4 scoring and post-write verification active | ✓ VERIFIED | `src/cli/commands/generate.ts` calls `analyzeRecording()` in both branches, logs cleanup summaries, then continues into scoring and `finalizeGeneratedOutput()` unchanged. |
 
 ### Required Artifacts
 
@@ -51,8 +51,8 @@ gaps: []
 - `npm run test:run -- src/core/recording-intelligence.test.ts` passed.
 - `npm run test:run -- src/core/js-parser.test.ts src/core/recording-intelligence.test.ts` passed.
 - `npm run build` passed after the final integration changes.
-- `node /Users/michaelgichia/workspace/taro/dist/index.js generate /tmp/taro-phase5-noisy.json -o /tmp/taro-phase5-noisy.test.tsx --force` passed and logged cleanup plus post-write verification.
-- `node /Users/michaelgichia/workspace/taro/dist/index.js generate /tmp/taro-phase5-valid-js.js -o /tmp/taro-phase5-valid-js.test.tsx --force` passed and logged cleanup plus post-write verification.
+- `node /Users/michaelgichia/workspace/tayo/dist/index.js generate /tmp/tayo-phase5-noisy.json -o /tmp/tayo-phase5-noisy.test.tsx --force` passed and logged cleanup plus post-write verification.
+- `node /Users/michaelgichia/workspace/tayo/dist/index.js generate /tmp/tayo-phase5-valid-js.js -o /tmp/tayo-phase5-valid-js.test.tsx --force` passed and logged cleanup plus post-write verification.
 
 ### Human Verification Required
 
@@ -62,5 +62,5 @@ None.
 
 None.
 
-_Verified: 2026-03-07T10:11:18Z_  
+_Verified: 2026-03-07T10:11:18Z_
 _Verifier: Codex local verification fallback_

@@ -14,7 +14,7 @@ provides:
   - Complete Phase 3 pipeline wired into CLI
   - JS file detection and routing to new pipeline
   - JSON pipeline unchanged (no regression)
-  - Conventions caching via .taro/conventions.json
+  - Conventions caching via .tayo/conventions.json
 affects: [phase-04-self-scoring]
 
 # Tech tracking
@@ -29,7 +29,7 @@ key-files:
 
 key-decisions:
   - "JS pipeline added alongside existing JSON pipeline for backward compatibility"
-  - "Conventions cached in .taro/conventions.json to avoid repeated scanning"
+  - "Conventions cached in .tayo/conventions.json to avoid repeated scanning"
 
 requirements-completed: [CTX-01, CTX-02, CTX-03, CTX-04, CTX-05, QRY-01, QRY-02, QRY-03, TEST-01, TEST-02]
 
@@ -53,7 +53,7 @@ completed: 2026-03-06
 ## Accomplishments
 - Integrated js-parser.ts, resolver.ts, scanner.ts, and generator.ts into generate command
 - JS format detection via `.js` extension or `@jest-environment-options` marker
-- Conventions scanning on first run, cached in `.taro/conventions.json` for subsequent runs
+- Conventions scanning on first run, cached in `.tayo/conventions.json` for subsequent runs
 - Playwright-based query resolution with QRY-03 warnings for fragile selectors
 - Query quality summary printed after generation
 - JSON pipeline unchanged - full backward compatibility
@@ -68,7 +68,7 @@ completed: 2026-03-06
 
 ## Decisions Made
 - JS pipeline added alongside existing JSON pipeline for backward compatibility
-- Conventions cached in `.taro/conventions.json` to avoid repeated scanning
+- Conventions cached in `.tayo/conventions.json` to avoid repeated scanning
 
 ## Deviations from Plan
 

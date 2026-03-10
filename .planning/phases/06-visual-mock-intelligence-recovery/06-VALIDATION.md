@@ -63,7 +63,7 @@ created: 2026-03-07
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| Screenshot/state capture is triggered for dialog-heavy or ambiguous UI states | VIS-01, VIS-02 | Requires inspecting saved output and browser-derived state summary | Run `taro generate` on a dialog-heavy recording and confirm the CLI reports a visual-state capture with dialog-aware grouping |
+| Screenshot/state capture is triggered for dialog-heavy or ambiguous UI states | VIS-01, VIS-02 | Requires inspecting saved output and browser-derived state summary | Run `tayo generate` on a dialog-heavy recording and confirm the CLI reports a visual-state capture with dialog-aware grouping |
 | Mock-aware generation emits stable recommendations without breaking output | MOCK-01, MOCK-02, MOCK-03, MOCK-04 | Requires end-to-end inspection of generated output and logged advice | Run generation against a fixture/project with repeated mocks and mutation patterns, then confirm mock recommendations and post-write verification both appear |
 
 ---

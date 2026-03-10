@@ -45,7 +45,7 @@ completed: 2026-03-07
 
 - `npm run build`
 - `npm run test:run -- src/install/verification.test.ts src/cli/commands/install.test.ts`
-- `env NPM_CONFIG_CACHE=/tmp/taro-npm-cache npm pack --pack-destination "$(mktemp -d /tmp/taro-pack.XXXXXX)"`
+- `env NPM_CONFIG_CACHE=/tmp/tayo-npm-cache npm pack --pack-destination "$(mktemp -d /tmp/tayo-pack.XXXXXX)"`
 
 ## Task Commit
 

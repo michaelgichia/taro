@@ -50,7 +50,7 @@ completed: 2026-03-10
 
 - Added two representative JSON recordings covering a straightforward sales flow and a dialog/stateful draft flow.
 - Locked the shared JSON boundary with fixture-backed tests for input loading, parsing, and recording analysis.
-- Extended CLI regression coverage so `taro generate` proves JSON support at the user-facing boundary while keeping placeholder-query behavior explicit.
+- Extended CLI regression coverage so `tayo generate` proves JSON support at the user-facing boundary while keeping placeholder-query behavior explicit.
 
 ## Task Commits
 

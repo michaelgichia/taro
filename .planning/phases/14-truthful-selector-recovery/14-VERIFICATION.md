@@ -10,7 +10,7 @@ human_verification: []
 
 # Phase 14: Truthful Selector Recovery Verification Report
 
-**Phase Goal:** Users can trust JS-derived selectors because Taro only strengthens them when it has evidence and stays explicit when it does not.
+**Phase Goal:** Users can trust JS-derived selectors because Tayo only strengthens them when it has evidence and stays explicit when it does not.
 
 **Verified:** 2026-03-10T05:00:18Z
 **Status:** verified
@@ -20,13 +20,13 @@ human_verification: []
 
 - `npm run build`
 - `npm run test:run -- src/core/resolver.test.ts src/core/generator.test.ts src/cli/commands/generate.test.ts`
-- `perl -e 'alarm shift; exec @ARGV' 30 node /Users/michaelgichia/workspace/taro/dist/index.js generate sample/sample-rest-recordingextension-output.js --dry-run`
+- `perl -e 'alarm shift; exec @ARGV' 30 node /Users/michaelgichia/workspace/tayo/dist/index.js generate sample/sample-rest-recordingextension-output.js --dry-run`
 
 Results on 2026-03-10:
 - TypeScript build passed for the shipped CLI and core generation pipeline.
 - Focused resolver, generator, and CLI regression suites passed: 3 files, 26 tests.
-- The built CLI dry-run against `sample/sample-rest-recordingextension-output.js` emitted explicit unresolved-selector warnings and `// taro-query-checkpoint:` comments instead of fabricating stronger queries.
-- Optional Playwright-backed enrichment degraded truthfully on this host: browser launch failed with a macOS Mach/bootstrap permission error, Taro surfaced that failure, and generation continued with explicit unresolved-selector output.
+- The built CLI dry-run against `sample/sample-rest-recordingextension-output.js` emitted explicit unresolved-selector warnings and `// tayo-query-checkpoint:` comments instead of fabricating stronger queries.
+- Optional Playwright-backed enrichment degraded truthfully on this host: browser launch failed with a macOS Mach/bootstrap permission error, Tayo surfaced that failure, and generation continued with explicit unresolved-selector output.
 - The Add Sale dry-run preview continued to avoid invented `getByTestId(...)` fallbacks while preserving recovered accessible queries where the recorder baseline already had them.
 
 ## Goal Achievement
@@ -35,8 +35,8 @@ Results on 2026-03-10:
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | JS selector recovery produces stronger queries only when Taro has preserved recorder evidence or live-DOM proof | ✓ VERIFIED | `src/core/resolver.test.ts`, `src/core/generator.test.ts`, and `src/cli/commands/generate.test.ts` cover resolved outcomes, preserved query precedence, and CLI recovery wiring. |
-| 2 | Unresolved CSS selector evidence is surfaced as explicit warnings/checkpoints instead of invented RTL queries | ✓ VERIFIED | `src/core/generator.test.ts` asserts checkpoint output for unresolved selector evidence, and the built CLI dry-run preview contains `// taro-query-checkpoint:` comments rather than fake `data-testid` fallbacks. |
+| 1 | JS selector recovery produces stronger queries only when Tayo has preserved recorder evidence or live-DOM proof | ✓ VERIFIED | `src/core/resolver.test.ts`, `src/core/generator.test.ts`, and `src/cli/commands/generate.test.ts` cover resolved outcomes, preserved query precedence, and CLI recovery wiring. |
+| 2 | Unresolved CSS selector evidence is surfaced as explicit warnings/checkpoints instead of invented RTL queries | ✓ VERIFIED | `src/core/generator.test.ts` asserts checkpoint output for unresolved selector evidence, and the built CLI dry-run preview contains `// tayo-query-checkpoint:` comments rather than fake `data-testid` fallbacks. |
 | 3 | Live DOM enrichment is optional and failures degrade explicitly without blocking baseline usefulness | ✓ VERIFIED | Resolver regression tests cover per-selector and page-level inspection failure, while the built CLI dry-run continued after Playwright launch failure and reported unresolved selectors truthfully. |
 
 **Score:** 3/3 truths verified
@@ -56,5 +56,5 @@ Results on 2026-03-10:
 
 ---
 
-_Verified: 2026-03-10T05:00:18Z_  
+_Verified: 2026-03-10T05:00:18Z_
 _Verifier: Codex_

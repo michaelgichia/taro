@@ -12,10 +12,10 @@ const QUERY_WEIGHTS: Record<string, number> = {
 
 const STRONG_ASSERTION_REGEX = /\.toHaveValue\(|\.toBeChecked\(|\.toHaveTextContent\(|\.toBeVisible\(/g
 const WEAK_ASSERTION_REGEX = /\.toBeInTheDocument\(/g
-const QUERY_CHECKPOINT_REGEX = /taro-query-checkpoint:/g
+const QUERY_CHECKPOINT_REGEX = /tayo-query-checkpoint:/g
 const ROLE_QUERY_REGEX = /\b(?:getByRole|findByRole)\s*\(/g
 const TEST_ID_QUERY_REGEX = /\b(?:getByTestId|findByTestId)\s*\(/g
-const BOUNDARY_WARNING_REGEX = /taro-boundary-warning:/g
+const BOUNDARY_WARNING_REGEX = /tayo-boundary-warning:/g
 const TEST_BLOCK_REGEX = /\b(?:it|test)\s*\(/g
 
 function clampScore(score: number): number {
@@ -73,7 +73,7 @@ export function calculateStructureScore(code: string): number {
     score -= 25
   }
 
-  if (code.includes('taro-boundary-warning:')) {
+  if (code.includes('tayo-boundary-warning:')) {
     score -= 20
   }
 

@@ -59,7 +59,7 @@ created: 2026-03-10
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| README and help surface show dual-input support truthfully | VERIFY-03 | The product-surface contract is easier to review from the rendered docs/help than from grep-only assertions | Review `README.md` and `taro generate --help`; confirm installer-first onboarding remains intact, both `.js` and `.json` support are visible, and one draft-quality example documents truthful degraded output. |
+| README and help surface show dual-input support truthfully | VERIFY-03 | The product-surface contract is easier to review from the rendered docs/help than from grep-only assertions | Review `README.md` and `tayo generate --help`; confirm installer-first onboarding remains intact, both `.js` and `.json` support are visible, and one draft-quality example documents truthful degraded output. |
 | Built CLI smoke proof for both JS and JSON representative flows | VERIFY-01, VERIFY-02 | Milestone closeout requires real public-path proof beyond mocked tests | Run `node dist/index.js generate <js-sample> --dry-run` and `node dist/index.js generate <json-sample> --dry-run`; confirm score/trust messaging and public JSON behavior match the automated expectations. |
 | Phase 13 verification artifact closes the audit gap with cited evidence | VERIFY-03 | Audit readiness depends on the artifact’s narrative quality and traceability, not only file existence | Review `.planning/phases/13-js-input-contract-ast-recovery/13-VERIFICATION.md`; confirm it cites real commands/artifacts that satisfy `INPUT-01`, `INPUT-02`, `INPUT-03`, and `QUERY-01`. |
 

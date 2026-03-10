@@ -28,7 +28,7 @@ key-files:
     - src/index.ts
 
 key-decisions:
-  - "The package root now enters installer-first behavior while preserving `taro generate` as an explicit subcommand"
+  - "The package root now enters installer-first behavior while preserving `tayo generate` as an explicit subcommand"
   - "Installer flags are shared between the root command and `install` subcommand so later phases can extend one surface instead of two"
 
 patterns-established:
@@ -42,7 +42,7 @@ completed: 2026-03-07
 
 # Phase 10 Plan 01: Installer Core & Package Entry Summary
 
-**Installer-first CLI wiring now fronts `@tayo-dev/rtl` while keeping the existing RTL generator reachable under `taro generate`**
+**Installer-first CLI wiring now fronts `@tayo-dev/rtl` while keeping the existing RTL generator reachable under `tayo generate`**
 
 ## Performance
 
@@ -74,7 +74,7 @@ Each task was completed in the same implementation commit for this plan:
 
 ## Decisions Made
 
-- Kept the CLI binary name as `taro` while shifting the package entry behavior to installer-first.
+- Kept the CLI binary name as `tayo` while shifting the package entry behavior to installer-first.
 - Kept the explicit `install` subcommand even though the root now routes into the same installer flow, so later phases can reference a stable command surface.
 
 ## Deviations from Plan

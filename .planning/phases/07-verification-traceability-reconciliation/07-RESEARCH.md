@@ -169,7 +169,7 @@ Phase 7 should rely on rerunning the already-established targeted suites:
   - `npm run test:run -- src/core/js-parser.test.ts src/core/resolver.test.ts src/core/scanner.test.ts src/core/generator.test.ts`
 - Phase 4 / scoring-convention confidence:
   - `npm run build`
-  - targeted generate runs that exercise scoring and `.taro` persistence
+  - targeted generate runs that exercise scoring and `.tayo` persistence
 - Final phase regression:
   - `npm run test:run -- src/core/resolver.test.ts src/core/mock-intelligence.test.ts src/core/js-parser.test.ts src/core/recording-intelligence.test.ts src/core/generator.test.ts`
   - `npm run build`

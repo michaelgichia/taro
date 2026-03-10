@@ -18,7 +18,7 @@ Implemented the Phase 4 scoring foundation by adding shared score/history types 
 ### `src/types/score.ts`
 - Added `ScoreDimensions` with `queryQuality`, `assertionSpecificity`, and `testStructure`
 - Added `ScoreResult` with total score, grade, and per-dimension breakdown
-- Added `HistoryEntry` for `.taro/history.json` persistence
+- Added `HistoryEntry` for `.tayo/history.json` persistence
 
 ### `src/core/scorer.ts`
 - Added `calculateQueryScore()` with weighted RTL query scoring:

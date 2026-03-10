@@ -225,7 +225,7 @@ export async function captureVisualState(
     }
   } catch (error) {
     console.warn(
-      pc.yellow('[taro]') +
+      pc.yellow('[tayo]') +
         pc.dim(' VIS-01:') +
         ` Failed to capture visual state for ${url}: ${error instanceof Error ? error.message : 'Unknown error'}`
     )
@@ -482,7 +482,7 @@ export async function inspectElement(
 
   if (inspection.status === 'inspection-failed') {
     console.warn(
-      pc.yellow('[taro]') +
+      pc.yellow('[tayo]') +
         pc.dim(' QRY-02:') +
         ` Failed to inspect element ${cssSelector} on ${url}: ${inspection.error}`
     )
@@ -528,7 +528,7 @@ export async function inspectElements(
   } catch (error) {
     // On browser/page error, set all selectors to null
     console.warn(
-      pc.yellow('[taro]') +
+      pc.yellow('[tayo]') +
         pc.dim(' QRY-02:') +
         ` Failed to inspect elements on ${url}: ${error instanceof Error ? error.message : 'Unknown error'}`
     )
@@ -552,7 +552,7 @@ export async function inspectElements(
  */
 export function emitQry03Warning(selector: string): void {
   console.warn(
-    pc.yellow('[taro]') +
+    pc.yellow('[tayo]') +
       pc.dim(' QRY-03:') +
       ` No accessible query for ${pc.bold(selector)} — consider adding aria-label or data-testid to this element`
   )

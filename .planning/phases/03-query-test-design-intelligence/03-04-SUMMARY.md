@@ -11,9 +11,9 @@ requires:
 provides:
   - scanConventions() - full scan pipeline with persistence
   - findTestFiles() - recursive test file discovery
-  - readConventions() - read cached .taro/conventions.json
+  - readConventions() - read cached .tayo/conventions.json
   - deriveConventions() - majority vote derivation
-  - .taro/conventions.json - persisted conventions cache
+  - .tayo/conventions.json - persisted conventions cache
 affects: [generation, future phases needing codebase context]
 
 # Tech tracking
@@ -43,7 +43,7 @@ completed: 2026-03-06
 
 # Phase 3 Plan 04: Codebase Convention Scanner Summary
 
-**Codebase convention scanner with .taro/conventions.json persistence, ESM/CJS detection, and TEST-02 warnings**
+**Codebase convention scanner with .tayo/conventions.json persistence, ESM/CJS detection, and TEST-02 warnings**
 
 ## Performance
 
@@ -58,7 +58,7 @@ completed: 2026-03-06
 - findTestFiles recursively discovers test/spec files, skips node_modules
 - scanConventions detects ESM vs CJS, vi.mock vs jest.mock from file content
 - TEST-02 warning emitted for helpers containing expect()
-- .taro/conventions.json created with full schema
+- .tayo/conventions.json created with full schema
 - readConventions returns null when file doesn't exist (no crash)
 - All 9 tests passing
 

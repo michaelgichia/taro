@@ -28,7 +28,7 @@ key-files:
 key-decisions:
   - "Worked example uses login flow as canonical scenario — covers navigate, click, change, and waitForElement step types"
   - "Claude skill section provides both Option A (direct npx invocation) and Option B (SKILL.md registration) to serve different developer preferences"
-  - "Component import path explicitly noted as placeholder to avoid false expectations about Taro's import resolution"
+  - "Component import path explicitly noted as placeholder to avoid false expectations about Tayo's import resolution"
 
 patterns-established:
   - "Two-option agent skill guide: direct invocation for ad-hoc use, skill file registration for repeated team use"
@@ -54,9 +54,9 @@ completed: 2026-03-07
 
 ## Accomplishments
 
-- Added Worked Example section with complete Chrome Recorder JSON input, taro generate command, expected terminal output, and full generated TypeScript RTL test
-- Added What Taro did here bullet list explaining each step transformation (CSS selectors upgraded to accessible queries, change steps to userEvent.type, waitForElement to toBeInTheDocument)
-- Added Claude Code Skill section with Option A (direct npx invocation) and Option B (SKILL.md registration at .claude/skills/taro/SKILL.md) with step-by-step instructions and agent use tips
+- Added Worked Example section with complete Chrome Recorder JSON input, tayo generate command, expected terminal output, and full generated TypeScript RTL test
+- Added What Tayo did here bullet list explaining each step transformation (CSS selectors upgraded to accessible queries, change steps to userEvent.type, waitForElement to toBeInTheDocument)
+- Added Claude Code Skill section with Option A (direct npx invocation) and Option B (SKILL.md registration at .claude/skills/tayo/SKILL.md) with step-by-step instructions and agent use tips
 
 ## Task Commits
 
@@ -69,7 +69,7 @@ Each task was committed atomically:
 
 ## Files Created/Modified
 
-- `README.md` - Extended with Worked Example and Using Taro as a Claude Code Skill sections (241 lines total, +135 lines added in this plan)
+- `README.md` - Extended with Worked Example and Using Tayo as a Claude Code Skill sections (241 lines total, +135 lines added in this plan)
 
 ## Decisions Made
 

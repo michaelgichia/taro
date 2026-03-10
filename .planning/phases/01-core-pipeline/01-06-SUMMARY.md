@@ -39,7 +39,7 @@ completed: 2026-03-06
 - Full pipeline wired in generate command: file read → JSON parse → validate → normalize → generate → write
 - `--dry-run` previews generated code without touching filesystem
 - `--force` flag allows overwriting existing test files
-- E2E verified: `taro generate recording.json` creates .test.tsx file, validation errors exit with code 1
+- E2E verified: `tayo generate recording.json` creates .test.tsx file, validation errors exit with code 1
 
 ## Task Commits
 1. **Task 1: writer.ts implementation** - `a5029b5`

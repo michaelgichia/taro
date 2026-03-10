@@ -19,7 +19,7 @@ Integrated Phase 4 scoring, post-write verification, history tracking, and conve
 - Added shared Phase 4 helpers:
   - `logScore()` for the advisory score line
   - `emitScoreHints()` for per-dimension guidance
-  - `appendHistoryEntry()` for `.taro/history.json`
+  - `appendHistoryEntry()` for `.tayo/history.json`
   - `finalizeGeneratedOutput()` for post-write syntax verification, history persistence, and convention learning
 - Wired the JS recording path to:
   - compute and log the score before write
@@ -33,10 +33,10 @@ Integrated Phase 4 scoring, post-write verification, history tracking, and conve
 ## Verification
 
 - `npm run build` ✓
-- `node /Users/michaelgichia/workspace/taro/dist/index.js generate /tmp/taro-phase4-verify/sample-recording.json --output /tmp/taro-phase4-verify/sample-json.test.tsx --force` ✓
-- `node /Users/michaelgichia/workspace/taro/dist/index.js generate /tmp/taro-phase4-verify/sample-recording.js --output /tmp/taro-phase4-verify/sample-js.test.tsx --force` ✓
-- Verified `/tmp/taro-phase4-verify/.taro/history.json` contains both run entries
-- Verified `/tmp/taro-phase4-verify/.taro/conventions.json` was updated from generated test output
+- `node /Users/michaelgichia/workspace/tayo/dist/index.js generate /tmp/tayo-phase4-verify/sample-recording.json --output /tmp/tayo-phase4-verify/sample-json.test.tsx --force` ✓
+- `node /Users/michaelgichia/workspace/tayo/dist/index.js generate /tmp/tayo-phase4-verify/sample-recording.js --output /tmp/tayo-phase4-verify/sample-js.test.tsx --force` ✓
+- Verified `/tmp/tayo-phase4-verify/.tayo/history.json` contains both run entries
+- Verified `/tmp/tayo-phase4-verify/.tayo/conventions.json` was updated from generated test output
 
 ## Outcome
 

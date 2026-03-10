@@ -21,7 +21,7 @@ updated: 2026-03-07T10:54:00Z
 | **Framework** | TypeScript build + CLI runtime verification |
 | **Config file** | `package.json` scripts (`build`, `test:run`) |
 | **Quick run command** | `npm run build` |
-| **Full suite command** | `npm run build && node /Users/michaelgichia/workspace/taro/dist/index.js generate /tmp/taro-phase4-verify/sample-recording.json --output /tmp/taro-phase4-verify/sample-json.test.tsx --force && node /Users/michaelgichia/workspace/taro/dist/index.js generate /tmp/taro-phase4-verify/sample-recording.js --output /tmp/taro-phase4-verify/sample-js.test.tsx --force` |
+| **Full suite command** | `npm run build && node /Users/michaelgichia/workspace/tayo/dist/index.js generate /tmp/tayo-phase4-verify/sample-recording.json --output /tmp/tayo-phase4-verify/sample-json.test.tsx --force && node /Users/michaelgichia/workspace/tayo/dist/index.js generate /tmp/tayo-phase4-verify/sample-recording.js --output /tmp/tayo-phase4-verify/sample-js.test.tsx --force` |
 | **Estimated runtime** | ~20 seconds |
 
 ---
@@ -30,7 +30,7 @@ updated: 2026-03-07T10:54:00Z
 
 - **After every task commit:** Run `npm run build`
 - **After every plan wave:** Run the full suite command
-- **Before `$gsd-verify-work`:** Full suite must be green and `.taro/history.json` plus `.taro/conventions.json` must be updated
+- **Before `$gsd-verify-work`:** Full suite must be green and `.tayo/history.json` plus `.tayo/conventions.json` must be updated
 - **Max feedback latency:** 20 seconds
 
 ---
@@ -42,8 +42,8 @@ updated: 2026-03-07T10:54:00Z
 | 04-01-01 | 01 | 1 | SCR-01 | build | `npm run build` | ✅ | ✅ green |
 | 04-02-01 | 02 | 1 | SCR-03 | build | `npm run build` | ✅ | ✅ green |
 | 04-03-01 | 03 | 2 | CNV-01, CNV-02 | unit/integration | `npm run build && npm run test:run -- src/core/scanner.test.ts src/core/resolver.test.ts src/core/js-parser.test.ts` | ✅ | ✅ green |
-| 04-04-01 | 04 | 3 | SCR-01, SCR-02, SCR-03 | integration | `npm run build && node /Users/michaelgichia/workspace/taro/dist/index.js generate /tmp/taro-phase4-verify/sample-recording.json --output /tmp/taro-phase4-verify/sample-json.test.tsx --force && node /Users/michaelgichia/workspace/taro/dist/index.js generate /tmp/taro-phase4-verify/sample-recording.js --output /tmp/taro-phase4-verify/sample-js.test.tsx --force` | ✅ | ✅ green |
-| 04-04-02 | 04 | 3 | CNV-01, CNV-02, CNV-03 | integration | `npm run build && node /Users/michaelgichia/workspace/taro/dist/index.js generate /tmp/taro-phase4-verify/sample-recording.json --output /tmp/taro-phase4-verify/sample-json.test.tsx --force && node /Users/michaelgichia/workspace/taro/dist/index.js generate /tmp/taro-phase4-verify/sample-recording.js --output /tmp/taro-phase4-verify/sample-js.test.tsx --force` | ✅ | ✅ green |
+| 04-04-01 | 04 | 3 | SCR-01, SCR-02, SCR-03 | integration | `npm run build && node /Users/michaelgichia/workspace/tayo/dist/index.js generate /tmp/tayo-phase4-verify/sample-recording.json --output /tmp/tayo-phase4-verify/sample-json.test.tsx --force && node /Users/michaelgichia/workspace/tayo/dist/index.js generate /tmp/tayo-phase4-verify/sample-recording.js --output /tmp/tayo-phase4-verify/sample-js.test.tsx --force` | ✅ | ✅ green |
+| 04-04-02 | 04 | 3 | CNV-01, CNV-02, CNV-03 | integration | `npm run build && node /Users/michaelgichia/workspace/tayo/dist/index.js generate /tmp/tayo-phase4-verify/sample-recording.json --output /tmp/tayo-phase4-verify/sample-json.test.tsx --force && node /Users/michaelgichia/workspace/tayo/dist/index.js generate /tmp/tayo-phase4-verify/sample-recording.js --output /tmp/tayo-phase4-verify/sample-js.test.tsx --force` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
