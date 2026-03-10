@@ -23,8 +23,13 @@ vi.mock('../../core/mock-intelligence.js', () => ({
   analyzeMocks: vi.fn(async () => null),
 }))
 
+const { discoverRepoRenderTargetsMock } = vi.hoisted(() => ({
+  discoverRepoRenderTargetsMock: vi.fn(async () => []),
+}))
+
 vi.mock('../../core/scanner.js', () => ({
   analyzeSingleTestFile: vi.fn(async () => ({})),
+  discoverRepoRenderTargets: discoverRepoRenderTargetsMock,
   mergeConventions: vi.fn(async () => undefined),
   readConventions: vi.fn(async () => null),
   scanConventions: vi.fn(async () => ({
@@ -200,6 +205,8 @@ async function runGenerate(args: string[], cwdPath: string) {
 beforeEach(() => {
   captureVisualStateMock.mockReset()
   captureVisualStateMock.mockResolvedValue(null)
+  discoverRepoRenderTargetsMock.mockReset()
+  discoverRepoRenderTargetsMock.mockResolvedValue([])
   resolveSelectorMock.mockReset()
   resolveSelectorMock.mockImplementation(defaultResolveSelector)
 })
@@ -214,6 +221,16 @@ describe('createGenerateCommand', () => {
     const sandbox = await createSandbox('dry-run')
     const outputPath = join(sandbox.outputDir, 'generated.test.tsx')
 
+    discoverRepoRenderTargetsMock.mockResolvedValue([
+      {
+        symbol: 'SalesModule',
+        importPath: './SalesModule',
+        sourceTestFile: 'sample/sample-add-sale-test.tsx',
+        helperNames: ['openAddSaleDialog', 'addItemToCart', 'fillOtherDetails'],
+        usesWithin: true,
+      },
+    ])
+
     const result = await runGenerate(
       [samplePath, '--dry-run', '--output', outputPath],
       sandbox.outputDir
@@ -223,6 +240,10 @@ describe('createGenerateCommand', () => {
     expect(result.errors).toBe('')
     expect(result.logs).toContain('Parsed: Recording-Add-Sale-KE-06/03/2026 at 08:25:15')
     expect(result.logs).toContain(`Would write to: ${outputPath}`)
+    expect(result.logs).toContain("import SalesModule from './SalesModule'")
+    expect(result.logs).toContain('render(<SalesModule />)')
+    expect(result.logs).toContain('const planSubmitContinue = async')
+    expect(result.logs).toContain('within(screen.getByRole(')
     expect(result.logs).toContain("screen.getByRole('button', {name: 'Add Sale (Invoice)'})")
     expect(result.logs).toContain("screen.getByRole('combobox', { name: 'Item selector' })")
     expect(result.logs).toContain('// taro-query-checkpoint: click step requires manual RTL query recovery')
@@ -316,6 +337,16 @@ describe('createGenerateCommand', () => {
     const sandbox = await createSandbox('force')
     const outputPath = join(sandbox.outputDir, 'generated.test.tsx')
 
+    discoverRepoRenderTargetsMock.mockResolvedValue([
+      {
+        symbol: 'SalesModule',
+        importPath: './SalesModule',
+        sourceTestFile: 'sample/sample-add-sale-test.tsx',
+        helperNames: ['openAddSaleDialog', 'addItemToCart', 'fillOtherDetails'],
+        usesWithin: true,
+      },
+    ])
+
     await writeFile(outputPath, 'stale content', 'utf-8')
 
     const result = await runGenerate(
@@ -329,7 +360,9 @@ describe('createGenerateCommand', () => {
     expect(result.errors).toBe('')
     expect(result.logs).toContain(`Updated: ${outputPath}`)
     expect(written).toContain("screen.getByRole('button', {name: 'Add Sale (Invoice)'})")
-    expect(written).toContain("screen.getByRole('combobox', { name: 'Item selector' })")
+    expect(written).toContain("import SalesModule from './SalesModule'")
+    expect(written).toContain('render(<SalesModule />)')
+    expect(written).toContain('const planSubmitContinue = async')
     expect(written).toContain(`// selector: ${inspectionFailureSelector}`)
     expect(written).not.toContain('screen.getByTestId(')
     expect(written).not.toContain('stale content')

@@ -133,4 +133,103 @@ describe('generateTestFromGroups', () => {
     expect(generated.code).toContain("await user.click(screen.getByText('Confirm'))")
     expect(verifySyntax(generated.code, '/tmp/generated.test.tsx')).toEqual({ valid: true })
   })
+
+  it('renders repo-aware imports, helper functions, and scoped queries for supported flows', () => {
+    const generated = generateTestFromGroups(
+      'Add Sale Flow',
+      [
+        {
+          name: 'save sale',
+          steps: [
+            {
+              action: 'click',
+              target: 'Add Sale (Invoice)',
+              originalType: 'click',
+              source: 'js',
+            },
+            {
+              action: 'click',
+              target: 'Continue',
+              originalType: 'click',
+              source: 'js',
+            },
+            {
+              action: 'assert',
+              target: 'Review Sale (Invoice)',
+              originalType: 'getByText',
+              source: 'js',
+            },
+          ],
+        },
+      ],
+      {
+        helpers: [
+          {
+            name: 'planOpenSaleDialog',
+            sourceGroup: 'open sale dialog',
+            purpose: 'Navigate to the add sale dialog.',
+            assertionPolicy: 'sync-only',
+            steps: [
+              {
+                action: 'click',
+                target: 'Add Sale (Invoice)',
+                originalType: 'click',
+                source: 'js',
+              },
+              {
+                action: 'click',
+                target: 'Continue',
+                originalType: 'click',
+                source: 'js',
+              },
+            ],
+          },
+        ],
+        scenarios: [
+          {
+            name: 'save sale',
+            goal: 'flow',
+            steps: [
+              {
+                action: 'click',
+                target: 'Add Sale (Invoice)',
+                originalType: 'click',
+                source: 'js',
+              },
+              {
+                action: 'click',
+                target: 'Continue',
+                originalType: 'click',
+                source: 'js',
+              },
+              {
+                action: 'assert',
+                target: 'Review Sale (Invoice)',
+                originalType: 'getByText',
+                source: 'js',
+              },
+            ],
+            helperRefs: ['planOpenSaleDialog'],
+            requiresFreshRender: true,
+          },
+        ],
+        renderTarget: {
+          symbol: 'SalesModule',
+          importPath: './SalesModule',
+          sourceTestFile: 'sample/sample-add-sale-test.tsx',
+          helperNames: ['openAddSaleDialog'],
+          usesWithin: true,
+        },
+      }
+    )
+
+    expect(generated.code).toContain("import { render, screen, within } from '@testing-library/react'")
+    expect(generated.code).toContain("import SalesModule from './SalesModule'")
+    expect(generated.code).toContain('const planOpenSaleDialog = async')
+    expect(generated.code).toContain("await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^continue$/i }))")
+    expect(generated.code).toContain('render(<SalesModule />)')
+    expect(generated.code).toContain('await planOpenSaleDialog(user)')
+    expect(generated.code).not.toContain('render(<App />)')
+    expect(verifySyntax(generated.code, '/tmp/generated.test.tsx')).toEqual({ valid: true })
+  })
 })
