@@ -75,7 +75,13 @@ Plans:
   2. User receives multi-test suites only when required state can be recreated or shared safely across those tests.
   3. User receives output that applies learned repo conventions for imports, `userEvent.setup()`, helper style, and query scoping when the codebase provides enough evidence.
   4. User receives suites that use project context and mock intelligence strongly enough to target a real module/test shape instead of placeholder `render(<App />)` output for supported flows.
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+
+- [ ] 15-01: Structured suite-plan contract and state-safe scenario modeling
+- [ ] 15-02: Repo-aware render target, helper, and import generation
+- [ ] 15-03: Gold-standard sample regression and explicit-draft fallback proof
 
 ### Phase 16: Verification, JSON Parity & Product Surface
 **Goal**: Users can trust the shipped JS baseline story because quality signals, regression proof, public guidance, and milestone verification evidence all match real behavior
@@ -97,5 +103,5 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 13. JS Input Contract & AST Recovery | v1.3 | 4/4 | Complete | 2026-03-09 |
 | 14. Truthful Selector Recovery | v1.3 | 3/3 | Complete | 2026-03-10 |
-| 15. Structured Suite Planning & Repo-aware Generation | v1.3 | 0/TBD | Not started | - |
+| 15. Structured Suite Planning & Repo-aware Generation | v1.3 | 0/3 | Planned | - |
 | 16. Verification, JSON Parity & Product Surface | v1.3 | 0/TBD | Not started | - |

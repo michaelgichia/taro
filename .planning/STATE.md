@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: JS Baseline
-status: ready-to-plan
-stopped_at: Verified Phase 14
-last_updated: "2026-03-10T05:00:18Z"
-last_activity: 2026-03-10 — Phase 14 verified; truthful selector recovery now ships with explicit checkpoints and optional live-DOM degradation proof
+status: ready-to-execute
+stopped_at: Planned Phase 15
+last_updated: "2026-03-10T05:21:00Z"
+last_activity: 2026-03-10 — Phase 15 planned into three execution waves covering suite-state modeling, repo-aware generation, and gold-standard Add Sale regressions
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 7
+  total_plans: 10
   completed_plans: 7
   percent: 50
 ---
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-09)
 
 **Core value:** Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, and Codex with near-zero setup friction
-**Current focus:** Phase 15 - Structured Suite Planning & Repo-aware Generation (ready to plan)
+**Current focus:** Phase 15 - Structured Suite Planning & Repo-aware Generation (ready to execute)
 
 ## Current Position
 
-Phase: 15 of 16 ready to plan (Structured Suite Planning & Repo-aware Generation)
-Plan: 0 of TBD planned
-Status: Ready to plan
-Last activity: 2026-03-10 — Phase 14 verified; truthful selector recovery now ships with explicit checkpoints and optional live-DOM degradation proof
+Phase: 15 of 16 planned (Structured Suite Planning & Repo-aware Generation)
+Plan: 3 of 3 planned
+Status: Ready to execute
+Last activity: 2026-03-10 — Phase 15 planned into three execution waves covering suite-state modeling, repo-aware generation, and gold-standard Add Sale regressions
 
 Progress: [██████████░░░░░░░░░░] 50%
 
@@ -48,11 +48,11 @@ Progress: [██████████░░░░░░░░░░] 50%
 | 12. Verification, Updates & Release Docs | 3 | Mixed | Mixed |
 
 **Recent Trend:**
-- Last 5 plans: Phase 14 planning, execution plans 14-01 through 14-03, and Phase 14 verification
+- Last 5 plans: Phase 14 execution plans 14-01 through 14-03, Phase 14 verification, and Phase 15 planning
 - Trend: Improving
 
 **Recent Executions:**
-- Phase 14 verification | 13min | 3 verification commands | 1 report
+- Phase 15 planning | 21min | 3 plans | 3 execution waves
 
 ## Accumulated Context
 
@@ -79,6 +79,8 @@ Recent decisions affecting current work:
 - [Phase 14-03] Mock resolveSelector directly in CLI tests so selector recovery warnings and checkpoints stay deterministic.
 - [Phase 14-03] Use the shipped Add Sale recorder JS sample as the golden selector-truth regression fixture.
 - [Phase 14 verification] Treat host-level Playwright launch failures as truthful unresolved-selector evidence rather than a reason to abort JS dry-runs.
+- [Phase 15 planning] Separate suite-state modeling from repo-aware realization so Phase 15 can test state-safety policy independently from render-target/import emission.
+- [Phase 15 planning] Use the Add Sale gold-standard sample as the anchor for supported repo-aware output rather than aiming for abstract multi-it improvements only.
 
 ### Pending Todos
 
@@ -86,11 +88,10 @@ None.
 
 ### Blockers/Concerns
 
-- Render-target resolution may need explicit checkpoint rules during Phase 15 planning.
 - Phase 13 still needs a verification artifact before v1.3 can pass milestone audit.
 
 ## Session Continuity
 
-Last session: 2026-03-10T05:00:18Z
-Stopped at: Verified Phase 14
+Last session: 2026-03-10T05:21:00Z
+Stopped at: Planned Phase 15
 Resume file: None
