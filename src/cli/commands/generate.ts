@@ -41,9 +41,11 @@ import type {
   NormalizedStep,
   QueryDescriptor,
   QueryResult,
+  SemanticMarkerAssertionUnresolvedReason,
   SelectorDescriptor,
   SelectorResolutionResult,
   StepId,
+  UnresolvedSemanticMarkerAssertionResolution,
   VisualState,
 } from '../../types/recording.js'
 import type { HistoryEntry, MarkerCoverageTotals, ScoreResult } from '../../types/score.js'
@@ -61,6 +63,32 @@ const EMPTY_MARKER_COVERAGE: MarkerCoverageTotals = {
   detected: 0,
   emitted: 0,
   unresolved: 0,
+}
+
+const UNRESOLVED_MARKER_REASON_GUIDANCE: Record<
+  SemanticMarkerAssertionUnresolvedReason,
+  string
+> = {
+  'missing-marker-candidate':
+    'Semantic marker candidate metadata is missing. Re-record or keep marker metadata intact.',
+  'missing-anchor':
+    'Marker has no reliable anchor step. Re-record with marker near the intended assertion moment.',
+  'missing-query':
+    'Recorder evidence is missing an accessible query. Capture a clearer role/name or visible text.',
+  'unsupported-proof-subject':
+    'Marker proof subject is unsupported for safe RTL conversion. Use role/name or visible text proof.',
+  'ambiguous-field-context':
+    'Field context is ambiguous. Capture a single, specific field label or value target.',
+  'unsupported-field-context':
+    'Field context could not map to a trusted RTL field query. Record a clearer label/placeholder.',
+  'generic-container':
+    'Marker points to a generic container. Capture the concrete user-facing element instead.',
+  'css-only-evidence':
+    'Marker is backed only by CSS-like evidence. Capture semantic role/name or visible text evidence.',
+  'icon-only-target':
+    'Marker target is icon-only and ambiguous. Capture surrounding accessible text context.',
+  'hidden-evidence':
+    'Marker evidence depends on hidden/implementation selectors. Capture user-visible evidence instead.',
 }
 
 function deriveOutputPath(inputPath: string): string {
@@ -98,6 +126,66 @@ function emitMarkerCoverageSection(scoreResult: ScoreResult): void {
 
   if (scoreResult.markerQualityGate.failing) {
     console.error(pc.red(`[tayo] QUAL-02 FAIL: ${scoreResult.markerQualityGate.message}`))
+  }
+}
+
+function normalizeUnresolvedMarkerHint(
+  marker: UnresolvedSemanticMarkerAssertionResolution
+): string {
+  const hint = marker.proofText ?? marker.target ?? marker.query?.raw ?? marker.selector?.selector
+  const normalized = hint?.replace(/\s+/g, ' ').trim()
+  return normalized && normalized.length > 0 ? normalized : 'none'
+}
+
+function formatUnresolvedMarkerLine(
+  marker: UnresolvedSemanticMarkerAssertionResolution
+): string {
+  const line = marker.line ?? marker.sourceContext.line
+  return Number.isFinite(line) ? String(line) : 'unknown'
+}
+
+function formatUnresolvedMarkerWarning(
+  marker: UnresolvedSemanticMarkerAssertionResolution
+): string {
+  const line = formatUnresolvedMarkerLine(marker)
+  const hint = normalizeUnresolvedMarkerHint(marker)
+  const guidance = UNRESOLVED_MARKER_REASON_GUIDANCE[marker.reason]
+
+  return (
+    `MKR-03 unresolved-marker marker=${marker.markerStepId} ` +
+    `line: ${line} reason=${marker.reason} ` +
+    `detail="${guidance}" hint="${hint}"`
+  )
+}
+
+function collectUnresolvedMarkerAssertions(
+  suitePlan: JsSuitePlan
+): UnresolvedSemanticMarkerAssertionResolution[] {
+  const seenMarkerStepIds = new Set<string>()
+  const unresolvedMarkers: UnresolvedSemanticMarkerAssertionResolution[] = []
+
+  for (const scenario of suitePlan.scenarios) {
+    for (const unresolvedMarker of scenario.unresolvedMarkerAssertions ?? []) {
+      if (seenMarkerStepIds.has(unresolvedMarker.markerStepId)) {
+        continue
+      }
+
+      seenMarkerStepIds.add(unresolvedMarker.markerStepId)
+      unresolvedMarkers.push(unresolvedMarker)
+    }
+  }
+
+  return unresolvedMarkers
+}
+
+function emitUnresolvedMarkerWarnings(suitePlan: JsSuitePlan | null): void {
+  if (!suitePlan) {
+    return
+  }
+
+  const unresolvedMarkers = collectUnresolvedMarkerAssertions(suitePlan)
+  for (const unresolvedMarker of unresolvedMarkers) {
+    console.warn(pc.yellow(`[tayo] ${formatUnresolvedMarkerWarning(unresolvedMarker)}`))
   }
 }
 
@@ -1012,6 +1100,7 @@ export function createGenerateCommand(): Command {
 
       logScore(scoreResult)
       emitMarkerCoverageSection(scoreResult)
+      emitUnresolvedMarkerWarnings(hydratedSuitePlan)
       emitLowConfidenceBanner(scoreResult)
       emitScoreHints(scoreResult, resolvedJsGeneration?.queryResults ?? [], boundaryIssues)
 
