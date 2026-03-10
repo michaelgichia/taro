@@ -95,7 +95,7 @@ describe('runInstallCommand', () => {
     const output = secondRun.logs.join('\n')
 
     expect(process.exitCode).toBeUndefined()
-    expect(output).toContain('updated 2 owned asset(s)')
+    expect(output).toContain('updated 12 owned asset(s)')
   })
 
   it('reports repaired outcomes when a rerun restores a missing owned asset', async () => {

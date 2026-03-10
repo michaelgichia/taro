@@ -1,5 +1,6 @@
 import { join } from 'node:path'
 import { resolveAssetSource } from '../assets.js'
+import { TARO_REFERENCE_FILES } from '../reference-files.js'
 import type {
   InstallFileOperation,
   ResolvedInstallTarget,
@@ -25,6 +26,12 @@ const PROMPT_RUNTIME_ASSETS: Record<PromptRuntimeTarget, RuntimeAssetDefinition[
       destinationSegments: ['commands', '@tayo-dev', 'rtl', 'generate.md'],
       entrypoint: '/@tayo-dev/rtl:generate',
     },
+    ...TARO_REFERENCE_FILES.map((fileName) => ({
+      id: `generate-reference-${fileName.replace(/\.md$/, '')}`,
+      kind: 'command' as const,
+      sourceSegments: ['taro', 'references', fileName],
+      destinationSegments: ['commands', '@tayo-dev', 'rtl', 'references', fileName],
+    })),
   ],
   gemini: [
     {

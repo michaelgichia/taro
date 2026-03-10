@@ -1,9 +1,10 @@
-import { access, copyFile, mkdtemp, readFile, rm } from 'node:fs/promises'
+import { access, copyFile, mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { mkdir } from 'node:fs/promises'
 import { afterEach, describe, expect, it } from 'vitest'
 import { resolveInstallTargets } from './resolver.js'
+import { TARO_REFERENCE_FILES } from './reference-files.js'
 import type {
   InstallFileOperation,
   InstallLocation,
@@ -79,6 +80,9 @@ describe('prompt runtime install builders', () => {
 
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@tayo-dev/rtl:help')
     expect(helpContent).toContain('/@tayo-dev/rtl:help')
+    expect(operations.map((operation) => operation.relativeDestinationPath)).toContain(
+      'commands/@tayo-dev/rtl/references/assertion-markers.md'
+    )
   })
 
   it('installs Claude Code assets into the local .claude command namespace', async () => {
@@ -90,8 +94,13 @@ describe('prompt runtime install builders', () => {
     const generateContent = await expectFile(
       join(cwd, '.claude', 'commands', '@tayo-dev', 'rtl', 'generate.md')
     )
-    expect(generateContent).toContain('`tayo __generate <recording-file>`')
-    expect(generateContent).not.toContain('--dry-run')
+    expect(generateContent).toContain('allowed-tools:')
+    expect(generateContent).toContain('references/assertion-markers.md')
+
+    const installedGenerateReferences = (
+      await readdir(join(cwd, '.claude', 'commands', '@tayo-dev', 'rtl', 'references'))
+    ).sort()
+    expect(installedGenerateReferences).toEqual([...TARO_REFERENCE_FILES])
   })
 
   it('installs Gemini CLI assets into the global .gemini command namespace', async () => {

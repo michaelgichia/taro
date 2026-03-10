@@ -22,6 +22,7 @@
   ],
   "scripts": {
     "build": "node scripts/build-hooks.js && tsc",
+    "build:claude": "npm run build && node scripts/build-claude.js",
     "start": "node bin/install.js",
     "dev": "tsc && node dist/index.js",
     "pack:check": "npm pack --json --dry-run",

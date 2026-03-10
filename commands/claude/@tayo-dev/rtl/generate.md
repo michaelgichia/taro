@@ -1,52 +1,113 @@
 ---
 name: "@tayo-dev/rtl:generate"
-description: "Generate RTL tests from Recorder exports with Tayo"
+description: "Generate deterministic, project-aware React Testing Library tests from Testing Library Recorder exports with Tayo."
+argument-hint: [path/to/recording.js]
+allowed-tools:
+  - Read
+  - Write
+  - Glob
+  - Bash
+  - browser_navigate
+  - browser_click
+  - browser_wait_for
+  - browser_take_screenshot
 ---
 
-<objective>
-Generate a React Testing Library test from a Testing Library Recorder JS export, interpret the score output, and guide the user through any required manual fixes.
-</objective>
+# Tayo — Deterministic RTL Test Generator
 
-<process>
-1. Confirm the recording file path and extension (`.js` only).
-2. Tayo writes `{recording-name}.test.tsx` next to the recording. If that file already exists, stop and tell the user to rename or delete it before rerunning generation.
-3. Run `tayo __generate <recording-file>`.
-4. Parse and report the score, grade, and blockers.
-5. Work through the post-generation checklist for any issues found.
-</process>
+## Purpose
 
-<scoring>
-Tayo scores on four weighted dimensions. Grade: A ≥ 90, B ≥ 80, C ≥ 70, D ≥ 60, F < 60.
-Score below 80 or QUAL-02 marker failure → Tayo emits "Manual review required".
+Transform a Testing Library Recorder `.js` recording into a maintainable, repository-aware React Testing Library test.
 
-Query dimension (30%): getByRole = 100pts, getByLabelText = 80pts, getByText = 60pts, getByPlaceholderText = 50pts, getByTestId = 20pts. Each tayo-query-checkpoint comment deducts 3pts (capped at −40).
+Tayo must:
+- parse recordings deterministically through the Tayo pipeline; never improvise a second parser
+- translate DOM mechanics into semantic user intent
+- convert semantic checkpoints into explicit user-visible assertions
+- preserve entry-path fidelity when the recording opens UI through a parent trigger
+- prefer evidence-based conventions from repo context and `.tayo/conventions.json`
+- avoid UI-library component reimplementation in mocks
+- interpret scoring and verification output honestly instead of overstating confidence
 
-Assertion dimension (25%): toHaveValue/toBeChecked/toHaveTextContent/toBeVisible = full credit. toBeInTheDocument = 30% credit. No assertions = 0.
+## References
 
-Structure dimension (20%): Base 50. describe() block +20. Each extra it() block +15 (cap +30). render(<App />) −25. tayo-boundary-warning −20. Single test >2000 chars −20.
+Read only the references that are relevant to the current problem:
 
-Boundary dimension (25%): Start 100. leaf-render-boundary −35. inline-hook-mock −30. helper-embedded-assertion −20. positional-control-selection −15.
-</scoring>
+- `references/intent-model.md`
+- `references/assertion-markers.md`
+- `references/entry-path-fidelity.md`
+- `references/conventions-schema.md`
+- `references/mock-store.md`
+- `references/quality-scoring.md`
+- `references/verification-gate.md`
+- `references/auth.md`
+- `references/state-schema.md`
+- `references/test-index.md`
 
-<boundary-issues>
-tayo-boundary-warning comments mark one of four issues:
+## Discovery Policy
 
-leaf-render-boundary (−35): Test renders *Form, *Dialog, *Modal, or *Drawer directly while the flow involves container-level interaction. Fix: render the nearest page/module component that owns the trigger button and the dialog lifecycle.
+Keep repository exploration intentionally small.
 
-inline-hook-mock (−30): vi.mock/jest.mock defines use*Query or use*Mutation hooks inline. Fix: move hook mocks to a shared fixture or raise the render boundary.
+- Hard cap: inspect at most 5 repo files for discovery before generation.
+- `references/*` reads do not count toward the 5-file cap.
+- Prioritize: target source, nearest sibling test, shared mock setup, nearest fixture store, then config only if needed.
+- If uncertainty remains after 5 files, stop expanding scope and report the limitation explicitly.
 
-helper-embedded-assertion (−20): A helper function outside the test body contains expect(). Fix: assertions belong in the it() body; helpers handle setup and navigation only.
+Required run output when repo inspection happens:
+- `Surface scan: {N}/5 files`
+- `Selected files: [...]`
+- `Skipped expansions: [...]`
 
-positional-control-selection (−15): getAllByRole('button')[2] positional indexing. Fix: scope with within(container) or use a more specific accessible name.
-</boundary-issues>
+## Mock Boundary Policy
 
-<post-generation-checklist>
-1. Fix render(<App />) — find the narrowest component that owns the trigger and expected outcome.
-2. Resolve tayo-query-checkpoint comments — apply the query hierarchy: getByRole > getByLabelText > getByText > getByPlaceholderText > getByTestId.
-3. Upgrade toBeInTheDocument() — replace with toHaveTextContent(), toHaveValue(), or toBeVisible() when the expected value is known.
-4. Fix tayo-boundary-warning comments — apply the boundary fix from the boundary-issues section above.
-</post-generation-checklist>
+This policy is mandatory on every generation run.
 
-<response-contract>
-Report: the command run, the generated file path, the score and grade (e.g. 82/100 B — query: 90 assertions: 75 structure: 80 boundary: 85), whether manual review is required, the top blockers, and which post-generation steps apply with specific guidance for each.
-</response-contract>
+Forbidden:
+- reimplementing design-system or shared UI-library components in generated test mocks
+- replacing shared UI packages with fake components to force verification to pass
+
+Allowed:
+- data/query/mutation boundaries
+- auth/session boundaries
+- router/navigation boundaries
+- environment/browser gaps
+- explicit local child modules when isolation clearly requires them
+
+If the mock plan would violate this policy, stop and call out the violation instead of writing a misleading result.
+
+## Generation Workflow
+
+1. Accept only Testing Library Recorder `.js` exports.
+2. Confirm the recording path and stop if the input is missing or not `.js`.
+3. Tayo writes `{recording-name}.test.tsx` next to the recording and will not overwrite an existing sibling output.
+4. Recover semantic intent before discussing code changes.
+5. Resolve render boundary and mock plan with entry-path fidelity in mind.
+6. Run `tayo __generate <recording-file>`.
+7. Interpret score, blockers, marker coverage, and verification output before calling the result complete.
+
+## Quality and Verification
+
+Read:
+- `references/quality-scoring.md`
+- `references/verification-gate.md`
+
+Minimum report after generation:
+- command run
+- generated file path
+- score and grade
+- whether manual review is required
+- top blockers
+- whether marker coverage or boundary fidelity remains incomplete
+
+If Tayo reports draft-quality output, QUAL-02 failure, unresolved markers, or boundary warnings, state plainly that the result is not production-ready yet.
+
+## Response Contract
+
+Return:
+- the command you ran
+- the generated test path
+- the score and grade
+- whether manual review is required
+- the top blockers
+- the smallest concrete next fixes, ordered by impact
+
+When repo context was limited, say so explicitly instead of inventing certainty.

@@ -17,6 +17,14 @@ npx @tayo-dev/rtl@latest --all --global
 
 Check the installed package version with `tayo version` or `tayo --version`.
 
+For Claude Code local testing from this repo, run:
+
+```bash
+npm run build:claude
+```
+
+That command builds Taro, installs the Claude command surface into this repo's `./.claude/`, deletes the existing global Taro Claude command directory, and reinstalls the global Claude surface cleanly.
+
 ## Runtime Entrypoints
 
 - Claude Code: `/@tayo-dev/rtl:help`, `/@tayo-dev/rtl:generate`

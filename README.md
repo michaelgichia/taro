@@ -78,6 +78,9 @@ When you want to test the installer from a local checkout instead of the publish
 # Build the CLI
 npm run build
 
+# Build, install locally for this repo, then reinstall the global Claude surface cleanly
+npm run build:claude
+
 # Exercise the installer from the built package entrypoint
 node dist/index.js --all --local
 
@@ -87,6 +90,12 @@ npx /tmp/tayo-pack/tayo-dev-rtl-1.0.0.tgz --codex --local
 ```
 
 The tarball flow is the closest match to what end users get from npm.
+
+`npm run build:claude` performs three steps:
+
+1. builds the package
+2. installs Claude commands into this repo's `./.claude/`
+3. deletes the existing global Taro Claude command directory at `~/.claude/commands/@tayo-dev/rtl` and reinstalls it cleanly
 
 ## Generate RTL Tests
 
