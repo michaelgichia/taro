@@ -31,7 +31,7 @@ export interface MarkerCoverageTotals {
   unresolved: number
 }
 
-export type MarkerQualityGateStatus = 'not-applicable' | 'pass' | 'fail'
+export type MarkerQualityGateStatus = 'pass' | 'fail'
 
 export type MarkerQualityGateReason =
   | 'no-markers-detected'

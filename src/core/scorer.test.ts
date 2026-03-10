@@ -57,7 +57,7 @@ describe('sale flow', () => {
       unresolved: 0,
     })
     expect(score.markerQualityGate).toEqual({
-      status: 'not-applicable',
+      status: 'pass',
       reason: 'no-markers-detected',
       failing: false,
       message: 'No semantic markers were detected in this run.',
@@ -132,7 +132,7 @@ describe('sale flow', () => {
       unresolved: 0,
     })
     expect(score.markerQualityGate).toEqual({
-      status: 'not-applicable',
+      status: 'pass',
       reason: 'no-markers-detected',
       failing: false,
       message: 'No semantic markers were detected in this run.',
@@ -179,5 +179,17 @@ describe('sale flow', () => {
       failing: true,
       message: 'Semantic markers were detected, but no marker-derived assertions were emitted.',
     })
+    expect(zeroConversion.reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'marker-quality-gate-fail',
+          impact: 'negative',
+        }),
+      ])
+    )
+    expect(zeroConversion.blockers).toContain(
+      'QUAL-02 failed: Semantic markers were detected, but no marker-derived assertions were emitted.'
+    )
+    expect(zeroConversion.requiresReview).toBe(true)
   })
 })

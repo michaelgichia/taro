@@ -138,7 +138,8 @@ function compareReasons(left: ScoreReason, right: ScoreReason): number {
 function collectReasons(
   dimensions: ScoreDimensions,
   signals: ScoreSignals,
-  boundaryMessages: string[]
+  boundaryMessages: string[],
+  markerQualityGate: MarkerQualityGateState
 ): ScoreReason[] {
   const reasons: ScoreReason[] = []
 
@@ -264,6 +265,38 @@ function collectReasons(
     }
   }
 
+  if (markerQualityGate.failing) {
+    reasons.push(
+      createReason(
+        'marker-quality-gate-fail',
+        'assertionSpecificity',
+        'negative',
+        45,
+        `QUAL-02 failed: ${markerQualityGate.message}`
+      )
+    )
+  } else if (markerQualityGate.reason === 'markers-converted') {
+    reasons.push(
+      createReason(
+        'marker-quality-gate-pass',
+        'assertionSpecificity',
+        'positive',
+        8,
+        `QUAL-02 passed: ${markerQualityGate.message}`
+      )
+    )
+  } else {
+    reasons.push(
+      createReason(
+        'marker-quality-gate-pass-no-markers',
+        'assertionSpecificity',
+        'positive',
+        4,
+        `QUAL-02 passed: ${markerQualityGate.message}`
+      )
+    )
+  }
+
   return reasons.sort(compareReasons)
 }
 
@@ -324,7 +357,7 @@ function deriveMarkerQualityGate(
 ): MarkerQualityGateState {
   if (markerCoverage.detected === 0) {
     return {
-      status: 'not-applicable',
+      status: 'pass',
       reason: 'no-markers-detected',
       failing: false,
       message: 'No semantic markers were detected in this run.',
@@ -394,7 +427,8 @@ export function scoreGeneratedTest(
   const reasons = collectReasons(
     dimensions,
     signals,
-    boundaryIssues.map((issue) => issue.message)
+    boundaryIssues.map((issue) => issue.message),
+    markerQualityGate
   )
   const blockers = deriveBlockers(reasons)
   const aggregate = calculateAggregateScore(dimensions)
@@ -405,7 +439,7 @@ export function scoreGeneratedTest(
     signals,
     reasons,
     blockers,
-    requiresReview: aggregate.total < 80,
+    requiresReview: aggregate.total < 80 || markerQualityGate.failing,
     markerCoverage,
     markerQualityGate,
   }
