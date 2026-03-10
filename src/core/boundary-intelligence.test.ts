@@ -5,6 +5,7 @@ import {
   analyzeBoundaryIsolation,
   calculateBoundaryIsolationScore,
 } from './boundary-intelligence.js'
+import { generateTestFromGroups } from './generator.js'
 
 async function readSample(relativePath: string): Promise<string> {
   return readFile(resolve(process.cwd(), relativePath), 'utf-8')
@@ -30,5 +31,98 @@ describe('analyzeBoundaryIsolation', () => {
 
     expect(analyzeBoundaryIsolation(code)).toEqual([])
     expect(calculateBoundaryIsolationScore(code)).toBe(100)
+  })
+
+  it('treats repo-aware generated module output as boundary-safe', () => {
+    const generated = generateTestFromGroups(
+      'Add Sale Flow',
+      [
+        {
+          name: 'save sale',
+          steps: [
+            {
+              action: 'click',
+              target: 'Add Sale (Invoice)',
+              originalType: 'click',
+              source: 'js',
+            },
+            {
+              action: 'click',
+              target: 'Continue',
+              originalType: 'click',
+              source: 'js',
+            },
+            {
+              action: 'assert',
+              target: 'Review Sale (Invoice)',
+              originalType: 'getByText',
+              source: 'js',
+            },
+          ],
+        },
+      ],
+      {
+        helpers: [
+          {
+            name: 'planOpenSaleDialog',
+            sourceGroup: 'open sale dialog',
+            purpose: 'Navigate to the add sale dialog.',
+            assertionPolicy: 'sync-only',
+            steps: [
+              {
+                action: 'click',
+                target: 'Add Sale (Invoice)',
+                originalType: 'click',
+                source: 'js',
+              },
+              {
+                action: 'click',
+                target: 'Continue',
+                originalType: 'click',
+                source: 'js',
+              },
+            ],
+          },
+        ],
+        scenarios: [
+          {
+            name: 'save sale',
+            goal: 'flow',
+            steps: [
+              {
+                action: 'click',
+                target: 'Add Sale (Invoice)',
+                originalType: 'click',
+                source: 'js',
+              },
+              {
+                action: 'click',
+                target: 'Continue',
+                originalType: 'click',
+                source: 'js',
+              },
+              {
+                action: 'assert',
+                target: 'Review Sale (Invoice)',
+                originalType: 'getByText',
+                source: 'js',
+              },
+            ],
+            helperRefs: ['planOpenSaleDialog'],
+            requiresFreshRender: true,
+          },
+        ],
+        renderTarget: {
+          symbol: 'SalesModule',
+          importPath: './SalesModule',
+          sourceTestFile: 'sample/sample-add-sale-test.tsx',
+          helperNames: ['openAddSaleDialog'],
+          usesWithin: true,
+        },
+      }
+    )
+
+    expect(analyzeBoundaryIsolation(generated.code)).toEqual([])
+    expect(calculateBoundaryIsolationScore(generated.code)).toBe(100)
   })
 })

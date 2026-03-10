@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createGenerateCommand } from './generate.js'
+import { analyzeBoundaryIsolation } from '../../core/boundary-intelligence.js'
 import type {
   QueryDescriptor,
   SelectorDescriptor,
@@ -366,5 +367,49 @@ describe('createGenerateCommand', () => {
     expect(written).toContain(`// selector: ${inspectionFailureSelector}`)
     expect(written).not.toContain('screen.getByTestId(')
     expect(written).not.toContain('stale content')
+  })
+
+  it('treats repo-aware Add Sale output as boundary-safe when render target evidence exists', async () => {
+    const sandbox = await createSandbox('boundary-safe')
+    const outputPath = join(sandbox.outputDir, 'generated.test.tsx')
+
+    discoverRepoRenderTargetsMock.mockResolvedValue([
+      {
+        symbol: 'SalesModule',
+        importPath: './SalesModule',
+        sourceTestFile: 'sample/sample-add-sale-test.tsx',
+        helperNames: ['openAddSaleDialog', 'addItemToCart', 'fillOtherDetails'],
+        usesWithin: true,
+      },
+    ])
+
+    const result = await runGenerate(
+      [samplePath, '--dry-run', '--output', outputPath],
+      sandbox.outputDir
+    )
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.warnings).not.toContain('Taro could not resolve the exact render target')
+    expect(result.logs).not.toContain('// taro-boundary-warning: Prefer a repo-local module/container render boundary')
+    expect(analyzeBoundaryIsolation(result.logs)).toEqual([])
+  })
+
+  it('keeps explicit boundary-draft output when repo render target evidence is missing', async () => {
+    const sandbox = await createSandbox('boundary-draft')
+    const outputPath = join(sandbox.outputDir, 'generated.test.tsx')
+
+    discoverRepoRenderTargetsMock.mockResolvedValue([])
+
+    const result = await runGenerate(
+      [samplePath, '--dry-run', '--output', outputPath],
+      sandbox.outputDir
+    )
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.logs).toContain(
+      '// taro-boundary-warning: Taro could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.'
+    )
+    expect(result.logs).toContain('render(<App />)')
+    expect(result.logs).not.toContain("import SalesModule from './SalesModule'")
   })
 })
