@@ -299,10 +299,6 @@ function getScenarioHelperRefs(
     return scenario.helperRefs
   }
 
-  if (helpers.length <= 1) {
-    return []
-  }
-
   return helpers
     .filter((helper) => helper.steps.some((step) => scenario.steps.includes(step)))
     .map((helper) => helper.name)
