@@ -421,7 +421,8 @@ function applyRepoRenderTarget(
     },
     warnings: suitePlan.warnings.filter(
       (warning) =>
-        !warning.includes('Taro could not resolve the exact render target from repo context')
+        !warning.includes('Taro could not resolve the exact render target from repo context') &&
+        !warning.includes('Prefer a repo-local module/container render boundary')
     ),
   }
 }
