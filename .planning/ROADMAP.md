@@ -96,6 +96,6 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 13. JS Input Contract & AST Recovery | v1.3 | 4/4 | Complete | 2026-03-09 |
-| 14. Truthful Selector Recovery | v1.3 | 0/3 | Planned | - |
+| 14. Truthful Selector Recovery | v1.3 | 1/3 | In Progress | - |
 | 15. Structured Suite Planning & Repo-aware Generation | v1.3 | 0/TBD | Not started | - |
 | 16. Verification, JSON Parity & Product Surface | v1.3 | 0/TBD | Not started | - |

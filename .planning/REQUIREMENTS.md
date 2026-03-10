@@ -14,8 +14,8 @@
 ### Query & Assertion Recovery
 
 - [x] **QUERY-01**: User gets preserved accessible query intent from recorder JS, including role/name, text, placeholder, and assertion context when those semantics exist in the export.
-- [ ] **QUERY-02**: User gets truthful handling of `document.querySelector(...)` steps, with stronger queries recovered when supported and explicit warnings or checkpoints when not.
-- [ ] **QUERY-03**: User does not receive invented selector fallbacks such as fake `data-testid` queries when Taro cannot recover trustworthy evidence from the recorder or live DOM.
+- [x] **QUERY-02**: User gets truthful handling of `document.querySelector(...)` steps, with stronger queries recovered when supported and explicit warnings or checkpoints when not.
+- [x] **QUERY-03**: User does not receive invented selector fallbacks such as fake `data-testid` queries when Taro cannot recover trustworthy evidence from the recorder or live DOM.
 - [ ] **QUERY-04**: User can benefit from recorded URL or live DOM enrichment when available, without making a running browser session a hard requirement for baseline usefulness.
 
 ### Structured Suite Generation
@@ -62,8 +62,8 @@
 | INPUT-02 | Phase 13 | Verification pending |
 | INPUT-03 | Phase 13 | Verification pending |
 | QUERY-01 | Phase 13 | Verification pending |
-| QUERY-02 | Phase 14 | Pending |
-| QUERY-03 | Phase 14 | Pending |
+| QUERY-02 | Phase 14 | Complete |
+| QUERY-03 | Phase 14 | Complete |
 | QUERY-04 | Phase 14 | Pending |
 | SUITE-01 | Phase 15 | Pending |
 | SUITE-02 | Phase 15 | Pending |

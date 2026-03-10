@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: JS Baseline
-status: ready_to_execute
-stopped_at: phase 14 planned; execute 14 next
-last_updated: "2026-03-10T09:30:00Z"
-last_activity: 2026-03-10 — Phase 14 planned with three execution waves covering truthful resolution, generation checkpoints, and selector regression proof
+status: executing
+stopped_at: Completed 14-01-PLAN.md
+last_updated: "2026-03-10T04:30:25.125Z"
+last_activity: 2026-03-10 — Phase 14-01 completed; selector resolution now uses explicit resolved/unresolved outcomes with truthful resolver coverage
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 7
-  completed_plans: 4
+  completed_plans: 5
   percent: 25
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-09)
 
 **Core value:** Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, and Codex with near-zero setup friction
-**Current focus:** Phase 14 - Truthful Selector Recovery (execution next)
+**Current focus:** Phase 14 - Truthful Selector Recovery (wave 2 next)
 
 ## Current Position
 
-Phase: 13 of 16 complete (JS Input Contract & AST Recovery)
-Plan: 4 of 4 complete
-Status: Ready to execute
-Last activity: 2026-03-10 — Phase 14 planned with three execution waves covering truthful resolution, generation checkpoints, and selector regression proof
+Phase: 14 of 16 in progress (Truthful Selector Recovery)
+Plan: 1 of 3 complete
+Status: Executing
+Last activity: 2026-03-10 — Phase 14-01 completed; selector resolution now uses explicit resolved/unresolved outcomes with truthful resolver coverage
 
 Progress: [█████░░░░░░░░░░░░░░░] 25%
 
@@ -48,7 +48,7 @@ Progress: [█████░░░░░░░░░░░░░░░] 25%
 | 12. Verification, Updates & Release Docs | 3 | Mixed | Mixed |
 
 **Recent Trend:**
-- Last 5 plans: Phase 13 plans 01-04 and Phase 14 planning
+- Last 5 plans: Phase 13 plans 02-04, Phase 14 planning, and Phase 14-01 execution
 - Trend: Improving
 
 ## Accumulated Context
@@ -69,6 +69,8 @@ Recent decisions affecting current work:
 - [13-03] Normalize JS baseline evidence onto shared recording steps instead of creating a parallel analysis contract for the CLI.
 - [13-03] Treat environment URL/title expectations as sync assertions so they do not fragment intent grouping in the shared flow.
 - [13-04] Prove JSON parity explicitly during the JS milestone and keep selector strengthening out of scope until Phase 14.
+- [14-01] Model selector recovery as explicit resolved/unresolved outcomes instead of forcing CSS selectors into fabricated fallback queries.
+- [14-01] Preserve recorder-derived accessible query evidence before attempting live-DOM inspection so weaker selector evidence cannot overwrite stronger baseline truth.
 
 ### Pending Todos
 
@@ -82,6 +84,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-09T16:47:47Z
-Stopped at: phase 14 planned; next step is `/gsd:execute-phase 14`
-Resume file: .planning/ROADMAP.md
+Last session: 2026-03-10T04:30:25.119Z
+Stopped at: Completed 14-01-PLAN.md; next step is `/gsd:execute-phase 14`
+Resume file: .planning/phases/14-truthful-selector-recovery/14-02-PLAN.md
