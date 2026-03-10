@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: JS Baseline
-status: executing
-stopped_at: Completed 15-02-PLAN.md
-last_updated: "2026-03-10T05:58:00Z"
-last_activity: 2026-03-10 — Phase 15-02 completed; JS generation now resolves repo render targets and emits helper-oriented module output for supported flows
+status: ready-to-plan
+stopped_at: Verified Phase 15
+last_updated: "2026-03-10T05:40:23Z"
+last_activity: 2026-03-10 — Phase 15 verified; repo-aware Add Sale generation now resolves SalesModule, invokes inferred helpers, and keeps unsupported paths explicit drafts
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 10
-  completed_plans: 9
-  percent: 50
+  completed_plans: 10
+  percent: 75
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-09)
 
 **Core value:** Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, and Codex with near-zero setup friction
-**Current focus:** Phase 15 - Structured Suite Planning & Repo-aware Generation (executing 15-03 next)
+**Current focus:** Phase 16 - Verification, JSON Parity & Product Surface (ready to plan)
 
 ## Current Position
 
-Phase: 15 of 16 executing (Structured Suite Planning & Repo-aware Generation)
-Plan: 2 of 3 complete
-Status: Executing
-Last activity: 2026-03-10 — Phase 15-02 completed; JS generation now resolves repo render targets and emits helper-oriented module output for supported flows
+Phase: 16 of 16 ready to plan (Verification, JSON Parity & Product Surface)
+Plan: 0 of TBD complete
+Status: Ready to plan
+Last activity: 2026-03-10 — Phase 15 verified; repo-aware Add Sale generation now resolves SalesModule, invokes inferred helpers, and keeps unsupported paths explicit drafts
 
-Progress: [██████████░░░░░░░░░░] 50%
+Progress: [███████████████░░░░░] 75%
 
 ## Performance Metrics
 
@@ -48,11 +48,12 @@ Progress: [██████████░░░░░░░░░░] 50%
 | 12. Verification, Updates & Release Docs | 3 | Mixed | Mixed |
 
 **Recent Trend:**
-- Last 5 plans: Phase 14 execution plan 14-03, Phase 14 verification, Phase 15 planning, and Phase 15 execution plans 15-01 and 15-02
+- Last 5 plans: Phase 15 execution plans 15-01, 15-02, and 15-03, plus Phase 15 verification and readiness handoff to Phase 16
 - Trend: Improving
 
 **Recent Executions:**
-- Phase 15-02 | 18min | 2 tasks | 6 files
+- Phase 15-03 | 11min | 3 tasks | 4 files
+- Phase 15 verification | 3 commands | build + 4-file suite + Add Sale dry-run
 
 ## Accumulated Context
 
@@ -85,6 +86,8 @@ Recent decisions affecting current work:
 - [Phase 15-01] Mark helper plans as `sync-only` to keep load-bearing assertions in the scenario body.
 - [Phase 15-02] Resolve repo-aware render targets from existing rendered-component tests instead of guessing from boundary warnings alone.
 - [Phase 15-02] Rehydrate suite-plan helper/scenario steps after selector resolution so helper checkpoints preserve truthful Phase 14 reasons.
+- [Phase 15-03] Once a real render target is resolved, generated output should stop advertising itself as a boundary draft while unsupported paths remain explicit drafts.
+- [Phase 15 verification] Inferred repo-aware helpers must be invoked even when only one helper overlaps the scenario.
 
 ### Pending Todos
 
@@ -96,6 +99,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-10T05:58:00Z
-Stopped at: Completed 15-02-PLAN.md
+Last session: 2026-03-10T05:40:23Z
+Stopped at: Verified Phase 15
 Resume file: None

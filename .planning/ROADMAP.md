@@ -19,7 +19,7 @@ v1.3 focuses on turning Testing Library Recorder JS exports into a truthful base
 
 - [x] **Phase 13: JS Input Contract & AST Recovery** - JS recorder exports become first-class baseline inputs with stable semantic extraction
 - [x] **Phase 14: Truthful Selector Recovery** - weak selector evidence is upgraded when justified and called out when it is not (completed 2026-03-10)
-- [ ] **Phase 15: Structured Suite Planning & Repo-aware Generation** - generated output becomes scenario-based, helper-oriented, and grounded in repo context
+- [x] **Phase 15: Structured Suite Planning & Repo-aware Generation** - generated output becomes scenario-based, helper-oriented, and grounded in repo context (completed 2026-03-10)
 - [ ] **Phase 16: Verification, JSON Parity & Product Surface** - scoring, regression proof, and docs match the shipped JS baseline behavior
 
 ## Phase Details
@@ -79,9 +79,9 @@ Plans:
 
 Plans:
 
-- [ ] 15-01: Structured suite-plan contract and state-safe scenario modeling
-- [ ] 15-02: Repo-aware render target, helper, and import generation
-- [ ] 15-03: Gold-standard sample regression and explicit-draft fallback proof
+- [x] 15-01: Structured suite-plan contract and state-safe scenario modeling
+- [x] 15-02: Repo-aware render target, helper, and import generation
+- [x] 15-03: Gold-standard sample regression and explicit-draft fallback proof
 
 ### Phase 16: Verification, JSON Parity & Product Surface
 **Goal**: Users can trust the shipped JS baseline story because quality signals, regression proof, public guidance, and milestone verification evidence all match real behavior
@@ -103,5 +103,5 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 13. JS Input Contract & AST Recovery | v1.3 | 4/4 | Complete | 2026-03-09 |
 | 14. Truthful Selector Recovery | v1.3 | 3/3 | Complete | 2026-03-10 |
-| 15. Structured Suite Planning & Repo-aware Generation | v1.3 | 2/3 | In Progress | - |
+| 15. Structured Suite Planning & Repo-aware Generation | v1.3 | 3/3 | Complete | 2026-03-10 |
 | 16. Verification, JSON Parity & Product Surface | v1.3 | 0/TBD | Not started | - |

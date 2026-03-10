@@ -1,10 +1,11 @@
 ---
 phase: 15
 slug: structured-suite-planning-repo-aware-generation
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: approved
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-10
+updated: 2026-03-10T05:40:23Z
 ---
 
 # Phase 15 — Validation Strategy
@@ -38,13 +39,13 @@ created: 2026-03-10
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 15-01-01 | 01 | 1 | SUITE-01 | unit | `npm run build && npm run test:run -- src/core/suite-planner.test.ts` | ✅ | ⬜ pending |
-| 15-01-02 | 01 | 1 | SUITE-02 | unit | `npm run build && npm run test:run -- src/core/suite-planner.test.ts` | ✅ | ⬜ pending |
-| 15-02-01 | 02 | 2 | SUITE-03 | integration | `npm run build && npm run test:run -- src/core/generator.test.ts src/cli/commands/generate.test.ts` | ✅ | ⬜ pending |
-| 15-02-02 | 02 | 2 | SUITE-04 | integration | `npm run build && npm run test:run -- src/core/generator.test.ts src/cli/commands/generate.test.ts src/core/boundary-intelligence.test.ts` | ✅ | ⬜ pending |
-| 15-03-01 | 03 | 3 | SUITE-01 | regression | `npm run build && npm run test:run -- src/cli/commands/generate.test.ts src/core/boundary-intelligence.test.ts` | ✅ | ⬜ pending |
-| 15-03-02 | 03 | 3 | SUITE-03 | regression | `npm run build && npm run test:run -- src/cli/commands/generate.test.ts src/core/generator.test.ts` | ✅ | ⬜ pending |
-| 15-03-03 | 03 | 3 | SUITE-04 | regression | `npm run build && npm run test:run -- src/cli/commands/generate.test.ts src/core/boundary-intelligence.test.ts` | ✅ | ⬜ pending |
+| 15-01-01 | 01 | 1 | SUITE-01 | unit | `npm run build && npm run test:run -- src/core/suite-planner.test.ts` | ✅ | ✅ green |
+| 15-01-02 | 01 | 1 | SUITE-02 | unit | `npm run build && npm run test:run -- src/core/suite-planner.test.ts` | ✅ | ✅ green |
+| 15-02-01 | 02 | 2 | SUITE-03 | integration | `npm run build && npm run test:run -- src/core/generator.test.ts src/cli/commands/generate.test.ts` | ✅ | ✅ green |
+| 15-02-02 | 02 | 2 | SUITE-04 | integration | `npm run build && npm run test:run -- src/core/generator.test.ts src/cli/commands/generate.test.ts src/core/boundary-intelligence.test.ts` | ✅ | ✅ green |
+| 15-03-01 | 03 | 3 | SUITE-01 | regression | `npm run build && npm run test:run -- src/cli/commands/generate.test.ts src/core/boundary-intelligence.test.ts` | ✅ | ✅ green |
+| 15-03-02 | 03 | 3 | SUITE-03 | regression | `npm run build && npm run test:run -- src/cli/commands/generate.test.ts src/core/generator.test.ts` | ✅ | ✅ green |
+| 15-03-03 | 03 | 3 | SUITE-04 | regression | `npm run build && npm run test:run -- src/cli/commands/generate.test.ts src/core/boundary-intelligence.test.ts` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -52,7 +53,7 @@ created: 2026-03-10
 
 ## Wave 0 Requirements
 
-- [ ] Existing infrastructure covers all phase requirements.
+- [x] Existing infrastructure covers all phase requirements.
 
 ---
 
@@ -64,11 +65,11 @@ All phase behaviors should have automated verification through planner, generato
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 25s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 25s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-03-10

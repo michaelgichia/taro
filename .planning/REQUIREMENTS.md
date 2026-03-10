@@ -20,10 +20,10 @@
 
 ### Structured Suite Generation
 
-- [ ] **SUITE-01**: User receives generated tests organized around meaningful scenario boundaries and helpers instead of a flat recorder transcript.
-- [ ] **SUITE-02**: User receives generated multi-test suites only when required state can be recreated or shared safely across those tests.
-- [ ] **SUITE-03**: User receives repo-aware output that applies learned conventions for imports, `userEvent.setup()`, helper style, and query scoping where the codebase provides enough evidence.
-- [ ] **SUITE-04**: User receives generated suites that use project context and mock intelligence strongly enough to target a real module/test shape instead of placeholder `render(<App />)` output for supported flows.
+- [x] **SUITE-01**: User receives generated tests organized around meaningful scenario boundaries and helpers instead of a flat recorder transcript.
+- [x] **SUITE-02**: User receives generated multi-test suites only when required state can be recreated or shared safely across those tests.
+- [x] **SUITE-03**: User receives repo-aware output that applies learned conventions for imports, `userEvent.setup()`, helper style, and query scoping where the codebase provides enough evidence.
+- [x] **SUITE-04**: User receives generated suites that use project context and mock intelligence strongly enough to target a real module/test shape instead of placeholder `render(<App />)` output for supported flows.
 
 ### Verification, Parity & Product Surface
 
@@ -65,10 +65,10 @@
 | QUERY-02 | Phase 14 | Complete |
 | QUERY-03 | Phase 14 | Complete |
 | QUERY-04 | Phase 14 | Complete |
-| SUITE-01 | Phase 15 | Pending |
-| SUITE-02 | Phase 15 | Pending |
-| SUITE-03 | Phase 15 | Pending |
-| SUITE-04 | Phase 15 | Pending |
+| SUITE-01 | Phase 15 | Complete |
+| SUITE-02 | Phase 15 | Complete |
+| SUITE-03 | Phase 15 | Complete |
+| SUITE-04 | Phase 15 | Complete |
 | VERIFY-01 | Phase 16 | Pending |
 | VERIFY-02 | Phase 16 | Pending |
 | VERIFY-03 | Phase 16 | Pending |
@@ -80,4 +80,4 @@
 
 ---
 *Requirements defined: 2026-03-09*
-*Last updated: 2026-03-09 after milestone audit gap planning*
+*Last updated: 2026-03-10 after Phase 15 verification*
