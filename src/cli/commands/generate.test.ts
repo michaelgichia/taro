@@ -212,6 +212,7 @@ async function runGenerate(args: string[], cwdPath: string) {
       warnings: warnSpy.mock.calls.flat().join('\n'),
       errors: errorSpy.mock.calls.flat().join('\n'),
       thrown,
+      exitCode: process.exitCode,
     }
 
     process.chdir(originalCwd)
@@ -388,6 +389,11 @@ test('Semantic marker flow', async () => {
     expect(result.errors).toBe('')
     expect(result.logs).toContain('Recording cleanup: 1 redundant click(s), 1 preserved semantic marker(s), 1 unresolved semantic marker(s)')
     expect(result.logs).toContain('markers: detected=2, emitted=1, unresolved=1')
+    expect(result.logs).toContain('[tayo] Marker coverage:')
+    expect(result.logs).toContain('detected: 2')
+    expect(result.logs).toContain('emitted: 1')
+    expect(result.logs).toContain('unresolved: 1')
+    expect(result.logs).toContain('QUAL-02 gate: PASS (markers-converted)')
     expect(result.logs).not.toContain('dblClick noise event(s)')
     expect(result.logs).toContain(`Would write to: ${outputPath}`)
     expect(result.logs).toContain("await user.click(screen.getByRole('button', { name: 'Save' }))")
@@ -563,6 +569,7 @@ test('Semantic marker flow', async () => {
     )
     expect(result.logs).toContain('[tayo] Score:')
     expect(result.logs).toContain('markers: detected=0, emitted=0, unresolved=0')
+    expect(result.logs).toContain('QUAL-02 gate: PASS (no-markers-detected)')
     expect(result.logs).not.toContain('tayo-query-checkpoint')
     expect(result.logs).not.toContain('tayo-boundary-warning:')
     expect(result.warnings).toContain('Manual review required')
@@ -593,5 +600,69 @@ test('Semantic marker flow', async () => {
     expect(written).not.toContain('tayo-query-checkpoint')
     expect(written).not.toContain('tayo-boundary-warning:')
     expect(result.warnings).toContain('Manual review required')
+  })
+
+  it('fails dry-run with exit code 1 when semantic markers are detected but none are emitted', async () => {
+    const fixture = await createInlineJsFixture(
+      'qual-gate-dry-run-fail',
+      `/**
+ * ${environmentUrlMarker}
+ * ${environmentOptionsMarker} { "url": "http://localhost:3001/sales" }
+ */
+const {screen} = require('@testing-library/dom')
+const {default: userEvent} = require('@testing-library/user-event')
+require('@testing-library/jest-dom')
+
+test('Marker gate fail in dry-run', async () => {
+  expect(location.href).toBe('http://localhost:3001/sales')
+  await userEvent.dblClick(screen.getByRole('heading', { name: 'Starting state' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+})`
+    )
+    const outputPath = join(fixture.outputDir, 'qual-gate-dry-run-fail.test.tsx')
+
+    const result = await runGenerate(
+      [fixture.recordingPath, '--dry-run', '--output', outputPath],
+      fixture.outputDir
+    )
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.logs).toContain('QUAL-02 gate: FAIL (zero-marker-conversion)')
+    expect(result.logs).toContain(`Would write to: ${outputPath}`)
+    expect(result.errors).toContain('QUAL-02 FAIL:')
+    expect(result.errors).toContain('Exiting with code 1: QUAL-02 gate failed after --dry-run preview.')
+    expect(result.exitCode).toBe(1)
+  })
+
+  it('writes output then fails with exit code 1 when QUAL-02 gate fails in write mode', async () => {
+    const fixture = await createInlineJsFixture(
+      'qual-gate-write-fail',
+      `/**
+ * ${environmentUrlMarker}
+ * ${environmentOptionsMarker} { "url": "http://localhost:3001/sales" }
+ */
+const {screen} = require('@testing-library/dom')
+const {default: userEvent} = require('@testing-library/user-event')
+require('@testing-library/jest-dom')
+
+test('Marker gate fail in write mode', async () => {
+  expect(location.href).toBe('http://localhost:3001/sales')
+  await userEvent.dblClick(screen.getByRole('heading', { name: 'Starting state' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+})`
+    )
+    const outputPath = join(fixture.outputDir, 'qual-gate-write-fail.test.tsx')
+
+    const result = await runGenerate([fixture.recordingPath, '--output', outputPath], fixture.outputDir)
+    const written = await readFile(outputPath, 'utf-8')
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.logs).toContain('[tayo] ✓ post-write verified')
+    expect(result.logs).toContain(`Created: ${outputPath}`)
+    expect(result.logs).toContain('QUAL-02 gate: FAIL (zero-marker-conversion)')
+    expect(result.errors).toContain('QUAL-02 FAIL:')
+    expect(result.errors).toContain('Exiting with code 1: QUAL-02 gate failed after write mode output.')
+    expect(result.exitCode).toBe(1)
+    expect(written).toContain('it(')
   })
 })

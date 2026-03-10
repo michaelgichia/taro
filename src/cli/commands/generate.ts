@@ -85,6 +85,32 @@ function logScore(scoreResult: ScoreResult): void {
   )
 }
 
+function emitMarkerCoverageSection(scoreResult: ScoreResult): void {
+  const gateStatus = scoreResult.markerQualityGate.failing ? pc.red('FAIL') : pc.green('PASS')
+  console.log(pc.dim('[tayo]') + ' Marker coverage:')
+  console.log(pc.dim('[tayo]') + `   detected: ${scoreResult.markerCoverage.detected}`)
+  console.log(pc.dim('[tayo]') + `   emitted: ${scoreResult.markerCoverage.emitted}`)
+  console.log(pc.dim('[tayo]') + `   unresolved: ${scoreResult.markerCoverage.unresolved}`)
+  console.log(
+    pc.dim('[tayo]') +
+      `   QUAL-02 gate: ${gateStatus} (${scoreResult.markerQualityGate.reason})`
+  )
+
+  if (scoreResult.markerQualityGate.failing) {
+    console.error(pc.red(`[tayo] QUAL-02 FAIL: ${scoreResult.markerQualityGate.message}`))
+  }
+}
+
+function enforceMarkerGateExit(scoreResult: ScoreResult, mode: 'dry-run' | 'write'): void {
+  if (!scoreResult.markerQualityGate.failing) {
+    return
+  }
+
+  process.exitCode = 1
+  const modeLabel = mode === 'dry-run' ? '--dry-run preview' : 'write mode output'
+  console.error(pc.red(`[tayo] Exiting with code 1: QUAL-02 gate failed after ${modeLabel}.`))
+}
+
 function emitLowConfidenceBanner(scoreResult: ScoreResult): void {
   if (!scoreResult.requiresReview) {
     return
@@ -985,6 +1011,7 @@ export function createGenerateCommand(): Command {
       const boundaryIssues = analyzeBoundaryIsolation(generated.code)
 
       logScore(scoreResult)
+      emitMarkerCoverageSection(scoreResult)
       emitLowConfidenceBanner(scoreResult)
       emitScoreHints(scoreResult, resolvedJsGeneration?.queryResults ?? [], boundaryIssues)
 
@@ -995,6 +1022,7 @@ export function createGenerateCommand(): Command {
         console.log(pc.dim('─'.repeat(60)))
         console.log(pc.dim(`\n[tayo] Score: ${scoreResult.total}/100 (${scoreResult.grade})`))
         console.log(pc.yellow(`\nWould write to: ${pc.bold(outputPath)}`))
+        enforceMarkerGateExit(scoreResult, 'dry-run')
         return
       }
 
@@ -1012,6 +1040,7 @@ export function createGenerateCommand(): Command {
         })
         const action = result.overwritten ? pc.yellow('Updated') : pc.green('Created')
         console.log(`${action}: ${pc.bold(result.filePath)}`)
+        enforceMarkerGateExit(scoreResult, 'write')
       } catch (err) {
         console.error(pc.red('Error:') + ` ${String(err)}`)
         process.exit(1)
