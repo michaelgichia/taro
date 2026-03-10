@@ -17,6 +17,18 @@ const EXPECTED_SKILLS = [
   '@tayo-dev/rtl-help',
   '@tayo-dev/rtl-mocks',
 ] as const
+const EXPECTED_GENERATE_REFERENCES = [
+  'assertion-markers.md',
+  'auth.md',
+  'conventions-schema.md',
+  'entry-path-fidelity.md',
+  'intent-model.md',
+  'mock-store.md',
+  'quality-scoring.md',
+  'state-schema.md',
+  'test-index.md',
+  'verification-gate.md',
+] as const
 const EXPECTED_SKILL_DIRECTORIES = EXPECTED_SKILLS.map((skillName) => skillName.split('/')[1]!)
 const sandboxRoots: string[] = []
 
@@ -110,9 +122,13 @@ describe('buildCodexOperations', () => {
       join(target.destinationDirectory, 'skills', '@tayo-dev', 'rtl-generate', 'SKILL.md'),
       'utf8'
     )
+    expect(generateSkill).toContain('## Reference Map')
     expect(generateSkill).toContain('Run `tayo __generate <recording-file>`')
-    expect(generateSkill).toContain('## Post-run Review')
-    expect(generateSkill).not.toContain('--dry-run')
+
+    const installedGenerateReferences = (
+      await readdir(join(target.destinationDirectory, 'skills', '@tayo-dev', 'rtl-generate', 'references'))
+    ).sort()
+    expect(installedGenerateReferences).toEqual([...EXPECTED_GENERATE_REFERENCES])
 
     const conventionsSkill = await readFile(
       join(target.destinationDirectory, 'skills', '@tayo-dev', 'rtl-conventions', 'SKILL.md'),

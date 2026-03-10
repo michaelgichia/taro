@@ -27,7 +27,7 @@ if (process.argv[2] === '__generate') {
     .description(
       `${pc.bold('@tayo-dev/rtl')} — Install Tayo into Claude Code, OpenCode, Gemini CLI, or Codex`
     )
-    .version('1.3.0-alpha.0', '-v, --version', 'Output the current version')
+    .version('1.3.2', '-v, --version', 'Output the current version')
     .helpOption('-h, --help', 'Display help for command')
     .addHelpText('after', '\nAfter install, use the runtime-native Tayo help/generate entrypoints.')
     .action(async () => {
