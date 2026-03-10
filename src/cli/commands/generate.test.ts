@@ -15,10 +15,15 @@ const { captureVisualStateMock, resolveSelectorMock } = vi.hoisted(() => ({
   resolveSelectorMock: vi.fn(),
 }))
 
-vi.mock('../../core/resolver.js', () => ({
-  captureVisualState: captureVisualStateMock,
-  resolveSelector: resolveSelectorMock,
-}))
+vi.mock('../../core/resolver.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../core/resolver.js')>()
+
+  return {
+    ...actual,
+    captureVisualState: captureVisualStateMock,
+    resolveSelector: resolveSelectorMock,
+  }
+})
 
 vi.mock('../../core/mock-intelligence.js', () => ({
   analyzeMocks: vi.fn(async () => null),
@@ -55,6 +60,10 @@ const inaccessibleSelector =
   '#radix-_r_8s_-content-otherDetails > div:nth-of-type(1) > div:nth-of-type(1) div.css-19bb58m'
 const environmentUrlMarker = '@jest-environment' + ' url'
 const environmentOptionsMarker = '@jest-environment' + '-options'
+
+function countOccurrences(haystack: string, needle: string): number {
+  return haystack.split(needle).length - 1
+}
 
 function resolvedSelector(
   selector: SelectorDescriptor,
@@ -381,9 +390,70 @@ test('Semantic marker flow', async () => {
     expect(result.logs).not.toContain('dblClick noise event(s)')
     expect(result.logs).toContain(`Would write to: ${outputPath}`)
     expect(result.logs).toContain("await user.click(screen.getByRole('button', { name: 'Save' }))")
+    expect(result.logs).toContain(
+      "expect(await screen.findByRole('heading', { name: 'Review Sale' })).toBeVisible()"
+    )
     expect(result.logs).not.toContain("await user.click(screen.getByRole('heading', { name: 'Review Sale' }))")
     expect(result.logs).not.toContain("await user.click(screen.getByRole('heading', { name: 'Starting state' }))")
     expect(result.logs).not.toContain('dblClick')
+    expect(
+      countOccurrences(
+        result.logs,
+        "expect(await screen.findByRole('heading', { name: 'Review Sale' })).toBeVisible()"
+      )
+    ).toBe(1)
+  })
+
+  it('emits sample-backed marker assertions after helper calls without replaying marker gestures', async () => {
+    const sandbox = await createSandbox('sample-marker-proof')
+    const outputPath = join(sandbox.outputDir, 'generated.test.tsx')
+
+    discoverRepoRenderTargetsMock.mockResolvedValue([
+      {
+        symbol: 'SalesModule',
+        importPath: './SalesModule',
+        sourceTestFile: 'sample/sample-add-sale-test.tsx',
+        helperNames: ['openAddSaleDialog', 'addItemToCart', 'fillOtherDetails'],
+        usesWithin: true,
+      },
+    ])
+
+    const result = await runGenerate(
+      [samplePath, '--dry-run', '--output', outputPath],
+      sandbox.outputDir
+    )
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.errors).toBe('')
+    expect(result.logs).toContain('await planSubmitContinue(user)')
+    expect(result.logs).toContain("expect(await screen.findByText('Please enter or')).toBeVisible()")
+    expect(result.logs).toContain(
+      "expect(await screen.findByLabelText('Customer PIN')).toBeVisible()"
+    )
+    expect(result.logs).toContain(
+      "expect(await screen.findByRole('heading', { name: 'Review Sale (Invoice)' })).toBeVisible()"
+    )
+    expect(result.logs).toContain(
+      "expect(await screen.findByText('KES 4,800.00')).toBeVisible()"
+    )
+    expect(result.logs).not.toContain("await user.click(screen.getByText('Customer PIN'))")
+    expect(result.logs).not.toContain('dblClick')
+    expect(result.logs.indexOf('await planSubmitContinue(user)')).toBeLessThan(
+      result.logs.indexOf("expect(await screen.findByLabelText('Customer PIN')).toBeVisible()")
+    )
+    expect(
+      countOccurrences(
+        result.logs,
+        "expect(await screen.findByLabelText('Customer PIN')).toBeVisible()"
+      )
+    ).toBe(1)
+    expect(
+      countOccurrences(
+        result.logs,
+        "expect(await screen.findByText('KES 4,800.00')).toBeVisible()"
+      )
+    ).toBe(1)
+    expect(result.logs).not.toContain('toHaveValue(')
   })
 
   it('overwrites an existing JS output file when --force is provided', async () => {

@@ -470,16 +470,28 @@ export function generateTestFromGroups(
     const helperRefs = getScenarioHelperRefs(scenario, helpers)
     const helperSteps = helperRefs.flatMap((helperName) => helperByName.get(helperName)?.steps ?? [])
     const helperStepSet = new Set(helperSteps)
+    const helperNameByStepId = new Map(
+      helperRefs.flatMap((helperName) =>
+        (helperByName.get(helperName)?.steps ?? [])
+          .filter((step): step is NormalizedStep & { id: string } => Boolean(step.id))
+          .map((step) => [step.id, helperName] as const)
+      )
+    )
     const markerAssertions = selectStrongestMarkerAssertions(scenario.markerAssertions ?? [])
     const markerAssertionsAfterStep = new Map<string, string[]>()
     const markerAssertionsAfterHelper = new Map<string, string[]>()
 
     for (const markerAssertion of markerAssertions) {
       const renderedAssertion = renderMarkerAssertion(markerAssertion)
-      if (markerAssertion.placement.kind === 'after-helper') {
-        const existing = markerAssertionsAfterHelper.get(markerAssertion.placement.helperName) ?? []
+      const helperPlacementName =
+        markerAssertion.placement.kind === 'after-helper'
+          ? markerAssertion.placement.helperName
+          : helperNameByStepId.get(markerAssertion.placement.stepId)
+
+      if (helperPlacementName) {
+        const existing = markerAssertionsAfterHelper.get(helperPlacementName) ?? []
         existing.push(renderedAssertion)
-        markerAssertionsAfterHelper.set(markerAssertion.placement.helperName, existing)
+        markerAssertionsAfterHelper.set(helperPlacementName, existing)
         continue
       }
 
