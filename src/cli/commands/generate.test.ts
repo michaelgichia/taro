@@ -387,6 +387,7 @@ test('Semantic marker flow', async () => {
     expect(result.thrown).toBeUndefined()
     expect(result.errors).toBe('')
     expect(result.logs).toContain('Recording cleanup: 1 redundant click(s), 1 preserved semantic marker(s), 1 unresolved semantic marker(s)')
+    expect(result.logs).toContain('markers: detected=2, emitted=1, unresolved=1')
     expect(result.logs).not.toContain('dblClick noise event(s)')
     expect(result.logs).toContain(`Would write to: ${outputPath}`)
     expect(result.logs).toContain("await user.click(screen.getByRole('button', { name: 'Save' }))")
@@ -561,6 +562,7 @@ test('Semantic marker flow', async () => {
       "screen.getByTestId(/* TODO: replace with RTL query — CSS: 'Sale created' */ '')"
     )
     expect(result.logs).toContain('[tayo] Score:')
+    expect(result.logs).toContain('markers: detected=0, emitted=0, unresolved=0')
     expect(result.logs).not.toContain('tayo-query-checkpoint')
     expect(result.logs).not.toContain('tayo-boundary-warning:')
     expect(result.warnings).toContain('Manual review required')

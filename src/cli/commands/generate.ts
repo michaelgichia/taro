@@ -46,7 +46,7 @@ import type {
   StepId,
   VisualState,
 } from '../../types/recording.js'
-import type { HistoryEntry, ScoreResult } from '../../types/score.js'
+import type { HistoryEntry, MarkerCoverageTotals, ScoreResult } from '../../types/score.js'
 import type { MockAnalysis } from '../../core/mock-intelligence.js'
 import type { RepoRenderTargetCandidate } from '../../core/scanner.js'
 import type { JsSuitePlan } from '../../core/suite-planner.js'
@@ -57,6 +57,12 @@ export interface GenerateOptions {
   force?: boolean
 }
 
+const EMPTY_MARKER_COVERAGE: MarkerCoverageTotals = {
+  detected: 0,
+  emitted: 0,
+  unresolved: 0,
+}
+
 function deriveOutputPath(inputPath: string): string {
   const dir = dirname(inputPath)
   const name = basename(inputPath).replace(/\.(json|[cm]?[jt]sx?)$/, '')
@@ -64,13 +70,18 @@ function deriveOutputPath(inputPath: string): string {
 }
 
 function logScore(scoreResult: ScoreResult): void {
+  const markerCoverageSummary =
+    `markers: detected=${scoreResult.markerCoverage.detected}, ` +
+    `emitted=${scoreResult.markerCoverage.emitted}, ` +
+    `unresolved=${scoreResult.markerCoverage.unresolved}`
   console.log(
     pc.dim('[tayo]') +
       ` Score: ${scoreResult.total}/100 (${scoreResult.grade}) — ` +
       `query: ${scoreResult.dimensions.queryQuality}, ` +
       `assertions: ${scoreResult.dimensions.assertionSpecificity}, ` +
       `structure: ${scoreResult.dimensions.testStructure}, ` +
-      `boundary: ${scoreResult.dimensions.boundaryIsolation}`
+      `boundary: ${scoreResult.dimensions.boundaryIsolation}, ` +
+      markerCoverageSummary
   )
 }
 
@@ -163,6 +174,56 @@ function summarizeCleanup(analyzedRecording: AnalyzedRecording): void {
   }
 
   console.log(pc.dim('[tayo]') + ` Recording cleanup: ${parts.join(', ')}`)
+}
+
+function countPlannedScenarioMarkers(
+  scenarios: JsSuitePlan['scenarios']
+): Pick<MarkerCoverageTotals, 'emitted' | 'unresolved'> {
+  return scenarios.reduce(
+    (totals, scenario) => ({
+      emitted: totals.emitted + (scenario.markerAssertions?.length ?? 0),
+      unresolved: totals.unresolved + (scenario.unresolvedMarkerAssertions?.length ?? 0),
+    }),
+    {
+      emitted: 0,
+      unresolved: 0,
+    }
+  )
+}
+
+function buildMarkerCoverageSummary(params: {
+  source: 'js' | 'json'
+  analyzedRecording: AnalyzedRecording
+  suitePlan: JsSuitePlan | null
+}): MarkerCoverageTotals {
+  const { source, analyzedRecording, suitePlan } = params
+  if (source !== 'js') {
+    return EMPTY_MARKER_COVERAGE
+  }
+
+  const preservedMarkers = analyzedRecording.diagnostics.preservedSemanticMarkers ?? 0
+  const diagnosticUnresolvedMarkers = analyzedRecording.diagnostics.unresolvedSemanticMarkers ?? 0
+
+  if (!suitePlan) {
+    return {
+      detected: preservedMarkers + diagnosticUnresolvedMarkers,
+      emitted: 0,
+      unresolved: diagnosticUnresolvedMarkers,
+    }
+  }
+
+  const plannedMarkerTotals = countPlannedScenarioMarkers(suitePlan.scenarios)
+  const unresolved = plannedMarkerTotals.unresolved
+  const detected = Math.max(
+    preservedMarkers + unresolved,
+    plannedMarkerTotals.emitted + unresolved
+  )
+
+  return {
+    detected,
+    emitted: plannedMarkerTotals.emitted,
+    unresolved,
+  }
 }
 
 function mergeAnalyzedStepState(
@@ -897,6 +958,11 @@ export function createGenerateCommand(): Command {
               renderTarget: repoRenderTarget,
             })
           : generateTest(analyzedRecording, { outputPath, dryRun: options.dryRun })
+      const markerCoverage = buildMarkerCoverageSummary({
+        source: parsedInput.source,
+        analyzedRecording,
+        suitePlan: hydratedSuitePlan,
+      })
 
       if (hydratedSuitePlan?.warnings.length) {
         generated.code = [
@@ -911,8 +977,11 @@ export function createGenerateCommand(): Command {
 
       const scoreResult =
         parsedInput.source === 'js'
-          ? scoreGeneratedTest(generated.code, resolvedJsGeneration?.queryResults ?? [])
-          : scoreGeneratedTest(generated.code)
+          ? scoreGeneratedTest(generated.code, {
+              queryResults: resolvedJsGeneration?.queryResults ?? [],
+              markerCoverage,
+            })
+          : scoreGeneratedTest(generated.code, { markerCoverage })
       const boundaryIssues = analyzeBoundaryIsolation(generated.code)
 
       logScore(scoreResult)
