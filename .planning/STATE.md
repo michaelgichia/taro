@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: JS Baseline
-status: verified
-stopped_at: Verified Phase 16
-last_updated: "2026-03-10T06:24:00Z"
-last_activity: 2026-03-10 — Phase 16 verified; scoring trust contract, JSON parity proof, product-surface alignment, and the Phase 13 verification backfill are complete
+status: milestone-complete
+stopped_at: Archived milestone v1.3
+last_updated: "2026-03-10T06:45:00Z"
+last_activity: 2026-03-10 — Archived milestone v1.3 and prepared the planning surface for a fresh milestone definition
 progress:
   total_phases: 4
   completed_phases: 4
@@ -18,17 +18,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-09)
+See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, and Codex with near-zero setup friction
-**Current focus:** Milestone re-audit and closeout after Phase 16 verification
+**Current focus:** Start the next milestone with `$gsd-new-milestone`
 
 ## Current Position
 
-Phase: 16 of 16 verified (Verification, JSON Parity & Product Surface)
-Plan: 3 of 3 complete
-Status: Verified
-Last activity: 2026-03-10 — Phase 16 verified; scoring trust contract, JSON parity proof, product-surface alignment, and the Phase 13 verification backfill are complete
+Phase: none active
+Plan: milestone archived
+Status: Milestone complete
+Last activity: 2026-03-10 — Archived v1.3 and cleared the root planning surface for the next milestone
 
 Progress: [████████████████████] 100%
 
@@ -48,12 +48,12 @@ Progress: [████████████████████] 100%
 | 12. Verification, Updates & Release Docs | 3 | Mixed | Mixed |
 
 **Recent Trend:**
-- Last 5 plans: Phase 16 execution plans 16-01, 16-02, and 16-03, Phase 13 verification backfill, and Phase 16 verification
+- Last 5 plans: Phase 16 execution plans 16-02 and 16-03, Phase 13 verification backfill, Phase 16 verification, and milestone archival
 - Trend: Improving
 
 **Recent Executions:**
-- Phase 16-03 | 20min | 2 tasks | 4 files
 - Phase 16 verification | 4 commands | build + 6-file suite + JS/JSON dry-runs
+- Milestone completion | archive + project evolution + tag prep
 
 ## Accumulated Context
 
@@ -95,10 +95,10 @@ None.
 
 ### Blockers/Concerns
 
-- Milestone v1.3 should be re-audited now that Phase 16 and the Phase 13 verification backfill are complete.
+- None.
 
 ## Session Continuity
 
 Last session: 2026-03-10T06:03:30Z
-Stopped at: Verified Phase 16
-Resume file: .planning/phases/16-verification-json-parity-product-surface/16-VERIFICATION.md
+Stopped at: Archived milestone v1.3
+Resume file: .planning/PROJECT.md
