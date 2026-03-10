@@ -72,7 +72,7 @@ function createMockAnalysis(): MockAnalysis {
 }
 
 describe('planJsSuite', () => {
-  it('rehydrates semantic marker state from baseline evidence and keeps anchor linkage in planned groups', () => {
+  it('reifies marker steps into scenario metadata and keeps helpers sync-only', () => {
     const semanticMarkerCandidate: SemanticMarkerCandidate = {
       stepId: 'js-step-2',
       status: 'qualified',
@@ -109,13 +109,17 @@ describe('planJsSuite', () => {
       query: semanticMarkerCandidate.query,
     }
     const unresolvedSemanticMarker: UnresolvedSemanticMarker = {
-      stepId: 'js-step-3',
-      reason: 'unsupported-proof-subject',
+      stepId: 'js-step-4',
+      reason: 'ambiguous-field-context',
       proofSubject: 'field-label',
       proofText: 'Customer PIN',
       target: 'Customer PIN',
       sourceContext: {
         originalType: 'dblClick',
+      },
+      anchor: {
+        anchorStepId: 'js-step-1',
+        relation: 'precedes',
       },
       query: {
         stepId: 'js-step-3',
@@ -132,7 +136,7 @@ describe('planJsSuite', () => {
         {
           id: 'js-step-1',
           action: 'click',
-          target: 'Save',
+          target: 'Open Sale Dialog',
           originalType: 'click',
           source: 'js',
         },
@@ -149,6 +153,13 @@ describe('planJsSuite', () => {
         },
         {
           id: 'js-step-3',
+          action: 'assert',
+          target: 'Sale dialog',
+          originalType: 'assert',
+          source: 'js',
+        },
+        {
+          id: 'js-step-4',
           action: 'click',
           target: 'Customer PIN',
           originalType: 'dblClick',
@@ -156,6 +167,7 @@ describe('planJsSuite', () => {
           metadata: {
             semanticMarkerCandidate: {
               ...unresolvedSemanticMarker,
+              stepId: 'js-step-4',
               status: 'unresolved',
               originalGesture: 'dblClick',
             },
@@ -178,7 +190,7 @@ describe('planJsSuite', () => {
         ],
         itGroups: [
           {
-            name: 'review sale',
+            name: 'open sale dialog',
             steps: [],
           },
         ],
@@ -191,7 +203,7 @@ describe('planJsSuite', () => {
         ...parsedInput.baseline,
         itGroups: [
           {
-            name: 'review sale',
+            name: 'open sale dialog',
             steps: parsedInput.recording.steps.map((step) => ({
               ...step,
               semanticMarkerCandidate: undefined,
@@ -203,8 +215,7 @@ describe('planJsSuite', () => {
       },
     })
     const intentGroups: ItGroup[] = [
-      { name: 'submit sale', steps: [normalized.steps[0]!] },
-      { name: 'review confirmation', steps: normalized.steps.slice(1) },
+      { name: 'open sale dialog', steps: normalized.steps },
     ]
 
     const plan = planJsSuite({
@@ -215,33 +226,48 @@ describe('planJsSuite', () => {
     })
 
     expect(normalized.steps[1]?.semanticMarkerLink).toEqual(semanticMarkerLink)
-    expect(normalized.steps[2]?.unresolvedSemanticMarker).toEqual(unresolvedSemanticMarker)
+    expect(normalized.steps[3]?.unresolvedSemanticMarker).toEqual(unresolvedSemanticMarker)
     expect(normalized.baseline?.itGroups[0]?.steps[1]).toMatchObject({
       semanticMarkerLink,
     })
-    expect(normalized.baseline?.itGroups[0]?.steps[2]).toMatchObject({
+    expect(normalized.baseline?.itGroups[0]?.steps[3]).toMatchObject({
       unresolvedSemanticMarker,
     })
-    expect(plan.helpers[1]).toMatchObject({
-      name: 'planReviewConfirmation',
+    expect(plan.helpers[0]).toMatchObject({
+      name: 'planOpenSaleDialog',
+      assertionPolicy: 'sync-only',
     })
-    expect(plan.helpers[1]?.steps[0]).toMatchObject({
-      semanticMarkerLink,
-      metadata: {
-        semanticMarkerAnchorStep: expect.objectContaining({
-          id: 'js-step-1',
-          action: 'click',
-          target: 'Save',
+    expect(plan.helpers[0]?.steps.map((step) => step.id)).toEqual([
+      'js-step-1',
+      'js-step-3',
+    ])
+    expect(plan.scenarios[0]?.steps.map((step) => step.id)).toEqual([
+      'js-step-1',
+      'js-step-3',
+    ])
+    expect(plan.scenarios[0]?.helperRefs).toEqual(['planOpenSaleDialog'])
+    expect(plan.scenarios[0]?.markerAssertions).toHaveLength(1)
+    expect(plan.scenarios[0]?.markerAssertions?.[0]).toMatchObject({
+      markerStepId: 'js-step-2',
+      anchorStepId: 'js-step-1',
+      placement: {
+        kind: 'after-helper',
+        helperName: 'planOpenSaleDialog',
+        stepId: 'js-step-1',
+      },
+      assertion: {
+        proofKind: 'role-name',
+        query: expect.objectContaining({
+          method: 'findByRole',
         }),
       },
     })
-    expect(plan.scenarios[1]?.steps[0]).toMatchObject({
-      semanticMarkerLink,
+    expect(plan.scenarios[0]?.unresolvedMarkerAssertions).toHaveLength(1)
+    expect(plan.scenarios[0]?.unresolvedMarkerAssertions?.[0]).toMatchObject({
+      markerStepId: 'js-step-4',
+      anchorStepId: 'js-step-1',
+      reason: 'ambiguous-field-context',
     })
-    expect(plan.scenarios[1]?.steps[1]).toMatchObject({
-      unresolvedSemanticMarker,
-    })
-    expect(plan.scenarios[1]?.helperRefs).toEqual(['planReviewConfirmation'])
   })
 
   it('marks multi-step mutation-heavy flows as module-boundary drafts', () => {

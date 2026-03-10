@@ -281,6 +281,24 @@ export interface SemanticMarkerAssertion {
   sourceContext: SemanticMarkerSourceContext
 }
 
+export type PlannedMarkerAssertionPlacement =
+  | {
+      kind: 'after-step'
+      stepId: StepId
+    }
+  | {
+      kind: 'after-helper'
+      helperName: string
+      stepId: StepId
+    }
+
+export interface PlannedMarkerAssertion {
+  markerStepId: StepId
+  anchorStepId: StepId
+  placement: PlannedMarkerAssertionPlacement
+  assertion: SemanticMarkerAssertion
+}
+
 export type SemanticMarkerAssertionUnresolvedReason =
   | 'missing-marker-candidate'
   | 'missing-anchor'
@@ -403,6 +421,8 @@ export interface JsScenarioPlan {
   steps: NormalizedStep[]
   helperRefs: string[]
   requiresFreshRender: boolean
+  markerAssertions?: PlannedMarkerAssertion[]
+  unresolvedMarkerAssertions?: UnresolvedSemanticMarkerAssertionResolution[]
 }
 
 export interface JsStateSafetyAssessment {

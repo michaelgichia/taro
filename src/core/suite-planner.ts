@@ -1,11 +1,17 @@
 import type { MockAnalysis } from './mock-intelligence.js'
+import { resolveSemanticMarkerAssertion } from './resolver.js'
 import type {
   AnalyzedRecording,
   ItGroup,
   JsHelperPlan,
+  PlannedMarkerAssertion,
   JsScenarioPlan,
   JsStateSafetyAssessment,
   NormalizedRecording,
+  NormalizedStep,
+  StepId,
+  UnresolvedSemanticMarker,
+  UnresolvedSemanticMarkerAssertionResolution,
 } from '../types/recording.js'
 
 export type RenderBoundaryKind = 'module' | 'component' | 'unknown'
@@ -94,6 +100,127 @@ function buildFallbackGroups(
       steps: analyzedRecording.steps,
     },
   ]
+}
+
+function getSemanticMarkerCandidate(step: NormalizedStep) {
+  const metadataCandidate = step.metadata?.semanticMarkerCandidate
+
+  if (
+    metadataCandidate &&
+    typeof metadataCandidate === 'object' &&
+    'stepId' in metadataCandidate &&
+    typeof metadataCandidate.stepId === 'string'
+  ) {
+    return metadataCandidate
+  }
+
+  return step.semanticMarkerCandidate
+}
+
+function getSemanticMarkerLink(step: NormalizedStep) {
+  const metadataLink = step.metadata?.semanticMarkerLink
+
+  if (
+    metadataLink &&
+    typeof metadataLink === 'object' &&
+    'markerStepId' in metadataLink &&
+    typeof metadataLink.markerStepId === 'string'
+  ) {
+    return metadataLink
+  }
+
+  return step.semanticMarkerLink
+}
+
+function getUnresolvedSemanticMarker(step: NormalizedStep): UnresolvedSemanticMarker | undefined {
+  const metadataMarker = step.metadata?.unresolvedSemanticMarker
+
+  if (
+    metadataMarker &&
+    typeof metadataMarker === 'object' &&
+    'stepId' in metadataMarker &&
+    typeof metadataMarker.stepId === 'string'
+  ) {
+    return metadataMarker as UnresolvedSemanticMarker
+  }
+
+  return step.unresolvedSemanticMarker
+}
+
+function isManagedSemanticMarkerStep(step: NormalizedStep): boolean {
+  return Boolean(
+    getSemanticMarkerCandidate(step) ||
+      getSemanticMarkerLink(step) ||
+      getUnresolvedSemanticMarker(step)
+  )
+}
+
+function filterManagedSemanticMarkerSteps(steps: NormalizedStep[]): NormalizedStep[] {
+  return steps.filter((step) => !isManagedSemanticMarkerStep(step))
+}
+
+function getHelperPlacement(params: {
+  anchorStepId: StepId
+  helperRefs: string[]
+  helperStepsByName: Map<string, Set<string>>
+}): PlannedMarkerAssertion['placement'] | null {
+  const { anchorStepId, helperRefs, helperStepsByName } = params
+
+  for (const helperRef of helperRefs) {
+    if (helperStepsByName.get(helperRef)?.has(anchorStepId)) {
+      return {
+        kind: 'after-helper',
+        helperName: helperRef,
+        stepId: anchorStepId,
+      }
+    }
+  }
+
+  return null
+}
+
+function collectScenarioMarkerState(params: {
+  group: ItGroup
+  helperRefs: string[]
+  helperStepsByName: Map<string, Set<string>>
+}) {
+  const { group, helperRefs, helperStepsByName } = params
+  const markerAssertions: PlannedMarkerAssertion[] = []
+  const unresolvedMarkerAssertions: UnresolvedSemanticMarkerAssertionResolution[] = []
+
+  for (const step of group.steps) {
+    if (!isManagedSemanticMarkerStep(step)) {
+      continue
+    }
+
+    const resolution = resolveSemanticMarkerAssertion(step)
+    if (resolution.status === 'unresolved') {
+      unresolvedMarkerAssertions.push(resolution)
+      continue
+    }
+
+    const placement =
+      getHelperPlacement({
+        anchorStepId: resolution.anchorStepId,
+        helperRefs,
+        helperStepsByName,
+      }) ?? {
+        kind: 'after-step' as const,
+        stepId: resolution.anchorStepId,
+      }
+
+    markerAssertions.push({
+      markerStepId: resolution.markerStepId,
+      anchorStepId: resolution.anchorStepId,
+      placement,
+      assertion: resolution.assertion,
+    })
+  }
+
+  return {
+    markerAssertions,
+    unresolvedMarkerAssertions,
+  }
 }
 
 function sanitizeIdentifierPart(value: string): string {
@@ -301,26 +428,48 @@ export function planJsSuite(params: {
     stepsById
   )
 
-  const helpers = enrichGroupSteps(analyzedRecording.intentGroups, stepsById).map((group, index) => ({
+  const helperGroups = enrichGroupSteps(analyzedRecording.intentGroups, stepsById)
+  const helpers = helperGroups.map((group, index) => ({
     name: toHelperName(group.name, index),
     sourceGroup: group.name,
     purpose: `Navigate the UI through "${group.name}" without hiding assertions.`,
-    steps: group.steps,
+    steps: filterManagedSemanticMarkerSteps(group.steps),
     assertionPolicy: 'sync-only' as const,
   }))
+  const helperStepsByName = new Map(
+    helpers.map((helper) => [
+      helper.name,
+      new Set(
+        helper.steps
+          .filter((step): step is typeof step & { id: string } => Boolean(step.id))
+          .map((step) => step.id)
+      ),
+    ])
+  )
 
-  const scenarios = baseGroups.map((group, index) => ({
-    name: group.name,
-    goal: inferScenarioGoal(group.name),
-    steps: group.steps,
-    helperRefs:
+  const scenarios = baseGroups.map((group, index) => {
+    const helperRefs =
       stateSafety.status === 'safe-multi-it'
         ? helpers
             .filter((helper) => sharesAnyStep(group.steps, helper.steps))
             .map((helper) => helper.name)
-        : [],
-    requiresFreshRender: true,
-  }))
+        : []
+    const markerState = collectScenarioMarkerState({
+      group,
+      helperRefs,
+      helperStepsByName,
+    })
+
+    return {
+      name: group.name,
+      goal: inferScenarioGoal(group.name),
+      steps: filterManagedSemanticMarkerSteps(group.steps),
+      helperRefs,
+      requiresFreshRender: true,
+      markerAssertions: markerState.markerAssertions,
+      unresolvedMarkerAssertions: markerState.unresolvedMarkerAssertions,
+    }
+  })
 
   if (stateSafety.status !== 'safe-multi-it' && baseGroups.length > 1) {
     warnings.push(
