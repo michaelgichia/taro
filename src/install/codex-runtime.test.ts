@@ -110,14 +110,15 @@ describe('buildCodexOperations', () => {
       join(target.destinationDirectory, 'skills', '@tayo-dev', 'rtl-generate', 'SKILL.md'),
       'utf8'
     )
-    expect(generateSkill).toContain('Run `tayo generate <recording-file>`')
-    expect(generateSkill).toContain('## Post-run review')
+    expect(generateSkill).toContain('Run `tayo __generate <recording-file>`')
+    expect(generateSkill).toContain('## Post-run Review')
+    expect(generateSkill).not.toContain('--dry-run')
 
     const conventionsSkill = await readFile(
       join(target.destinationDirectory, 'skills', '@tayo-dev', 'rtl-conventions', 'SKILL.md'),
       'utf8'
     )
-    expect(conventionsSkill).toContain('## Investigation workflow')
+    expect(conventionsSkill).toContain('## Investigation Workflow')
 
     const mocksSkillPath = join(
       target.destinationDirectory,
@@ -128,6 +129,6 @@ describe('buildCodexOperations', () => {
     )
     await access(mocksSkillPath)
     const mocksSkill = await readFile(mocksSkillPath, 'utf8')
-    expect(mocksSkill).toContain('## Boundary review workflow')
+    expect(mocksSkill).toContain('## Boundary Review Workflow')
   })
 })

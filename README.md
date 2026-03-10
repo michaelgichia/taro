@@ -1,8 +1,8 @@
 # Tayo
 
-Install Tayo into Claude Code, OpenCode, Gemini CLI, or Codex, then generate React Testing Library tests from Testing Library Recorder recordings.
+Install Tayo into Claude Code, OpenCode, Gemini CLI, or Codex, then generate React Testing Library tests from Testing Library Recorder JS exports.
 
-Tayo ships as an installer-first package. The package entrypoint bootstraps runtime-native commands or skills into your agent environment, and the generated runtime surface still routes back to `tayo generate` when you want Recorder-to-RTL output.
+Tayo ships as an installer-first package. The package entrypoint bootstraps runtime-native commands or skills into your agent environment, and those runtime entrypoints execute Tayo's internal JS-only generation flow for Recorder-to-RTL output.
 
 ## Getting Started
 
@@ -88,7 +88,12 @@ The tarball flow is the closest match to what end users get from npm.
 
 ## Generate RTL Tests
 
-After installation, use `tayo generate` directly or call the runtime-native installed command/skill that routes to it.
+After installation, use the runtime-native installed generate command or skill for your agent:
+
+- Claude Code: `/@tayo-dev/rtl:generate`
+- Gemini CLI: `/@tayo-dev/rtl:generate`
+- OpenCode: `/@tayo-dev/rtl-generate`
+- Codex: `$@tayo-dev/rtl-generate`
 
 ### Prerequisites
 
@@ -100,20 +105,13 @@ After installation, use `tayo generate` directly or call the runtime-native inst
 
 Open Chrome DevTools → Recorder panel → click "Start new recording" → perform your user flow → click "End recording".
 
-Tayo supports two export paths:
+Tayo supports one export path:
 
-- Testing Library Recorder JS baseline export: save as `recording.js`
-- Chrome Recorder JSON export: save as `recording.json`
+- Testing Library Recorder JS export: save as `recording.js`
 
 ### Generate the test
 
-```bash
-# JS baseline path
-tayo generate ./recording.js
-
-# Supported JSON path
-tayo generate ./recording.json
-```
+Run your runtime-native generate entrypoint against `recording.js`. Tayo writes `recording.test.tsx` next to the recording and refuses to overwrite an existing file, so rename or delete the previous generated file before rerunning.
 
 Expected output:
 
@@ -139,51 +137,6 @@ When Tayo cannot prove the final render/query boundary yet, it keeps the output 
 
 That draft banner is advisory. Tayo does not block writes, but it does tell you when import targets, placeholder queries, or unresolved boundaries still need cleanup.
 
-## CLI Reference
-
-### `tayo generate <file>`
-
-Generates a React Testing Library test from a Testing Library Recorder JS export or a Chrome Recorder JSON export.
-
-**Arguments:**
-
-| Argument | Description |
-|----------|-------------|
-| `<file>` | Path to the recording file. Accepts Testing Library Recorder JS files (`.js`) and Chrome Recorder JSON files (`.json`). |
-
-**Options:**
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--output <path>` | `-o` | Same directory as input, `{name}.test.tsx` | Override the output file path for the generated test. |
-| `--dry-run` | `-d` | `false` | Print the generated test to stdout and show the score without writing to disk. Useful for previewing output before committing. |
-| `--force` | `-f` | `false` | Overwrite an existing test file. Without this flag, Tayo exits with an error if the output file already exists. |
-| `--version` | `-v` | — | Print the installed version and exit. |
-| `--help` | `-h` | — | Display command help and exit. |
-
-**Examples:**
-
-```bash
-# Generate and write a test next to the recording
-tayo generate ./recordings/checkout-flow.js
-
-# Preview without writing (dry run)
-tayo generate --dry-run ./recordings/checkout-flow.js
-
-# Write to a specific path
-tayo generate --output src/__tests__/checkout.test.tsx ./recordings/checkout-flow.js
-
-# Overwrite an existing test
-tayo generate --force ./recordings/checkout-flow.js
-```
-
-**Output file naming:**
-If `--output` is not provided, Tayo derives the output path from the input file: `{input-dir}/{input-basename}.test.tsx`. For example, `./recordings/login.js` → `./recordings/login.test.tsx`.
-
-**Supported input formats:**
-- Testing Library Recorder JS (`.js`) — primary v1.3 path; Tayo treats this as a baseline artifact to parse, enrich, and transform into a project-shaped RTL test
-- Chrome Recorder JSON (`.json`) — supported parity path; Tayo preserves the existing JSON generate flow while JS fidelity improves
-
 ## Worked Example
 
 ### Input: Testing Library Recorder export (`login-flow.js`)
@@ -204,11 +157,9 @@ test('login flow', async () => {
 })
 ```
 
-### Command
+### Runtime command
 
-```bash
-tayo generate ./login-flow.js
-```
+Run your installed runtime-native generate entrypoint with `./login-flow.js`.
 
 ### Terminal output
 
@@ -254,25 +205,15 @@ describe('login flow', () => {
 
 > **Note:** The component import path (`../LoginPage`) is a placeholder. Tayo generates a comment in the file indicating where to update it.
 
-### JSON is also supported
-
-If you export Chrome Recorder JSON instead, the command surface stays the same:
-
-```bash
-tayo generate ./login-flow.json --dry-run
-```
-
-JSON generation is still supported, but it does not inherit the repo-aware JS recovery stack. When the generated preview contains placeholder queries or weak assertions, Tayo keeps those gaps explicit with score and manual-review messaging instead of fabricating stronger evidence.
-
 ## Agent Usage
 
-After installation, each runtime gets a namespaced help entrypoint plus a generate command or skill that routes back to `tayo generate`.
+After installation, each runtime gets a namespaced help entrypoint plus a generate command or skill that runs Tayo's internal JS generator.
 
 ### Tips
 
-- Use `--dry-run` first to preview output before committing generated files
+- Tayo writes the generated test next to the recording file using the same basename
+- If you re-record a flow, rename or delete the old generated test before running Tayo again
 - If you record multiple flows, run Tayo on each to build up convention state in `.tayo/conventions.json` — later runs benefit from earlier ones
-- Pass `--force` when re-recording an updated flow to overwrite the old test
 - The `.tayo/` directory should be committed to your repo so convention learning persists across team members
 
 ### Notes

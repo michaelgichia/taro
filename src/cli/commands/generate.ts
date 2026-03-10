@@ -1,7 +1,6 @@
 /**
  * Generate command
- * Full pipeline: parse → validate → generate → write
- * Converts Recorder exports into React Testing Library test files.
+ * Internal runtime-only generation pipeline for Testing Library Recorder JS exports.
  */
 
 import { Command } from 'commander'
@@ -9,7 +8,6 @@ import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
 import { cwd } from 'node:process'
 import pc from 'picocolors'
-import { generateTest } from '../../core/generator.js'
 import { writeTestFile } from '../../core/writer.js'
 import {
   captureVisualState,
@@ -53,12 +51,6 @@ import type { MockAnalysis } from '../../core/mock-intelligence.js'
 import type { RepoRenderTargetCandidate } from '../../core/scanner.js'
 import type { JsSuitePlan } from '../../core/suite-planner.js'
 
-export interface GenerateOptions {
-  output?: string
-  dryRun?: boolean
-  force?: boolean
-}
-
 const EMPTY_MARKER_COVERAGE: MarkerCoverageTotals = {
   detected: 0,
   emitted: 0,
@@ -93,7 +85,7 @@ const UNRESOLVED_MARKER_REASON_GUIDANCE: Record<
 
 function deriveOutputPath(inputPath: string): string {
   const dir = dirname(inputPath)
-  const name = basename(inputPath).replace(/\.(json|[cm]?[jt]sx?)$/, '')
+  const name = basename(inputPath).replace(/\.[cm]?[jt]sx?$/, '')
   return join(dir, `${name}.test.tsx`)
 }
 
@@ -189,14 +181,13 @@ function emitUnresolvedMarkerWarnings(suitePlan: JsSuitePlan | null): void {
   }
 }
 
-function enforceMarkerGateExit(scoreResult: ScoreResult, mode: 'dry-run' | 'write'): void {
+function enforceMarkerGateExit(scoreResult: ScoreResult): void {
   if (!scoreResult.markerQualityGate.failing) {
     return
   }
 
   process.exitCode = 1
-  const modeLabel = mode === 'dry-run' ? '--dry-run preview' : 'write mode output'
-  console.error(pc.red(`[tayo] Exiting with code 1: QUAL-02 gate failed after ${modeLabel}.`))
+  console.error(pc.red('[tayo] Exiting with code 1: QUAL-02 gate failed after generation.'))
 }
 
 function emitLowConfidenceBanner(scoreResult: ScoreResult): void {
@@ -306,15 +297,10 @@ function countPlannedScenarioMarkers(
 }
 
 function buildMarkerCoverageSummary(params: {
-  source: 'js' | 'json'
   analyzedRecording: AnalyzedRecording
   suitePlan: JsSuitePlan | null
 }): MarkerCoverageTotals {
-  const { source, analyzedRecording, suitePlan } = params
-  if (source !== 'js') {
-    return EMPTY_MARKER_COVERAGE
-  }
-
+  const { analyzedRecording, suitePlan } = params
   const preservedMarkers = analyzedRecording.diagnostics.preservedSemanticMarkers ?? 0
   const diagnosticUnresolvedMarkers = analyzedRecording.diagnostics.unresolvedSemanticMarkers ?? 0
 
@@ -926,15 +912,12 @@ async function finalizeGeneratedOutput(params: {
 }
 
 export function createGenerateCommand(): Command {
-  const generate = new Command('generate')
+  const generate = new Command('__generate')
 
   generate
-    .description('Generate RTL test from Recorder JS or Chrome Recorder JSON export')
-    .argument('<file>', 'Path to the recorder export file (.js or .json)')
-    .option('-o, --output <path>', 'Output file path for the generated test')
-    .option('-d, --dry-run', 'Preview the generated test without writing to disk', false)
-    .option('-f, --force', 'Overwrite existing test file', false)
-    .action(async (file: string, options: GenerateOptions) => {
+    .description('Internal runtime-only generator for Testing Library Recorder JS exports')
+    .argument('<file>', 'Path to the recorder export file (.js)')
+    .action(async (file: string) => {
       const filePath = resolve(file)
       const projectRoot = cwd()
 
@@ -958,33 +941,24 @@ export function createGenerateCommand(): Command {
         process.exit(1)
       }
 
-      const normalizedRecording =
-        parsedInput.source === 'js' ? normalizeJsBaseline(parsedInput) : parsedInput.recording
+      const normalizedRecording = normalizeJsBaseline(parsedInput)
 
-      let conventions = undefined
-      let repoRenderTargets: RepoRenderTargetCandidate[] = []
-      if (parsedInput.source === 'js') {
-        conventions = await readConventions(projectRoot)
-        if (!conventions) {
-          console.log(pc.dim('[tayo]') + ' Scanning project conventions...')
-          conventions = await scanConventions(projectRoot)
-        }
-        repoRenderTargets = await discoverRepoRenderTargets(projectRoot)
+      let conventions = await readConventions(projectRoot)
+      if (!conventions) {
+        console.log(pc.dim('[tayo]') + ' Scanning project conventions...')
+        conventions = await scanConventions(projectRoot)
       }
+      const repoRenderTargets: RepoRenderTargetCandidate[] =
+        await discoverRepoRenderTargets(projectRoot)
 
       console.log(
         pc.green('Parsed:') +
           ` ${pc.bold(normalizedRecording.title)} — ${normalizedRecording.steps.length} steps` +
-          (parsedInput.source === 'js'
-            ? `, ${normalizedRecording.baseline?.itGroups.length ?? 0} test group(s)`
-            : '')
+          `, ${normalizedRecording.baseline?.itGroups.length ?? 0} test group(s)`
       )
 
       const analyzedRecording = analyzeRecording(normalizedRecording)
-      const markerAwareRecording =
-        parsedInput.source === 'js'
-          ? mergeAnalyzedStepState(normalizedRecording, analyzedRecording)
-          : normalizedRecording
+      const markerAwareRecording = mergeAnalyzedStepState(normalizedRecording, analyzedRecording)
       summarizeCleanup(analyzedRecording)
       const visualState = await maybeCaptureVisualState({
         analyzedRecording,
@@ -996,26 +970,20 @@ export function createGenerateCommand(): Command {
       const mockAnalysis = await maybeAnalyzeMocks(projectRoot)
       summarizeMockAnalysis(mockAnalysis)
 
-      const outputPath = options.output ?? deriveOutputPath(filePath)
-      const rawJsSuitePlan =
-        parsedInput.source === 'js'
-          ? planJsSuite({
-              recording: markerAwareRecording,
-              analyzedRecording,
-              mockAnalysis,
-              fallbackTitle: normalizedRecording.title,
-            })
-          : null
+      const outputPath = deriveOutputPath(filePath)
+      const rawJsSuitePlan = planJsSuite({
+        recording: markerAwareRecording,
+        analyzedRecording,
+        mockAnalysis,
+        fallbackTitle: normalizedRecording.title,
+      })
 
-      const repoRenderTarget =
-        parsedInput.source === 'js' && rawJsSuitePlan
-          ? resolveRepoRenderTarget({
-              candidates: repoRenderTargets,
-              recording: normalizedRecording,
-              mockAnalysis,
-              suitePlan: rawJsSuitePlan,
-            })
-          : null
+      const repoRenderTarget = resolveRepoRenderTarget({
+        candidates: repoRenderTargets,
+        recording: normalizedRecording,
+        mockAnalysis,
+        suitePlan: rawJsSuitePlan,
+      })
 
       const jsSuitePlan = rawJsSuitePlan
         ? applyRepoRenderTarget(rawJsSuitePlan, repoRenderTarget)
@@ -1025,25 +993,21 @@ export function createGenerateCommand(): Command {
         summarizeBoundaryWarnings(jsSuitePlan.warnings)
       }
 
-      const resolvedJsGeneration =
-        parsedInput.source === 'js'
-          ? await resolveJsGeneration(
-              markerAwareRecording,
-              jsSuitePlan?.itGroups ?? toItGroups(analyzedRecording, normalizedRecording.title)
-            )
-          : null
+      const resolvedJsGeneration = await resolveJsGeneration(
+        markerAwareRecording,
+        jsSuitePlan?.itGroups ?? toItGroups(analyzedRecording, normalizedRecording.title)
+      )
 
       if (resolvedJsGeneration) {
         summarizeSelectorWarnings(resolvedJsGeneration.warnings)
       }
 
-      const hydratedSuitePlan =
-        parsedInput.source === 'js' && jsSuitePlan
-          ? rehydrateSuitePlan(
-              jsSuitePlan,
-              resolvedJsGeneration?.recording.steps ?? markerAwareRecording.steps
-            )
-          : jsSuitePlan
+      const hydratedSuitePlan = jsSuitePlan
+        ? rehydrateSuitePlan(
+            jsSuitePlan,
+            resolvedJsGeneration?.recording.steps ?? markerAwareRecording.steps
+          )
+        : jsSuitePlan
       const generationHelpers = hydratedSuitePlan
         ? stripSemanticMarkerStepsFromHelpers(hydratedSuitePlan.helpers)
         : undefined
@@ -1051,29 +1015,21 @@ export function createGenerateCommand(): Command {
         hydratedSuitePlan && generationHelpers
           ? stripSemanticMarkerStepsFromScenarios(hydratedSuitePlan.scenarios, generationHelpers)
           : undefined
-      const generationItGroups =
-        parsedInput.source === 'js'
-          ? stripSemanticMarkerStepsFromItGroups(
-              resolvedJsGeneration?.itGroups ??
-                hydratedSuitePlan?.itGroups ??
-                toItGroups(analyzedRecording, normalizedRecording.title)
-            )
-          : toItGroups(analyzedRecording, normalizedRecording.title)
+      const generationItGroups = stripSemanticMarkerStepsFromItGroups(
+        resolvedJsGeneration?.itGroups ??
+          hydratedSuitePlan?.itGroups ??
+          toItGroups(analyzedRecording, normalizedRecording.title)
+      )
 
-      const generated =
-        parsedInput.source === 'js'
-          ? generateTestFromGroups(normalizedRecording.title, generationItGroups, {
-              outputPath,
-              dryRun: options.dryRun,
-              conventions,
-              queryResults: resolvedJsGeneration?.queryResults ?? [],
-              helpers: generationHelpers,
-              scenarios: generationScenarios,
-              renderTarget: repoRenderTarget,
-            })
-          : generateTest(analyzedRecording, { outputPath, dryRun: options.dryRun })
+      const generated = generateTestFromGroups(normalizedRecording.title, generationItGroups, {
+        outputPath,
+        conventions,
+        queryResults: resolvedJsGeneration?.queryResults ?? [],
+        helpers: generationHelpers,
+        scenarios: generationScenarios,
+        renderTarget: repoRenderTarget,
+      })
       const markerCoverage = buildMarkerCoverageSummary({
-        source: parsedInput.source,
         analyzedRecording,
         suitePlan: hydratedSuitePlan,
       })
@@ -1085,17 +1041,12 @@ export function createGenerateCommand(): Command {
         ].join('\n')
       }
 
-      if (parsedInput.source === 'js') {
-        emitQuerySummary(resolvedJsGeneration?.queryResults ?? [])
-      }
+      emitQuerySummary(resolvedJsGeneration?.queryResults ?? [])
 
-      const scoreResult =
-        parsedInput.source === 'js'
-          ? scoreGeneratedTest(generated.code, {
-              queryResults: resolvedJsGeneration?.queryResults ?? [],
-              markerCoverage,
-            })
-          : scoreGeneratedTest(generated.code, { markerCoverage })
+      const scoreResult = scoreGeneratedTest(generated.code, {
+        queryResults: resolvedJsGeneration?.queryResults ?? [],
+        markerCoverage,
+      })
       const boundaryIssues = analyzeBoundaryIsolation(generated.code)
 
       logScore(scoreResult)
@@ -1104,22 +1055,8 @@ export function createGenerateCommand(): Command {
       emitLowConfidenceBanner(scoreResult)
       emitScoreHints(scoreResult, resolvedJsGeneration?.queryResults ?? [], boundaryIssues)
 
-      if (options.dryRun) {
-        console.log(pc.yellow('\nDry run — test preview:\n'))
-        console.log(pc.dim('─'.repeat(60)))
-        console.log(generated.code)
-        console.log(pc.dim('─'.repeat(60)))
-        console.log(pc.dim(`\n[tayo] Score: ${scoreResult.total}/100 (${scoreResult.grade})`))
-        console.log(pc.yellow(`\nWould write to: ${pc.bold(outputPath)}`))
-        enforceMarkerGateExit(scoreResult, 'dry-run')
-        return
-      }
-
       try {
-        const result = await writeTestFile(generated.code, outputPath, {
-          force: options.force,
-          createDir: true,
-        })
+        const result = await writeTestFile(generated.code, outputPath, { createDir: true })
         await finalizeGeneratedOutput({
           code: generated.code,
           outputPath: result.filePath,
@@ -1129,7 +1066,7 @@ export function createGenerateCommand(): Command {
         })
         const action = result.overwritten ? pc.yellow('Updated') : pc.green('Created')
         console.log(`${action}: ${pc.bold(result.filePath)}`)
-        enforceMarkerGateExit(scoreResult, 'write')
+        enforceMarkerGateExit(scoreResult)
       } catch (err) {
         console.error(pc.red('Error:') + ` ${String(err)}`)
         process.exit(1)

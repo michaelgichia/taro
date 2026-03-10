@@ -1,17 +1,18 @@
 import { readFile } from 'node:fs/promises'
 import { extname } from 'node:path'
 import { parseJsRecording, type JsParseResult } from './js-parser.js'
-import { parseRecording } from './parser.js'
 import {
   createStepId,
   type NormalizedRecording,
   type NormalizedStep,
-  type ParsedInput,
+  type ParsedJsInput,
   type RecordingSource,
 } from '../types/recording.js'
 
 const JSON_EXTENSIONS = new Set(['.json'])
 const JS_EXTENSIONS = new Set(['.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx'])
+const JSON_REMOVAL_GUIDANCE =
+  'Chrome Recorder JSON exports are no longer supported. Export a Testing Library Recorder JS file instead.'
 
 function looksLikeJson(rawContent: string): boolean {
   const trimmed = rawContent.trimStart()
@@ -31,23 +32,21 @@ function looksLikeRecorderJs(rawContent: string): boolean {
 export function detectInputSource(filePath: string, rawContent: string): RecordingSource {
   const extension = extname(filePath).toLowerCase()
 
-  if (JSON_EXTENSIONS.has(extension)) {
-    return 'json'
-  }
-
   if (JS_EXTENSIONS.has(extension)) {
     return 'js'
   }
 
-  if (looksLikeJson(rawContent)) {
-    return 'json'
+  if (JSON_EXTENSIONS.has(extension) || looksLikeJson(rawContent)) {
+    throw new Error(`${JSON_REMOVAL_GUIDANCE} Received: ${filePath}`)
   }
 
   if (looksLikeRecorderJs(rawContent)) {
     return 'js'
   }
 
-  throw new Error(`Unsupported recording input: ${filePath}`)
+  throw new Error(
+    `Unsupported recording input: ${filePath}\nTayo requires a Testing Library Recorder JS export.`
+  )
 }
 
 function attachStepIds(source: RecordingSource, steps: NormalizedStep[]): NormalizedStep[] {
@@ -76,23 +75,14 @@ function toJsRecording(jsResult: JsParseResult): NormalizedRecording {
   }
 }
 
-export async function loadInput(filePath: string): Promise<ParsedInput> {
+export async function loadInput(filePath: string): Promise<ParsedJsInput> {
   const rawContent = await readFile(filePath, 'utf-8')
-  const source = detectInputSource(filePath, rawContent)
-
-  if (source === 'json') {
-    const recording = await parseRecording(filePath)
-    return {
-      source,
-      recording,
-    }
-  }
-
+  detectInputSource(filePath, rawContent)
   const jsResult = await parseJsRecording(rawContent)
   const recording = toJsRecording(jsResult)
 
   return {
-    source,
+    source: 'js',
     recording,
     baseline: recording.baseline!,
   }

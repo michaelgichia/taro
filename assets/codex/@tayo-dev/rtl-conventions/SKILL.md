@@ -32,7 +32,7 @@ Tayo accumulates knowledge from existing test files in the project. Commit `.tay
 - **Wrong import style** — set `importStyle` in `.tayo/conventions.json` to `"esm"` or `"cjs"`.
 - **Wrong file placement** — move one generated test to the correct location and re-run; Tayo picks up placement from the nearest examples.
 - **Missing render wrapper** — if the project uses a custom `renderWithProviders` helper, add one test that uses it; subsequent generations will prefer it.
-- **Before writing** — always use `--dry-run` to check alignment before committing generated output.
+- **Before re-running generation** — make sure the sibling `{recording-name}.test.tsx` path is free, because Tayo writes next to the recording and will not overwrite an existing file.
 
 ## Guardrails
 

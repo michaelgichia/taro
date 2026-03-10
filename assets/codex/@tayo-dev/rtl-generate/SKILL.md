@@ -1,6 +1,6 @@
 ---
 name: "@tayo-dev/rtl-generate"
-description: "Generate or preview React Testing Library tests from Testing Library Recorder JS or Chrome Recorder JSON exports with Tayo. Use when a user provides a recording file, asks to convert a Recorder flow into an RTL test, wants a dry run, or needs to regenerate or overwrite an existing generated test."
+description: "Generate React Testing Library tests from Testing Library Recorder JS exports with Tayo. Use when a user provides a Recorder `.js` file, asks to convert a recorded flow into an RTL test, or needs generation results interpreted with score and blocker guidance."
 ---
 
 # Tayo Generate
@@ -9,24 +9,17 @@ Invoke this skill with `$@tayo-dev/rtl-generate`.
 
 ## Inputs
 
-- path to the recording file (`.js` or `.json`)
-- optional `--output <path>`
-- optional `--dry-run`
-- optional `--force`
+- path to the recording file (`.js`)
 
 ## Preflight
 
 1. Confirm the recording file exists and uses a supported extension.
-2. Decide whether to write next to the input file or use `--output <path>`.
-3. If the target file already exists and the user did not explicitly ask to replace it, stop and surface `--force` instead of overwriting implicitly.
-4. Prefer `--dry-run` when the user wants to inspect convention fit before writing files.
+2. Tayo writes `{recording-name}.test.tsx` next to the input recording.
+3. If that sibling output file already exists, stop and tell the user to rename or delete it before re-running generation.
 
 ## Execution
 
-Run `tayo generate <recording-file>` with the requested flags.
-Use `tayo generate --dry-run <recording-file>` when preview is safer than writing.
-Use `tayo generate --output <path> <recording-file>` for a custom destination.
-Use `tayo generate --force <recording-file>` only when overwriting is explicitly desired.
+Run `tayo __generate <recording-file>`.
 
 ## Understanding the Score
 
@@ -80,13 +73,11 @@ Work through these after every generation:
 
 4. **Fix `tayo-boundary-warning:` comments** — use the boundary type table above to choose the right fix.
 
-5. **Re-score** — run `tayo generate --dry-run --force <file>` to see the updated score without overwriting manual edits.
-
 ## Post-run Review
 
 Always inspect:
 
-- the generated path or dry-run stdout
+- the generated file path
 - the Tayo score and grade
 - whether Tayo reported manual review required
 - the top blockers in the banner output

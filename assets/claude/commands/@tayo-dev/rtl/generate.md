@@ -4,13 +4,13 @@ description: "Generate RTL tests from Recorder exports with Tayo"
 ---
 
 <objective>
-Generate a React Testing Library test from a Testing Library Recorder JS export or Chrome Recorder JSON export, interpret the score output, and guide the user through any required manual fixes.
+Generate a React Testing Library test from a Testing Library Recorder JS export, interpret the score output, and guide the user through any required manual fixes.
 </objective>
 
 <process>
-1. Confirm the recording file path and extension (.js preferred, .json supported).
-2. If the output file already exists and the user did not ask to replace it, use --dry-run instead of overwriting.
-3. Run `tayo generate <recording-file>` with appropriate flags.
+1. Confirm the recording file path and extension (`.js` only).
+2. Tayo writes `{recording-name}.test.tsx` next to the recording. If that file already exists, stop and tell the user to rename or delete it before rerunning generation.
+3. Run `tayo __generate <recording-file>`.
 4. Parse and report the score, grade, and blockers.
 5. Work through the post-generation checklist for any issues found.
 </process>
@@ -45,7 +45,6 @@ positional-control-selection (−15): getAllByRole('button')[2] positional index
 2. Resolve tayo-query-checkpoint comments — apply the query hierarchy: getByRole > getByLabelText > getByText > getByPlaceholderText > getByTestId.
 3. Upgrade toBeInTheDocument() — replace with toHaveTextContent(), toHaveValue(), or toBeVisible() when the expected value is known.
 4. Fix tayo-boundary-warning comments — apply the boundary fix from the boundary-issues section above.
-5. Re-score — run `tayo generate --dry-run --force <file>` to confirm the score improved without overwriting manual edits.
 </post-generation-checklist>
 
 <response-contract>
