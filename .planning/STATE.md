@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: JS Baseline
-status: ready-to-execute
-stopped_at: Planned Phase 15
-last_updated: "2026-03-10T05:21:00Z"
-last_activity: 2026-03-10 — Phase 15 planned into three execution waves covering suite-state modeling, repo-aware generation, and gold-standard Add Sale regressions
+status: executing
+stopped_at: Completed 15-01-PLAN.md
+last_updated: "2026-03-10T05:39:00Z"
+last_activity: 2026-03-10 — Phase 15-01 completed; suite planning now exposes scenario, helper, and state-safety decisions for later repo-aware generation
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 10
-  completed_plans: 7
+  completed_plans: 8
   percent: 50
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-09)
 
 **Core value:** Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, and Codex with near-zero setup friction
-**Current focus:** Phase 15 - Structured Suite Planning & Repo-aware Generation (ready to execute)
+**Current focus:** Phase 15 - Structured Suite Planning & Repo-aware Generation (executing 15-02 next)
 
 ## Current Position
 
-Phase: 15 of 16 planned (Structured Suite Planning & Repo-aware Generation)
-Plan: 3 of 3 planned
-Status: Ready to execute
-Last activity: 2026-03-10 — Phase 15 planned into three execution waves covering suite-state modeling, repo-aware generation, and gold-standard Add Sale regressions
+Phase: 15 of 16 executing (Structured Suite Planning & Repo-aware Generation)
+Plan: 1 of 3 complete
+Status: Executing
+Last activity: 2026-03-10 — Phase 15-01 completed; suite planning now exposes scenario, helper, and state-safety decisions for later repo-aware generation
 
 Progress: [██████████░░░░░░░░░░] 50%
 
@@ -48,11 +48,11 @@ Progress: [██████████░░░░░░░░░░] 50%
 | 12. Verification, Updates & Release Docs | 3 | Mixed | Mixed |
 
 **Recent Trend:**
-- Last 5 plans: Phase 14 execution plans 14-01 through 14-03, Phase 14 verification, and Phase 15 planning
+- Last 5 plans: Phase 14 execution plans 14-02 and 14-03, Phase 14 verification, Phase 15 planning, and Phase 15-01 execution
 - Trend: Improving
 
 **Recent Executions:**
-- Phase 15 planning | 21min | 3 plans | 3 execution waves
+- Phase 15-01 | 16min | 2 tasks | 3 files
 
 ## Accumulated Context
 
@@ -81,6 +81,8 @@ Recent decisions affecting current work:
 - [Phase 14 verification] Treat host-level Playwright launch failures as truthful unresolved-selector evidence rather than a reason to abort JS dry-runs.
 - [Phase 15 planning] Separate suite-state modeling from repo-aware realization so Phase 15 can test state-safety policy independently from render-target/import emission.
 - [Phase 15 planning] Use the Add Sale gold-standard sample as the anchor for supported repo-aware output rather than aiming for abstract multi-it improvements only.
+- [Phase 15-01] Keep `itGroups` as a compatibility seam while adding richer scenario/helper/state-safety metadata so Wave 2 can adopt the new contract incrementally.
+- [Phase 15-01] Mark helper plans as `sync-only` to keep load-bearing assertions in the scenario body.
 
 ### Pending Todos
 
@@ -92,6 +94,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-10T05:21:00Z
-Stopped at: Planned Phase 15
+Last session: 2026-03-10T05:39:00Z
+Stopped at: Completed 15-01-PLAN.md
 Resume file: None
