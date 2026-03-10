@@ -244,6 +244,31 @@ export interface ItGroup {
   steps: NormalizedStep[]
 }
 
+export type JsHelperAssertionPolicy = 'sync-only'
+export type JsStateSafetyStatus = 'safe-multi-it' | 'single-flow-required' | 'unknown'
+export type JsScenarioGoal = 'flow' | 'validation' | 'review' | 'mutation-state'
+
+export interface JsHelperPlan {
+  name: string
+  sourceGroup: string
+  purpose: string
+  steps: NormalizedStep[]
+  assertionPolicy: JsHelperAssertionPolicy
+}
+
+export interface JsScenarioPlan {
+  name: string
+  goal: JsScenarioGoal
+  steps: NormalizedStep[]
+  helperRefs: string[]
+  requiresFreshRender: boolean
+}
+
+export interface JsStateSafetyAssessment {
+  status: JsStateSafetyStatus
+  reason: string
+}
+
 export interface GeneratedItBlock {
   name: string
   stepLines: string[]
