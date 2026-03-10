@@ -15,6 +15,8 @@ The installer prompts you to choose:
 1. **Runtime** — Claude Code, OpenCode, Gemini CLI, Codex, or all
 2. **Location** — Global (all projects) or local (current project only)
 
+Check the installed package version with `tayo version` or `tayo --version`.
+
 Verify the install with the runtime-native help command:
 
 - Claude Code: `/@tayo-dev/rtl:help`

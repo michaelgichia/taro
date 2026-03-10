@@ -13,7 +13,9 @@ import {
   createInstallCommand,
   runInstallCommand,
 } from './cli/commands/install.js'
+import { createVersionCommand } from './cli/commands/version.js'
 import type { InstallCommandOptions } from './install/types.js'
+import { TARO_VERSION } from './version.js'
 
 const program = new Command()
 
@@ -27,7 +29,7 @@ if (process.argv[2] === '__generate') {
     .description(
       `${pc.bold('@tayo-dev/rtl')} — Install Tayo into Claude Code, OpenCode, Gemini CLI, or Codex`
     )
-    .version('1.4.1', '-v, --version', 'Output the current version')
+    .version(TARO_VERSION, '-v, --version', 'Output the current version')
     .helpOption('-h, --help', 'Display help for command')
     .addHelpText('after', '\nAfter install, use the runtime-native Tayo help/generate entrypoints.')
     .action(async () => {
@@ -35,5 +37,6 @@ if (process.argv[2] === '__generate') {
     })
 
   program.addCommand(createInstallCommand())
+  program.addCommand(createVersionCommand())
   program.parse(process.argv)
 }

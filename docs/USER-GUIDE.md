@@ -15,6 +15,8 @@ npx @tayo-dev/rtl@latest --codex --local
 npx @tayo-dev/rtl@latest --all --global
 ```
 
+Check the installed package version with `tayo version` or `tayo --version`.
+
 ## Runtime Entrypoints
 
 - Claude Code: `/@tayo-dev/rtl:help`, `/@tayo-dev/rtl:generate`
