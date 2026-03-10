@@ -98,6 +98,9 @@ describe('package smoke proof', () => {
     expect(tarList.stdout).toContain('package/assets/gemini/commands/@tayo-dev/rtl/help.toml')
     expect(tarList.stdout).toContain('package/assets/opencode/commands/@tayo-dev/rtl-help.md')
     expect(tarList.stdout).toContain('package/assets/codex/@tayo-dev/rtl-help/SKILL.md')
+    expect(tarList.stdout).toContain(
+      'package/assets/codex/@tayo-dev/rtl-generate/references/quality-scoring.md'
+    )
     expect(tarList.stdout).toContain('package/README.md')
   })
 })

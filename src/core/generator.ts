@@ -31,7 +31,6 @@ import pc from 'picocolors'
 
 export interface GeneratorOptions {
   outputPath?: string
-  dryRun?: boolean
 }
 
 export interface GeneratedTest {
@@ -285,7 +284,6 @@ export function emitQuerySummary(queryResults: QueryResult[]): void {
 
 export interface GenerateFromGroupsOptions {
   outputPath?: string
-  dryRun?: boolean
   conventions?: ConventionsSchema
   queryResults?: QueryResult[]
   helpers?: JsHelperPlan[]
@@ -413,7 +411,6 @@ export function generateTestFromGroups(
     conventions,
     queryResults = [],
     outputPath,
-    dryRun,
     helpers = [],
     scenarios,
     renderTarget = null,

@@ -17,6 +17,18 @@ const EXPECTED_SKILLS = [
   '@tayo-dev/rtl-help',
   '@tayo-dev/rtl-mocks',
 ] as const
+const EXPECTED_GENERATE_REFERENCES = [
+  'assertion-markers.md',
+  'auth.md',
+  'conventions-schema.md',
+  'entry-path-fidelity.md',
+  'intent-model.md',
+  'mock-store.md',
+  'quality-scoring.md',
+  'state-schema.md',
+  'test-index.md',
+  'verification-gate.md',
+] as const
 const EXPECTED_SKILL_DIRECTORIES = EXPECTED_SKILLS.map((skillName) => skillName.split('/')[1]!)
 const sandboxRoots: string[] = []
 
@@ -83,6 +95,7 @@ describe('buildCodexOperations', () => {
       'utf8'
     )
     expect(helpSkill).toContain('$@tayo-dev/rtl-help')
+    expect(helpSkill).toContain('## Routing guide')
     expect(operations.map((operation) => operation.entrypoint)).toContain('$@tayo-dev/rtl-help')
   })
 
@@ -103,12 +116,35 @@ describe('buildCodexOperations', () => {
       'utf8'
     )
     expect(helpSkill).toContain('Invoke this skill with `$@tayo-dev/rtl-help`.')
+    expect(helpSkill).toContain('Return:')
 
     const generateSkill = await readFile(
       join(target.destinationDirectory, 'skills', '@tayo-dev', 'rtl-generate', 'SKILL.md'),
       'utf8'
     )
-    expect(generateSkill).toContain('Run `tayo generate <recording-file>`')
-    await access(join(target.destinationDirectory, 'skills', '@tayo-dev', 'rtl-mocks', 'SKILL.md'))
+    expect(generateSkill).toContain('## Reference Map')
+    expect(generateSkill).toContain('Run `tayo __generate <recording-file>`')
+
+    const installedGenerateReferences = (
+      await readdir(join(target.destinationDirectory, 'skills', '@tayo-dev', 'rtl-generate', 'references'))
+    ).sort()
+    expect(installedGenerateReferences).toEqual([...EXPECTED_GENERATE_REFERENCES])
+
+    const conventionsSkill = await readFile(
+      join(target.destinationDirectory, 'skills', '@tayo-dev', 'rtl-conventions', 'SKILL.md'),
+      'utf8'
+    )
+    expect(conventionsSkill).toContain('## Investigation Workflow')
+
+    const mocksSkillPath = join(
+      target.destinationDirectory,
+      'skills',
+      '@tayo-dev',
+      'rtl-mocks',
+      'SKILL.md'
+    )
+    await access(mocksSkillPath)
+    const mocksSkill = await readFile(mocksSkillPath, 'utf8')
+    expect(mocksSkill).toContain('## Boundary Review Workflow')
   })
 })

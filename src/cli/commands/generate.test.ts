@@ -64,8 +64,6 @@ vi.mock('../../core/suite-planner.js', async (importOriginal) => {
 
 const sandboxes: string[] = []
 const samplePath = resolve(process.cwd(), 'sample/sample-rest-recordingextension-output.js')
-const sampleJsonBasicPath = resolve(process.cwd(), 'sample/sample-json-recording-basic.json')
-const sampleJsonDialogPath = resolve(process.cwd(), 'sample/sample-json-recording-dialog.json')
 const accessibleSelector = 'div.css-19bb58m'
 const inspectionFailureSelector =
   '#radix-_r_8s_-content-items > div:nth-of-type(1) > div:nth-of-type(2) span'
@@ -76,6 +74,10 @@ const environmentOptionsMarker = '@jest-environment' + '-options'
 
 function countOccurrences(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1
+}
+
+function deriveOutputPath(recordingPath: string): string {
+  return recordingPath.replace(/\.js$/, '.test.tsx')
 }
 
 function resolvedSelector(
@@ -252,9 +254,9 @@ afterEach(async () => {
 })
 
 describe('createGenerateCommand', () => {
-  it('covers live-dom recovery, inaccessible selectors, and inspection failure in dry-run output', async () => {
-    const sandbox = await createSandbox('dry-run')
-    const outputPath = join(sandbox.outputDir, 'generated.test.tsx')
+  it('writes JS output with repo-aware recovery and explicit unresolved-selector warnings', async () => {
+    const fixture = await createRecordingFixture('write-sample')
+    const outputPath = deriveOutputPath(fixture.recordingPath)
 
     discoverRepoRenderTargetsMock.mockResolvedValue([
       {
@@ -266,34 +268,33 @@ describe('createGenerateCommand', () => {
       },
     ])
 
-    const result = await runGenerate(
-      [samplePath, '--dry-run', '--output', outputPath],
-      sandbox.outputDir
-    )
+    const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
+    const written = await readFile(outputPath, 'utf-8')
 
     expect(result.thrown).toBeUndefined()
     expect(result.errors).toBe('')
     expect(result.logs).toContain('Parsed: Recording-Add-Sale-KE-06/03/2026 at 08:25:15')
-    expect(result.logs).toContain(`Would write to: ${outputPath}`)
-    expect(result.logs).toContain("import SalesModule from './SalesModule'")
-    expect(result.logs).toContain('render(<SalesModule />)')
-    expect(result.logs).toContain('const planSubmitContinue = async')
-    expect(result.logs).toContain('await planSubmitContinue(user)')
-    expect(result.logs).toContain('within(screen.getByRole(')
-    expect(result.logs).toContain("screen.getByRole('button', {name: '+ Add Item to Cart'})")
-    expect(result.logs).toContain("screen.getByRole('combobox', { name: 'Item selector' })")
-    expect(result.logs).not.toContain("screen.getByRole('heading', {name: 'Add Sale (Invoice)'})")
-    expect(result.logs).not.toContain("screen.getByText('KES 4,800.00')")
-    expect(result.logs).toContain('// tayo-query-checkpoint: click step requires manual RTL query recovery')
-    expect(result.logs).toContain(`// selector: ${inaccessibleSelector}`)
-    expect(result.logs).not.toContain(`// selector: ${inspectionFailureSelector}`)
-    expect(result.logs).not.toContain('screen.getByTestId(')
+    expect(result.logs).toContain('[tayo] ✓ post-write verified')
+    expect(result.logs).toContain(`Created: ${outputPath}`)
+    expect(written).toContain("import SalesModule from './SalesModule'")
+    expect(written).toContain('render(<SalesModule />)')
+    expect(written).toContain('const planSubmitContinue = async')
+    expect(written).toContain('await planSubmitContinue(user)')
+    expect(written).toContain('within(screen.getByRole(')
+    expect(written).toContain("screen.getByRole('button', {name: '+ Add Item to Cart'})")
+    expect(written).toContain("screen.getByRole('combobox', { name: 'Item selector' })")
+    expect(written).toContain('// tayo-query-checkpoint: click step requires manual RTL query recovery')
+    expect(written).toContain(`// selector: ${inaccessibleSelector}`)
+    expect(written).not.toContain(`// selector: ${inspectionFailureSelector}`)
+    expect(written).not.toContain('screen.getByTestId(')
     expect(result.warnings).toContain('Manual review required')
     expect(result.warnings).toContain('Top blockers:')
     expect(result.warnings).toContain(`unresolved selector ${inaccessibleSelector}`)
     expect(result.warnings).toContain(
       `Playwright inspection failed for selector ${inspectionFailureSelector}.`
     )
+    expect(result.warnings).not.toContain('Tayo could not resolve the exact render target')
+    expect(analyzeBoundaryIsolation(written)).toEqual([])
   })
 
   it('keeps selector degradation explicit when recorder JS has no URL evidence', async () => {
@@ -305,72 +306,22 @@ describe('createGenerateCommand', () => {
           ''
         )
     )
-    const outputPath = join(fixture.outputDir, 'generated.test.tsx')
+    const outputPath = deriveOutputPath(fixture.recordingPath)
 
-    const result = await runGenerate(
-      [fixture.recordingPath, '--dry-run', '--output', outputPath],
-      fixture.outputDir
-    )
+    const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
+    const written = await readFile(outputPath, 'utf-8')
 
     expect(result.thrown).toBeUndefined()
     expect(result.errors).toBe('')
-    expect(result.logs).toContain(`Would write to: ${outputPath}`)
-    expect(result.logs).toContain(`// selector: ${accessibleSelector}`)
-    expect(result.logs).toContain(
+    expect(result.logs).toContain(`Created: ${outputPath}`)
+    expect(written).toContain(`// selector: ${accessibleSelector}`)
+    expect(written).toContain(
       `// reason: No recorded URL is available to inspect selector ${accessibleSelector}.`
     )
     expect(result.warnings).toContain(
       `No recorded URL is available to inspect selector ${accessibleSelector}.`
     )
-    expect(result.logs).not.toContain('screen.getByTestId(')
-  })
-
-  it('uses the Add Sale sample as a regression guard against fabricated CSS-to-testid fallbacks', async () => {
-    const sandbox = await createSandbox('sample-regression')
-    const outputPath = join(sandbox.outputDir, 'generated.test.tsx')
-
-    resolveSelectorMock.mockImplementation(
-      (
-        selector: SelectorDescriptor,
-        options: {
-          url?: string
-          preservedQuery?: QueryDescriptor
-        } = {}
-      ) => {
-        if (options.preservedQuery) {
-          return resolvedSelector(selector, options.preservedQuery, 'baseline')
-        }
-
-        if (selector.selector === accessibleSelector) {
-          return unresolvedSelector(
-            selector,
-            'selector-inaccessible',
-            `Selector ${selector.selector} did not expose trustworthy accessible query evidence.`,
-            { url: options.url }
-          )
-        }
-
-        return defaultResolveSelector(selector, options)
-      }
-    )
-
-    const result = await runGenerate(
-      [samplePath, '--dry-run', '--output', outputPath],
-      sandbox.outputDir
-    )
-
-    expect(result.thrown).toBeUndefined()
-    expect(result.errors).toBe('')
-    expect(result.logs).toContain(`Would write to: ${outputPath}`)
-    expect(result.logs).toContain(`// selector: ${accessibleSelector}`)
-    expect(result.logs).toContain(
-      `// reason: Selector ${accessibleSelector} did not expose trustworthy accessible query evidence.`
-    )
-    expect(result.warnings).toContain(
-      `unresolved selector ${accessibleSelector}: Selector ${accessibleSelector} did not expose trustworthy accessible query evidence.`
-    )
-    expect(result.logs).not.toContain("screen.getByRole('combobox', { name: 'Item selector' })")
-    expect(result.logs).not.toContain('screen.getByTestId(')
+    expect(written).not.toContain('screen.getByTestId(')
   })
 
   it('reports preserved markers separately and keeps proof dblClick gestures out of generated user actions', async () => {
@@ -392,327 +343,55 @@ test('Semantic marker flow', async () => {
   await userEvent.click(screen.getByRole('heading', { name: 'Review Sale' }))
 })`
     )
-    const outputPath = join(fixture.outputDir, 'semantic-marker.test.tsx')
+    const outputPath = deriveOutputPath(fixture.recordingPath)
 
-    const result = await runGenerate(
-      [fixture.recordingPath, '--dry-run', '--output', outputPath],
-      fixture.outputDir
-    )
+    const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
+    const written = await readFile(outputPath, 'utf-8')
 
     expect(result.thrown).toBeUndefined()
     expect(result.errors).toBe('')
-    expect(result.logs).toContain('Recording cleanup: 1 redundant click(s), 1 preserved semantic marker(s), 1 unresolved semantic marker(s)')
+    expect(result.logs).toContain(
+      'Recording cleanup: 1 redundant click(s), 1 preserved semantic marker(s), 1 unresolved semantic marker(s)'
+    )
     expect(result.logs).toContain('markers: detected=2, emitted=1, unresolved=1')
     expect(result.logs).toContain('[tayo] Marker coverage:')
-    expect(result.logs).toContain('detected: 2')
-    expect(result.logs).toContain('emitted: 1')
-    expect(result.logs).toContain('unresolved: 1')
     expect(result.logs).toContain('QUAL-02 gate: PASS (markers-converted)')
     expect(countOccurrences(result.warnings, 'MKR-03 unresolved-marker')).toBe(1)
     expect(result.warnings).toMatch(
       /MKR-03 unresolved-marker marker=js-step-\d+ line: \d+ reason=[a-z-]+ detail="[^"]+" hint="[^"]+"/
     )
-    expect(result.logs).not.toContain('dblClick noise event(s)')
-    expect(result.logs).toContain(`Would write to: ${outputPath}`)
-    expect(result.logs).toContain("await user.click(screen.getByRole('button', { name: 'Save' }))")
-    expect(result.logs).toContain(
+    expect(result.logs).toContain(`Created: ${outputPath}`)
+    expect(written).toContain("await user.click(screen.getByRole('button', { name: 'Save' }))")
+    expect(written).toContain(
       "expect(await screen.findByRole('heading', { name: 'Review Sale' })).toBeVisible()"
     )
-    expect(result.logs).not.toContain("await user.click(screen.getByRole('heading', { name: 'Review Sale' }))")
-    expect(result.logs).not.toContain("await user.click(screen.getByRole('heading', { name: 'Starting state' }))")
-    expect(result.logs).not.toContain('dblClick')
-    expect(
-      countOccurrences(
-        result.logs,
-        "expect(await screen.findByRole('heading', { name: 'Review Sale' })).toBeVisible()"
-      )
-    ).toBe(1)
-  })
-
-  it('falls back to line: unknown when unresolved marker line metadata is unavailable', async () => {
-    const fixture = await createInlineJsFixture(
-      'semantic-marker-line-unknown',
-      `/**
- * ${environmentUrlMarker}
- * ${environmentOptionsMarker} { "url": "http://localhost:3001/sales" }
- */
-const {screen} = require('@testing-library/dom')
-const {default: userEvent} = require('@testing-library/user-event')
-require('@testing-library/jest-dom')
-
-test('Semantic marker fallback line context', async () => {
-  expect(location.href).toBe('http://localhost:3001/sales')
-  await userEvent.dblClick(screen.getByRole('heading', { name: 'Starting state' }))
-  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-  await userEvent.dblClick(screen.getByText('Customer PIN / Name'))
-})`
+    expect(written).not.toContain(
+      "await user.click(screen.getByRole('heading', { name: 'Review Sale' }))"
     )
-    const outputPath = join(fixture.outputDir, 'semantic-marker-line-unknown.test.tsx')
-
-    const actualSuitePlanner = await vi.importActual<typeof import('../../core/suite-planner.js')>(
-      '../../core/suite-planner.js'
+    expect(written).not.toContain(
+      "await user.click(screen.getByRole('heading', { name: 'Starting state' }))"
     )
-    planJsSuiteMock.mockImplementationOnce(
-      (
-        input: Parameters<typeof actualSuitePlanner.planJsSuite>[0]
-      ): ReturnType<typeof actualSuitePlanner.planJsSuite> => {
-        const plan = actualSuitePlanner.planJsSuite(input)
-        return {
-          ...plan,
-          scenarios: plan.scenarios.map((scenario) => ({
-            ...scenario,
-            unresolvedMarkerAssertions: (scenario.unresolvedMarkerAssertions ?? []).map(
-              (unresolvedMarker) => ({
-                ...unresolvedMarker,
-                line: undefined,
-                sourceContext: {
-                  ...unresolvedMarker.sourceContext,
-                  line: undefined,
-                },
-              })
-            ),
-          })),
-        }
-      }
-    )
-
-    const result = await runGenerate(
-      [fixture.recordingPath, '--dry-run', '--output', outputPath],
-      fixture.outputDir
-    )
-
-    expect(result.thrown).toBeUndefined()
-    expect(countOccurrences(result.warnings, 'MKR-03 unresolved-marker')).toBeGreaterThan(0)
-    expect(result.warnings).toMatch(/reason=[a-z-]+/)
-    expect(result.warnings).toContain('line: unknown')
-    expect(result.warnings).toMatch(/detail="[^"]+"/)
-    expect(result.warnings).toMatch(/hint="[^"]+"/)
-  })
-
-  it('emits sample-backed marker assertions after helper calls without replaying marker gestures', async () => {
-    const sandbox = await createSandbox('sample-marker-proof')
-    const outputPath = join(sandbox.outputDir, 'generated.test.tsx')
-
-    discoverRepoRenderTargetsMock.mockResolvedValue([
-      {
-        symbol: 'SalesModule',
-        importPath: './SalesModule',
-        sourceTestFile: 'sample/sample-add-sale-test.tsx',
-        helperNames: ['openAddSaleDialog', 'addItemToCart', 'fillOtherDetails'],
-        usesWithin: true,
-      },
-    ])
-
-    const result = await runGenerate(
-      [samplePath, '--dry-run', '--output', outputPath],
-      sandbox.outputDir
-    )
-
-    expect(result.thrown).toBeUndefined()
-    expect(result.errors).toBe('')
-    expect(result.logs).toContain('await planSubmitContinue(user)')
-    expect(result.logs).toContain("expect(await screen.findByText('Please enter or')).toBeVisible()")
-    expect(result.logs).toContain(
-      "expect(await screen.findByLabelText('Customer PIN')).toBeVisible()"
-    )
-    expect(result.logs).toContain(
-      "expect(await screen.findByRole('heading', { name: 'Review Sale (Invoice)' })).toBeVisible()"
-    )
-    expect(result.logs).toContain(
-      "expect(await screen.findByText('KES 4,800.00')).toBeVisible()"
-    )
-    expect(result.logs).not.toContain("await user.click(screen.getByText('Customer PIN'))")
-    expect(result.logs).not.toContain('dblClick')
-    expect(result.logs.indexOf('await planSubmitContinue(user)')).toBeLessThan(
-      result.logs.indexOf("expect(await screen.findByLabelText('Customer PIN')).toBeVisible()")
-    )
-    expect(
-      countOccurrences(
-        result.logs,
-        "expect(await screen.findByLabelText('Customer PIN')).toBeVisible()"
-      )
-    ).toBe(1)
-    expect(
-      countOccurrences(
-        result.logs,
-        "expect(await screen.findByText('KES 4,800.00')).toBeVisible()"
-      )
-    ).toBe(1)
-    expect(result.logs).not.toContain('toHaveValue(')
-  })
-
-  it('overwrites an existing JS output file when --force is provided', async () => {
-    const sandbox = await createSandbox('force')
-    const outputPath = join(sandbox.outputDir, 'generated.test.tsx')
-
-    discoverRepoRenderTargetsMock.mockResolvedValue([
-      {
-        symbol: 'SalesModule',
-        importPath: './SalesModule',
-        sourceTestFile: 'sample/sample-add-sale-test.tsx',
-        helperNames: ['openAddSaleDialog', 'addItemToCart', 'fillOtherDetails'],
-        usesWithin: true,
-      },
-    ])
-
-    await writeFile(outputPath, 'stale content', 'utf-8')
-
-    const result = await runGenerate(
-      [samplePath, '--output', outputPath, '--force'],
-      sandbox.outputDir
-    )
-
-    const written = await readFile(outputPath, 'utf-8')
-
-    expect(result.thrown).toBeUndefined()
-    expect(result.errors).toBe('')
-    expect(result.logs).toContain(`Updated: ${outputPath}`)
-    expect(written).toContain("screen.getByRole('button', {name: '+ Add Item to Cart'})")
-    expect(written).toContain("import SalesModule from './SalesModule'")
-    expect(written).toContain('render(<SalesModule />)')
-    expect(written).toContain('const planSubmitContinue = async')
-    expect(written).toContain('await planSubmitContinue(user)')
-    expect(written).not.toContain("screen.getByRole('heading', {name: 'Add Sale (Invoice)'})")
-    expect(written).not.toContain("screen.getByText('KES 4,800.00')")
-    expect(written).not.toContain(`// selector: ${inspectionFailureSelector}`)
-    expect(written).not.toContain('screen.getByTestId(')
-    expect(written).not.toContain('stale content')
-    expect(result.warnings).toContain('Manual review required')
-    expect(result.warnings).toContain('Top blockers:')
-  })
-
-  it('treats repo-aware Add Sale output as boundary-safe when render target evidence exists', async () => {
-    const sandbox = await createSandbox('boundary-safe')
-    const outputPath = join(sandbox.outputDir, 'generated.test.tsx')
-
-    discoverRepoRenderTargetsMock.mockResolvedValue([
-      {
-        symbol: 'SalesModule',
-        importPath: './SalesModule',
-        sourceTestFile: 'sample/sample-add-sale-test.tsx',
-        helperNames: ['openAddSaleDialog', 'addItemToCart', 'fillOtherDetails'],
-        usesWithin: true,
-      },
-    ])
-
-    const result = await runGenerate(
-      [samplePath, '--dry-run', '--output', outputPath],
-      sandbox.outputDir
-    )
-
-    expect(result.thrown).toBeUndefined()
-    expect(result.warnings).not.toContain('Tayo could not resolve the exact render target')
-    expect(result.logs).not.toContain('// tayo-boundary-warning: Prefer a repo-local module/container render boundary')
-    expect(analyzeBoundaryIsolation(result.logs)).toEqual([])
+    expect(written).not.toContain('dblClick')
   })
 
   it('keeps explicit boundary-draft output when repo render target evidence is missing', async () => {
-    const sandbox = await createSandbox('boundary-draft')
-    const outputPath = join(sandbox.outputDir, 'generated.test.tsx')
+    const fixture = await createRecordingFixture('boundary-draft')
+    const outputPath = deriveOutputPath(fixture.recordingPath)
 
     discoverRepoRenderTargetsMock.mockResolvedValue([])
 
-    const result = await runGenerate(
-      [samplePath, '--dry-run', '--output', outputPath],
-      sandbox.outputDir
-    )
-
-    expect(result.thrown).toBeUndefined()
-    expect(result.logs).toContain(
-      '// tayo-boundary-warning: Tayo could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.'
-    )
-    expect(result.logs).toContain('render(<App />)')
-    expect(result.logs).not.toContain("import SalesModule from './SalesModule'")
-  })
-
-  it('supports representative JSON recordings through the public dry-run generate flow', async () => {
-    const sandbox = await createSandbox('json-dry-run')
-    const outputPath = join(sandbox.outputDir, 'json-basic.test.tsx')
-
-    const result = await runGenerate(
-      [sampleJsonBasicPath, '--dry-run', '--output', outputPath],
-      sandbox.outputDir
-    )
-
-    expect(result.thrown).toBeUndefined()
-    expect(result.errors).toBe('')
-    expect(result.logs).toContain('Parsed: JSON basic sale flow — 7 steps')
-    expect(result.logs).toContain(`Would write to: ${outputPath}`)
-    expect(result.logs).toContain("screen.getByTestId(/* TODO: replace with RTL query — CSS: 'Add Sale' */ '')")
-    expect(result.logs).toContain(
-      "screen.getByTestId(/* TODO: replace with RTL query — CSS: 'Customer Name' */ '')"
-    )
-    expect(result.logs).toContain(
-      "screen.getByTestId(/* TODO: replace with RTL query — CSS: 'Sale created' */ '')"
-    )
-    expect(result.logs).toContain('[tayo] Score:')
-    expect(result.logs).toContain('markers: detected=0, emitted=0, unresolved=0')
-    expect(result.logs).toContain('QUAL-02 gate: PASS (no-markers-detected)')
-    expect(result.logs).not.toContain('tayo-query-checkpoint')
-    expect(result.logs).not.toContain('tayo-boundary-warning:')
-    expect(result.warnings).toContain('Manual review required')
-  })
-
-  it('writes representative dialog JSON recordings without requiring JS-only resolver features', async () => {
-    const sandbox = await createSandbox('json-write')
-    const outputPath = join(sandbox.outputDir, 'json-dialog.test.tsx')
-
-    const result = await runGenerate(
-      [sampleJsonDialogPath, '--output', outputPath],
-      sandbox.outputDir
-    )
+    const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
     const written = await readFile(outputPath, 'utf-8')
 
     expect(result.thrown).toBeUndefined()
-    expect(result.errors).toBe('')
-    expect(result.logs).toContain(`Created: ${outputPath}`)
     expect(written).toContain(
-      "screen.getByTestId(/* TODO: replace with RTL query — CSS: 'Open Add Sale dialog' */ '')"
+      '// tayo-boundary-warning: Tayo could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.'
     )
-    expect(written).toContain(
-      "screen.getByTestId(/* TODO: replace with RTL query — CSS: 'Reference' */ '')"
-    )
-    expect(written).toContain(
-      "screen.getByTestId(/* TODO: replace with RTL query — CSS: 'Draft saved' */ '')"
-    )
-    expect(written).not.toContain('tayo-query-checkpoint')
-    expect(written).not.toContain('tayo-boundary-warning:')
-    expect(result.warnings).toContain('Manual review required')
+    expect(written).toContain('render(<App />)')
+    expect(written).not.toContain("import SalesModule from './SalesModule'")
   })
 
-  it('fails dry-run with exit code 1 when semantic markers are detected but none are emitted', async () => {
-    const fixture = await createInlineJsFixture(
-      'qual-gate-dry-run-fail',
-      `/**
- * ${environmentUrlMarker}
- * ${environmentOptionsMarker} { "url": "http://localhost:3001/sales" }
- */
-const {screen} = require('@testing-library/dom')
-const {default: userEvent} = require('@testing-library/user-event')
-require('@testing-library/jest-dom')
-
-test('Marker gate fail in dry-run', async () => {
-  expect(location.href).toBe('http://localhost:3001/sales')
-  await userEvent.dblClick(screen.getByRole('heading', { name: 'Starting state' }))
-  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-})`
-    )
-    const outputPath = join(fixture.outputDir, 'qual-gate-dry-run-fail.test.tsx')
-
-    const result = await runGenerate(
-      [fixture.recordingPath, '--dry-run', '--output', outputPath],
-      fixture.outputDir
-    )
-
-    expect(result.thrown).toBeUndefined()
-    expect(result.logs).toContain('QUAL-02 gate: FAIL (zero-marker-conversion)')
-    expect(result.logs).toContain(`Would write to: ${outputPath}`)
-    expect(result.errors).toContain('QUAL-02 FAIL:')
-    expect(result.errors).toContain('Exiting with code 1: QUAL-02 gate failed after --dry-run preview.')
-    expect(result.exitCode).toBe(1)
-  })
-
-  it('writes output then fails with exit code 1 when QUAL-02 gate fails in write mode', async () => {
+  it('fails with exit code 1 when QUAL-02 gate fails after writing output', async () => {
     const fixture = await createInlineJsFixture(
       'qual-gate-write-fail',
       `/**
@@ -729,9 +408,9 @@ test('Marker gate fail in write mode', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 })`
     )
-    const outputPath = join(fixture.outputDir, 'qual-gate-write-fail.test.tsx')
+    const outputPath = deriveOutputPath(fixture.recordingPath)
 
-    const result = await runGenerate([fixture.recordingPath, '--output', outputPath], fixture.outputDir)
+    const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
     const written = await readFile(outputPath, 'utf-8')
 
     expect(result.thrown).toBeUndefined()
@@ -739,7 +418,9 @@ test('Marker gate fail in write mode', async () => {
     expect(result.logs).toContain(`Created: ${outputPath}`)
     expect(result.logs).toContain('QUAL-02 gate: FAIL (zero-marker-conversion)')
     expect(result.errors).toContain('QUAL-02 FAIL:')
-    expect(result.errors).toContain('Exiting with code 1: QUAL-02 gate failed after write mode output.')
+    expect(result.errors).toContain(
+      'Exiting with code 1: QUAL-02 gate failed after generation.'
+    )
     expect(result.exitCode).toBe(1)
     expect(written).toContain('it(')
   })

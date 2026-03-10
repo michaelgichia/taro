@@ -87,7 +87,11 @@ describe('prompt runtime install builders', () => {
 
     await materializeOperations(buildClaudeRuntimeOperations(target))
 
-    await expectFile(join(cwd, '.claude', 'commands', '@tayo-dev', 'rtl', 'generate.md'))
+    const generateContent = await expectFile(
+      join(cwd, '.claude', 'commands', '@tayo-dev', 'rtl', 'generate.md')
+    )
+    expect(generateContent).toContain('`tayo __generate <recording-file>`')
+    expect(generateContent).not.toContain('--dry-run')
   })
 
   it('installs Gemini CLI assets into the global .gemini command namespace', async () => {
@@ -111,7 +115,11 @@ describe('prompt runtime install builders', () => {
 
     await materializeOperations(buildGeminiRuntimeOperations(target))
 
-    await expectFile(join(cwd, '.gemini', 'commands', '@tayo-dev', 'rtl', 'generate.toml'))
+    const generateContent = await expectFile(
+      join(cwd, '.gemini', 'commands', '@tayo-dev', 'rtl', 'generate.toml')
+    )
+    expect(generateContent).toContain('`tayo __generate <recording-file>`')
+    expect(generateContent).not.toContain('--dry-run')
   })
 
   it('installs OpenCode assets into the global commands namespace', async () => {
@@ -135,6 +143,10 @@ describe('prompt runtime install builders', () => {
 
     await materializeOperations(buildOpenCodeRuntimeOperations(target))
 
-    await expectFile(join(cwd, '.opencode', 'commands', '@tayo-dev', 'rtl-generate.md'))
+    const generateContent = await expectFile(
+      join(cwd, '.opencode', 'commands', '@tayo-dev', 'rtl-generate.md')
+    )
+    expect(generateContent).toContain('`tayo __generate <recording-file>`')
+    expect(generateContent).not.toContain('--dry-run')
   })
 })

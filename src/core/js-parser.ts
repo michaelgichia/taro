@@ -555,7 +555,7 @@ export async function parseJsRecording(code: string): Promise<JsParseResult> {
   const trimmed = code.trim()
   if (trimmed.startsWith('{')) {
     throw new Error(
-      'Expected JS file from Testing Library Recorder extension. Got JSON — use the Chrome Recorder JSON parser instead.'
+      'Expected a Testing Library Recorder JS export. Chrome Recorder JSON exports are no longer supported.'
     )
   }
 

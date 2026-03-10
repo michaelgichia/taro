@@ -2,6 +2,19 @@ import { join } from 'node:path'
 import { resolveAssetSource } from '../assets.js'
 import type { InstallFileOperation, ResolvedInstallTarget, RuntimeAssetDefinition } from '../types.js'
 
+const CODEX_GENERATE_REFERENCE_FILES = [
+  'assertion-markers.md',
+  'auth.md',
+  'conventions-schema.md',
+  'entry-path-fidelity.md',
+  'intent-model.md',
+  'mock-store.md',
+  'quality-scoring.md',
+  'state-schema.md',
+  'test-index.md',
+  'verification-gate.md',
+] as const
+
 const CODEX_SKILL_ASSETS: RuntimeAssetDefinition[] = [
   {
     id: 'help',
@@ -17,6 +30,12 @@ const CODEX_SKILL_ASSETS: RuntimeAssetDefinition[] = [
     destinationSegments: ['skills', '@tayo-dev', 'rtl-generate', 'SKILL.md'],
     entrypoint: '$@tayo-dev/rtl-generate',
   },
+  ...CODEX_GENERATE_REFERENCE_FILES.map((fileName) => ({
+    id: `generate-reference-${fileName.replace(/\.md$/, '')}`,
+    kind: 'skill' as const,
+    sourceSegments: ['@tayo-dev', 'rtl-generate', 'references', fileName],
+    destinationSegments: ['skills', '@tayo-dev', 'rtl-generate', 'references', fileName],
+  })),
   {
     id: 'conventions',
     kind: 'skill',
