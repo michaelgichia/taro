@@ -25,6 +25,14 @@ npm run build:claude
 
 That command builds Taro, installs the Claude command surface into this repo's `./.claude/`, deletes the existing global Taro Claude command directory, and reinstalls the global Claude surface cleanly.
 
+For the Codex equivalent, run:
+
+```bash
+npm run build:codex
+```
+
+That command builds Taro, installs the Codex skill surface into this repo's `./.codex/`, deletes the existing global Taro Codex skill directories plus the Taro Codex manifest, and reinstalls the global Codex surface cleanly.
+
 ## Runtime Entrypoints
 
 - Claude Code: `/@tayo-dev/rtl:help`, `/@tayo-dev/rtl:generate`

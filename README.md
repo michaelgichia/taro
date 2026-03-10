@@ -81,6 +81,9 @@ npm run build
 # Build, install locally for this repo, then reinstall the global Claude surface cleanly
 npm run build:claude
 
+# Build, install locally for this repo, then reinstall the global Codex surface cleanly
+npm run build:codex
+
 # Exercise the installer from the built package entrypoint
 node dist/index.js --all --local
 
@@ -96,6 +99,13 @@ The tarball flow is the closest match to what end users get from npm.
 1. builds the package
 2. installs Claude commands into this repo's `./.claude/`
 3. deletes the existing global Taro Claude command directory at `~/.claude/commands/@tayo-dev/rtl` and reinstalls it cleanly
+
+`npm run build:codex` performs the Codex equivalent:
+
+1. builds the package
+2. installs Codex skills into this repo's `./.codex/`
+3. deletes the existing global Taro Codex skill directories plus `~/.codex/@tayo-dev-rtl-manifest.json`
+4. reinstalls the global Codex surface cleanly
 
 ## Generate RTL Tests
 
