@@ -18,7 +18,7 @@ v1.3 focuses on turning Testing Library Recorder JS exports into a truthful base
 - Decimal phases (13.1, 13.2): urgent insertions if needed later
 
 - [x] **Phase 13: JS Input Contract & AST Recovery** - JS recorder exports become first-class baseline inputs with stable semantic extraction
-- [ ] **Phase 14: Truthful Selector Recovery** - weak selector evidence is upgraded when justified and called out when it is not
+- [x] **Phase 14: Truthful Selector Recovery** - weak selector evidence is upgraded when justified and called out when it is not (completed 2026-03-10)
 - [ ] **Phase 15: Structured Suite Planning & Repo-aware Generation** - generated output becomes scenario-based, helper-oriented, and grounded in repo context
 - [ ] **Phase 16: Verification, JSON Parity & Product Surface** - scoring, regression proof, and docs match the shipped JS baseline behavior
 
@@ -63,7 +63,7 @@ Plans:
 
 - [x] 14-01: Selector resolution contract and truthful resolver outcomes
 - [x] 14-02: Truthful JS generation and unresolved-selector checkpoints
-- [ ] 14-03: Optional live DOM enrichment and sample-backed selector regression proof
+- [x] 14-03: Optional live DOM enrichment and sample-backed selector regression proof
 
 ### Phase 15: Structured Suite Planning & Repo-aware Generation
 **Goal**: Users receive maintainable RTL suites that reflect meaningful scenarios, safe state boundaries, and real project context
@@ -96,6 +96,6 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 13. JS Input Contract & AST Recovery | v1.3 | 4/4 | Complete | 2026-03-09 |
-| 14. Truthful Selector Recovery | v1.3 | 2/3 | In Progress | - |
+| 14. Truthful Selector Recovery | v1.3 | 3/3 | Complete | 2026-03-10 |
 | 15. Structured Suite Planning & Repo-aware Generation | v1.3 | 0/TBD | Not started | - |
 | 16. Verification, JSON Parity & Product Surface | v1.3 | 0/TBD | Not started | - |
