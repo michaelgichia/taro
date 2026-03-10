@@ -27,9 +27,9 @@
 
 ### Verification, Parity & Product Surface
 
-- [ ] **VERIFY-01**: User can trust JS generation quality signals because scoring and verification account for JS-derived queries, weak assertions, placeholder output, and low-confidence generation states.
-- [ ] **VERIFY-02**: User can continue generating from Chrome Recorder JSON exports without regression while v1.3 improves JS baseline fidelity.
-- [ ] **VERIFY-03**: User sees matching CLI help, README guidance, and examples for JSON and JS input support, including the fact that recorder JS is treated as a baseline artifact Taro transforms.
+- [x] **VERIFY-01**: User can trust JS generation quality signals because scoring and verification account for JS-derived queries, weak assertions, placeholder output, and low-confidence generation states.
+- [x] **VERIFY-02**: User can continue generating from Chrome Recorder JSON exports without regression while v1.3 improves JS baseline fidelity.
+- [x] **VERIFY-03**: User sees matching CLI help, README guidance, and examples for JSON and JS input support, including the fact that recorder JS is treated as a baseline artifact Taro transforms.
 
 ## v2 Requirements
 
@@ -58,10 +58,10 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INPUT-01 | Phase 13 | Verification pending |
-| INPUT-02 | Phase 13 | Verification pending |
-| INPUT-03 | Phase 13 | Verification pending |
-| QUERY-01 | Phase 13 | Verification pending |
+| INPUT-01 | Phase 13 | Complete |
+| INPUT-02 | Phase 13 | Complete |
+| INPUT-03 | Phase 13 | Complete |
+| QUERY-01 | Phase 13 | Complete |
 | QUERY-02 | Phase 14 | Complete |
 | QUERY-03 | Phase 14 | Complete |
 | QUERY-04 | Phase 14 | Complete |
@@ -69,9 +69,9 @@
 | SUITE-02 | Phase 15 | Complete |
 | SUITE-03 | Phase 15 | Complete |
 | SUITE-04 | Phase 15 | Complete |
-| VERIFY-01 | Phase 16 | Pending |
-| VERIFY-02 | Phase 16 | Pending |
-| VERIFY-03 | Phase 16 | Pending |
+| VERIFY-01 | Phase 16 | Complete |
+| VERIFY-02 | Phase 16 | Complete |
+| VERIFY-03 | Phase 16 | Complete |
 
 **Coverage:**
 - v1 requirements: 14 total
@@ -80,4 +80,4 @@
 
 ---
 *Requirements defined: 2026-03-09*
-*Last updated: 2026-03-10 after Phase 15 verification*
+*Last updated: 2026-03-10 after Phase 16 verification*

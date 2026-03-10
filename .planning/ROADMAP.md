@@ -20,7 +20,7 @@ v1.3 focuses on turning Testing Library Recorder JS exports into a truthful base
 - [x] **Phase 13: JS Input Contract & AST Recovery** - JS recorder exports become first-class baseline inputs with stable semantic extraction
 - [x] **Phase 14: Truthful Selector Recovery** - weak selector evidence is upgraded when justified and called out when it is not (completed 2026-03-10)
 - [x] **Phase 15: Structured Suite Planning & Repo-aware Generation** - generated output becomes scenario-based, helper-oriented, and grounded in repo context (completed 2026-03-10)
-- [ ] **Phase 16: Verification, JSON Parity & Product Surface** - scoring, regression proof, and docs match the shipped JS baseline behavior
+- [x] **Phase 16: Verification, JSON Parity & Product Surface** - scoring, regression proof, and docs match the shipped JS baseline behavior (completed 2026-03-10)
 
 ## Phase Details
 
@@ -97,9 +97,9 @@ Plans:
 
 Plans:
 
-- [ ] 16-01: Scoring trust contract and low-confidence messaging
-- [ ] 16-02: JSON parity fixtures and public-flow regression proof
-- [ ] 16-03: Docs/help alignment and Phase 13 verification backfill
+- [x] 16-01: Scoring trust contract and low-confidence messaging
+- [x] 16-02: JSON parity fixtures and public-flow regression proof
+- [x] 16-03: Docs/help alignment and Phase 13 verification backfill
 
 ## Progress
 
@@ -110,4 +110,4 @@ Plans:
 | 13. JS Input Contract & AST Recovery | v1.3 | 4/4 | Complete | 2026-03-09 |
 | 14. Truthful Selector Recovery | v1.3 | 3/3 | Complete | 2026-03-10 |
 | 15. Structured Suite Planning & Repo-aware Generation | v1.3 | 3/3 | Complete | 2026-03-10 |
-| 16. Verification, JSON Parity & Product Surface | v1.3 | 0/3 | Planned | - |
+| 16. Verification, JSON Parity & Product Surface | v1.3 | 3/3 | Complete | 2026-03-10 |
