@@ -74,6 +74,22 @@ function logScore(scoreResult: ScoreResult): void {
   )
 }
 
+function emitLowConfidenceBanner(scoreResult: ScoreResult): void {
+  if (!scoreResult.requiresReview) {
+    return
+  }
+
+  console.warn(
+    pc.yellow(
+      `[taro] Manual review required — this generated test is still a draft (${scoreResult.total}/100, ${scoreResult.grade}).`
+    )
+  )
+
+  if (scoreResult.blockers.length > 0) {
+    console.warn(pc.yellow(`[taro] Top blockers: ${scoreResult.blockers.join(' | ')}`))
+  }
+}
+
 function emitScoreHints(
   scoreResult: ScoreResult,
   queryResults: QueryResult[] = [],
@@ -789,6 +805,7 @@ export function createGenerateCommand(): Command {
       const boundaryIssues = analyzeBoundaryIsolation(generated.code)
 
       logScore(scoreResult)
+      emitLowConfidenceBanner(scoreResult)
       emitScoreHints(scoreResult, resolvedJsGeneration?.queryResults ?? [], boundaryIssues)
 
       if (options.dryRun) {

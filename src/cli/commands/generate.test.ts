@@ -252,6 +252,8 @@ describe('createGenerateCommand', () => {
     expect(result.logs).toContain(`// selector: ${inaccessibleSelector}`)
     expect(result.logs).toContain(`// selector: ${inspectionFailureSelector}`)
     expect(result.logs).not.toContain('screen.getByTestId(')
+    expect(result.warnings).toContain('Manual review required')
+    expect(result.warnings).toContain('Top blockers:')
     expect(result.warnings).toContain(`unresolved selector ${inaccessibleSelector}`)
     expect(result.warnings).toContain(
       `Playwright inspection failed for selector ${inspectionFailureSelector}.`
@@ -369,6 +371,8 @@ describe('createGenerateCommand', () => {
     expect(written).toContain(`// selector: ${inspectionFailureSelector}`)
     expect(written).not.toContain('screen.getByTestId(')
     expect(written).not.toContain('stale content')
+    expect(result.warnings).toContain('Manual review required')
+    expect(result.warnings).toContain('Top blockers:')
   })
 
   it('treats repo-aware Add Sale output as boundary-safe when render target evidence exists', async () => {
