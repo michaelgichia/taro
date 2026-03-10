@@ -1,5 +1,7 @@
+import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { parseJsRecording } from './js-parser.js'
 import { normalizeStep } from './parser.js'
 import { parseRecording } from './parser.js'
 import {
@@ -12,6 +14,10 @@ import type { ChromeStep, NormalizedRecording, NormalizedStep } from '../types/r
 
 const sampleJsonBasicPath = resolve(process.cwd(), 'sample/sample-json-recording-basic.json')
 const sampleJsonDialogPath = resolve(process.cwd(), 'sample/sample-json-recording-dialog.json')
+const sampleRestRecordingPath = resolve(
+  process.cwd(),
+  'sample/sample-rest-recordingextension-output.js'
+)
 
 function createJsClickStep(id: string, target: string): NormalizedStep {
   return {
@@ -92,6 +98,40 @@ function createJsMarkerStep(options: {
       semanticMarkerCandidate,
     },
   }
+}
+
+async function loadSampleRestRecordingAnalysis() {
+  const sample = await readFile(sampleRestRecordingPath, 'utf-8')
+  const parsed = await parseJsRecording(sample)
+
+  return {
+    parsed,
+    analyzed: analyzeRecording({
+      title: parsed.title,
+      rawStepCount: parsed.steps.length,
+      steps: parsed.steps,
+    }),
+  }
+}
+
+function getStepById(steps: NormalizedStep[], stepId: string): NormalizedStep {
+  const step = steps.find((candidate) => candidate.id === stepId)
+
+  if (!step) {
+    throw new Error(`Expected step ${stepId} to exist`)
+  }
+
+  return step
+}
+
+function getStepIndex(steps: NormalizedStep[], stepId: string): number {
+  const index = steps.findIndex((candidate) => candidate.id === stepId)
+
+  if (index === -1) {
+    throw new Error(`Expected step ${stepId} to exist`)
+  }
+
+  return index
 }
 
 describe('normalizeStep', () => {
@@ -345,14 +385,72 @@ describe('analyzeRecording', () => {
     })
   })
 
-  it('keeps proof-like JS markers unresolved when no valid anchor exists', () => {
+  it('attaches the sample Add Sale heading marker to the opener click', async () => {
+    const { analyzed, parsed } = await loadSampleRestRecordingAnalysis()
+    const marker = getStepById(analyzed.steps, 'js-step-4')
+
+    expect(marker.semanticMarkerLink).toMatchObject({
+      markerStepId: 'js-step-4',
+      anchorStepId: 'js-step-3',
+      relation: 'same-target',
+      proofSubject: 'heading',
+    })
+    expect(marker.unresolvedSemanticMarker).toBeUndefined()
+    expect(getStepById(parsed.steps, 'js-step-3')).toMatchObject({
+      id: 'js-step-3',
+      action: 'click',
+      target: 'Add Sale (Invoice)',
+    })
+  })
+
+  it('attaches later sample review markers past intervening non-anchor steps', async () => {
+    const { analyzed } = await loadSampleRestRecordingAnalysis()
+    const reviewContinue = analyzed.steps
+      .filter((step) => step.action === 'click' && step.target === 'Continue')
+      .slice(-1)[0]
+
+    expect(reviewContinue).toBeDefined()
+
+    for (const markerStepId of ['js-step-67', 'js-step-69']) {
+      const marker = getStepById(analyzed.steps, markerStepId)
+      const anchorStepId = marker.semanticMarkerLink?.anchorStepId
+      const anchorIndex = getStepIndex(analyzed.steps, anchorStepId ?? '')
+      const markerIndex = getStepIndex(analyzed.steps, markerStepId)
+
+      expect(marker.semanticMarkerLink).toMatchObject({
+        markerStepId,
+        anchorStepId: reviewContinue?.id,
+        relation: 'follows',
+        proofSubject: 'concrete-value',
+      })
+      expect(marker.unresolvedSemanticMarker).toBeUndefined()
+      expect(markerIndex - anchorIndex).toBeGreaterThan(1)
+      expect(analyzed.steps[markerIndex - 1]?.id).not.toBe(reviewContinue?.id)
+      expect(
+        analyzed.steps
+          .slice(anchorIndex + 1, markerIndex)
+          .some((step) => step.target === 'Review Sale (Invoice)')
+      ).toBe(true)
+    }
+  })
+
+  it('keeps proof-like JS markers unresolved when earlier steps are only routine edits', () => {
     const recording: NormalizedRecording = {
       title: 'Detached proof',
-      rawStepCount: 2,
+      rawStepCount: 4,
       steps: [
         createJsFillStep('js-step-1', 'Customer Name', 'Acme'),
-        createJsMarkerStep({
+        {
           id: 'js-step-2',
+          action: 'select',
+          target: 'Invoice Type',
+          value: 'NORMAL',
+          originalType: 'selectOptions',
+          source: 'js',
+        },
+        createJsClickStep('js-step-3', 'Customer PIN'),
+        createJsMarkerStep({
+          id: 'js-step-4',
           target: 'Saved successfully',
           proofSubject: 'visible-message',
           role: 'status',
@@ -365,12 +463,12 @@ describe('analyzeRecording', () => {
     expect(result.semanticMarkerLinks).toEqual([])
     expect(result.unresolvedSemanticMarkers).toEqual([
       expect.objectContaining({
-        stepId: 'js-step-2',
+        stepId: 'js-step-4',
         reason: 'missing-anchor',
         proofSubject: 'visible-message',
       }),
     ])
-    expect(result.steps[1]?.semanticMarkerCandidate).toMatchObject({
+    expect(getStepById(result.steps, 'js-step-4').semanticMarkerCandidate).toMatchObject({
       status: 'unresolved',
     })
     expect(result.diagnostics).toMatchObject({

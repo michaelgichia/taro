@@ -29,7 +29,17 @@ export interface NoiseFilterResult {
 }
 
 const MAJOR_TRANSITION_PATTERN =
-  /\b(open|continue|submit|save|confirm|done|create|update|apply|next|finish|start|launch|proceed|review|checkout|complete)\b/i
+  /\b(add|open|continue|submit|save|confirm|done|create|update|apply|next|finish|start|launch|proceed|review|checkout|complete)\b/i
+
+const STATE_CHANGING_CONTROL_ROLES = new Set([
+  'button',
+  'link',
+  'menuitem',
+  'menuitemcheckbox',
+  'menuitemradio',
+  'switch',
+  'tab',
+])
 
 const INTERACTIVE_ROLES = new Set([
   'button',
@@ -147,6 +157,25 @@ function isProofLikeButUnsupportedSubject(
   return subject === 'selector-target'
 }
 
+function getQueryRole(step: NormalizedStep): string | undefined {
+  const query = step.metadata?.query
+
+  if (
+    query &&
+    typeof query === 'object' &&
+    'role' in query &&
+    typeof query.role === 'string'
+  ) {
+    return query.role.toLowerCase()
+  }
+
+  return undefined
+}
+
+function isStateChangingControlStep(step: NormalizedStep): boolean {
+  return STATE_CHANGING_CONTROL_ROLES.has(getQueryRole(step) ?? '')
+}
+
 function isMajorTransitionStep(step: NormalizedStep): boolean {
   if (step.action === 'navigate') {
     return true
@@ -156,7 +185,24 @@ function isMajorTransitionStep(step: NormalizedStep): boolean {
     return false
   }
 
-  return MAJOR_TRANSITION_PATTERN.test(normalizedTarget(step.target) ?? '')
+  if (isJsSemanticMarkerGesture(step)) {
+    return false
+  }
+
+  const target = normalizedTarget(step.target)
+  if (!target) {
+    return false
+  }
+
+  if (isStateChangingControlStep(step)) {
+    return true
+  }
+
+  if (getQueryRole(step)) {
+    return false
+  }
+
+  return MAJOR_TRANSITION_PATTERN.test(target)
 }
 
 function findNearestPriorMajorTransitionStep(
@@ -173,8 +219,6 @@ function findNearestPriorMajorTransitionStep(
     if (isMajorTransitionStep(candidate)) {
       return candidate
     }
-
-    break
   }
 
   return undefined
