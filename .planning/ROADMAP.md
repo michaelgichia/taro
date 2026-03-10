@@ -57,7 +57,13 @@ Plans:
   1. User gets stronger queries recovered from `document.querySelector(...)` steps when Taro has trustworthy evidence, or explicit warnings/checkpoints when it does not.
   2. User never receives invented selector fallbacks such as fake `data-testid` queries when the recorder baseline or live DOM cannot justify them.
   3. User can benefit from recorded URL or live DOM enrichment when it is available, without making a running browser session a hard requirement for baseline usefulness.
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+
+- [ ] 14-01: Selector resolution contract and truthful resolver outcomes
+- [ ] 14-02: Truthful JS generation and unresolved-selector checkpoints
+- [ ] 14-03: Optional live DOM enrichment and sample-backed selector regression proof
 
 ### Phase 15: Structured Suite Planning & Repo-aware Generation
 **Goal**: Users receive maintainable RTL suites that reflect meaningful scenarios, safe state boundaries, and real project context
@@ -90,6 +96,6 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 13. JS Input Contract & AST Recovery | v1.3 | 4/4 | Complete | 2026-03-09 |
-| 14. Truthful Selector Recovery | v1.3 | 0/TBD | Not started | - |
+| 14. Truthful Selector Recovery | v1.3 | 0/3 | Planned | - |
 | 15. Structured Suite Planning & Repo-aware Generation | v1.3 | 0/TBD | Not started | - |
 | 16. Verification, JSON Parity & Product Surface | v1.3 | 0/TBD | Not started | - |
