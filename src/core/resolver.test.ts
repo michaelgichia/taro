@@ -4,11 +4,13 @@ import {
   deriveAccessibleQuery,
   extractDialogState,
   inspectElements,
+  resolveSemanticMarkerAssertion,
   resolveSelector,
   selectMatcher,
 } from './resolver.js'
 import type {
   ElementInfo,
+  NormalizedStep,
   QueryDescriptor,
   SelectorDescriptor,
 } from '../types/recording.js'
@@ -140,6 +142,163 @@ const preservedQuery: QueryDescriptor = {
   target: '#save',
   quality: 'excellent',
   raw: "screen.getByRole('button', { name: 'Save' })",
+}
+
+function createSemanticMarkerStep(options: {
+  id: string
+  target: string
+  proofSubject:
+    | 'heading'
+    | 'visible-message'
+    | 'concrete-value'
+    | 'field-label'
+    | 'selector-target'
+    | 'unknown'
+  method?: string
+  queryRoot?: 'screen' | 'within' | 'document'
+  role?: string
+  name?: string
+  raw?: string
+  selector?: string
+  anchorStepId?: string
+  relation?: 'follows' | 'same-target' | 'precedes'
+  unresolvedReason?: 'missing-anchor' | 'ambiguous-field-context' | 'unsupported-proof-subject'
+}): NormalizedStep {
+  const {
+    id,
+    target,
+    proofSubject,
+    method = 'getByText',
+    queryRoot = 'screen',
+    role,
+    name,
+    raw,
+    selector,
+    anchorStepId = 'js-step-1',
+    relation = 'follows',
+    unresolvedReason,
+  } = options
+
+  const query =
+    method === 'none'
+      ? undefined
+      : {
+          stepId: id,
+          method,
+          queryRoot,
+          target,
+          ...(role ? { role } : {}),
+          ...(name ? { name } : {}),
+          raw:
+            raw ??
+            (method === 'getByRole' && role
+              ? `screen.getByRole('${role}', { name: '${name ?? target}' })`
+              : `screen.${method}('${target}')`),
+        }
+
+  const semanticMarkerCandidate = {
+    stepId: id,
+    status: unresolvedReason ? ('unresolved' as const) : ('qualified' as const),
+    originalGesture: 'dblClick' as const,
+    proofSubject,
+    target,
+    proofText: target,
+    sourceContext: {
+      line: 12,
+      originalType: 'dblClick',
+    },
+    ...(query ? { query } : {}),
+    ...(selector
+      ? {
+          selector: {
+            stepId: id,
+            selector,
+            selectorKind: 'document.querySelector' as const,
+            raw: `document.querySelector('${selector}')`,
+          },
+        }
+      : {}),
+    anchor: unresolvedReason
+      ? {
+          anchorStepId,
+          relation,
+        }
+      : undefined,
+  }
+
+  const semanticMarkerLink =
+    unresolvedReason || !anchorStepId
+      ? undefined
+      : {
+          markerStepId: id,
+          anchorStepId,
+          relation,
+          proofSubject,
+          target,
+          proofText: target,
+          sourceContext: {
+            line: 12,
+            originalType: 'dblClick',
+          },
+          ...(query ? { query } : {}),
+          ...(selector
+            ? {
+                selector: {
+                  stepId: id,
+                  selector,
+                  selectorKind: 'document.querySelector' as const,
+                  raw: `document.querySelector('${selector}')`,
+                },
+              }
+            : {}),
+        }
+
+  const unresolvedSemanticMarker = unresolvedReason
+    ? {
+        stepId: id,
+        reason: unresolvedReason,
+        proofSubject,
+        target,
+        proofText: target,
+        sourceContext: {
+          line: 12,
+          originalType: 'dblClick',
+        },
+        ...(query ? { query } : {}),
+        ...(selector
+          ? {
+              selector: {
+                stepId: id,
+                selector,
+                selectorKind: 'document.querySelector' as const,
+                raw: `document.querySelector('${selector}')`,
+              },
+            }
+          : {}),
+        anchor: anchorStepId
+          ? {
+              anchorStepId,
+              relation,
+            }
+          : undefined,
+      }
+    : undefined
+
+  return {
+    id,
+    action: 'click',
+    target,
+    originalType: 'dblClick',
+    source: 'js',
+    semanticMarkerCandidate,
+    ...(semanticMarkerLink ? { semanticMarkerLink } : {}),
+    ...(unresolvedSemanticMarker ? { unresolvedSemanticMarker } : {}),
+    metadata: {
+      semanticMarkerCandidate,
+      ...(semanticMarkerLink ? { semanticMarkerLink } : {}),
+      ...(unresolvedSemanticMarker ? { unresolvedSemanticMarker } : {}),
+    },
+  }
 }
 
 function foundInspection(element: ElementInfo) {
@@ -361,6 +520,203 @@ describe('resolveSelector', () => {
         status: 'unresolved',
         outcome: 'inspection-failed',
         inspectionError: 'navigation timeout',
+      })
+    )
+  })
+})
+
+describe('resolveSemanticMarkerAssertion', () => {
+  it('prefers role-and-name proof over weaker visible text evidence', () => {
+    const result = resolveSemanticMarkerAssertion(
+      createSemanticMarkerStep({
+        id: 'js-step-2',
+        target: 'Review Sale',
+        proofSubject: 'heading',
+        method: 'getByRole',
+        role: 'heading',
+        name: 'Review Sale',
+      })
+    )
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'resolved',
+        anchorStepId: 'js-step-1',
+        assertion: expect.objectContaining({
+          proofKind: 'role-name',
+          matcher: 'toBeVisible',
+          expectation: 'visibility',
+          query: expect.objectContaining({
+            method: 'findByRole',
+            role: 'heading',
+            target: 'Review Sale',
+            raw: "screen.findByRole('heading', { name: 'Review Sale' })",
+          }),
+          queryExpression: "screen.findByRole('heading', { name: 'Review Sale' })",
+        }),
+      })
+    )
+  })
+
+  it('resolves exact visible text when stronger accessible evidence is absent', () => {
+    const result = resolveSemanticMarkerAssertion(
+      createSemanticMarkerStep({
+        id: 'js-step-3',
+        target: 'Saved successfully',
+        proofSubject: 'visible-message',
+      })
+    )
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'resolved',
+        assertion: expect.objectContaining({
+          proofKind: 'visible-text',
+          query: expect.objectContaining({
+            method: 'findByText',
+            raw: "screen.findByText('Saved successfully')",
+          }),
+        }),
+      })
+    )
+  })
+
+  it('resolves concrete visible values before any form-context fallback', () => {
+    const result = resolveSemanticMarkerAssertion(
+      createSemanticMarkerStep({
+        id: 'js-step-4',
+        target: 'KES 4,800.00',
+        proofSubject: 'concrete-value',
+      })
+    )
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'resolved',
+        assertion: expect.objectContaining({
+          proofKind: 'visible-value',
+          query: expect.objectContaining({
+            method: 'findByText',
+            raw: "screen.findByText('KES 4,800.00')",
+          }),
+        }),
+      })
+    )
+  })
+
+  it('prefers label-based form fallback before placeholder-based fallback', () => {
+    const labelResult = resolveSemanticMarkerAssertion(
+      createSemanticMarkerStep({
+        id: 'js-step-5',
+        target: 'Customer Name',
+        proofSubject: 'field-label',
+      })
+    )
+    const placeholderResult = resolveSemanticMarkerAssertion(
+      createSemanticMarkerStep({
+        id: 'js-step-6',
+        target: 'Enter customer name',
+        proofSubject: 'field-label',
+        method: 'getByPlaceholderText',
+        raw: "screen.getByPlaceholderText('Enter customer name')",
+      })
+    )
+
+    expect(labelResult).toEqual(
+      expect.objectContaining({
+        status: 'resolved',
+        assertion: expect.objectContaining({
+          proofKind: 'label-text',
+          query: expect.objectContaining({
+            method: 'findByLabelText',
+            raw: "screen.findByLabelText('Customer Name')",
+          }),
+        }),
+      })
+    )
+    expect(placeholderResult).toEqual(
+      expect.objectContaining({
+        status: 'resolved',
+        assertion: expect.objectContaining({
+          proofKind: 'placeholder-text',
+          query: expect.objectContaining({
+            method: 'findByPlaceholderText',
+            raw: "screen.findByPlaceholderText('Enter customer name')",
+          }),
+        }),
+      })
+    )
+  })
+
+  it('leaves ambiguous field context unresolved instead of guessing a control', () => {
+    const result = resolveSemanticMarkerAssertion(
+      createSemanticMarkerStep({
+        id: 'js-step-7',
+        target: 'Customer PIN / Name',
+        proofSubject: 'field-label',
+        unresolvedReason: 'ambiguous-field-context',
+      })
+    )
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'unresolved',
+        reason: 'ambiguous-field-context',
+        anchorStepId: 'js-step-1',
+      })
+    )
+  })
+
+  it('rejects CSS-only and icon-only marker evidence', () => {
+    const cssOnlyResult = resolveSemanticMarkerAssertion(
+      createSemanticMarkerStep({
+        id: 'js-step-8',
+        target: 'div.css-19bb58m',
+        proofSubject: 'selector-target',
+        method: 'none',
+        selector: 'div.css-19bb58m',
+      })
+    )
+    const iconOnlyResult = resolveSemanticMarkerAssertion(
+      createSemanticMarkerStep({
+        id: 'js-step-9',
+        target: '+',
+        proofSubject: 'heading',
+        method: 'getByRole',
+        role: 'button',
+        name: '+',
+      })
+    )
+
+    expect(cssOnlyResult).toEqual(
+      expect.objectContaining({
+        status: 'unresolved',
+        reason: 'css-only-evidence',
+      })
+    )
+    expect(iconOnlyResult).toEqual(
+      expect.objectContaining({
+        status: 'unresolved',
+        reason: 'icon-only-target',
+      })
+    )
+  })
+
+  it('rejects hidden implementation detail evidence', () => {
+    const result = resolveSemanticMarkerAssertion(
+      createSemanticMarkerStep({
+        id: 'js-step-10',
+        target: 'Customer Name',
+        proofSubject: 'field-label',
+        method: 'getByTestId',
+        raw: "screen.getByTestId('customer-name')",
+      })
+    )
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'unresolved',
+        reason: 'hidden-evidence',
       })
     )
   })

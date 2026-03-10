@@ -330,6 +330,48 @@ describe('filterNoiseSteps', () => {
       removedDoubleClickNoise: 0,
     })
   })
+
+  it('keeps ambiguous field-adjacent markers unresolved without fabricating control proof', () => {
+    const steps: NormalizedStep[] = [
+      createJsClickStep('js-step-1', 'Continue'),
+      createJsMarkerStep({
+        id: 'js-step-2',
+        target: 'Customer PIN / Name',
+        proofSubject: 'field-label',
+        method: 'getByText',
+      }),
+      createJsClickStep('js-step-3', 'Customer PIN / Name'),
+    ]
+
+    const result = filterNoiseSteps(steps)
+
+    expect(result.steps).toHaveLength(2)
+    expect(result.steps[1]).toMatchObject({
+      id: 'js-step-2',
+      semanticMarkerCandidate: {
+        status: 'unresolved',
+        anchor: {
+          anchorStepId: 'js-step-1',
+          relation: 'follows',
+        },
+      },
+      unresolvedSemanticMarker: {
+        stepId: 'js-step-2',
+        reason: 'ambiguous-field-context',
+        anchor: {
+          anchorStepId: 'js-step-1',
+          relation: 'follows',
+        },
+      },
+    })
+    expect(result.steps[1]?.semanticMarkerLink).toBeUndefined()
+    expect(result.diagnostics).toMatchObject({
+      preservedSemanticMarkers: 0,
+      unresolvedSemanticMarkers: 1,
+      removedRedundantClicks: 1,
+      removedDoubleClickNoise: 0,
+    })
+  })
 })
 
 describe('analyzeRecording', () => {

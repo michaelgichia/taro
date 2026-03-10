@@ -3,11 +3,19 @@ import pc from 'picocolors'
 import type {
   DialogState,
   ElementInfo,
+  NormalizedStep,
   QueryDescriptor,
   QueryResult,
   QueryQuality,
+  SemanticMarkerAssertion,
+  SemanticMarkerAssertionProofKind,
+  SemanticMarkerAssertionResolution,
+  SemanticMarkerAssertionUnresolvedReason,
+  SemanticMarkerCandidate,
+  SemanticMarkerLink,
   SelectorDescriptor,
   SelectorResolutionResult,
+  UnresolvedSemanticMarker,
   VisualState,
 } from '../types/recording.js'
 
@@ -29,6 +37,12 @@ const ROLE_MAP: Record<string, string> = {
   h6: 'heading',
   img: 'img',
 }
+
+const GENERIC_FIELD_CONTEXT_PATTERN =
+  /\b(details?|information|summary|review|section|panel|wrapper|container|layout|row|table|list|grid)\b/i
+
+const FIELD_LABEL_HINT_PATTERN =
+  /\b(name|email|phone|pin|quantity|amount|reference|description|notes?|comment|code|search|address|date|time|password|customer|type|number)\b/i
 
 /**
  * Escapes single quotes in strings for use in generated query code.
@@ -143,6 +157,470 @@ function toUnresolvedSelectorResult(
 
 function sanitizeCaptureSegment(value: string): string {
   return value.replace(/[^a-zA-Z0-9-_]+/g, '-').replace(/^-+|-+$/g, '') || 'capture'
+}
+
+function getSemanticMarkerCandidate(
+  step: NormalizedStep
+): SemanticMarkerCandidate | undefined {
+  const metadataCandidate = step.metadata?.semanticMarkerCandidate
+
+  if (
+    metadataCandidate &&
+    typeof metadataCandidate === 'object' &&
+    'stepId' in metadataCandidate &&
+    typeof metadataCandidate.stepId === 'string'
+  ) {
+    return metadataCandidate as SemanticMarkerCandidate
+  }
+
+  return step.semanticMarkerCandidate
+}
+
+function getSemanticMarkerLink(step: NormalizedStep): SemanticMarkerLink | undefined {
+  const metadataLink = step.metadata?.semanticMarkerLink
+
+  if (
+    metadataLink &&
+    typeof metadataLink === 'object' &&
+    'markerStepId' in metadataLink &&
+    typeof metadataLink.markerStepId === 'string'
+  ) {
+    return metadataLink as SemanticMarkerLink
+  }
+
+  return step.semanticMarkerLink
+}
+
+function getUnresolvedSemanticMarker(
+  step: NormalizedStep
+): UnresolvedSemanticMarker | undefined {
+  const metadataMarker = step.metadata?.unresolvedSemanticMarker
+
+  if (
+    metadataMarker &&
+    typeof metadataMarker === 'object' &&
+    'stepId' in metadataMarker &&
+    typeof metadataMarker.stepId === 'string'
+  ) {
+    return metadataMarker as UnresolvedSemanticMarker
+  }
+
+  return step.unresolvedSemanticMarker
+}
+
+function normalizeProofText(value?: string): string | undefined {
+  const normalized = value?.replace(/\s+/g, ' ').trim()
+  return normalized ? normalized : undefined
+}
+
+function isIconOnlyText(value?: string): boolean {
+  const normalized = normalizeProofText(value)
+  if (!normalized) {
+    return false
+  }
+
+  return normalized.length <= 2 && !/[a-z0-9]/i.test(normalized)
+}
+
+function toAsyncQueryMethod(method: string): string | undefined {
+  switch (method) {
+    case 'getByRole':
+      return 'findByRole'
+    case 'getByText':
+      return 'findByText'
+    case 'getByDisplayValue':
+      return 'findByDisplayValue'
+    case 'getByLabelText':
+      return 'findByLabelText'
+    case 'getByPlaceholderText':
+      return 'findByPlaceholderText'
+    default:
+      return undefined
+  }
+}
+
+function getQueryScope(query: QueryDescriptor): string | undefined {
+  if (query.raw) {
+    const match = query.raw.match(/^(.*)\.(?:get|find|query)(?:All)?By[A-Za-z]+\(.+\)$/)
+    if (match?.[1]) {
+      return match[1]
+    }
+  }
+
+  if (query.queryRoot === 'screen') {
+    return 'screen'
+  }
+
+  if (query.queryRoot === 'within') {
+    return 'screen'
+  }
+
+  return undefined
+}
+
+function buildScopedQueryExpression(
+  query: QueryDescriptor,
+  method: string,
+  options: {
+    role?: string
+    target?: string
+    name?: string
+  }
+): string | undefined {
+  const scope = getQueryScope(query)
+  if (!scope) {
+    return undefined
+  }
+
+  if (method === 'findByRole' && options.role && options.name) {
+    return `${scope}.${method}('${escapeSingleQuote(options.role)}', { name: '${escapeSingleQuote(options.name)}' })`
+  }
+
+  if (!options.target) {
+    return undefined
+  }
+
+  return `${scope}.${method}('${escapeSingleQuote(options.target)}')`
+}
+
+function buildAsyncQueryDescriptor(
+  query: QueryDescriptor,
+  options: {
+    method: string
+    role?: string
+    target?: string
+    name?: string
+  }
+): QueryDescriptor | undefined {
+  const raw = buildScopedQueryExpression(query, options.method, options)
+  if (!raw) {
+    return undefined
+  }
+
+  return {
+    ...query,
+    method: options.method,
+    role: options.role ?? query.role,
+    target: options.target ?? query.target,
+    name: options.name ?? query.name,
+    raw,
+  }
+}
+
+function buildAssertion(
+  step: NormalizedStep,
+  candidate: SemanticMarkerCandidate,
+  query: QueryDescriptor,
+  proofKind: SemanticMarkerAssertionProofKind
+): SemanticMarkerAssertion | undefined {
+  const semanticMarkerLink = getSemanticMarkerLink(step)
+  const anchor = semanticMarkerLink ?? candidate.anchor
+
+  if (!anchor?.anchorStepId || !anchor.relation || !query.raw) {
+    return undefined
+  }
+
+  return {
+    markerStepId: step.id ?? candidate.stepId,
+    anchorStepId: anchor.anchorStepId,
+    relation: anchor.relation,
+    proofKind,
+    proofSubject: candidate.proofSubject,
+    target: candidate.target ?? step.target,
+    proofText: candidate.proofText,
+    line: candidate.line ?? step.line,
+    query,
+    queryExpression: query.raw,
+    expectation: 'visibility',
+    matcher: 'toBeVisible',
+    sourceContext: candidate.sourceContext,
+  }
+}
+
+function toUnresolvedAssertion(
+  step: NormalizedStep,
+  reason: SemanticMarkerAssertionUnresolvedReason,
+  candidate?: SemanticMarkerCandidate,
+  unresolvedMarker?: UnresolvedSemanticMarker
+): SemanticMarkerAssertionResolution {
+  const source = candidate ?? unresolvedMarker
+  const anchor = source?.anchor
+
+  return {
+    status: 'unresolved',
+    markerStepId: step.id ?? source?.stepId ?? 'unknown-step',
+    anchorStepId: anchor?.anchorStepId,
+    relation: anchor?.relation,
+    reason,
+    proofSubject: source?.proofSubject ?? 'unknown',
+    target: source?.target ?? step.target,
+    proofText: source?.proofText,
+    line: source?.line ?? step.line,
+    sourceContext: source?.sourceContext ?? {
+      line: step.line,
+      originalType: step.originalType,
+    },
+    query: source?.query,
+    selector: source?.selector,
+  }
+}
+
+function resolveRoleNameAssertion(
+  step: NormalizedStep,
+  candidate: SemanticMarkerCandidate,
+  query: QueryDescriptor
+): SemanticMarkerAssertionResolution | undefined {
+  const accessibleName = normalizeProofText(query.name ?? query.target ?? candidate.proofText)
+  if (!query.role || !accessibleName || isIconOnlyText(accessibleName)) {
+    return undefined
+  }
+
+  const asyncQuery = buildAsyncQueryDescriptor(query, {
+    method: 'findByRole',
+    role: query.role,
+    target: accessibleName,
+    name: accessibleName,
+  })
+
+  if (!asyncQuery) {
+    return undefined
+  }
+
+  const assertion = buildAssertion(step, candidate, asyncQuery, 'role-name')
+  return assertion
+    ? {
+        status: 'resolved',
+        markerStepId: assertion.markerStepId,
+        anchorStepId: assertion.anchorStepId,
+        assertion,
+      }
+    : undefined
+}
+
+function resolveVisibleTextAssertion(
+  step: NormalizedStep,
+  candidate: SemanticMarkerCandidate,
+  query: QueryDescriptor
+): SemanticMarkerAssertionResolution | undefined {
+  const proofText = normalizeProofText(candidate.proofText ?? query.target ?? candidate.target)
+  if (!proofText || isIconOnlyText(proofText)) {
+    return undefined
+  }
+
+  const asyncQuery = buildAsyncQueryDescriptor(query, {
+    method: 'findByText',
+    target: proofText,
+  })
+
+  if (!asyncQuery) {
+    return undefined
+  }
+
+  const assertion = buildAssertion(step, candidate, asyncQuery, 'visible-text')
+  return assertion
+    ? {
+        status: 'resolved',
+        markerStepId: assertion.markerStepId,
+        anchorStepId: assertion.anchorStepId,
+        assertion,
+      }
+    : undefined
+}
+
+function resolveVisibleValueAssertion(
+  step: NormalizedStep,
+  candidate: SemanticMarkerCandidate,
+  query: QueryDescriptor
+): SemanticMarkerAssertionResolution | undefined {
+  const proofText = normalizeProofText(candidate.proofText ?? query.target ?? candidate.target)
+  if (!proofText || isIconOnlyText(proofText)) {
+    return undefined
+  }
+
+  const nextMethod =
+    query.method === 'getByDisplayValue' ? 'findByDisplayValue' : 'findByText'
+  const asyncQuery = buildAsyncQueryDescriptor(query, {
+    method: nextMethod,
+    target: proofText,
+  })
+
+  if (!asyncQuery) {
+    return undefined
+  }
+
+  const assertion = buildAssertion(step, candidate, asyncQuery, 'visible-value')
+  return assertion
+    ? {
+        status: 'resolved',
+        markerStepId: assertion.markerStepId,
+        anchorStepId: assertion.anchorStepId,
+        assertion,
+      }
+    : undefined
+}
+
+function resolveFieldContextAssertion(
+  step: NormalizedStep,
+  candidate: SemanticMarkerCandidate,
+  query: QueryDescriptor
+): SemanticMarkerAssertionResolution {
+  const proofText = normalizeProofText(candidate.proofText ?? query.target ?? candidate.target)
+  if (!proofText) {
+    return toUnresolvedAssertion(step, 'missing-query', candidate)
+  }
+
+  if (isIconOnlyText(proofText)) {
+    return toUnresolvedAssertion(step, 'icon-only-target', candidate)
+  }
+
+  if (GENERIC_FIELD_CONTEXT_PATTERN.test(proofText)) {
+    return toUnresolvedAssertion(step, 'generic-container', candidate)
+  }
+
+  if (/[/,]/.test(proofText)) {
+    return toUnresolvedAssertion(step, 'ambiguous-field-context', candidate)
+  }
+
+  if (query.method === 'getByLabelText') {
+    const asyncQuery = buildAsyncQueryDescriptor(query, {
+      method: 'findByLabelText',
+      target: proofText,
+    })
+    const assertion =
+      asyncQuery && buildAssertion(step, candidate, asyncQuery, 'label-text')
+
+    return assertion
+      ? {
+          status: 'resolved',
+          markerStepId: assertion.markerStepId,
+          anchorStepId: assertion.anchorStepId,
+          assertion,
+        }
+      : toUnresolvedAssertion(step, 'unsupported-field-context', candidate)
+  }
+
+  if (query.method === 'getByPlaceholderText') {
+    const asyncQuery = buildAsyncQueryDescriptor(query, {
+      method: 'findByPlaceholderText',
+      target: proofText,
+    })
+    const assertion =
+      asyncQuery && buildAssertion(step, candidate, asyncQuery, 'placeholder-text')
+
+    return assertion
+      ? {
+          status: 'resolved',
+          markerStepId: assertion.markerStepId,
+          anchorStepId: assertion.anchorStepId,
+          assertion,
+        }
+      : toUnresolvedAssertion(step, 'unsupported-field-context', candidate)
+  }
+
+  if (query.method === 'getByText' && FIELD_LABEL_HINT_PATTERN.test(proofText)) {
+    const asyncQuery = buildAsyncQueryDescriptor(query, {
+      method: 'findByLabelText',
+      target: proofText,
+    })
+    const assertion =
+      asyncQuery && buildAssertion(step, candidate, asyncQuery, 'label-text')
+
+    return assertion
+      ? {
+          status: 'resolved',
+          markerStepId: assertion.markerStepId,
+          anchorStepId: assertion.anchorStepId,
+          assertion,
+        }
+      : toUnresolvedAssertion(step, 'unsupported-field-context', candidate)
+  }
+
+  if (query.method === 'getByText') {
+    return toUnresolvedAssertion(step, 'ambiguous-field-context', candidate)
+  }
+
+  return toUnresolvedAssertion(step, 'unsupported-field-context', candidate)
+}
+
+export function resolveSemanticMarkerAssertion(
+  step: NormalizedStep
+): SemanticMarkerAssertionResolution {
+  const candidate = getSemanticMarkerCandidate(step)
+  const unresolvedMarker = getUnresolvedSemanticMarker(step)
+
+  if (!candidate) {
+    return toUnresolvedAssertion(step, 'missing-marker-candidate', undefined, unresolvedMarker)
+  }
+
+  const anchorStepId =
+    getSemanticMarkerLink(step)?.anchorStepId ??
+    unresolvedMarker?.anchor?.anchorStepId ??
+    candidate.anchor?.anchorStepId
+
+  if (!anchorStepId) {
+    return toUnresolvedAssertion(step, 'missing-anchor', candidate, unresolvedMarker)
+  }
+
+  if (unresolvedMarker?.reason === 'ambiguous-field-context') {
+    return toUnresolvedAssertion(step, 'ambiguous-field-context', candidate, unresolvedMarker)
+  }
+
+  if (candidate.proofSubject === 'selector-target') {
+    return toUnresolvedAssertion(step, 'css-only-evidence', candidate, unresolvedMarker)
+  }
+
+  if (candidate.proofSubject === 'unknown') {
+    return toUnresolvedAssertion(step, 'unsupported-proof-subject', candidate, unresolvedMarker)
+  }
+
+  if (!candidate.query) {
+    return toUnresolvedAssertion(step, 'missing-query', candidate, unresolvedMarker)
+  }
+
+  if (
+    candidate.query.queryRoot === 'document' ||
+    candidate.query.method === 'getByTestId' ||
+    /data-testid|querySelector|nth-(?:of-type|child)|css-[\w-]+/i.test(
+      candidate.query.raw ?? ''
+    )
+  ) {
+    return toUnresolvedAssertion(step, 'hidden-evidence', candidate, unresolvedMarker)
+  }
+
+  if (isIconOnlyText(candidate.proofText ?? candidate.query.target ?? candidate.target)) {
+    return toUnresolvedAssertion(step, 'icon-only-target', candidate, unresolvedMarker)
+  }
+
+  const roleNameResolution = resolveRoleNameAssertion(step, candidate, candidate.query)
+  if (roleNameResolution) {
+    return roleNameResolution
+  }
+
+  if (candidate.proofSubject === 'concrete-value') {
+    return (
+      resolveVisibleValueAssertion(step, candidate, candidate.query) ??
+      toUnresolvedAssertion(step, 'missing-query', candidate, unresolvedMarker)
+    )
+  }
+
+  if (
+    candidate.proofSubject === 'visible-message' ||
+    candidate.proofSubject === 'heading'
+  ) {
+    return (
+      resolveVisibleTextAssertion(step, candidate, candidate.query) ??
+      toUnresolvedAssertion(step, 'missing-query', candidate, unresolvedMarker)
+    )
+  }
+
+  if (candidate.proofSubject === 'field-label') {
+    return resolveFieldContextAssertion(step, candidate, candidate.query)
+  }
+
+  const asyncMethod = toAsyncQueryMethod(candidate.query.method)
+  return asyncMethod
+    ? toUnresolvedAssertion(step, 'unsupported-proof-subject', candidate, unresolvedMarker)
+    : toUnresolvedAssertion(step, 'missing-query', candidate, unresolvedMarker)
 }
 
 export async function extractDialogState(page: Page): Promise<DialogState | null> {
