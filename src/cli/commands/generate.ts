@@ -662,8 +662,8 @@ export function createGenerateCommand(): Command {
   const generate = new Command('generate')
 
   generate
-    .description('Generate RTL test from Recorder export')
-    .argument('<file>', 'Path to the recorder export file')
+    .description('Generate RTL test from Recorder JS or Chrome Recorder JSON export')
+    .argument('<file>', 'Path to the recorder export file (.js or .json)')
     .option('-o, --output <path>', 'Output file path for the generated test')
     .option('-d, --dry-run', 'Preview the generated test without writing to disk', false)
     .option('-f, --force', 'Overwrite existing test file', false)

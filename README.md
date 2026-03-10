@@ -98,12 +98,21 @@ After installation, use `taro generate` directly or call the runtime-native inst
 
 ### Record a user flow
 
-Open Chrome DevTools → Recorder panel → click "Start new recording" → perform your user flow → click "End recording". Then export via the Testing Library Recorder extension and save as `recording.js`.
+Open Chrome DevTools → Recorder panel → click "Start new recording" → perform your user flow → click "End recording".
+
+Taro supports two export paths:
+
+- Testing Library Recorder JS baseline export: save as `recording.js`
+- Chrome Recorder JSON export: save as `recording.json`
 
 ### Generate the test
 
 ```bash
+# JS baseline path
 taro generate ./recording.js
+
+# Supported JSON path
+taro generate ./recording.json
 ```
 
 Expected output:
@@ -117,17 +126,30 @@ Created: src/components/MyComponent.test.tsx
 
 On subsequent runs in the same project, Taro reads `.taro/conventions.json` to match your test style automatically.
 
+### Draft-quality output is explicit
+
+When Taro cannot prove the final render/query boundary yet, it keeps the output writable but marks it as draft-quality instead of pretending the gaps are solved.
+
+```text
+[taro] Score: 77/100 (C) — query: 100, assertions: 30, structure: 70, boundary: 100
+[taro] Manual review required — this generated test is still a draft (77/100, C).
+[taro] Top blockers: The generated test still renders <App /> instead of a resolved repo target. | Boundary warnings remain in the generated file, so the render/mock boundary still needs cleanup.
+// taro-query-checkpoint: click step requires manual RTL query recovery
+```
+
+That draft banner is advisory. Taro does not block writes, but it does tell you when import targets, placeholder queries, or unresolved boundaries still need cleanup.
+
 ## CLI Reference
 
 ### `taro generate <file>`
 
-Generates a React Testing Library test from a Testing Library Recorder export.
+Generates a React Testing Library test from a Testing Library Recorder JS export or a Chrome Recorder JSON export.
 
 **Arguments:**
 
 | Argument | Description |
 |----------|-------------|
-| `<file>` | Path to the recording file. Accepts Testing Library Recorder JS files (`.js`). |
+| `<file>` | Path to the recording file. Accepts Testing Library Recorder JS files (`.js`) and Chrome Recorder JSON files (`.json`). |
 
 **Options:**
 
@@ -159,7 +181,8 @@ taro generate --force ./recordings/checkout-flow.js
 If `--output` is not provided, Taro derives the output path from the input file: `{input-dir}/{input-basename}.test.tsx`. For example, `./recordings/login.js` → `./recordings/login.test.tsx`.
 
 **Supported input formats:**
-- Testing Library Recorder JS (`.js`) — exported via the Testing Library Recorder Chrome extension; detected by `.js` extension or `@jest-environment-options` header
+- Testing Library Recorder JS (`.js`) — primary v1.3 path; Taro treats this as a baseline artifact to parse, enrich, and transform into a project-shaped RTL test
+- Chrome Recorder JSON (`.json`) — supported parity path; Taro preserves the existing JSON generate flow while JS fidelity improves
 
 ## Worked Example
 
@@ -230,6 +253,16 @@ describe('login flow', () => {
 - Scored the output (82/100) and emitted no blocking errors
 
 > **Note:** The component import path (`../LoginPage`) is a placeholder. Taro generates a comment in the file indicating where to update it.
+
+### JSON is also supported
+
+If you export Chrome Recorder JSON instead, the command surface stays the same:
+
+```bash
+taro generate ./login-flow.json --dry-run
+```
+
+JSON generation is still supported, but it does not inherit the repo-aware JS recovery stack. When the generated preview contains placeholder queries or weak assertions, Taro keeps those gaps explicit with score and manual-review messaging instead of fabricating stronger evidence.
 
 ## Agent Usage
 
