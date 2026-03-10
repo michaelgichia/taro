@@ -270,6 +270,174 @@ describe('planJsSuite', () => {
     })
   })
 
+  it('keeps only the strongest resolved marker proof per anchor while preserving scenario coverage', () => {
+    const recording = createRecording([
+      {
+        id: 'js-step-1',
+        action: 'click',
+        target: 'Continue',
+        originalType: 'click',
+        source: 'js',
+      },
+      {
+        id: 'js-step-2',
+        action: 'click',
+        target: 'Review Sale',
+        originalType: 'dblClick',
+        source: 'js',
+        semanticMarkerCandidate: {
+          stepId: 'js-step-2',
+          status: 'qualified',
+          originalGesture: 'dblClick',
+          proofSubject: 'visible-message',
+          proofText: 'Review Sale',
+          target: 'Review Sale',
+          sourceContext: {
+            originalType: 'dblClick',
+          },
+          query: {
+            stepId: 'js-step-2',
+            method: 'getByText',
+            queryRoot: 'screen',
+            raw: "screen.getByText('Review Sale')",
+            target: 'Review Sale',
+          },
+          anchor: {
+            anchorStepId: 'js-step-1',
+            relation: 'precedes',
+          },
+        },
+      },
+      {
+        id: 'js-step-3',
+        action: 'click',
+        target: 'Review Sale',
+        originalType: 'dblClick',
+        source: 'js',
+        semanticMarkerCandidate: {
+          stepId: 'js-step-3',
+          status: 'qualified',
+          originalGesture: 'dblClick',
+          proofSubject: 'heading',
+          proofText: 'Review Sale',
+          target: 'Review Sale',
+          sourceContext: {
+            originalType: 'dblClick',
+          },
+          query: {
+            stepId: 'js-step-3',
+            method: 'getByRole',
+            queryRoot: 'screen',
+            role: 'heading',
+            raw: "screen.getByRole('heading', { name: 'Review Sale' })",
+            target: 'Review Sale',
+          },
+          anchor: {
+            anchorStepId: 'js-step-1',
+            relation: 'precedes',
+          },
+        },
+      },
+      {
+        id: 'js-step-4',
+        action: 'assert',
+        target: 'Review summary',
+        originalType: 'assert',
+        source: 'js',
+      },
+      {
+        id: 'js-step-5',
+        action: 'click',
+        target: 'Review Sale',
+        originalType: 'dblClick',
+        source: 'js',
+        semanticMarkerCandidate: {
+          stepId: 'js-step-5',
+          status: 'unresolved',
+          originalGesture: 'dblClick',
+          proofSubject: 'field-label',
+          proofText: 'Review Sale',
+          target: 'Review Sale',
+          sourceContext: {
+            originalType: 'dblClick',
+          },
+          query: {
+            stepId: 'js-step-5',
+            method: 'getByText',
+            queryRoot: 'screen',
+            raw: "screen.getByText('Review Sale')",
+            target: 'Review Sale',
+          },
+          anchor: {
+            anchorStepId: 'js-step-1',
+            relation: 'precedes',
+          },
+        },
+        unresolvedSemanticMarker: {
+          stepId: 'js-step-5',
+          reason: 'ambiguous-field-context',
+          proofSubject: 'field-label',
+          proofText: 'Review Sale',
+          target: 'Review Sale',
+          sourceContext: {
+            originalType: 'dblClick',
+          },
+          query: {
+            stepId: 'js-step-5',
+            method: 'getByText',
+            queryRoot: 'screen',
+            raw: "screen.getByText('Review Sale')",
+            target: 'Review Sale',
+          },
+          anchor: {
+            anchorStepId: 'js-step-1',
+            relation: 'precedes',
+          },
+        },
+      },
+    ])
+
+    const intentGroups: ItGroup[] = [
+      { name: 'review sale', steps: recording.steps },
+    ]
+
+    const plan = planJsSuite({
+      recording,
+      analyzedRecording: createAnalyzedRecording(recording, intentGroups),
+      mockAnalysis: null,
+      fallbackTitle: recording.title,
+    })
+
+    expect(plan.helpers[0]?.assertionPolicy).toBe('sync-only')
+    expect(plan.helpers[0]?.steps.map((step) => step.id)).toEqual([
+      'js-step-1',
+      'js-step-4',
+    ])
+    expect(plan.scenarios[0]?.steps.map((step) => step.id)).toEqual([
+      'js-step-1',
+      'js-step-4',
+    ])
+    expect(plan.scenarios[0]?.markerAssertions).toHaveLength(1)
+    expect(plan.scenarios[0]?.markerAssertions?.[0]).toMatchObject({
+      markerStepId: 'js-step-3',
+      anchorStepId: 'js-step-1',
+      placement: {
+        kind: 'after-helper',
+        helperName: 'planReviewSale',
+        stepId: 'js-step-1',
+      },
+      assertion: {
+        proofKind: 'role-name',
+      },
+    })
+    expect(plan.scenarios[0]?.markerAssertions?.[0]?.assertion.query.method).toBe('findByRole')
+    expect(plan.scenarios[0]?.unresolvedMarkerAssertions).toHaveLength(1)
+    expect(plan.scenarios[0]?.unresolvedMarkerAssertions?.[0]).toMatchObject({
+      markerStepId: 'js-step-5',
+      reason: 'ambiguous-field-context',
+    })
+  })
+
   it('marks multi-step mutation-heavy flows as module-boundary drafts', () => {
     const recording = createRecording([
       { action: 'click', target: 'Add Sale (Invoice)', originalType: 'click', source: 'js' },

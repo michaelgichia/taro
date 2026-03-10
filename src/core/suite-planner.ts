@@ -9,6 +9,7 @@ import type {
   JsStateSafetyAssessment,
   NormalizedRecording,
   NormalizedStep,
+  SemanticMarkerAssertionProofKind,
   StepId,
   UnresolvedSemanticMarker,
   UnresolvedSemanticMarkerAssertionResolution,
@@ -185,10 +186,17 @@ function collectScenarioMarkerState(params: {
   helperStepsByName: Map<string, Set<string>>
 }) {
   const { group, helperRefs, helperStepsByName } = params
-  const markerAssertions: PlannedMarkerAssertion[] = []
+  const strongestMarkerAssertionsByAnchor = new Map<
+    StepId,
+    {
+      markerAssertion: PlannedMarkerAssertion
+      proofRank: number
+      sourceOrder: number
+    }
+  >()
   const unresolvedMarkerAssertions: UnresolvedSemanticMarkerAssertionResolution[] = []
 
-  for (const step of group.steps) {
+  for (const [sourceOrder, step] of group.steps.entries()) {
     if (!isManagedSemanticMarkerStep(step)) {
       continue
     }
@@ -209,17 +217,47 @@ function collectScenarioMarkerState(params: {
         stepId: resolution.anchorStepId,
       }
 
-    markerAssertions.push({
+    const markerAssertion = {
       markerStepId: resolution.markerStepId,
       anchorStepId: resolution.anchorStepId,
       placement,
       assertion: resolution.assertion,
-    })
+    }
+    const proofRank = getSemanticMarkerProofRank(resolution.assertion.proofKind)
+    const existing = strongestMarkerAssertionsByAnchor.get(resolution.anchorStepId)
+
+    if (
+      !existing ||
+      proofRank < existing.proofRank ||
+      (proofRank === existing.proofRank && sourceOrder < existing.sourceOrder)
+    ) {
+      strongestMarkerAssertionsByAnchor.set(resolution.anchorStepId, {
+        markerAssertion,
+        proofRank,
+        sourceOrder,
+      })
+    }
   }
 
   return {
-    markerAssertions,
+    markerAssertions: [...strongestMarkerAssertionsByAnchor.values()]
+      .sort((left, right) => left.sourceOrder - right.sourceOrder)
+      .map((entry) => entry.markerAssertion),
     unresolvedMarkerAssertions,
+  }
+}
+
+function getSemanticMarkerProofRank(proofKind: SemanticMarkerAssertionProofKind): number {
+  switch (proofKind) {
+    case 'role-name':
+      return 0
+    case 'visible-text':
+    case 'visible-value':
+      return 1
+    case 'label-text':
+      return 2
+    case 'placeholder-text':
+      return 3
   }
 }
 
