@@ -138,6 +138,14 @@ function summarizeCleanup(analyzedRecording: AnalyzedRecording): void {
     parts.push(`${diagnostics.removedRedundantClicks} redundant click(s)`)
   }
 
+  if ((diagnostics.preservedSemanticMarkers ?? 0) > 0) {
+    parts.push(`${diagnostics.preservedSemanticMarkers} preserved semantic marker(s)`)
+  }
+
+  if ((diagnostics.unresolvedSemanticMarkers ?? 0) > 0) {
+    parts.push(`${diagnostics.unresolvedSemanticMarkers} unresolved semantic marker(s)`)
+  }
+
   if (diagnostics.removedDoubleClickNoise > 0) {
     parts.push(`${diagnostics.removedDoubleClickNoise} dblClick noise event(s)`)
   }
@@ -155,6 +163,48 @@ function summarizeCleanup(analyzedRecording: AnalyzedRecording): void {
   }
 
   console.log(pc.dim('[tayo]') + ` Recording cleanup: ${parts.join(', ')}`)
+}
+
+function mergeAnalyzedStepState(
+  recording: NormalizedRecording,
+  analyzedRecording: AnalyzedRecording
+): NormalizedRecording {
+  const analyzedStepsById = new Map(
+    analyzedRecording.steps
+      .filter((step): step is NormalizedStep & { id: StepId } => Boolean(step.id))
+      .map((step) => [step.id, step])
+  )
+
+  return {
+    ...recording,
+    steps: recording.steps.map((step) => {
+      if (!step.id) {
+        return step
+      }
+
+      const analyzedStep = analyzedStepsById.get(step.id)
+      if (!analyzedStep) {
+        return step
+      }
+
+      return {
+        ...step,
+        ...(analyzedStep.semanticMarkerCandidate
+          ? { semanticMarkerCandidate: analyzedStep.semanticMarkerCandidate }
+          : {}),
+        ...(analyzedStep.semanticMarkerLink
+          ? { semanticMarkerLink: analyzedStep.semanticMarkerLink }
+          : {}),
+        ...(analyzedStep.unresolvedSemanticMarker
+          ? { unresolvedSemanticMarker: analyzedStep.unresolvedSemanticMarker }
+          : {}),
+        metadata: {
+          ...step.metadata,
+          ...analyzedStep.metadata,
+        },
+      }
+    }),
+  }
 }
 
 function toItGroups(analyzedRecording: AnalyzedRecording, fallbackTitle: string): ItGroup[] {
@@ -262,6 +312,43 @@ function rehydrateSuitePlan(plan: JsSuitePlan, steps: NormalizedStep[]): JsSuite
       steps: scenario.steps.map(mapStep),
     })),
   }
+}
+
+function isSemanticMarkerStep(step: NormalizedStep): boolean {
+  return Boolean(step.semanticMarkerLink || step.unresolvedSemanticMarker)
+}
+
+function stripSemanticMarkerStepsFromItGroups(itGroups: ItGroup[]): ItGroup[] {
+  return itGroups
+    .map((group) => ({
+      ...group,
+      steps: group.steps.filter((step) => !isSemanticMarkerStep(step)),
+    }))
+    .filter((group) => group.steps.length > 0)
+}
+
+function stripSemanticMarkerStepsFromHelpers(helpers: JsSuitePlan['helpers']): JsSuitePlan['helpers'] {
+  return helpers
+    .map((helper) => ({
+      ...helper,
+      steps: helper.steps.filter((step) => !isSemanticMarkerStep(step)),
+    }))
+    .filter((helper) => helper.steps.length > 0)
+}
+
+function stripSemanticMarkerStepsFromScenarios(
+  scenarios: JsSuitePlan['scenarios'],
+  helpers: JsSuitePlan['helpers']
+): JsSuitePlan['scenarios'] {
+  const helperNames = new Set(helpers.map((helper) => helper.name))
+
+  return scenarios
+    .map((scenario) => ({
+      ...scenario,
+      steps: scenario.steps.filter((step) => !isSemanticMarkerStep(step)),
+      helperRefs: scenario.helperRefs.filter((helperRef) => helperNames.has(helperRef)),
+    }))
+    .filter((scenario) => scenario.steps.length > 0 || scenario.helperRefs.length > 0)
 }
 
 function dedupeQueryResults(queryResults: QueryResult[]): QueryResult[] {
@@ -714,6 +801,10 @@ export function createGenerateCommand(): Command {
       )
 
       const analyzedRecording = analyzeRecording(normalizedRecording)
+      const markerAwareRecording =
+        parsedInput.source === 'js'
+          ? mergeAnalyzedStepState(normalizedRecording, analyzedRecording)
+          : normalizedRecording
       summarizeCleanup(analyzedRecording)
       const visualState = await maybeCaptureVisualState({
         analyzedRecording,
@@ -729,7 +820,7 @@ export function createGenerateCommand(): Command {
       const rawJsSuitePlan =
         parsedInput.source === 'js'
           ? planJsSuite({
-              recording: normalizedRecording,
+              recording: markerAwareRecording,
               analyzedRecording,
               mockAnalysis,
               fallbackTitle: normalizedRecording.title,
@@ -757,7 +848,7 @@ export function createGenerateCommand(): Command {
       const resolvedJsGeneration =
         parsedInput.source === 'js'
           ? await resolveJsGeneration(
-              normalizedRecording,
+              markerAwareRecording,
               jsSuitePlan?.itGroups ?? toItGroups(analyzedRecording, normalizedRecording.title)
             )
           : null
@@ -770,19 +861,34 @@ export function createGenerateCommand(): Command {
         parsedInput.source === 'js' && jsSuitePlan
           ? rehydrateSuitePlan(
               jsSuitePlan,
-              resolvedJsGeneration?.recording.steps ?? normalizedRecording.steps
+              resolvedJsGeneration?.recording.steps ?? markerAwareRecording.steps
             )
           : jsSuitePlan
+      const generationHelpers = hydratedSuitePlan
+        ? stripSemanticMarkerStepsFromHelpers(hydratedSuitePlan.helpers)
+        : undefined
+      const generationScenarios =
+        hydratedSuitePlan && generationHelpers
+          ? stripSemanticMarkerStepsFromScenarios(hydratedSuitePlan.scenarios, generationHelpers)
+          : undefined
+      const generationItGroups =
+        parsedInput.source === 'js'
+          ? stripSemanticMarkerStepsFromItGroups(
+              resolvedJsGeneration?.itGroups ??
+                hydratedSuitePlan?.itGroups ??
+                toItGroups(analyzedRecording, normalizedRecording.title)
+            )
+          : toItGroups(analyzedRecording, normalizedRecording.title)
 
       const generated =
         parsedInput.source === 'js'
-          ? generateTestFromGroups(normalizedRecording.title, resolvedJsGeneration?.itGroups ?? hydratedSuitePlan?.itGroups ?? toItGroups(analyzedRecording, normalizedRecording.title), {
+          ? generateTestFromGroups(normalizedRecording.title, generationItGroups, {
               outputPath,
               dryRun: options.dryRun,
               conventions,
               queryResults: resolvedJsGeneration?.queryResults ?? [],
-              helpers: hydratedSuitePlan?.helpers,
-              scenarios: hydratedSuitePlan?.scenarios,
+              helpers: generationHelpers,
+              scenarios: generationScenarios,
               renderTarget: repoRenderTarget,
             })
           : generateTest(analyzedRecording, { outputPath, dryRun: options.dryRun })

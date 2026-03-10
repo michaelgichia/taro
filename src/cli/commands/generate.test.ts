@@ -53,6 +53,7 @@ const inspectionFailureSelector =
   '#radix-_r_8s_-content-items > div:nth-of-type(1) > div:nth-of-type(2) span'
 const inaccessibleSelector =
   '#radix-_r_8s_-content-otherDetails > div:nth-of-type(1) > div:nth-of-type(1) div.css-19bb58m'
+const environmentUrlMarker = '@jest-environment' + ' url'
 const environmentOptionsMarker = '@jest-environment' + '-options'
 
 function resolvedSelector(
@@ -175,6 +176,13 @@ async function createRecordingFixture(
   return { ...sandbox, recordingPath }
 }
 
+async function createInlineJsFixture(label: string, source: string) {
+  const sandbox = await createSandbox(label)
+  const recordingPath = join(sandbox.root, `${label}.js`)
+  await writeFile(recordingPath, source, 'utf-8')
+  return { ...sandbox, recordingPath }
+}
+
 async function runGenerate(args: string[], cwdPath: string) {
   const command = createGenerateCommand()
   const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
@@ -248,11 +256,13 @@ describe('createGenerateCommand', () => {
     expect(result.logs).toContain('const planSubmitContinue = async')
     expect(result.logs).toContain('await planSubmitContinue(user)')
     expect(result.logs).toContain('within(screen.getByRole(')
-    expect(result.logs).toContain("screen.getByRole('button', {name: 'Add Sale (Invoice)'})")
+    expect(result.logs).toContain("screen.getByRole('button', {name: '+ Add Item to Cart'})")
     expect(result.logs).toContain("screen.getByRole('combobox', { name: 'Item selector' })")
+    expect(result.logs).not.toContain("screen.getByRole('heading', {name: 'Add Sale (Invoice)'})")
+    expect(result.logs).not.toContain("screen.getByText('KES 4,800.00')")
     expect(result.logs).toContain('// tayo-query-checkpoint: click step requires manual RTL query recovery')
     expect(result.logs).toContain(`// selector: ${inaccessibleSelector}`)
-    expect(result.logs).toContain(`// selector: ${inspectionFailureSelector}`)
+    expect(result.logs).not.toContain(`// selector: ${inspectionFailureSelector}`)
     expect(result.logs).not.toContain('screen.getByTestId(')
     expect(result.warnings).toContain('Manual review required')
     expect(result.warnings).toContain('Top blockers:')
@@ -339,6 +349,43 @@ describe('createGenerateCommand', () => {
     expect(result.logs).not.toContain('screen.getByTestId(')
   })
 
+  it('reports preserved markers separately and keeps proof dblClick gestures out of generated user actions', async () => {
+    const fixture = await createInlineJsFixture(
+      'semantic-marker',
+      `/**
+ * ${environmentUrlMarker}
+ * ${environmentOptionsMarker} { "url": "http://localhost:3001/sales" }
+ */
+const {screen} = require('@testing-library/dom')
+const {default: userEvent} = require('@testing-library/user-event')
+require('@testing-library/jest-dom')
+
+test('Semantic marker flow', async () => {
+  expect(location.href).toBe('http://localhost:3001/sales')
+  await userEvent.dblClick(screen.getByRole('heading', { name: 'Starting state' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await userEvent.dblClick(screen.getByRole('heading', { name: 'Review Sale' }))
+  await userEvent.click(screen.getByRole('heading', { name: 'Review Sale' }))
+})`
+    )
+    const outputPath = join(fixture.outputDir, 'semantic-marker.test.tsx')
+
+    const result = await runGenerate(
+      [fixture.recordingPath, '--dry-run', '--output', outputPath],
+      fixture.outputDir
+    )
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.errors).toBe('')
+    expect(result.logs).toContain('Recording cleanup: 1 redundant click(s), 1 preserved semantic marker(s), 1 unresolved semantic marker(s)')
+    expect(result.logs).not.toContain('dblClick noise event(s)')
+    expect(result.logs).toContain(`Would write to: ${outputPath}`)
+    expect(result.logs).toContain("await user.click(screen.getByRole('button', { name: 'Save' }))")
+    expect(result.logs).not.toContain("await user.click(screen.getByRole('heading', { name: 'Review Sale' }))")
+    expect(result.logs).not.toContain("await user.click(screen.getByRole('heading', { name: 'Starting state' }))")
+    expect(result.logs).not.toContain('dblClick')
+  })
+
   it('overwrites an existing JS output file when --force is provided', async () => {
     const sandbox = await createSandbox('force')
     const outputPath = join(sandbox.outputDir, 'generated.test.tsx')
@@ -365,12 +412,14 @@ describe('createGenerateCommand', () => {
     expect(result.thrown).toBeUndefined()
     expect(result.errors).toBe('')
     expect(result.logs).toContain(`Updated: ${outputPath}`)
-    expect(written).toContain("screen.getByRole('button', {name: 'Add Sale (Invoice)'})")
+    expect(written).toContain("screen.getByRole('button', {name: '+ Add Item to Cart'})")
     expect(written).toContain("import SalesModule from './SalesModule'")
     expect(written).toContain('render(<SalesModule />)')
     expect(written).toContain('const planSubmitContinue = async')
     expect(written).toContain('await planSubmitContinue(user)')
-    expect(written).toContain(`// selector: ${inspectionFailureSelector}`)
+    expect(written).not.toContain("screen.getByRole('heading', {name: 'Add Sale (Invoice)'})")
+    expect(written).not.toContain("screen.getByText('KES 4,800.00')")
+    expect(written).not.toContain(`// selector: ${inspectionFailureSelector}`)
     expect(written).not.toContain('screen.getByTestId(')
     expect(written).not.toContain('stale content')
     expect(result.warnings).toContain('Manual review required')

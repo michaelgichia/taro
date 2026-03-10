@@ -28,6 +28,58 @@ export interface JsSuitePlan {
   warnings: string[]
 }
 
+function getStepKey(step: NormalizedRecording['steps'][number], index: number): string {
+  return step.id ?? `${index}:${step.action}:${step.target ?? ''}:${step.originalType}`
+}
+
+function sharesAnyStep(left: NormalizedRecording['steps'], right: NormalizedRecording['steps']): boolean {
+  const leftKeys = new Set(left.map((step, index) => getStepKey(step, index)))
+  return right.some((step, index) => leftKeys.has(getStepKey(step, index)))
+}
+
+function enrichSemanticMarkerContext(
+  step: NormalizedRecording['steps'][number],
+  stepsById: Map<string, NormalizedRecording['steps'][number]>
+): NormalizedRecording['steps'][number] {
+  const anchorStepId =
+    step.semanticMarkerLink?.anchorStepId ??
+    step.unresolvedSemanticMarker?.anchor?.anchorStepId ??
+    step.semanticMarkerCandidate?.anchor?.anchorStepId
+
+  if (!anchorStepId) {
+    return step
+  }
+
+  const anchorStep = stepsById.get(anchorStepId)
+  if (!anchorStep) {
+    return step
+  }
+
+  return {
+    ...step,
+    metadata: {
+      ...step.metadata,
+      semanticMarkerAnchorStep: {
+        id: anchorStep.id,
+        action: anchorStep.action,
+        target: anchorStep.target,
+        originalType: anchorStep.originalType,
+        source: anchorStep.source,
+      },
+    },
+  }
+}
+
+function enrichGroupSteps(
+  groups: ItGroup[],
+  stepsById: Map<string, NormalizedRecording['steps'][number]>
+): ItGroup[] {
+  return groups.map((group) => ({
+    ...group,
+    steps: group.steps.map((step) => enrichSemanticMarkerContext(step, stepsById)),
+  }))
+}
+
 function buildFallbackGroups(
   analyzedRecording: AnalyzedRecording,
   fallbackTitle: string
@@ -212,6 +264,11 @@ export function planJsSuite(params: {
   const renderBoundary = assessRenderBoundary({ recording, mockAnalysis })
   const stateSafety = assessStateSafety({ recording, analyzedRecording, mockAnalysis })
   const warnings: string[] = []
+  const stepsById = new Map(
+    analyzedRecording.steps
+      .filter((step): step is typeof step & { id: string } => Boolean(step.id))
+      .map((step) => [step.id, step])
+  )
 
   if (renderBoundary.kind === 'module') {
     warnings.push(
@@ -232,7 +289,7 @@ export function planJsSuite(params: {
     )
   }
 
-  const baseGroups =
+  const baseGroups = enrichGroupSteps(
     renderBoundary.kind === 'module'
       ? [
           {
@@ -240,9 +297,11 @@ export function planJsSuite(params: {
             steps: analyzedRecording.steps,
           },
         ]
-      : buildFallbackGroups(analyzedRecording, fallbackTitle)
+      : buildFallbackGroups(analyzedRecording, fallbackTitle),
+    stepsById
+  )
 
-  const helpers = analyzedRecording.intentGroups.map((group, index) => ({
+  const helpers = enrichGroupSteps(analyzedRecording.intentGroups, stepsById).map((group, index) => ({
     name: toHelperName(group.name, index),
     sourceGroup: group.name,
     purpose: `Navigate the UI through "${group.name}" without hiding assertions.`,
@@ -257,7 +316,7 @@ export function planJsSuite(params: {
     helperRefs:
       stateSafety.status === 'safe-multi-it'
         ? helpers
-            .filter((helper) => helper.steps.some((step) => group.steps.includes(step)))
+            .filter((helper) => sharesAnyStep(group.steps, helper.steps))
             .map((helper) => helper.name)
         : [],
     requiresFreshRender: true,

@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest'
+import { normalizeJsBaseline } from './baseline-normalizer.js'
 import { planJsSuite } from './suite-planner.js'
 import type { MockAnalysis } from './mock-intelligence.js'
-import type { AnalyzedRecording, ItGroup, NormalizedRecording } from '../types/recording.js'
+import type {
+  AnalyzedRecording,
+  ItGroup,
+  NormalizedRecording,
+  ParsedJsInput,
+  SemanticMarkerCandidate,
+  SemanticMarkerLink,
+  UnresolvedSemanticMarker,
+} from '../types/recording.js'
 
 function createRecording(steps: NormalizedRecording['steps']): NormalizedRecording {
   return {
@@ -63,6 +72,178 @@ function createMockAnalysis(): MockAnalysis {
 }
 
 describe('planJsSuite', () => {
+  it('rehydrates semantic marker state from baseline evidence and keeps anchor linkage in planned groups', () => {
+    const semanticMarkerCandidate: SemanticMarkerCandidate = {
+      stepId: 'js-step-2',
+      status: 'qualified',
+      originalGesture: 'dblClick',
+      proofSubject: 'heading',
+      proofText: 'Review Sale',
+      target: 'Review Sale',
+      query: {
+        stepId: 'js-step-2',
+        method: 'getByRole',
+        queryRoot: 'screen',
+        role: 'heading',
+        raw: "screen.getByRole('heading', { name: 'Review Sale' })",
+        target: 'Review Sale',
+      },
+      anchor: {
+        anchorStepId: 'js-step-1',
+        relation: 'precedes',
+      },
+      sourceContext: {
+        originalType: 'dblClick',
+      },
+    }
+    const semanticMarkerLink: SemanticMarkerLink = {
+      markerStepId: 'js-step-2',
+      anchorStepId: 'js-step-1',
+      relation: 'precedes',
+      proofSubject: 'heading',
+      proofText: 'Review Sale',
+      target: 'Review Sale',
+      sourceContext: {
+        originalType: 'dblClick',
+      },
+      query: semanticMarkerCandidate.query,
+    }
+    const unresolvedSemanticMarker: UnresolvedSemanticMarker = {
+      stepId: 'js-step-3',
+      reason: 'unsupported-proof-subject',
+      proofSubject: 'field-label',
+      proofText: 'Customer PIN',
+      target: 'Customer PIN',
+      sourceContext: {
+        originalType: 'dblClick',
+      },
+      query: {
+        stepId: 'js-step-3',
+        method: 'getByText',
+        queryRoot: 'screen',
+        raw: "screen.getByText('Customer PIN')",
+        target: 'Customer PIN',
+      },
+    }
+
+    const parsedInput: ParsedJsInput = {
+      source: 'js',
+      recording: createRecording([
+        {
+          id: 'js-step-1',
+          action: 'click',
+          target: 'Save',
+          originalType: 'click',
+          source: 'js',
+        },
+        {
+          id: 'js-step-2',
+          action: 'click',
+          target: 'Review Sale',
+          originalType: 'dblClick',
+          source: 'js',
+          metadata: {
+            semanticMarkerCandidate,
+            semanticMarkerLink,
+          },
+        },
+        {
+          id: 'js-step-3',
+          action: 'click',
+          target: 'Customer PIN',
+          originalType: 'dblClick',
+          source: 'js',
+          metadata: {
+            semanticMarkerCandidate: {
+              ...unresolvedSemanticMarker,
+              status: 'unresolved',
+              originalGesture: 'dblClick',
+            },
+            unresolvedSemanticMarker,
+          },
+        },
+      ]),
+      baseline: {
+        environmentUrl: 'http://localhost:3001/sales',
+        queries: [],
+        selectors: [],
+        assertions: [],
+        semanticMarkerCandidates: [
+          semanticMarkerCandidate,
+          {
+            ...unresolvedSemanticMarker,
+            status: 'unresolved',
+            originalGesture: 'dblClick',
+          },
+        ],
+        itGroups: [
+          {
+            name: 'review sale',
+            steps: [],
+          },
+        ],
+      },
+    }
+
+    const normalized = normalizeJsBaseline({
+      ...parsedInput,
+      baseline: {
+        ...parsedInput.baseline,
+        itGroups: [
+          {
+            name: 'review sale',
+            steps: parsedInput.recording.steps.map((step) => ({
+              ...step,
+              semanticMarkerCandidate: undefined,
+              semanticMarkerLink: undefined,
+              unresolvedSemanticMarker: undefined,
+            })),
+          },
+        ],
+      },
+    })
+    const intentGroups: ItGroup[] = [
+      { name: 'submit sale', steps: [normalized.steps[0]!] },
+      { name: 'review confirmation', steps: normalized.steps.slice(1) },
+    ]
+
+    const plan = planJsSuite({
+      recording: normalized,
+      analyzedRecording: createAnalyzedRecording(normalized, intentGroups),
+      mockAnalysis: null,
+      fallbackTitle: normalized.title,
+    })
+
+    expect(normalized.steps[1]?.semanticMarkerLink).toEqual(semanticMarkerLink)
+    expect(normalized.steps[2]?.unresolvedSemanticMarker).toEqual(unresolvedSemanticMarker)
+    expect(normalized.baseline?.itGroups[0]?.steps[1]).toMatchObject({
+      semanticMarkerLink,
+    })
+    expect(normalized.baseline?.itGroups[0]?.steps[2]).toMatchObject({
+      unresolvedSemanticMarker,
+    })
+    expect(plan.helpers[1]).toMatchObject({
+      name: 'planReviewConfirmation',
+    })
+    expect(plan.helpers[1]?.steps[0]).toMatchObject({
+      semanticMarkerLink,
+      metadata: {
+        semanticMarkerAnchorStep: expect.objectContaining({
+          id: 'js-step-1',
+          action: 'click',
+          target: 'Save',
+        }),
+      },
+    })
+    expect(plan.scenarios[1]?.steps[0]).toMatchObject({
+      semanticMarkerLink,
+    })
+    expect(plan.scenarios[1]?.steps[1]).toMatchObject({
+      unresolvedSemanticMarker,
+    })
+    expect(plan.scenarios[1]?.helperRefs).toEqual(['planReviewConfirmation'])
+  })
+
   it('marks multi-step mutation-heavy flows as module-boundary drafts', () => {
     const recording = createRecording([
       { action: 'click', target: 'Add Sale (Invoice)', originalType: 'click', source: 'js' },
