@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Assertion Marker
-status: ready-for-planning
-stopped_at: Roadmap created; Phase 17 ready for planning
-last_updated: "2026-03-10T07:16:06Z"
+status: planning
+stopped_at: Phase 17 context gathered
+last_updated: "2026-03-10T07:27:09.407Z"
 last_activity: 2026-03-10 — Roadmap created for milestone v1.4 Assertion Marker
 progress:
   total_phases: 3
@@ -77,6 +77,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-10T07:16:06Z
-Stopped at: Roadmap created; Phase 17 ready for planning
-Resume file: .planning/ROADMAP.md
+Last session: 2026-03-10T07:27:09.405Z
+Stopped at: Phase 17 context gathered
+Resume file: .planning/phases/17-semantic-marker-intake/17-CONTEXT.md
