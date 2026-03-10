@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: JS Baseline
-status: ready-to-plan
-stopped_at: Verified Phase 15
-last_updated: "2026-03-10T05:40:23Z"
-last_activity: 2026-03-10 — Phase 15 verified; repo-aware Add Sale generation now resolves SalesModule, invokes inferred helpers, and keeps unsupported paths explicit drafts
+status: planning
+stopped_at: Phase 16 context gathered
+last_updated: "2026-03-10T05:58:57.462Z"
+last_activity: 2026-03-10 — Phase 16 context gathered; scoring trust contract, JSON parity proof bar, and docs/example emphasis are now locked for planning
 progress:
   total_phases: 4
   completed_phases: 3
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-09)
 Phase: 16 of 16 ready to plan (Verification, JSON Parity & Product Surface)
 Plan: 0 of TBD complete
 Status: Ready to plan
-Last activity: 2026-03-10 — Phase 15 verified; repo-aware Add Sale generation now resolves SalesModule, invokes inferred helpers, and keeps unsupported paths explicit drafts
+Last activity: 2026-03-10 — Phase 16 context gathered; scoring trust contract, JSON parity proof bar, and docs/example emphasis are now locked for planning
 
 Progress: [███████████████░░░░░] 75%
 
@@ -99,6 +99,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-10T05:40:23Z
-Stopped at: Verified Phase 15
-Resume file: None
+Last session: 2026-03-10T05:58:57.458Z
+Stopped at: Phase 16 context gathered
+Resume file: .planning/phases/16-verification-json-parity-product-surface/16-CONTEXT.md
