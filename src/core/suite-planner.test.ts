@@ -114,7 +114,9 @@ describe('planJsSuite', () => {
       proofSubject: 'field-label',
       proofText: 'Customer PIN',
       target: 'Customer PIN',
+      line: 27,
       sourceContext: {
+        line: 27,
         originalType: 'dblClick',
       },
       anchor: {
@@ -267,6 +269,10 @@ describe('planJsSuite', () => {
       markerStepId: 'js-step-4',
       anchorStepId: 'js-step-1',
       reason: 'ambiguous-field-context',
+      line: 27,
+      sourceContext: {
+        line: 27,
+      },
     })
   })
 

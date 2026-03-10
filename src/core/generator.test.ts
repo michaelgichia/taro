@@ -499,6 +499,82 @@ describe('generateTestFromGroups', () => {
     expect(verifySyntax(generated.code, '/tmp/generated.test.tsx')).toEqual({ valid: true })
   })
 
+  it('keeps mixed marker scenarios truthful by emitting resolved proof only', () => {
+    const generated = generateTestFromGroups(
+      'Mixed Marker Flow',
+      [
+        {
+          name: 'mixed marker coverage',
+          steps: [
+            {
+              id: 'js-step-1',
+              action: 'click',
+              target: 'Continue',
+              originalType: 'click',
+              source: 'js',
+            },
+          ],
+        },
+      ],
+      {
+        scenarios: [
+          {
+            name: 'mixed marker coverage',
+            goal: 'flow',
+            steps: [
+              {
+                id: 'js-step-1',
+                action: 'click',
+                target: 'Continue',
+                originalType: 'click',
+                source: 'js',
+              },
+            ],
+            helperRefs: [],
+            requiresFreshRender: true,
+            markerAssertions: [
+              createMarkerAssertion({
+                markerStepId: 'js-marker-11',
+                anchorStepId: 'js-step-1',
+                placement: {
+                  kind: 'after-step',
+                  stepId: 'js-step-1',
+                },
+                proofKind: 'role-name',
+                queryExpression: "screen.findByRole('heading', { name: 'Review Sale' })",
+                proofText: 'Review Sale',
+              }),
+            ],
+            unresolvedMarkerAssertions: [
+              {
+                status: 'unresolved',
+                markerStepId: 'js-marker-12',
+                anchorStepId: 'js-step-1',
+                reason: 'ambiguous-field-context',
+                proofSubject: 'field-label',
+                target: 'Customer PIN / Name',
+                proofText: 'Customer PIN / Name',
+                line: 88,
+                sourceContext: {
+                  line: 88,
+                  originalType: 'dblClick',
+                },
+              },
+            ],
+          },
+        ],
+      }
+    )
+
+    expect(generated.code).toContain(
+      "expect(await screen.findByRole('heading', { name: 'Review Sale' })).toBeVisible()"
+    )
+    expect(generated.code).not.toContain("findByLabelText('Customer PIN / Name')")
+    expect(generated.code).not.toContain('Customer PIN / Name')
+    expect(countOccurrences(generated.code, '.toBeVisible()')).toBe(1)
+    expect(verifySyntax(generated.code, '/tmp/generated.test.tsx')).toEqual({ valid: true })
+  })
+
   it('keeps unresolved marker evidence out of emitted proof code', () => {
     const generated = generateTestFromGroups(
       'Unresolved Marker Flow',

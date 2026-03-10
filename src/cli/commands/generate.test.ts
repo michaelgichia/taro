@@ -49,6 +49,19 @@ vi.mock('../../core/scanner.js', () => ({
   })),
 }))
 
+const { planJsSuiteMock } = vi.hoisted(() => ({
+  planJsSuiteMock: vi.fn(),
+}))
+
+vi.mock('../../core/suite-planner.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../core/suite-planner.js')>()
+  planJsSuiteMock.mockImplementation(actual.planJsSuite)
+  return {
+    ...actual,
+    planJsSuite: planJsSuiteMock,
+  }
+})
+
 const sandboxes: string[] = []
 const samplePath = resolve(process.cwd(), 'sample/sample-rest-recordingextension-output.js')
 const sampleJsonBasicPath = resolve(process.cwd(), 'sample/sample-json-recording-basic.json')
@@ -228,6 +241,7 @@ beforeEach(() => {
   captureVisualStateMock.mockResolvedValue(null)
   discoverRepoRenderTargetsMock.mockReset()
   discoverRepoRenderTargetsMock.mockResolvedValue([])
+  planJsSuiteMock.mockClear()
   resolveSelectorMock.mockReset()
   resolveSelectorMock.mockImplementation(defaultResolveSelector)
 })
@@ -394,6 +408,10 @@ test('Semantic marker flow', async () => {
     expect(result.logs).toContain('emitted: 1')
     expect(result.logs).toContain('unresolved: 1')
     expect(result.logs).toContain('QUAL-02 gate: PASS (markers-converted)')
+    expect(countOccurrences(result.warnings, 'MKR-03 unresolved-marker')).toBe(1)
+    expect(result.warnings).toMatch(
+      /MKR-03 unresolved-marker marker=js-step-\d+ line: \d+ reason=[a-z-]+ detail="[^"]+" hint="[^"]+"/
+    )
     expect(result.logs).not.toContain('dblClick noise event(s)')
     expect(result.logs).toContain(`Would write to: ${outputPath}`)
     expect(result.logs).toContain("await user.click(screen.getByRole('button', { name: 'Save' }))")
@@ -409,6 +427,66 @@ test('Semantic marker flow', async () => {
         "expect(await screen.findByRole('heading', { name: 'Review Sale' })).toBeVisible()"
       )
     ).toBe(1)
+  })
+
+  it('falls back to line: unknown when unresolved marker line metadata is unavailable', async () => {
+    const fixture = await createInlineJsFixture(
+      'semantic-marker-line-unknown',
+      `/**
+ * ${environmentUrlMarker}
+ * ${environmentOptionsMarker} { "url": "http://localhost:3001/sales" }
+ */
+const {screen} = require('@testing-library/dom')
+const {default: userEvent} = require('@testing-library/user-event')
+require('@testing-library/jest-dom')
+
+test('Semantic marker fallback line context', async () => {
+  expect(location.href).toBe('http://localhost:3001/sales')
+  await userEvent.dblClick(screen.getByRole('heading', { name: 'Starting state' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await userEvent.dblClick(screen.getByText('Customer PIN / Name'))
+})`
+    )
+    const outputPath = join(fixture.outputDir, 'semantic-marker-line-unknown.test.tsx')
+
+    const actualSuitePlanner = await vi.importActual<typeof import('../../core/suite-planner.js')>(
+      '../../core/suite-planner.js'
+    )
+    planJsSuiteMock.mockImplementationOnce(
+      (
+        input: Parameters<typeof actualSuitePlanner.planJsSuite>[0]
+      ): ReturnType<typeof actualSuitePlanner.planJsSuite> => {
+        const plan = actualSuitePlanner.planJsSuite(input)
+        return {
+          ...plan,
+          scenarios: plan.scenarios.map((scenario) => ({
+            ...scenario,
+            unresolvedMarkerAssertions: (scenario.unresolvedMarkerAssertions ?? []).map(
+              (unresolvedMarker) => ({
+                ...unresolvedMarker,
+                line: undefined,
+                sourceContext: {
+                  ...unresolvedMarker.sourceContext,
+                  line: undefined,
+                },
+              })
+            ),
+          })),
+        }
+      }
+    )
+
+    const result = await runGenerate(
+      [fixture.recordingPath, '--dry-run', '--output', outputPath],
+      fixture.outputDir
+    )
+
+    expect(result.thrown).toBeUndefined()
+    expect(countOccurrences(result.warnings, 'MKR-03 unresolved-marker')).toBeGreaterThan(0)
+    expect(result.warnings).toMatch(/reason=[a-z-]+/)
+    expect(result.warnings).toContain('line: unknown')
+    expect(result.warnings).toMatch(/detail="[^"]+"/)
+    expect(result.warnings).toMatch(/hint="[^"]+"/)
   })
 
   it('emits sample-backed marker assertions after helper calls without replaying marker gestures', async () => {
