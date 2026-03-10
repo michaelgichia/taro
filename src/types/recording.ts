@@ -198,6 +198,47 @@ export interface QueryResult {
   line?: number
 }
 
+export type SelectorResolutionStatus = 'resolved' | 'unresolved'
+export type SelectorResolutionOutcome =
+  | 'accessible-query'
+  | 'preserved-query'
+  | 'no-url'
+  | 'inspection-failed'
+  | 'selector-not-found'
+  | 'selector-inaccessible'
+
+interface BaseSelectorResolutionResult {
+  stepId: StepId
+  selector: SelectorDescriptor
+  url?: string
+  warnings: string[]
+}
+
+export interface ResolvedSelectorResolutionResult
+  extends BaseSelectorResolutionResult {
+  status: 'resolved'
+  outcome: 'accessible-query' | 'preserved-query'
+  source: 'baseline' | 'live-dom'
+  query: QueryDescriptor
+  inspectedElement?: ElementInfo
+}
+
+export interface UnresolvedSelectorResolutionResult
+  extends BaseSelectorResolutionResult {
+  status: 'unresolved'
+  outcome:
+    | 'no-url'
+    | 'inspection-failed'
+    | 'selector-not-found'
+    | 'selector-inaccessible'
+  reason: string
+  inspectionError?: string
+}
+
+export type SelectorResolutionResult =
+  | ResolvedSelectorResolutionResult
+  | UnresolvedSelectorResolutionResult
+
 export interface ItGroup {
   name: string
   steps: NormalizedStep[]

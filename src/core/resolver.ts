@@ -1,10 +1,13 @@
-import { chromium, Browser, Page } from 'playwright'
+import { chromium, type Browser, type Page } from 'playwright'
 import pc from 'picocolors'
 import type {
   DialogState,
   ElementInfo,
+  QueryDescriptor,
   QueryResult,
   QueryQuality,
+  SelectorDescriptor,
+  SelectorResolutionResult,
   VisualState,
 } from '../types/recording.js'
 
@@ -42,6 +45,36 @@ function sanitizeSelectorForTestId(selector: string): string {
   return selector.replace(/[^a-zA-Z0-9-]/g, '-').replace(/^-+|-+$/g, '')
 }
 
+export interface FoundSelectorInspectionResult {
+  status: 'found'
+  element: ElementInfo
+}
+
+export interface MissingSelectorInspectionResult {
+  status: 'selector-not-found'
+}
+
+export interface FailedSelectorInspectionResult {
+  status: 'inspection-failed'
+  error: string
+}
+
+export type SelectorInspectionResult =
+  | FoundSelectorInspectionResult
+  | MissingSelectorInspectionResult
+  | FailedSelectorInspectionResult
+
+export interface ResolveSelectorOptions {
+  url?: string
+  preservedQuery?: QueryDescriptor
+  timeoutMs?: number
+  inspect?: (
+    url: string,
+    cssSelector: string,
+    timeoutMs?: number
+  ) => Promise<SelectorInspectionResult>
+}
+
 async function readElementInfo(page: Page, selector: string): Promise<ElementInfo> {
   const locator = page.locator(selector).first()
   const elementInfo = await locator.evaluate((el: Element) => {
@@ -60,6 +93,52 @@ async function readElementInfo(page: Page, selector: string): Promise<ElementInf
   })
 
   return elementInfo as ElementInfo
+}
+
+function getAccessibleName(info: ElementInfo): string | null {
+  const accessibleName = info.ariaLabel ?? info.innerText
+  const normalizedName = accessibleName?.trim()
+
+  return normalizedName ? normalizedName : null
+}
+
+function toQueryDescriptor(
+  selector: SelectorDescriptor,
+  query: QueryResult
+): QueryDescriptor {
+  return {
+    stepId: selector.stepId,
+    method: query.method,
+    queryRoot: 'screen',
+    line: selector.line,
+    target: selector.selector,
+    quality: query.quality,
+    raw: query.query,
+  }
+}
+
+function toUnresolvedSelectorResult(
+  selector: SelectorDescriptor,
+  outcome: Extract<
+    SelectorResolutionResult,
+    { status: 'unresolved' }
+  >['outcome'],
+  reason: string,
+  options: {
+    url?: string
+    inspectionError?: string
+  } = {}
+): SelectorResolutionResult {
+  return {
+    status: 'unresolved',
+    outcome,
+    stepId: selector.stepId,
+    selector,
+    url: options.url,
+    reason,
+    inspectionError: options.inspectionError,
+    warnings: [reason],
+  }
 }
 
 function sanitizeCaptureSegment(value: string): string {
@@ -166,9 +245,9 @@ export async function captureVisualState(
  * @param selector - Original CSS selector
  * @returns QueryResult with query string, quality rating, and method name
  */
-export function buildQuery(info: ElementInfo, selector: string): QueryResult {
+export function deriveAccessibleQuery(info: ElementInfo): QueryResult | null {
   const impliedRole = info.role ?? ROLE_MAP[info.tagName]
-  const accessibleName = info.ariaLabel ?? info.innerText
+  const accessibleName = getAccessibleName(info)
 
   // Priority 1: getByRole when both role and accessible name exist
   if (impliedRole && accessibleName) {
@@ -206,12 +285,147 @@ export function buildQuery(info: ElementInfo, selector: string): QueryResult {
     }
   }
 
+  return null
+}
+
+/**
+ * Legacy helper retained for scoring/reporting until generation consumes
+ * SelectorResolutionResult directly in Phase 14-02.
+ */
+export function buildQuery(info: ElementInfo, selector: string): QueryResult {
+  const accessibleQuery = deriveAccessibleQuery(info)
+  if (accessibleQuery) {
+    return accessibleQuery
+  }
+
   // Priority 5: Fallback to getByTestId (fragile)
   const sanitized = sanitizeSelectorForTestId(selector)
   return {
     method: 'getByTestId',
     quality: 'fragile' as QueryQuality,
     query: `screen.getByTestId('${sanitized}')`,
+  }
+}
+
+export async function inspectSelector(
+  url: string,
+  cssSelector: string,
+  timeoutMs = 5000
+): Promise<SelectorInspectionResult> {
+  let browser: Browser | null = null
+
+  try {
+    browser = await chromium.launch({ headless: true })
+    const page = await browser.newPage()
+
+    await page.goto(url, {
+      timeout: timeoutMs,
+      waitUntil: 'domcontentloaded',
+    })
+
+    const count = await page.locator(cssSelector).count()
+    if (count === 0) {
+      return { status: 'selector-not-found' }
+    }
+
+    return {
+      status: 'found',
+      element: await readElementInfo(page, cssSelector),
+    }
+  } catch (error) {
+    return {
+      status: 'inspection-failed',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  } finally {
+    if (browser) {
+      await browser.close()
+    }
+  }
+}
+
+export async function resolveSelector(
+  selector: SelectorDescriptor,
+  options: ResolveSelectorOptions = {}
+): Promise<SelectorResolutionResult> {
+  const { url, preservedQuery, timeoutMs = 5000, inspect = inspectSelector } = options
+
+  if (preservedQuery) {
+    return {
+      status: 'resolved',
+      outcome: 'preserved-query',
+      source: 'baseline',
+      stepId: selector.stepId,
+      selector,
+      url,
+      query: preservedQuery,
+      warnings: [],
+    }
+  }
+
+  if (!url) {
+    return toUnresolvedSelectorResult(
+      selector,
+      'no-url',
+      `No recorded URL is available to inspect selector ${selector.selector}.`
+    )
+  }
+
+  try {
+    const inspection = await inspect(url, selector.selector, timeoutMs)
+
+    if (inspection.status === 'inspection-failed') {
+      return toUnresolvedSelectorResult(
+        selector,
+        'inspection-failed',
+        `Playwright inspection failed for selector ${selector.selector}.`,
+        {
+          url,
+          inspectionError: inspection.error,
+        }
+      )
+    }
+
+    if (inspection.status === 'selector-not-found') {
+      return toUnresolvedSelectorResult(
+        selector,
+        'selector-not-found',
+        `Selector ${selector.selector} was not found at ${url}.`,
+        { url }
+      )
+    }
+
+    const accessibleQuery = deriveAccessibleQuery(inspection.element)
+    if (!accessibleQuery) {
+      return toUnresolvedSelectorResult(
+        selector,
+        'selector-inaccessible',
+        `Selector ${selector.selector} did not expose trustworthy accessible query evidence.`,
+        { url }
+      )
+    }
+
+    return {
+      status: 'resolved',
+      outcome: 'accessible-query',
+      source: 'live-dom',
+      stepId: selector.stepId,
+      selector,
+      url,
+      query: toQueryDescriptor(selector, accessibleQuery),
+      inspectedElement: inspection.element,
+      warnings: [],
+    }
+  } catch (error) {
+    return toUnresolvedSelectorResult(
+      selector,
+      'inspection-failed',
+      `Playwright inspection failed for selector ${selector.selector}.`,
+      {
+        url,
+        inspectionError: error instanceof Error ? error.message : 'Unknown error',
+      }
+    )
   }
 }
 
@@ -261,30 +475,20 @@ export async function inspectElement(
   cssSelector: string,
   timeoutMs = 5000
 ): Promise<ElementInfo | null> {
-  let browser: Browser | null = null
+  const inspection = await inspectSelector(url, cssSelector, timeoutMs)
+  if (inspection.status === 'found') {
+    return inspection.element
+  }
 
-  try {
-    browser = await chromium.launch({ headless: true })
-    const page = await browser.newPage()
-
-    await page.goto(url, {
-      timeout: timeoutMs,
-      waitUntil: 'domcontentloaded',
-    })
-
-    return await readElementInfo(page, cssSelector)
-  } catch (error) {
+  if (inspection.status === 'inspection-failed') {
     console.warn(
       pc.yellow('[taro]') +
         pc.dim(' QRY-02:') +
-        ` Failed to inspect element ${cssSelector} on ${url}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        ` Failed to inspect element ${cssSelector} on ${url}: ${inspection.error}`
     )
-    return null
-  } finally {
-    if (browser) {
-      await browser.close()
-    }
   }
+
+  return null
 }
 
 /**
