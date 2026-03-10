@@ -13,10 +13,7 @@ import { generateTest } from '../../core/generator.js'
 import { writeTestFile } from '../../core/writer.js'
 import {
   captureVisualState,
-  inspectElements,
-  buildQuery,
-  selectMatcher,
-  emitQry03Warning,
+  resolveSelector,
 } from '../../core/resolver.js'
 import { scoreGeneratedTest } from '../../core/scorer.js'
 import { analyzeBoundaryIsolation } from '../../core/boundary-intelligence.js'
@@ -40,8 +37,12 @@ import type {
   AnalyzedRecording,
   ItGroup,
   NormalizedRecording,
+  NormalizedStep,
   QueryDescriptor,
   QueryResult,
+  SelectorDescriptor,
+  SelectorResolutionResult,
+  StepId,
   VisualState,
 } from '../../types/recording.js'
 import type { HistoryEntry, ScoreResult } from '../../types/score.js'
@@ -159,6 +160,86 @@ function queryDescriptorToResult(descriptor: QueryDescriptor): QueryResult {
   }
 }
 
+function isQueryDescriptor(value: unknown): value is QueryDescriptor {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'method' in value &&
+    typeof value.method === 'string'
+  )
+}
+
+function getStepQueryDescriptor(step: NormalizedStep): QueryDescriptor | undefined {
+  const query = step.metadata?.query
+  return isQueryDescriptor(query) ? query : undefined
+}
+
+function groupSelectorsByStepId(
+  selectors: SelectorDescriptor[]
+): Map<StepId, SelectorDescriptor[]> {
+  const grouped = new Map<StepId, SelectorDescriptor[]>()
+
+  for (const selector of selectors) {
+    const current = grouped.get(selector.stepId) ?? []
+    current.push(selector)
+    grouped.set(selector.stepId, current)
+  }
+
+  return grouped
+}
+
+function mergeSelectorResolutionWarnings(
+  resolution: SelectorResolutionResult,
+  warnings: string[]
+): SelectorResolutionResult {
+  const mergedWarnings = Array.from(new Set([...resolution.warnings, ...warnings]))
+  if (mergedWarnings.length === resolution.warnings.length) {
+    return resolution
+  }
+
+  return {
+    ...resolution,
+    warnings: mergedWarnings,
+  }
+}
+
+function applySelectorResolution(
+  step: NormalizedStep,
+  resolution: SelectorResolutionResult
+): NormalizedStep {
+  return {
+    ...step,
+    metadata: {
+      ...step.metadata,
+      selectorResolution: resolution,
+      ...(resolution.status === 'resolved' ? { query: resolution.query } : {}),
+    },
+  }
+}
+
+function rehydrateItGroups(itGroups: ItGroup[], steps: NormalizedStep[]): ItGroup[] {
+  const stepMap = new Map(steps.map((step) => [step.id, step]))
+
+  return itGroups.map((group) => ({
+    ...group,
+    steps: group.steps.map((step) => (step.id ? stepMap.get(step.id) ?? step : step)),
+  }))
+}
+
+function dedupeQueryResults(queryResults: QueryResult[]): QueryResult[] {
+  const seen = new Set<string>()
+
+  return queryResults.filter((queryResult) => {
+    const key = `${queryResult.method}:${queryResult.query}:${queryResult.line ?? 'na'}`
+    if (seen.has(key)) {
+      return false
+    }
+
+    seen.add(key)
+    return true
+  })
+}
+
 function getPrimarySelector(recording: NormalizedRecording): string | undefined {
   return recording.baseline?.selectors[0]?.selector
 }
@@ -236,60 +317,115 @@ function findRecordingUrl(analyzedRecording: AnalyzedRecording): string | undefi
   return analyzedRecording.url ?? analyzedRecording.steps.find((step) => step.action === 'navigate')?.target
 }
 
-async function resolveJsQueryResults(recording: NormalizedRecording): Promise<QueryResult[]> {
+async function resolveJsGeneration(
+  recording: NormalizedRecording,
+  itGroups: ItGroup[]
+): Promise<{
+  itGroups: ItGroup[]
+  queryResults: QueryResult[]
+  recording: NormalizedRecording
+  warnings: string[]
+}> {
   const baseline = recording.baseline
   if (!baseline) {
-    return []
+    return {
+      itGroups,
+      queryResults: [],
+      recording,
+      warnings: [],
+    }
   }
 
   const queryResults = baseline.queries.map(queryDescriptorToResult)
+  const warnings: string[] = []
+  const selectorGroups = groupSelectorsByStepId(baseline.selectors)
+  const stepMap = new Map(
+    recording.steps
+      .filter((step): step is NormalizedStep & { id: StepId } => Boolean(step.id))
+      .map((step) => [step.id, step])
+  )
+  const updatedSteps = new Map<StepId, NormalizedStep>()
 
-  if (baseline.selectors.length > 0 && recording.url) {
+  if (selectorGroups.size > 0 && recording.url) {
     console.log(
       pc.dim('[taro]') +
         ` Resolving ${baseline.selectors.length} selector(s) via Playwright...`
     )
+  }
 
-    const selectors = baseline.selectors.map((descriptor) => descriptor.selector)
-    const elementMap = await inspectElements(recording.url, selectors)
-
-    for (const descriptor of baseline.selectors) {
-      const info = elementMap.get(descriptor.selector) ?? null
-      if (!info) {
-        const fallbackResult = buildQuery(
-          {
-            tagName: 'div',
-            role: null,
-            ariaLabel: null,
-            ariaLabelledBy: null,
-            innerText: '',
-            value: undefined,
-            type: undefined,
-            placeholder: null,
-            isPresent: false,
-          },
-          descriptor.selector
-        )
-        queryResults.push({ ...fallbackResult, line: descriptor.line })
-        continue
-      }
-
-      const result = buildQuery(info, descriptor.selector)
-      if (result.quality === 'fragile') {
-        emitQry03Warning(descriptor.selector)
-      }
-
-      const matcher = selectMatcher(info, 'assert')
-      queryResults.push({ ...result, matcher, line: descriptor.line })
+  for (const [stepId, selectors] of selectorGroups) {
+    const step = updatedSteps.get(stepId) ?? stepMap.get(stepId)
+    if (!step) {
+      continue
     }
-  } else if (baseline.selectors.length > 0 && !recording.url) {
-    console.warn(
-      pc.yellow('[taro]') +
-        ' QRY-02: No @jest-environment-options URL found — cannot resolve document.querySelector selectors. Falling back to getByTestId.'
+
+    const preservedQuery = getStepQueryDescriptor(step)
+    const stepWarnings: string[] = []
+    let chosenResolution: SelectorResolutionResult | undefined
+
+    if (preservedQuery) {
+      chosenResolution = await resolveSelector(selectors[0]!, {
+        url: recording.url,
+        preservedQuery,
+      })
+    } else {
+      for (const selector of selectors) {
+        const resolution = await resolveSelector(selector, {
+          url: recording.url,
+        })
+
+        if (resolution.status === 'resolved') {
+          chosenResolution = resolution
+          break
+        }
+
+        stepWarnings.push(...resolution.warnings)
+        chosenResolution ??= resolution
+      }
+    }
+
+    if (!chosenResolution) {
+      continue
+    }
+
+    const resolution = mergeSelectorResolutionWarnings(chosenResolution, stepWarnings)
+    updatedSteps.set(stepId, applySelectorResolution(step, resolution))
+
+    if (resolution.status === 'resolved') {
+      if (resolution.outcome !== 'preserved-query') {
+        queryResults.push(queryDescriptorToResult(resolution.query))
+      }
+      continue
+    }
+
+    warnings.push(
+      `QRY-03 [${stepId}] unresolved selector ${resolution.selector.selector}: ${resolution.reason}`
     )
   }
 
-  return queryResults
+  const resolvedSteps = recording.steps.map((step) =>
+    step.id ? updatedSteps.get(step.id) ?? step : step
+  )
+
+  return {
+    itGroups: rehydrateItGroups(itGroups, resolvedSteps),
+    queryResults: dedupeQueryResults(queryResults),
+    recording: {
+      ...recording,
+      baseline: {
+        ...baseline,
+        itGroups: rehydrateItGroups(baseline.itGroups, resolvedSteps),
+      },
+      steps: resolvedSteps,
+    },
+    warnings,
+  }
+}
+
+function summarizeSelectorWarnings(warnings: string[]): void {
+  for (const warning of warnings) {
+    console.warn(pc.yellow(`[taro] ${warning}`))
+  }
 }
 
 async function maybeCaptureVisualState(params: {
@@ -457,9 +593,6 @@ export function createGenerateCommand(): Command {
       const mockAnalysis = await maybeAnalyzeMocks(projectRoot)
       summarizeMockAnalysis(mockAnalysis)
 
-      const queryResults =
-        parsedInput.source === 'js' ? await resolveJsQueryResults(normalizedRecording) : []
-
       const outputPath = options.output ?? deriveOutputPath(filePath)
       const jsSuitePlan =
         parsedInput.source === 'js'
@@ -475,13 +608,25 @@ export function createGenerateCommand(): Command {
         summarizeBoundaryWarnings(jsSuitePlan.warnings)
       }
 
+      const resolvedJsGeneration =
+        parsedInput.source === 'js'
+          ? await resolveJsGeneration(
+              normalizedRecording,
+              jsSuitePlan?.itGroups ?? toItGroups(analyzedRecording, normalizedRecording.title)
+            )
+          : null
+
+      if (resolvedJsGeneration) {
+        summarizeSelectorWarnings(resolvedJsGeneration.warnings)
+      }
+
       const generated =
         parsedInput.source === 'js'
-          ? generateTestFromGroups(normalizedRecording.title, jsSuitePlan?.itGroups ?? toItGroups(analyzedRecording, normalizedRecording.title), {
+          ? generateTestFromGroups(normalizedRecording.title, resolvedJsGeneration?.itGroups ?? jsSuitePlan?.itGroups ?? toItGroups(analyzedRecording, normalizedRecording.title), {
               outputPath,
               dryRun: options.dryRun,
               conventions,
-              queryResults,
+              queryResults: resolvedJsGeneration?.queryResults ?? [],
             })
           : generateTest(analyzedRecording, { outputPath, dryRun: options.dryRun })
 
@@ -493,17 +638,17 @@ export function createGenerateCommand(): Command {
       }
 
       if (parsedInput.source === 'js') {
-        emitQuerySummary(queryResults)
+        emitQuerySummary(resolvedJsGeneration?.queryResults ?? [])
       }
 
       const scoreResult =
         parsedInput.source === 'js'
-          ? scoreGeneratedTest(generated.code, queryResults)
+          ? scoreGeneratedTest(generated.code, resolvedJsGeneration?.queryResults ?? [])
           : scoreGeneratedTest(generated.code)
       const boundaryIssues = analyzeBoundaryIsolation(generated.code)
 
       logScore(scoreResult)
-      emitScoreHints(scoreResult, queryResults, boundaryIssues)
+      emitScoreHints(scoreResult, resolvedJsGeneration?.queryResults ?? [], boundaryIssues)
 
       if (options.dryRun) {
         console.log(pc.yellow('\nDry run — test preview:\n'))

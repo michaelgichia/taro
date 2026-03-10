@@ -44,11 +44,28 @@ export interface StepTemplateOptions {
   query: string
   value?: string
   matcher?: string // context-aware matcher, e.g. '.toHaveValue()', '.toBeChecked()'
+  checkpoint?: {
+    reason: string
+    selector: string
+  }
+}
+
+function sanitizeCommentText(value: string): string {
+  return value.replace(/\s+/g, ' ').trim()
 }
 
 export function stepTemplate(opts: StepTemplateOptions): string {
   const { action, query, value = '' } = opts
   const escapedValue = escapeSingleQuote(value)
+
+  if (opts.checkpoint) {
+    return [
+      `// taro-query-checkpoint: ${action} step requires manual RTL query recovery`,
+      `// selector: ${sanitizeCommentText(opts.checkpoint.selector)}`,
+      `// reason: ${sanitizeCommentText(opts.checkpoint.reason)}`,
+      '// TODO: replace this checkpoint with a trustworthy RTL query before keeping the generated test',
+    ].join('\n')
+  }
 
   switch (action) {
     case 'click':

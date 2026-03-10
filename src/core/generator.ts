@@ -6,7 +6,15 @@
  *   getByRole > getByLabelText > getByText > getByPlaceholderText > getByTestId
  */
 
-import type { NormalizedRecording, NormalizedStep, QueryResult, ItGroup, QueryQuality } from '../types/recording.js'
+import type {
+  NormalizedRecording,
+  NormalizedStep,
+  QueryResult,
+  ItGroup,
+  QueryQuality,
+  SelectorDescriptor,
+  SelectorResolutionResult,
+} from '../types/recording.js'
 import type { ConventionsSchema } from '../types/conventions.js'
 import {
   importBlock,
@@ -105,7 +113,35 @@ function getRecoveredQuery(step: NormalizedStep): string | undefined {
   return undefined
 }
 
-function reconstructQuery(step: NormalizedStep): string {
+function isSelectorDescriptor(value: unknown): value is SelectorDescriptor {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'selector' in value &&
+    typeof value.selector === 'string'
+  )
+}
+
+function isSelectorResolutionResult(value: unknown): value is SelectorResolutionResult {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'status' in value &&
+    (value.status === 'resolved' || value.status === 'unresolved')
+  )
+}
+
+function getSelectorDescriptor(step: NormalizedStep): SelectorDescriptor | undefined {
+  const selector = step.metadata?.selector
+  return isSelectorDescriptor(selector) ? selector : undefined
+}
+
+function getSelectorResolution(step: NormalizedStep): SelectorResolutionResult | undefined {
+  const resolution = step.metadata?.selectorResolution
+  return isSelectorResolutionResult(resolution) ? resolution : undefined
+}
+
+function reconstructQuery(step: NormalizedStep): string | undefined {
   const target = step.target
   if (!target) {
     return 'document.body'
@@ -128,11 +164,34 @@ function reconstructQuery(step: NormalizedStep): string {
   }
 
   if (looksLikeCssSelector(target)) {
+    if (step.source === 'js') {
+      return undefined
+    }
     return selectorToQuery(target)
   }
 
   const escapedTarget = target.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
   return `screen.getByText('${escapedTarget}')`
+}
+
+function getSelectorCheckpoint(step: NormalizedStep): { reason: string; selector: string } | null {
+  const resolution = getSelectorResolution(step)
+  if (resolution?.status === 'unresolved') {
+    return {
+      reason: resolution.reason,
+      selector: resolution.selector.selector,
+    }
+  }
+
+  const selector = getSelectorDescriptor(step)?.selector ?? step.target
+  if (step.source === 'js' && selector && looksLikeCssSelector(selector)) {
+    return {
+      reason: 'No trustworthy RTL query evidence was recovered for this selector.',
+      selector,
+    }
+  }
+
+  return null
 }
 
 function generateStepCode(step: NormalizedStep): string {
@@ -245,9 +304,27 @@ export function generateTestFromGroups(
       if (step.action === 'navigate') {
         return stepTemplate({ action: 'navigate', query: '', value: step.target })
       }
+
       const query = reconstructQuery(step)
-      const matcher = step.action === 'assert' ? matcherMap.get(query) : undefined
-      return stepTemplate({ action: step.action, query, value: step.value, matcher })
+      if (!query) {
+        const checkpoint = getSelectorCheckpoint(step)
+        if (checkpoint) {
+          return stepTemplate({
+            action: step.action,
+            query: '',
+            value: step.value,
+            checkpoint,
+          })
+        }
+      }
+
+      const matcher = step.action === 'assert' && query ? matcherMap.get(query) : undefined
+      return stepTemplate({
+        action: step.action,
+        query: query ?? 'document.body',
+        value: step.value,
+        matcher,
+      })
     })
     return { name: group.name, stepLines, hasUserEvents }
   })
