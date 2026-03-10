@@ -61,8 +61,8 @@ Plans:
 
 Plans:
 
-- [ ] 14-01: Selector resolution contract and truthful resolver outcomes
-- [ ] 14-02: Truthful JS generation and unresolved-selector checkpoints
+- [x] 14-01: Selector resolution contract and truthful resolver outcomes
+- [x] 14-02: Truthful JS generation and unresolved-selector checkpoints
 - [ ] 14-03: Optional live DOM enrichment and sample-backed selector regression proof
 
 ### Phase 15: Structured Suite Planning & Repo-aware Generation
