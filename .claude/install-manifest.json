@@ -1,0 +1,19 @@
+{
+  "packageName": "@tayo-dev/rtl",
+  "runtime": "claude",
+  "location": "local",
+  "manifestVersion": 1,
+  "generatedAt": "2026-03-10T16:30:07.155Z",
+  "files": [
+    {
+      "relativePath": "commands/@tayo-dev/rtl/help.md",
+      "kind": "command",
+      "checksum": "201f9e0699c134f446088a8c8e64649cd754e2a3325823419edb289da63ac662"
+    },
+    {
+      "relativePath": "commands/@tayo-dev/rtl/generate.md",
+      "kind": "command",
+      "checksum": "92a75a2584ac53d83d4c3ee6b06c7d1d0da368a59022bc6d2d48e35eaed5a471"
+    }
+  ]
+}

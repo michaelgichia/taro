@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- refactored the repository into a package-first layout with top-level `agents/`, `commands/`, `docs/`, `get-shit-done/`, `hooks/`, `bin/`, and `scripts/` directories
+- refactored the repository into a package-first layout with top-level `agents/`, `commands/`, `docs/`, `taro/`, `hooks/`, `bin/`, and `scripts/` directories
 - moved authored runtime command and Codex skill content out of `assets/` and into source directories that better match the published package surface
 - added wrapper scripts for install, test execution, and scaffold verification
 

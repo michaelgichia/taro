@@ -33,7 +33,7 @@ const CODEX_SKILL_ASSETS: RuntimeAssetDefinition[] = [
   ...CODEX_GENERATE_REFERENCE_FILES.map((fileName) => ({
     id: `generate-reference-${fileName.replace(/\.md$/, '')}`,
     kind: 'skill' as const,
-    sourceSegments: ['get-shit-done', 'references', fileName],
+    sourceSegments: ['taro', 'references', fileName],
     destinationSegments: ['skills', '@tayo-dev', 'rtl-generate', 'references', fileName],
   })),
   {

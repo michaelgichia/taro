@@ -40,5 +40,5 @@ Tayo persists convention learning in `.tayo/conventions.json` and optional visua
 - `agents/`: authored Codex skill content
 - `commands/`: authored prompt-runtime command content
 - `docs/`: user-facing package documentation
-- `get-shit-done/references/`: generation and verification reference notes used by packaged skills
+- `taro/references/`: generation and verification reference notes used by packaged skills
 - `hooks/`: lightweight CLI helpers for update checks and local context summaries
