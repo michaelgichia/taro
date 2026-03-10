@@ -80,6 +80,7 @@ describe('loadInput', () => {
         target: 'aria/Add sale',
       })
     )
+    expect(parsed.recording.steps[0].semanticMarkerCandidate).toBeUndefined()
     expect('baseline' in parsed).toBe(false)
   })
 
@@ -122,6 +123,7 @@ describe('loadInput', () => {
         target: 'Open Add Sale dialog',
       })
     )
+    expect(dialog.recording.steps[1].semanticMarkerCandidate).toBeUndefined()
     expect('baseline' in basic).toBe(false)
     expect('baseline' in dialog).toBe(false)
   })
@@ -175,6 +177,7 @@ describe('loadInput', () => {
         target: 'Saved',
       }),
     ])
+    expect(parsed.baseline.semanticMarkerCandidates).toEqual([])
   })
 
   it('preserves nested query evidence on JS action steps', async () => {
@@ -203,6 +206,74 @@ describe('loadInput', () => {
           }),
         }),
       })
+    )
+  })
+
+  it('loads unresolved dblClick semantic marker candidates through the shared JS boundary', async () => {
+    const filePath = await writeTempFile(
+      'recording.js',
+      [
+        '/**',
+        ' * Review sale flow',
+        dashboardEnvOptionsLine,
+        ' */',
+        "test('recording', async () => {",
+        "  await userEvent.dblClick(screen.getByRole('heading', {name: 'Review Sale'}))",
+        "  await userEvent.dblClick(screen.getByText('Customer PIN'))",
+        "  await userEvent.dblClick(screen.getByText('KES 4,800.00'))",
+        '})',
+      ].join('\n')
+    )
+
+    const parsed = await loadInput(filePath)
+
+    expect(parsed.source).toBe('js')
+    expect(parsed.recording.steps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          originalType: 'dblClick',
+          semanticMarkerCandidate: expect.objectContaining({
+            status: 'unresolved',
+            proofSubject: 'heading',
+            proofText: 'Review Sale',
+          }),
+        }),
+        expect.objectContaining({
+          originalType: 'dblClick',
+          semanticMarkerCandidate: expect.objectContaining({
+            status: 'unresolved',
+            proofSubject: 'field-label',
+            proofText: 'Customer PIN',
+          }),
+        }),
+        expect.objectContaining({
+          originalType: 'dblClick',
+          semanticMarkerCandidate: expect.objectContaining({
+            status: 'unresolved',
+            proofSubject: 'concrete-value',
+            proofText: 'KES 4,800.00',
+          }),
+        }),
+      ])
+    )
+    expect(parsed.baseline.semanticMarkerCandidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: 'unresolved',
+          proofSubject: 'heading',
+          proofText: 'Review Sale',
+        }),
+        expect.objectContaining({
+          status: 'unresolved',
+          proofSubject: 'field-label',
+          proofText: 'Customer PIN',
+        }),
+        expect.objectContaining({
+          status: 'unresolved',
+          proofSubject: 'concrete-value',
+          proofText: 'KES 4,800.00',
+        }),
+      ])
     )
   })
 

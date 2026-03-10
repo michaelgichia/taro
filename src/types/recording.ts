@@ -83,6 +83,7 @@ export interface NormalizedStep {
   selector?: string
   timestamp?: number
   metadata?: Record<string, unknown>
+  semanticMarkerCandidate?: SemanticMarkerCandidate
 }
 
 export interface RecordingStep extends NormalizedStep {
@@ -176,6 +177,42 @@ export interface AssertionDescriptor {
   target?: string
   queryMethod?: string
   raw?: string
+}
+
+export type SemanticMarkerCandidateStatus = 'unresolved'
+export type SemanticMarkerProofSubject =
+  | 'heading'
+  | 'visible-message'
+  | 'concrete-value'
+  | 'field-label'
+  | 'selector-target'
+  | 'unknown'
+export type SemanticMarkerGesture = 'dblClick'
+export type SemanticMarkerAnchorRelation = 'precedes' | 'follows' | 'same-target'
+
+export interface SemanticMarkerAnchorLink {
+  anchorStepId?: StepId
+  relation?: SemanticMarkerAnchorRelation
+}
+
+export interface SemanticMarkerSourceContext {
+  line?: number
+  originalType: string
+  raw?: string
+}
+
+export interface SemanticMarkerCandidate {
+  stepId: StepId
+  status: SemanticMarkerCandidateStatus
+  originalGesture: SemanticMarkerGesture
+  proofSubject: SemanticMarkerProofSubject
+  target?: string
+  proofText?: string
+  line?: number
+  sourceContext: SemanticMarkerSourceContext
+  query?: QueryDescriptor
+  selector?: SelectorDescriptor
+  anchor?: SemanticMarkerAnchorLink
 }
 
 export interface ElementInfo {
@@ -281,6 +318,7 @@ export interface JsBaselineMetadata {
   selectors: SelectorDescriptor[]
   assertions: AssertionDescriptor[]
   itGroups: ItGroup[]
+  semanticMarkerCandidates?: SemanticMarkerCandidate[]
 }
 
 export interface ParsedJsonInput {

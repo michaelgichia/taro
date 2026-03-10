@@ -71,6 +71,7 @@ function toJsRecording(jsResult: JsParseResult): NormalizedRecording {
       selectors: jsResult.selectors,
       assertions: jsResult.assertions,
       itGroups: jsResult.itGroups,
+      semanticMarkerCandidates: jsResult.semanticMarkerCandidates,
     },
   }
 }
