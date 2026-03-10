@@ -1,6 +1,6 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { parseRecording } from './parser.js'
 
@@ -17,6 +17,9 @@ async function writeTempJson(content: unknown): Promise<string> {
 afterEach(async () => {
   await Promise.all(tempDirs.splice(0).map((directory) => rm(directory, { recursive: true, force: true })))
 })
+
+const sampleJsonBasicPath = resolve(process.cwd(), 'sample/sample-json-recording-basic.json')
+const sampleJsonDialogPath = resolve(process.cwd(), 'sample/sample-json-recording-dialog.json')
 
 describe('parseRecording', () => {
   it('preserves JSON recorder URLs and assigns stable step ids', async () => {
@@ -73,5 +76,44 @@ describe('parseRecording', () => {
       })
     )
     expect(recording.baseline).toBeUndefined()
+  })
+
+  it('parses the representative JSON fixtures with stable ids and preserved recorder intent', async () => {
+    const [basic, dialog] = await Promise.all([
+      parseRecording(sampleJsonBasicPath),
+      parseRecording(sampleJsonDialogPath),
+    ])
+
+    expect(basic.steps.map((step) => step.target)).toEqual([
+      'http://localhost:3000/sales',
+      'Add Sale',
+      'Add Sale',
+      'Customer Name',
+      'Amount',
+      'Submit Sale',
+      'Sale created',
+    ])
+    expect(dialog.steps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'json-step-2',
+          action: 'click',
+          originalType: 'doubleClick',
+          source: 'json',
+          target: 'Open Add Sale dialog',
+        }),
+        expect.objectContaining({
+          id: 'json-step-7',
+          action: 'assert',
+          originalType: 'assertElementVisible',
+          source: 'json',
+          target: 'Draft saved',
+        }),
+      ])
+    )
+    expect(dialog.settings).toEqual({
+      url: 'http://localhost:3000/sales',
+    })
+    expect(dialog.baseline).toBeUndefined()
   })
 })

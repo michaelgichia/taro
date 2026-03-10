@@ -13,16 +13,14 @@ import { generateTest } from '../../core/generator.js'
 import { writeTestFile } from '../../core/writer.js'
 import {
   captureVisualState,
-  inspectElements,
-  buildQuery,
-  selectMatcher,
-  emitQry03Warning,
+  resolveSelector,
 } from '../../core/resolver.js'
 import { scoreGeneratedTest } from '../../core/scorer.js'
 import { analyzeBoundaryIsolation } from '../../core/boundary-intelligence.js'
 import { verifySyntax } from '../../core/verifier.js'
 import {
   analyzeSingleTestFile,
+  discoverRepoRenderTargets,
   mergeConventions,
   readConventions,
   scanConventions,
@@ -40,12 +38,18 @@ import type {
   AnalyzedRecording,
   ItGroup,
   NormalizedRecording,
+  NormalizedStep,
   QueryDescriptor,
   QueryResult,
+  SelectorDescriptor,
+  SelectorResolutionResult,
+  StepId,
   VisualState,
 } from '../../types/recording.js'
 import type { HistoryEntry, ScoreResult } from '../../types/score.js'
 import type { MockAnalysis } from '../../core/mock-intelligence.js'
+import type { RepoRenderTargetCandidate } from '../../core/scanner.js'
+import type { JsSuitePlan } from '../../core/suite-planner.js'
 
 export interface GenerateOptions {
   output?: string
@@ -68,6 +72,22 @@ function logScore(scoreResult: ScoreResult): void {
       `structure: ${scoreResult.dimensions.testStructure}, ` +
       `boundary: ${scoreResult.dimensions.boundaryIsolation}`
   )
+}
+
+function emitLowConfidenceBanner(scoreResult: ScoreResult): void {
+  if (!scoreResult.requiresReview) {
+    return
+  }
+
+  console.warn(
+    pc.yellow(
+      `[taro] Manual review required — this generated test is still a draft (${scoreResult.total}/100, ${scoreResult.grade}).`
+    )
+  )
+
+  if (scoreResult.blockers.length > 0) {
+    console.warn(pc.yellow(`[taro] Top blockers: ${scoreResult.blockers.join(' | ')}`))
+  }
 }
 
 function emitScoreHints(
@@ -159,6 +179,105 @@ function queryDescriptorToResult(descriptor: QueryDescriptor): QueryResult {
   }
 }
 
+function isQueryDescriptor(value: unknown): value is QueryDescriptor {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'method' in value &&
+    typeof value.method === 'string'
+  )
+}
+
+function getStepQueryDescriptor(step: NormalizedStep): QueryDescriptor | undefined {
+  const query = step.metadata?.query
+  return isQueryDescriptor(query) ? query : undefined
+}
+
+function groupSelectorsByStepId(
+  selectors: SelectorDescriptor[]
+): Map<StepId, SelectorDescriptor[]> {
+  const grouped = new Map<StepId, SelectorDescriptor[]>()
+
+  for (const selector of selectors) {
+    const current = grouped.get(selector.stepId) ?? []
+    current.push(selector)
+    grouped.set(selector.stepId, current)
+  }
+
+  return grouped
+}
+
+function mergeSelectorResolutionWarnings(
+  resolution: SelectorResolutionResult,
+  warnings: string[]
+): SelectorResolutionResult {
+  const mergedWarnings = Array.from(new Set([...resolution.warnings, ...warnings]))
+  if (mergedWarnings.length === resolution.warnings.length) {
+    return resolution
+  }
+
+  return {
+    ...resolution,
+    warnings: mergedWarnings,
+  }
+}
+
+function applySelectorResolution(
+  step: NormalizedStep,
+  resolution: SelectorResolutionResult
+): NormalizedStep {
+  return {
+    ...step,
+    metadata: {
+      ...step.metadata,
+      selectorResolution: resolution,
+      ...(resolution.status === 'resolved' ? { query: resolution.query } : {}),
+    },
+  }
+}
+
+function rehydrateItGroups(itGroups: ItGroup[], steps: NormalizedStep[]): ItGroup[] {
+  const stepMap = new Map(steps.map((step) => [step.id, step]))
+
+  return itGroups.map((group) => ({
+    ...group,
+    steps: group.steps.map((step) => (step.id ? stepMap.get(step.id) ?? step : step)),
+  }))
+}
+
+function rehydrateSuitePlan(plan: JsSuitePlan, steps: NormalizedStep[]): JsSuitePlan {
+  const stepMap = new Map(steps.map((step) => [step.id, step]))
+
+  const mapStep = (step: NormalizedStep) => (step.id ? stepMap.get(step.id) ?? step : step)
+
+  return {
+    ...plan,
+    itGroups: rehydrateItGroups(plan.itGroups, steps),
+    helpers: plan.helpers.map((helper) => ({
+      ...helper,
+      steps: helper.steps.map(mapStep),
+    })),
+    scenarios: plan.scenarios.map((scenario) => ({
+      ...scenario,
+      steps: scenario.steps.map(mapStep),
+    })),
+  }
+}
+
+function dedupeQueryResults(queryResults: QueryResult[]): QueryResult[] {
+  const seen = new Set<string>()
+
+  return queryResults.filter((queryResult) => {
+    const key = `${queryResult.method}:${queryResult.query}:${queryResult.line ?? 'na'}`
+    if (seen.has(key)) {
+      return false
+    }
+
+    seen.add(key)
+    return true
+  })
+}
+
 function getPrimarySelector(recording: NormalizedRecording): string | undefined {
   return recording.baseline?.selectors[0]?.selector
 }
@@ -232,64 +351,211 @@ function summarizeBoundaryWarnings(warnings: string[]): void {
   }
 }
 
+function tokenizeSuiteHint(value: string): string[] {
+  return value
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length >= 3)
+}
+
+function scoreRenderTargetCandidate(
+  candidate: RepoRenderTargetCandidate,
+  recording: NormalizedRecording,
+  mockAnalysis: MockAnalysis | null,
+  suitePlan: JsSuitePlan
+): number {
+  const recordingTokens = new Set([
+    ...tokenizeSuiteHint(recording.title),
+    ...recording.steps.flatMap((step) => tokenizeSuiteHint(step.target ?? '')),
+  ])
+  const candidateTokens = new Set([
+    ...tokenizeSuiteHint(candidate.symbol),
+    ...tokenizeSuiteHint(candidate.importPath),
+    ...tokenizeSuiteHint(candidate.sourceTestFile),
+    ...candidate.helperNames.flatMap((name) => tokenizeSuiteHint(name)),
+  ])
+
+  let score = 0
+  for (const token of candidateTokens) {
+    if (recordingTokens.has(token)) {
+      score += 3
+    }
+  }
+
+  if (/Module$/u.test(candidate.symbol) && suitePlan.renderBoundary.kind === 'module') {
+    score += 4
+  }
+
+  if (candidate.usesWithin) {
+    score += 1
+  }
+
+  if (mockAnalysis?.repeatedTargets.length) {
+    score += 1
+  }
+
+  return score
+}
+
+function resolveRepoRenderTarget(params: {
+  candidates: RepoRenderTargetCandidate[]
+  recording: NormalizedRecording
+  mockAnalysis: MockAnalysis | null
+  suitePlan: JsSuitePlan
+}): RepoRenderTargetCandidate | null {
+  const { candidates, recording, mockAnalysis, suitePlan } = params
+  if (candidates.length === 0) {
+    return null
+  }
+
+  const ranked = candidates
+    .map((candidate) => ({
+      candidate,
+      score: scoreRenderTargetCandidate(candidate, recording, mockAnalysis, suitePlan),
+    }))
+    .filter((entry) => entry.score > 0)
+    .sort((left, right) => right.score - left.score || left.candidate.symbol.localeCompare(right.candidate.symbol))
+
+  return ranked[0]?.candidate ?? null
+}
+
+function applyRepoRenderTarget(
+  suitePlan: JsSuitePlan,
+  renderTarget: RepoRenderTargetCandidate | null
+): JsSuitePlan {
+  if (!renderTarget) {
+    return suitePlan
+  }
+
+  return {
+    ...suitePlan,
+    renderBoundary: {
+      ...suitePlan.renderBoundary,
+      resolvedTarget: renderTarget.symbol,
+      confidence:
+        suitePlan.renderBoundary.confidence === 'low' ? 'medium' : suitePlan.renderBoundary.confidence,
+    },
+    warnings: suitePlan.warnings.filter(
+      (warning) =>
+        !warning.includes('Taro could not resolve the exact render target from repo context') &&
+        !warning.includes('Prefer a repo-local module/container render boundary')
+    ),
+  }
+}
+
 function findRecordingUrl(analyzedRecording: AnalyzedRecording): string | undefined {
   return analyzedRecording.url ?? analyzedRecording.steps.find((step) => step.action === 'navigate')?.target
 }
 
-async function resolveJsQueryResults(recording: NormalizedRecording): Promise<QueryResult[]> {
+async function resolveJsGeneration(
+  recording: NormalizedRecording,
+  itGroups: ItGroup[]
+): Promise<{
+  itGroups: ItGroup[]
+  queryResults: QueryResult[]
+  recording: NormalizedRecording
+  warnings: string[]
+}> {
   const baseline = recording.baseline
   if (!baseline) {
-    return []
+    return {
+      itGroups,
+      queryResults: [],
+      recording,
+      warnings: [],
+    }
   }
 
   const queryResults = baseline.queries.map(queryDescriptorToResult)
+  const warnings: string[] = []
+  const selectorGroups = groupSelectorsByStepId(baseline.selectors)
+  const stepMap = new Map(
+    recording.steps
+      .filter((step): step is NormalizedStep & { id: StepId } => Boolean(step.id))
+      .map((step) => [step.id, step])
+  )
+  const updatedSteps = new Map<StepId, NormalizedStep>()
 
-  if (baseline.selectors.length > 0 && recording.url) {
+  if (selectorGroups.size > 0 && recording.url) {
     console.log(
       pc.dim('[taro]') +
         ` Resolving ${baseline.selectors.length} selector(s) via Playwright...`
     )
+  }
 
-    const selectors = baseline.selectors.map((descriptor) => descriptor.selector)
-    const elementMap = await inspectElements(recording.url, selectors)
-
-    for (const descriptor of baseline.selectors) {
-      const info = elementMap.get(descriptor.selector) ?? null
-      if (!info) {
-        const fallbackResult = buildQuery(
-          {
-            tagName: 'div',
-            role: null,
-            ariaLabel: null,
-            ariaLabelledBy: null,
-            innerText: '',
-            value: undefined,
-            type: undefined,
-            placeholder: null,
-            isPresent: false,
-          },
-          descriptor.selector
-        )
-        queryResults.push({ ...fallbackResult, line: descriptor.line })
-        continue
-      }
-
-      const result = buildQuery(info, descriptor.selector)
-      if (result.quality === 'fragile') {
-        emitQry03Warning(descriptor.selector)
-      }
-
-      const matcher = selectMatcher(info, 'assert')
-      queryResults.push({ ...result, matcher, line: descriptor.line })
+  for (const [stepId, selectors] of selectorGroups) {
+    const step = updatedSteps.get(stepId) ?? stepMap.get(stepId)
+    if (!step) {
+      continue
     }
-  } else if (baseline.selectors.length > 0 && !recording.url) {
-    console.warn(
-      pc.yellow('[taro]') +
-        ' QRY-02: No @jest-environment-options URL found — cannot resolve document.querySelector selectors. Falling back to getByTestId.'
+
+    const preservedQuery = getStepQueryDescriptor(step)
+    const stepWarnings: string[] = []
+    let chosenResolution: SelectorResolutionResult | undefined
+
+    if (preservedQuery) {
+      chosenResolution = await resolveSelector(selectors[0]!, {
+        url: recording.url,
+        preservedQuery,
+      })
+    } else {
+      for (const selector of selectors) {
+        const resolution = await resolveSelector(selector, {
+          url: recording.url,
+        })
+
+        if (resolution.status === 'resolved') {
+          chosenResolution = resolution
+          break
+        }
+
+        stepWarnings.push(...resolution.warnings)
+        chosenResolution ??= resolution
+      }
+    }
+
+    if (!chosenResolution) {
+      continue
+    }
+
+    const resolution = mergeSelectorResolutionWarnings(chosenResolution, stepWarnings)
+    updatedSteps.set(stepId, applySelectorResolution(step, resolution))
+
+    if (resolution.status === 'resolved') {
+      if (resolution.outcome !== 'preserved-query') {
+        queryResults.push(queryDescriptorToResult(resolution.query))
+      }
+      continue
+    }
+
+    warnings.push(
+      `QRY-03 [${stepId}] unresolved selector ${resolution.selector.selector}: ${resolution.reason}`
     )
   }
 
-  return queryResults
+  const resolvedSteps = recording.steps.map((step) =>
+    step.id ? updatedSteps.get(step.id) ?? step : step
+  )
+
+  return {
+    itGroups: rehydrateItGroups(itGroups, resolvedSteps),
+    queryResults: dedupeQueryResults(queryResults),
+    recording: {
+      ...recording,
+      baseline: {
+        ...baseline,
+        itGroups: rehydrateItGroups(baseline.itGroups, resolvedSteps),
+      },
+      steps: resolvedSteps,
+    },
+    warnings,
+  }
+}
+
+function summarizeSelectorWarnings(warnings: string[]): void {
+  for (const warning of warnings) {
+    console.warn(pc.yellow(`[taro] ${warning}`))
+  }
 }
 
 async function maybeCaptureVisualState(params: {
@@ -396,8 +662,8 @@ export function createGenerateCommand(): Command {
   const generate = new Command('generate')
 
   generate
-    .description('Generate RTL test from Recorder export')
-    .argument('<file>', 'Path to the recorder export file')
+    .description('Generate RTL test from Recorder JS or Chrome Recorder JSON export')
+    .argument('<file>', 'Path to the recorder export file (.js or .json)')
     .option('-o, --output <path>', 'Output file path for the generated test')
     .option('-d, --dry-run', 'Preview the generated test without writing to disk', false)
     .option('-f, --force', 'Overwrite existing test file', false)
@@ -429,12 +695,14 @@ export function createGenerateCommand(): Command {
         parsedInput.source === 'js' ? normalizeJsBaseline(parsedInput) : parsedInput.recording
 
       let conventions = undefined
+      let repoRenderTargets: RepoRenderTargetCandidate[] = []
       if (parsedInput.source === 'js') {
         conventions = await readConventions(projectRoot)
         if (!conventions) {
           console.log(pc.dim('[taro]') + ' Scanning project conventions...')
           conventions = await scanConventions(projectRoot)
         }
+        repoRenderTargets = await discoverRepoRenderTargets(projectRoot)
       }
 
       console.log(
@@ -457,11 +725,8 @@ export function createGenerateCommand(): Command {
       const mockAnalysis = await maybeAnalyzeMocks(projectRoot)
       summarizeMockAnalysis(mockAnalysis)
 
-      const queryResults =
-        parsedInput.source === 'js' ? await resolveJsQueryResults(normalizedRecording) : []
-
       const outputPath = options.output ?? deriveOutputPath(filePath)
-      const jsSuitePlan =
+      const rawJsSuitePlan =
         parsedInput.source === 'js'
           ? planJsSuite({
               recording: normalizedRecording,
@@ -471,39 +736,77 @@ export function createGenerateCommand(): Command {
             })
           : null
 
+      const repoRenderTarget =
+        parsedInput.source === 'js' && rawJsSuitePlan
+          ? resolveRepoRenderTarget({
+              candidates: repoRenderTargets,
+              recording: normalizedRecording,
+              mockAnalysis,
+              suitePlan: rawJsSuitePlan,
+            })
+          : null
+
+      const jsSuitePlan = rawJsSuitePlan
+        ? applyRepoRenderTarget(rawJsSuitePlan, repoRenderTarget)
+        : null
+
       if (jsSuitePlan) {
         summarizeBoundaryWarnings(jsSuitePlan.warnings)
       }
 
+      const resolvedJsGeneration =
+        parsedInput.source === 'js'
+          ? await resolveJsGeneration(
+              normalizedRecording,
+              jsSuitePlan?.itGroups ?? toItGroups(analyzedRecording, normalizedRecording.title)
+            )
+          : null
+
+      if (resolvedJsGeneration) {
+        summarizeSelectorWarnings(resolvedJsGeneration.warnings)
+      }
+
+      const hydratedSuitePlan =
+        parsedInput.source === 'js' && jsSuitePlan
+          ? rehydrateSuitePlan(
+              jsSuitePlan,
+              resolvedJsGeneration?.recording.steps ?? normalizedRecording.steps
+            )
+          : jsSuitePlan
+
       const generated =
         parsedInput.source === 'js'
-          ? generateTestFromGroups(normalizedRecording.title, jsSuitePlan?.itGroups ?? toItGroups(analyzedRecording, normalizedRecording.title), {
+          ? generateTestFromGroups(normalizedRecording.title, resolvedJsGeneration?.itGroups ?? hydratedSuitePlan?.itGroups ?? toItGroups(analyzedRecording, normalizedRecording.title), {
               outputPath,
               dryRun: options.dryRun,
               conventions,
-              queryResults,
+              queryResults: resolvedJsGeneration?.queryResults ?? [],
+              helpers: hydratedSuitePlan?.helpers,
+              scenarios: hydratedSuitePlan?.scenarios,
+              renderTarget: repoRenderTarget,
             })
           : generateTest(analyzedRecording, { outputPath, dryRun: options.dryRun })
 
-      if (jsSuitePlan?.warnings.length) {
+      if (hydratedSuitePlan?.warnings.length) {
         generated.code = [
-          ...jsSuitePlan.warnings.map((warning) => `// taro-boundary-warning: ${warning}`),
+          ...hydratedSuitePlan.warnings.map((warning) => `// taro-boundary-warning: ${warning}`),
           generated.code,
         ].join('\n')
       }
 
       if (parsedInput.source === 'js') {
-        emitQuerySummary(queryResults)
+        emitQuerySummary(resolvedJsGeneration?.queryResults ?? [])
       }
 
       const scoreResult =
         parsedInput.source === 'js'
-          ? scoreGeneratedTest(generated.code, queryResults)
+          ? scoreGeneratedTest(generated.code, resolvedJsGeneration?.queryResults ?? [])
           : scoreGeneratedTest(generated.code)
       const boundaryIssues = analyzeBoundaryIsolation(generated.code)
 
       logScore(scoreResult)
-      emitScoreHints(scoreResult, queryResults, boundaryIssues)
+      emitLowConfidenceBanner(scoreResult)
+      emitScoreHints(scoreResult, resolvedJsGeneration?.queryResults ?? [], boundaryIssues)
 
       if (options.dryRun) {
         console.log(pc.yellow('\nDry run — test preview:\n'))

@@ -5,10 +5,34 @@ export interface ScoreDimensions {
   boundaryIsolation: number
 }
 
+export interface ScoreSignals {
+  queryCheckpointCount: number
+  roleQueryCount: number
+  testIdQueryCount: number
+  strongAssertionCount: number
+  weakAssertionCount: number
+  boundaryWarningCount: number
+  boundaryIssueCount: number
+  placeholderRenderTarget: boolean
+  multipleTestBlocks: boolean
+}
+
+export interface ScoreReason {
+  code: string
+  dimension: keyof ScoreDimensions
+  impact: 'positive' | 'negative'
+  weight: number
+  message: string
+}
+
 export interface ScoreResult {
   total: number
   grade: 'A' | 'B' | 'C' | 'D' | 'F'
   dimensions: ScoreDimensions
+  signals: ScoreSignals
+  reasons: ScoreReason[]
+  blockers: string[]
+  requiresReview: boolean
 }
 
 export interface HistoryEntry {

@@ -6,24 +6,22 @@ Taro is a local-first package that installs runtime-native `@tayo-dev/rtl` comma
 
 ## Current State
 
-- Latest shipped milestone: `v1.2 Runtime Installer Distribution` on 2026-03-07
-- Active planning milestone: `v1.3 JS Baseline` on 2026-03-09
+- Latest shipped milestone: `v1.3 JS Baseline` on 2026-03-10
+- Active planning milestone: none
 - Package surface: installer-first `@tayo-dev/rtl` with preserved direct `taro generate` support
 - Supported runtime targets: Claude Code, OpenCode, Gemini CLI, and Codex
-- Release proof: rerun/update safety, verified runtime help commands, and tarball validation are all shipped
+- Shipped JS baseline surface: recorder `.js` and `.json` share one input boundary, selector recovery is truthful, repo-aware generation is available for supported flows, and low-confidence output is now explainable
+- Release proof: rerun/update safety, verified runtime help commands, tarball validation, JS/JSON built-CLI dry-runs, and milestone audit evidence are all shipped
 
 ## Core Value
 
 Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, and Codex with near-zero setup friction.
 
-## Current Milestone: v1.3 JS Baseline
+## Next Milestone Goals
 
-**Goal:** Make Testing Library Recorder JS exports a first-class baseline input that Taro can transform into structured, codebase-aware RTL tests instead of treating them as shallow executable transcripts.
-
-**Target features:**
-- Accept recorder extension JS files as a supported primary baseline input alongside Chrome Recorder JSON
-- Recover user intent, assertion markers, and stable query candidates from JS baseline code without executing it as a finished test
-- Generate structured RTL output with helpers, assertions, mocks, and grouped test cases closer to `sample/sample-add-sale-test.ts`
+- Expand recorder coverage beyond the v1.3 baseline, especially deeper `within(...)` flows, richer wait patterns, and keyboard-heavy interactions
+- Add guided remediation for inaccessible source components and placeholder-query output so weak tests are easier to repair
+- Introduce authoring UX on top of generation, including interactive review and reusable setup or mock templates
 
 ## Requirements
 
@@ -38,12 +36,18 @@ Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, a
 - ✓ Installer-first `npx @tayo-dev/rtl@latest` flow with runtime and location selection — v1.2
 - ✓ Runtime-native asset delivery for Claude Code, OpenCode, Gemini CLI, and Codex — v1.2
 - ✓ Safe reruns, repair behavior, verified runtime commands, and installer-first release docs — v1.2
+- ✓ Recorder JS and Chrome Recorder JSON now share a first-class parsed-input boundary with truthful baseline recovery — v1.3
+- ✓ Truthful selector recovery keeps unresolved evidence explicit instead of inventing fallback queries — v1.3
+- ✓ Repo-aware suite planning and render-target generation now produce structured module-aware output for supported flows — v1.3
+- ✓ Low-confidence scoring, JSON parity proof, and product-surface docs now match the shipped CLI behavior — v1.3
 
 ### Active
 
-- [ ] First-class ingestion of Testing Library Recorder JS baseline files, with AST-level recovery of user actions, assertion markers, and selector metadata
-- [ ] JS baseline transformation that produces structured, codebase-aware RTL suites with helpers, explicit assertions, and mock-aware organization instead of flat recorder transcripts
-- [ ] Truthful CLI, help, and documentation coverage for dual input support so the advertised `.js` path matches shipped behavior and quality expectations
+- [ ] Broader recorder coverage for deeper `within(...)` chains, richer wait semantics, and keyboard-heavy flows beyond the v1.3 baseline
+- [ ] Guided remediation hints when inaccessible components or placeholder queries keep generated output in a weak state
+- [ ] Interactive review and refinement before Taro writes a generated test file
+- [ ] Reusable setup and mock templates for common project patterns
+- [ ] Tighter recorder-extension import flow than manual file export
 
 ### Out of Scope
 
@@ -56,11 +60,11 @@ Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, a
 ## Context
 
 - **Current package shape:** `@tayo-dev/rtl` now ships both the installer-first entrypoint and the existing generator pipeline
-- **Current input reality:** the CLI and README already advertise `.js` support, and the repo includes `src/core/js-parser.ts`, but the implementation still collapses most recorder JS structure into shallow step extraction
-- **Milestone anchor examples:** `sample/sample-rest-recordingextension-output.js` is the baseline artifact to ingest; `sample/sample-add-sale-test.ts` is the quality bar for the transformed output
+- **Current input reality:** recorder `.js` and `.json` are both supported, with repo-aware generation strongest on the JS path and explicit draft messaging for weaker outputs
+- **Milestone anchor examples:** `sample/sample-rest-recordingextension-output.js` remains the canonical baseline artifact; `sample/sample-add-sale-test.ts` remains the quality bar for transformed output
 - **Runtime installer state:** Claude Code, OpenCode, Gemini CLI, and Codex all have packaged assets, manifest ownership, verification commands, and rerun protection
 - **Current codebase:** TypeScript + Commander CLI with generator pipeline, input parsers under `src/core/`, recorder intelligence and mock analysis in `src/core/` and `src/analyzer/`, installer modules under `src/install/`, and packaged runtime assets under `assets/`
-- **Verification baseline:** build, installer test suite, real built-CLI smoke run, and `npm pack` proof all passed on 2026-03-07
+- **Verification baseline:** build, focused phase suites, real built-CLI JS/JSON smoke runs, and milestone audit evidence all passed on 2026-03-10
 - **Codex note:** Codex remains skills-first via `skills/@tayo-dev/rtl-*/SKILL.md`
 
 ## Constraints
@@ -82,9 +86,24 @@ Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, a
 | Treat Codex as skills-first | Codex installation differs from prompt-based runtimes and needs explicit support | ✓ Good |
 | Preserve `taro generate` during the installer pivot | Existing generation flows should keep working while onboarding changes | ✓ Good |
 | Protect manual edits on rerun | Installer updates must not silently overwrite user-customized runtime assets | ✓ Good |
-| Treat Testing Library Recorder JS as a baseline, not a finished test | Extension exports capture flow order but not the mocks, structure, assertions, or selector hardening needed for maintainable RTL output | — Pending |
+| Treat Testing Library Recorder JS as a baseline, not a finished test | Extension exports capture flow order but not the mocks, structure, assertions, or selector hardening needed for maintainable RTL output | ✓ Good |
+| Preserve Chrome Recorder JSON while improving JS fidelity | Dual input support is part of the public contract and cannot regress while the JS path improves | ✓ Good |
+| Make low-confidence output advisory and explainable | Taro must stay writable while being honest about placeholder queries, unresolved selectors, and boundary drafts | ✓ Good |
 
 ## Previous Planning Snapshot
+
+<details>
+<summary>v1.3 milestone framing before shipment</summary>
+
+The active v1.3 planning goal was to make Testing Library Recorder JS exports a first-class baseline input that Taro could transform into structured, codebase-aware RTL tests instead of shallow executable transcripts.
+
+Target features were:
+
+- Accept recorder extension JS files as a supported primary baseline input alongside Chrome Recorder JSON
+- Recover user intent, assertion markers, and stable query candidates from JS baseline code without executing it as a finished test
+- Generate structured RTL output with helpers, assertions, mocks, and grouped test cases closer to `sample/sample-add-sale-test.ts`
+
+</details>
 
 <details>
 <summary>v1.2 milestone framing before shipment</summary>
@@ -94,4 +113,4 @@ The active v1.2 planning goal was to make `@tayo-dev/rtl` behave like a GSD-styl
 </details>
 
 ---
-*Last updated: 2026-03-09 after v1.3 milestone kickoff*
+*Last updated: 2026-03-10 after v1.3 milestone completion*

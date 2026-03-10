@@ -6,7 +6,18 @@
  *   getByRole > getByLabelText > getByText > getByPlaceholderText > getByTestId
  */
 
-import type { NormalizedRecording, NormalizedStep, QueryResult, ItGroup, QueryQuality } from '../types/recording.js'
+import type {
+  JsHelperPlan,
+  JsScenarioPlan,
+  NormalizedRecording,
+  NormalizedStep,
+  QueryResult,
+  ItGroup,
+  QueryQuality,
+  SelectorDescriptor,
+  SelectorResolutionResult,
+} from '../types/recording.js'
+import type { RepoRenderTargetCandidate } from './scanner.js'
 import type { ConventionsSchema } from '../types/conventions.js'
 import {
   importBlock,
@@ -105,10 +116,49 @@ function getRecoveredQuery(step: NormalizedStep): string | undefined {
   return undefined
 }
 
-function reconstructQuery(step: NormalizedStep): string {
+function isSelectorDescriptor(value: unknown): value is SelectorDescriptor {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'selector' in value &&
+    typeof value.selector === 'string'
+  )
+}
+
+function isSelectorResolutionResult(value: unknown): value is SelectorResolutionResult {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'status' in value &&
+    (value.status === 'resolved' || value.status === 'unresolved')
+  )
+}
+
+function getSelectorDescriptor(step: NormalizedStep): SelectorDescriptor | undefined {
+  const selector = step.metadata?.selector
+  return isSelectorDescriptor(selector) ? selector : undefined
+}
+
+function getSelectorResolution(step: NormalizedStep): SelectorResolutionResult | undefined {
+  const resolution = step.metadata?.selectorResolution
+  return isSelectorResolutionResult(resolution) ? resolution : undefined
+}
+
+function reconstructQuery(
+  step: NormalizedStep,
+  options: { scopeDialog?: boolean } = {}
+): string | undefined {
   const target = step.target
   if (!target) {
     return 'document.body'
+  }
+
+  if (
+    options.scopeDialog &&
+    step.action === 'click' &&
+    /^(continue|save)$/i.test(target)
+  ) {
+    return `within(screen.getByRole('dialog')).getByRole('button', { name: /^${target.toLowerCase()}$/i })`
   }
 
   const recoveredQuery = getRecoveredQuery(step)
@@ -128,11 +178,34 @@ function reconstructQuery(step: NormalizedStep): string {
   }
 
   if (looksLikeCssSelector(target)) {
+    if (step.source === 'js') {
+      return undefined
+    }
     return selectorToQuery(target)
   }
 
   const escapedTarget = target.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
   return `screen.getByText('${escapedTarget}')`
+}
+
+function getSelectorCheckpoint(step: NormalizedStep): { reason: string; selector: string } | null {
+  const resolution = getSelectorResolution(step)
+  if (resolution?.status === 'unresolved') {
+    return {
+      reason: resolution.reason,
+      selector: resolution.selector.selector,
+    }
+  }
+
+  const selector = getSelectorDescriptor(step)?.selector ?? step.target
+  if (step.source === 'js' && selector && looksLikeCssSelector(selector)) {
+    return {
+      reason: 'No trustworthy RTL query evidence was recovered for this selector.',
+      selector,
+    }
+  }
+
+  return null
 }
 
 function generateStepCode(step: NormalizedStep): string {
@@ -213,6 +286,65 @@ export interface GenerateFromGroupsOptions {
   dryRun?: boolean
   conventions?: ConventionsSchema
   queryResults?: QueryResult[]
+  helpers?: JsHelperPlan[]
+  scenarios?: JsScenarioPlan[]
+  renderTarget?: RepoRenderTargetCandidate | null
+}
+
+function getScenarioHelperRefs(
+  scenario: JsScenarioPlan,
+  helpers: JsHelperPlan[]
+): string[] {
+  if (scenario.helperRefs.length > 0) {
+    return scenario.helperRefs
+  }
+
+  return helpers
+    .filter((helper) => helper.steps.some((step) => scenario.steps.includes(step)))
+    .map((helper) => helper.name)
+}
+
+function buildHelperStepLines(
+  helper: JsHelperPlan,
+  options: {
+    matcherMap: Map<string, string>
+    scopeDialog: boolean
+  }
+): string[] {
+  return helper.steps.flatMap((step) => {
+    if (step.action === 'assert') {
+      return [`// synchronization left to the scenario body: ${step.target ?? 'assertion step'}`]
+    }
+
+    if (step.action === 'navigate') {
+      return [stepTemplate({ action: 'navigate', query: '', value: step.target })]
+    }
+
+    const query = reconstructQuery(step, { scopeDialog: options.scopeDialog })
+    if (!query) {
+      const checkpoint = getSelectorCheckpoint(step)
+      if (checkpoint) {
+        return [
+          stepTemplate({
+            action: step.action,
+            query: '',
+            value: step.value,
+            checkpoint,
+          }),
+        ]
+      }
+
+      return []
+    }
+
+    return [
+      stepTemplate({
+        action: step.action,
+        query,
+        value: step.value,
+      }),
+    ]
+  })
 }
 
 export function generateTestFromGroups(
@@ -220,7 +352,15 @@ export function generateTestFromGroups(
   itGroups: ItGroup[],
   options: GenerateFromGroupsOptions = {}
 ): GeneratedTestV3 {
-  const { conventions, queryResults = [], outputPath, dryRun } = options
+  const {
+    conventions,
+    queryResults = [],
+    outputPath,
+    dryRun,
+    helpers = [],
+    scenarios,
+    renderTarget = null,
+  } = options
   const importStyle = conventions?.importStyle ?? 'esm'
 
   // Determine if any it block uses user events
@@ -236,24 +376,92 @@ export function generateTestFromGroups(
     }
   }
 
-  // Build ItBlockTemplate[] from ItGroup[]
-  const itBlocks = itGroups.map((group) => {
-    const hasUserEvents = group.steps.some((s) =>
+  const scenarioPlans =
+    scenarios && scenarios.length > 0
+      ? scenarios
+      : itGroups.map((group) => ({
+          name: group.name,
+          goal: 'flow' as const,
+          steps: group.steps,
+          helperRefs: [],
+          requiresFreshRender: true,
+        }))
+
+  const helperByName = new Map(helpers.map((helper) => [helper.name, helper]))
+  const helperBlocks = helpers
+    .map((helper) => ({
+      name: helper.name,
+      stepLines: buildHelperStepLines(helper, {
+        matcherMap,
+        scopeDialog: renderTarget?.usesWithin ?? false,
+      }),
+    }))
+    .filter((helper) => helper.stepLines.some((line) => line.trim().length > 0))
+
+  // Build ItBlockTemplate[] from scenario plans
+  const itBlocks = scenarioPlans.map((scenario) => {
+    const hasUserEvents = scenario.steps.some((s) =>
       ['click', 'fill', 'select', 'keyDown'].includes(s.action)
     )
-    const stepLines = group.steps.map((step) => {
-      if (step.action === 'navigate') {
-        return stepTemplate({ action: 'navigate', query: '', value: step.target })
+    const helperRefs = getScenarioHelperRefs(scenario, helpers)
+    const helperSteps = helperRefs.flatMap((helperName) => helperByName.get(helperName)?.steps ?? [])
+    const helperStepSet = new Set(helperSteps)
+    const bodyLines = scenario.steps.flatMap((step) => {
+      if (step.action !== 'assert' && helperStepSet.has(step)) {
+        return []
       }
-      const query = reconstructQuery(step)
-      const matcher = step.action === 'assert' ? matcherMap.get(query) : undefined
-      return stepTemplate({ action: step.action, query, value: step.value, matcher })
+
+      if (step.action === 'navigate') {
+        return [stepTemplate({ action: 'navigate', query: '', value: step.target })]
+      }
+
+      const query = reconstructQuery(step, { scopeDialog: renderTarget?.usesWithin ?? false })
+      if (!query) {
+        const checkpoint = getSelectorCheckpoint(step)
+        if (checkpoint) {
+          return [
+            stepTemplate({
+              action: step.action,
+              query: '',
+              value: step.value,
+              checkpoint,
+            }),
+          ]
+        }
+      }
+
+      const matcher = step.action === 'assert' && query ? matcherMap.get(query) : undefined
+      return [
+        stepTemplate({
+          action: step.action,
+          query: query ?? 'document.body',
+          value: step.value,
+          matcher,
+        }),
+      ]
     })
-    return { name: group.name, stepLines, hasUserEvents }
+
+    const stepLines = [
+      ...helperRefs.map((helperName) => `await ${helperName}(user)`),
+      ...bodyLines,
+    ]
+
+    return { name: scenario.name, stepLines, hasUserEvents }
   })
 
-  const imports = importBlock(globalHasUserEvents, importStyle)
-  const describeCode = describeBlockMultiIt(title, itBlocks)
+  const imports = importBlock(globalHasUserEvents, importStyle, {
+    renderTarget: renderTarget
+      ? {
+          symbol: renderTarget.symbol,
+          importPath: renderTarget.importPath,
+        }
+      : null,
+    needsWithin: renderTarget?.usesWithin ?? false,
+  })
+  const describeCode = describeBlockMultiIt(title, itBlocks, {
+    renderExpression: renderTarget ? `<${renderTarget.symbol} />` : '<App />',
+    helpers: helperBlocks,
+  })
   const code = `${imports}\n\n${describeCode}\n`
 
   return {

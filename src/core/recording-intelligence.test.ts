@@ -1,5 +1,7 @@
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { normalizeStep } from './parser.js'
+import { parseRecording } from './parser.js'
 import {
   analyzeRecording,
   findVisualCaptureCandidates,
@@ -7,6 +9,9 @@ import {
   inferIntentGroups,
 } from './recording-intelligence.js'
 import type { ChromeStep, NormalizedRecording, NormalizedStep } from '../types/recording.js'
+
+const sampleJsonBasicPath = resolve(process.cwd(), 'sample/sample-json-recording-basic.json')
+const sampleJsonDialogPath = resolve(process.cwd(), 'sample/sample-json-recording-dialog.json')
 
 describe('normalizeStep', () => {
   it('preserves recorder metadata needed for noise heuristics', () => {
@@ -313,6 +318,38 @@ describe('inferIntentGroups', () => {
         groupName: 'confirm .checkout-dialog',
         reason: 'dialog-state',
         selector: '.checkout-dialog',
+      },
+    ])
+  })
+
+  it('keeps representative JSON fixtures behaviorally stable after cleanup and grouping', async () => {
+    const [basic, dialog] = await Promise.all([
+      parseRecording(sampleJsonBasicPath),
+      parseRecording(sampleJsonDialogPath),
+    ])
+
+    const analyzedBasic = analyzeRecording(basic)
+    const analyzedDialog = analyzeRecording(dialog)
+
+    expect(analyzedBasic.intentGroups.map((group) => group.name)).toEqual([
+      'navigate to http://localhost:3000/sales',
+      'confirm Add Sale',
+      'submit Submit Sale',
+    ])
+    expect(analyzedDialog.diagnostics).toMatchObject({
+      removedDoubleClickNoise: 1,
+      removedRedundantClicks: 0,
+      intentGroupCount: 2,
+    })
+    expect(analyzedDialog.intentGroups.map((group) => group.name)).toEqual([
+      'confirm Open Add Sale dialog',
+      'submit Save draft',
+    ])
+    expect(findVisualCaptureCandidates(analyzedDialog)).toEqual([
+      {
+        groupName: 'confirm Open Add Sale dialog',
+        reason: 'dialog-state',
+        selector: 'Open Add Sale dialog',
       },
     ])
   })
