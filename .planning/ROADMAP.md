@@ -27,7 +27,7 @@ Next step:
 |-------|----------------|--------|-----------|
 | 17. Semantic Marker Intake | 4/4 | Complete    | 2026-03-10 |
 | 18. Truthful Marker Assertion Generation | 3/3 | Complete    | 2026-03-10 |
-| 19. Marker Coverage Audit & Reporting | 3/3 | Complete   | 2026-03-10 |
+| 19. Marker Coverage Audit & Reporting | 3/3 | Complete    | 2026-03-10 |
 
 ## Phase Details
 
