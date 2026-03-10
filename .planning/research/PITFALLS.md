@@ -1,6 +1,6 @@
 # Pitfalls Research
 
-**Domain:** Testing Library Recorder JS baseline support in Taro
+**Domain:** Testing Library Recorder JS baseline support in Tayo
 **Researched:** 2026-03-09
 **Confidence:** HIGH
 
@@ -59,7 +59,7 @@ Likely v1.3 suite synthesis and helper extraction
 When the recorder contains `document.querySelector(...)`, generation tries to resolve those selectors by launching Playwright against the recorded URL. If the browser cannot launch, the app is down, or the selector no longer exists, the current path silently downgrades to sanitized `getByTestId()` values derived from the CSS selector text. Those test IDs do not exist in the product, so the generated test becomes fiction.
 
 **Why it happens:**
-`src/cli/commands/generate.ts` only creates `QueryResult` entries for `document.querySelector` calls, and `src/core/resolver.ts` treats missing DOM data as permission to invent a test ID. The sample dry run hit this path directly: Playwright failed, then Taro reported 23 fragile `getByTestId` queries. Because the fallback is framed as degraded quality rather than unresolved truth, the tool can still proceed to write code that is not grounded in the real UI.
+`src/cli/commands/generate.ts` only creates `QueryResult` entries for `document.querySelector` calls, and `src/core/resolver.ts` treats missing DOM data as permission to invent a test ID. The sample dry run hit this path directly: Playwright failed, then Tayo reported 23 fragile `getByTestId` queries. Because the fallback is framed as degraded quality rather than unresolved truth, the tool can still proceed to write code that is not grounded in the real UI.
 
 **How to avoid:**
 Never synthesize nonexistent test IDs from raw CSS. Treat unresolved selectors as a blocking checkpoint or emit explicit TODO placeholders that preserve the original selector and failure reason. Use AST-derived RTL queries first, use live DOM inspection only as an optional enhancer, and make "browser unavailable" visibly different from "element exists but needs a weaker query."
@@ -84,7 +84,7 @@ The scoring layer can overstate quality for JS baselines. If a recorder uses onl
 Emit query metadata for every recovered JS query, not just CSS fallbacks. Separate synchronization checkpoints from user-visible assertions, penalize blank titles and placeholder renders, and add write-blocking or approval checkpoints when semantic confidence is too low. A golden dry-run diff against `sample/sample-add-sale-test.ts` is a better gate than syntax plus score alone.
 
 **Warning signs:**
-No query summary for a query-heavy JS file, structure scores jump because the suite was over-split, output is dominated by `.toBeInTheDocument()`, or Taro writes files after clearly reporting F or D quality.
+No query summary for a query-heavy JS file, structure scores jump because the suite was over-split, output is dominated by `.toBeInTheDocument()`, or Tayo writes files after clearly reporting F or D quality.
 
 **Phase to address:**
 Likely v1.3 verification gates and scoring parity
@@ -113,7 +113,7 @@ Likely v1.3 suite synthesis and mock/context integration
 ### Pitfall 6: The new JS path drifts away from the existing JSON path and the product story
 
 **What goes wrong:**
-Users hear that `.js` is supported, but the product surface still speaks JSON in key places. `README.md` says `taro generate <file>` accepts both `.json` and `.js`, while `src/cli/commands/generate.ts` still describes the command as "Generate RTL test from Chrome Recorder export" with an argument description that says "Chrome Recorder JSON export file." At the same time, the JS path is implemented as a large special-case branch inside `generate.ts`, so fixes can land on one path but not the other.
+Users hear that `.js` is supported, but the product surface still speaks JSON in key places. `README.md` says `tayo generate <file>` accepts both `.json` and `.js`, while `src/cli/commands/generate.ts` still describes the command as "Generate RTL test from Chrome Recorder export" with an argument description that says "Chrome Recorder JSON export file." At the same time, the JS path is implemented as a large special-case branch inside `generate.ts`, so fixes can land on one path but not the other.
 
 **Why it happens:**
 JS baseline support is being appended to a mature JSON pipeline instead of being modeled as another normalized input source sharing the same downstream guarantees. Product copy, help text, and package description are not sourced from a single truth, so drift is already visible before v1.3 execution starts.
@@ -122,7 +122,7 @@ JS baseline support is being appended to a mature JSON pipeline instead of being
 Define one normalized recording contract for both JSON and JS inputs, then keep cleanup, generation, scoring, and verification shared wherever possible. Add parity fixtures so both input types must satisfy the same downstream invariants. Unify CLI/help/package wording before shipping the milestone so public claims match the implemented quality bar.
 
 **Warning signs:**
-README, package metadata, and `taro generate --help` disagree; new behavior is added only inside the JS branch; JSON regression tests stop running during JS milestone work.
+README, package metadata, and `tayo generate --help` disagree; new behavior is added only inside the JS branch; JSON regression tests stop running during JS milestone work.
 
 **Phase to address:**
 Likely v1.3 CLI/docs and JSON parity
@@ -167,8 +167,8 @@ Domain-specific security issues beyond general web security.
 | Mistake | Risk | Prevention |
 |---------|------|------------|
 | Preserving real org IDs, customer PINs, phone numbers, and emails from recorder fixtures in committed samples or generated tests | Sensitive tenant or customer data leaks into the repo and downstream artifacts | Add redaction rules for URLs and visible text before fixture promotion or committed output |
-| Auto-visiting arbitrary `@jest-environment-options` URLs from a recorder file | Taro can touch unintended local or internal services when the input comes from an untrusted source | Restrict or approve hosts before Playwright navigation, especially outside `localhost` |
-| Capturing full-page screenshots of real app states into `.taro/visual` without explicit handling | Screenshots can persist sensitive data and accidentally get shared | Keep `.taro/` ignored, make visual capture opt-in for sensitive flows, and document that screenshots may contain live data |
+| Auto-visiting arbitrary `@jest-environment-options` URLs from a recorder file | Tayo can touch unintended local or internal services when the input comes from an untrusted source | Restrict or approve hosts before Playwright navigation, especially outside `localhost` |
+| Capturing full-page screenshots of real app states into `.tayo/visual` without explicit handling | Screenshots can persist sensitive data and accidentally get shared | Keep `.tayo/` ignored, make visual capture opt-in for sensitive flows, and document that screenshots may contain live data |
 
 ## UX Pitfalls
 
@@ -239,5 +239,5 @@ How roadmap phases should address these pitfalls.
 - `node dist/index.js generate sample/sample-rest-recordingextension-output.js --dry-run`
 
 ---
-*Pitfalls research for: Testing Library Recorder JS baseline support in Taro*
+*Pitfalls research for: Testing Library Recorder JS baseline support in Tayo*
 *Researched: 2026-03-09*

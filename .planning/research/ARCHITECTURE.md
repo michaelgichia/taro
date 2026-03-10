@@ -1,6 +1,6 @@
 # Architecture Research
 
-**Domain:** Taro v1.3 JS baseline ingestion and RTL generation architecture
+**Domain:** Tayo v1.3 JS baseline ingestion and RTL generation architecture
 **Researched:** 2026-03-09
 **Confidence:** HIGH
 
@@ -165,7 +165,7 @@ interface ResolvedQueryMap {
 ### Request Flow
 
 ```text
-[taro generate baseline.js]
+[tayo generate baseline.js]
     ↓
 [generate.ts]
     ↓
@@ -234,7 +234,7 @@ interface ResolvedQueryMap {
 | Scale | Architecture Adjustments |
 |-------|--------------------------|
 | Single recording in a small repo | Full convention scan plus one Playwright session per run is acceptable |
-| Repeated recordings in a medium repo | Cache conventions and mock summaries in `.taro`, and dedupe selector inspection across steps sharing the same fallback selector |
+| Repeated recordings in a medium repo | Cache conventions and mock summaries in `.tayo`, and dedupe selector inspection across steps sharing the same fallback selector |
 | Large monorepo or CI batch usage | Add scan-root narrowing and avoid repeated browser launches; the planner/emitter split makes batch generation safer than a monolithic generator |
 
 ### Scaling Priorities
@@ -301,5 +301,5 @@ interface ResolvedQueryMap {
 - `sample/sample-add-sale-test.ts`
 
 ---
-*Architecture research for: Taro v1.3 JS baseline generation pipeline*
+*Architecture research for: Tayo v1.3 JS baseline generation pipeline*
 *Researched: 2026-03-09*

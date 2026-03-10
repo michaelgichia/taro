@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 let testDir: string
 
 beforeEach(async () => {
-  testDir = join(tmpdir(), `taro-test-${Date.now()}`)
+  testDir = join(tmpdir(), `tayo-test-${Date.now()}`)
   await mkdir(testDir, { recursive: true })
 })
 
@@ -86,10 +86,10 @@ describe('scanConventions', () => {
     expect(flagged).toBeDefined()
   })
 
-  it('persists result to .taro/conventions.json (CTX-05)', async () => {
+  it('persists result to .tayo/conventions.json (CTX-05)', async () => {
     const { readFile } = await import('node:fs/promises')
     await scanConventions(testDir)
-    const content = await readFile(join(testDir, '.taro', 'conventions.json'), 'utf-8')
+    const content = await readFile(join(testDir, '.tayo', 'conventions.json'), 'utf-8')
     const parsed = JSON.parse(content)
     expect(parsed.projectRoot).toBe(testDir)
   })

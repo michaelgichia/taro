@@ -394,7 +394,7 @@ describe('captureVisualState', () => {
   it('returns structured visual state with screenshot metadata', async () => {
     const result = await captureVisualState('http://localhost:3000', {
       reason: 'dialog-detected',
-      screenshotDir: '/tmp/taro-visual',
+      screenshotDir: '/tmp/tayo-visual',
       selector: '#save',
     })
 
@@ -410,13 +410,13 @@ describe('captureVisualState', () => {
         }),
         pageTitle: 'Checkout Dialog',
         reason: 'dialog-detected',
-        screenshotPath: '/tmp/taro-visual/Checkout-Dialog.png',
+        screenshotPath: '/tmp/tayo-visual/Checkout-Dialog.png',
         selector: '#save',
         url: 'http://localhost:3000',
       })
     )
     expect(screenshotMock).toHaveBeenCalledWith({
-      path: '/tmp/taro-visual/Checkout-Dialog.png',
+      path: '/tmp/tayo-visual/Checkout-Dialog.png',
       fullPage: true,
     })
   })
@@ -466,7 +466,7 @@ describe('inspectElements', () => {
     expect(result.get('#save')).toBeNull()
     expect(result.get('#confirm')).toBeNull()
     expect(warnSpy).toHaveBeenCalledWith(
-      '[taro] QRY-02: Failed to inspect elements on http://localhost:3000: browser blocked'
+      '[tayo] QRY-02: Failed to inspect elements on http://localhost:3000: browser blocked'
     )
     expect(closeMock).toHaveBeenCalled()
 

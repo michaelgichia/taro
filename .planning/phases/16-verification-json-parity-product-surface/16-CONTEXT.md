@@ -6,7 +6,7 @@
 <domain>
 ## Phase Boundary
 
-Make the shipped JS baseline story trustworthy end to end. This phase aligns Taro's scoring signals, verification proof, JSON non-regression evidence, README/help/examples, and milestone-closeout artifacts with the behavior the generator actually ships today.
+Make the shipped JS baseline story trustworthy end to end. This phase aligns Tayo's scoring signals, verification proof, JSON non-regression evidence, README/help/examples, and milestone-closeout artifacts with the behavior the generator actually ships today.
 
 This phase does not add new generation capabilities. It closes `VERIFY-01`, `VERIFY-02`, and `VERIFY-03`, and it backfills the missing Phase 13 verification proof required for v1.3 milestone closeout.
 
@@ -29,7 +29,7 @@ This phase does not add new generation capabilities. It closes `VERIFY-01`, `VER
 - Phase 16 proof must include targeted automated regressions plus at least one built-CLI JSON smoke run.
 - Use a small representative JSON proof set rather than a broad matrix.
 - Favor two representative JSON flows over a single toy fixture or an exhaustive matrix.
-- Count behavioral regressions in the public `taro generate` contract as parity failures; not every harmless output drift needs to fail the milestone.
+- Count behavioral regressions in the public `tayo generate` contract as parity failures; not every harmless output drift needs to fail the milestone.
 
 ### Docs and worked-example emphasis
 - Keep the README installer-first, but make dual-input generation support clearly visible in the main generation section.
@@ -68,7 +68,7 @@ This phase does not add new generation capabilities. It closes `VERIFY-01`, `VER
 
 ### Established Patterns
 - Scoring remains advisory rather than blocking; low scores currently emit hints but do not stop file writes.
-- Unsupported boundaries and unresolved selectors remain explicit through warnings and `// taro-query-checkpoint:` comments instead of guessed queries or render targets.
+- Unsupported boundaries and unresolved selectors remain explicit through warnings and `// tayo-query-checkpoint:` comments instead of guessed queries or render targets.
 - README is installer-first, while deeper behavioral nuance typically lives in worked examples and notes rather than in command help text.
 - Phase closeout uses standalone `XX-VERIFICATION.md` artifacts plus updated roadmap/requirements/state tracking.
 

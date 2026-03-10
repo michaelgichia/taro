@@ -158,7 +158,7 @@ function defaultResolveSelector(
 }
 
 async function createSandbox(label: string) {
-  const root = await mkdtemp(join(tmpdir(), `taro-generate-${label}-`))
+  const root = await mkdtemp(join(tmpdir(), `tayo-generate-${label}-`))
   sandboxes.push(root)
   await mkdir(join(root, 'project'), { recursive: true })
   return { outputDir: join(root, 'project'), root }
@@ -250,7 +250,7 @@ describe('createGenerateCommand', () => {
     expect(result.logs).toContain('within(screen.getByRole(')
     expect(result.logs).toContain("screen.getByRole('button', {name: 'Add Sale (Invoice)'})")
     expect(result.logs).toContain("screen.getByRole('combobox', { name: 'Item selector' })")
-    expect(result.logs).toContain('// taro-query-checkpoint: click step requires manual RTL query recovery')
+    expect(result.logs).toContain('// tayo-query-checkpoint: click step requires manual RTL query recovery')
     expect(result.logs).toContain(`// selector: ${inaccessibleSelector}`)
     expect(result.logs).toContain(`// selector: ${inspectionFailureSelector}`)
     expect(result.logs).not.toContain('screen.getByTestId(')
@@ -397,8 +397,8 @@ describe('createGenerateCommand', () => {
     )
 
     expect(result.thrown).toBeUndefined()
-    expect(result.warnings).not.toContain('Taro could not resolve the exact render target')
-    expect(result.logs).not.toContain('// taro-boundary-warning: Prefer a repo-local module/container render boundary')
+    expect(result.warnings).not.toContain('Tayo could not resolve the exact render target')
+    expect(result.logs).not.toContain('// tayo-boundary-warning: Prefer a repo-local module/container render boundary')
     expect(analyzeBoundaryIsolation(result.logs)).toEqual([])
   })
 
@@ -415,7 +415,7 @@ describe('createGenerateCommand', () => {
 
     expect(result.thrown).toBeUndefined()
     expect(result.logs).toContain(
-      '// taro-boundary-warning: Taro could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.'
+      '// tayo-boundary-warning: Tayo could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.'
     )
     expect(result.logs).toContain('render(<App />)')
     expect(result.logs).not.toContain("import SalesModule from './SalesModule'")
@@ -441,9 +441,9 @@ describe('createGenerateCommand', () => {
     expect(result.logs).toContain(
       "screen.getByTestId(/* TODO: replace with RTL query — CSS: 'Sale created' */ '')"
     )
-    expect(result.logs).toContain('[taro] Score:')
-    expect(result.logs).not.toContain('taro-query-checkpoint')
-    expect(result.logs).not.toContain('taro-boundary-warning:')
+    expect(result.logs).toContain('[tayo] Score:')
+    expect(result.logs).not.toContain('tayo-query-checkpoint')
+    expect(result.logs).not.toContain('tayo-boundary-warning:')
     expect(result.warnings).toContain('Manual review required')
   })
 
@@ -469,8 +469,8 @@ describe('createGenerateCommand', () => {
     expect(written).toContain(
       "screen.getByTestId(/* TODO: replace with RTL query — CSS: 'Draft saved' */ '')"
     )
-    expect(written).not.toContain('taro-query-checkpoint')
-    expect(written).not.toContain('taro-boundary-warning:')
+    expect(written).not.toContain('tayo-query-checkpoint')
+    expect(written).not.toContain('tayo-boundary-warning:')
     expect(result.warnings).toContain('Manual review required')
   })
 })

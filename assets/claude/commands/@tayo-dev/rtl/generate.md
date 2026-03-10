@@ -1,6 +1,6 @@
 ---
 name: "@tayo-dev/rtl:generate"
-description: "Generate RTL tests from Recorder exports with Taro"
+description: "Generate RTL tests from Recorder exports with Tayo"
 ---
 
 <objective>
@@ -9,7 +9,7 @@ Generate a React Testing Library test from a Recorder export.
 
 <process>
 1. Confirm the recording path before running anything destructive.
-2. Run `taro generate <recording-file>` by default.
+2. Run `tayo generate <recording-file>` by default.
 3. Add `--dry-run`, `--output <path>`, or `--force` only when the user asks for them or the context requires them.
 4. Report the generated file path and score output.
 </process>

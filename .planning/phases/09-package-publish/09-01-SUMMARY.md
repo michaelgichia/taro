@@ -58,12 +58,12 @@ completed: 2026-03-07
 
 ## Accomplishments
 
-- Renamed npm package from `taro` to `@tayo/rtl` and bumped version to `1.0.0`
+- Renamed npm package from `tayo` to `@tayo/rtl` and bumped version to `1.0.0`
 - Added `files` whitelist so the published tarball includes only `dist/`, `README.md`, and `LICENSE`
 - Added `exports` field mapping the package root (`.`) to `./dist/index.js` for modern consumers
 - Added `engines` field requiring `node >=18` to match ESM and API usage throughout the codebase
-- Kept `bin.taro` pointing to `./dist/index.js` so the CLI still works after install
-- Updated the hardcoded `.version('0.1.0', ...)` call in `src/index.ts` to `1.0.0` so `taro --version` outputs the correct value
+- Kept `bin.tayo` pointing to `./dist/index.js` so the CLI still works after install
+- Updated the hardcoded `.version('0.1.0', ...)` call in `src/index.ts` to `1.0.0` so `tayo --version` outputs the correct value
 
 ## Task Commits
 
@@ -78,7 +78,7 @@ Each task was committed atomically:
 
 ## Decisions Made
 
-- Version parity enforced: the hardcoded version string in `src/index.ts` must always match `package.json` so `taro --version` stays accurate without a build-time injection step.
+- Version parity enforced: the hardcoded version string in `src/index.ts` must always match `package.json` so `tayo --version` stays accurate without a build-time injection step.
 - `files` whitelist chosen over `.npmignore` — allowlist approach is safer and easier to audit.
 
 ## Deviations from Plan

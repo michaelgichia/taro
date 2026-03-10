@@ -101,9 +101,9 @@ export function normalizeStep(chromeStep: ChromeStep): NormalizedStep {
 
   const knownNoOp = new Set(['waitForSelector', 'setViewport', 'waitForExpression'])
   if (knownNoOp.has(chromeStep.type)) {
-    console.warn(`[taro] Step type "${chromeStep.type}" is not mapped to an RTL action — skipped`)
+    console.warn(`[tayo] Step type "${chromeStep.type}" is not mapped to an RTL action — skipped`)
   } else {
-    console.warn(`[taro] Unknown step type "${chromeStep.type}" — skipped`)
+    console.warn(`[tayo] Unknown step type "${chromeStep.type}" — skipped`)
   }
 
   return withMetadata(chromeStep, {

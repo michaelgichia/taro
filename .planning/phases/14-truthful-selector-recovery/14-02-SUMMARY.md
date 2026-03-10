@@ -28,7 +28,7 @@ key-decisions:
   - "Preserve recorder-derived query evidence ahead of selector fallback so weaker CSS evidence cannot overwrite stronger baseline truth."
 patterns-established:
   - "JS generation resolves selector outcomes per step, then rehydrates planned it-groups before rendering code."
-  - "Checkpoint markers use taro-query-checkpoint comments for unresolved selector review without fabricating RTL queries."
+  - "Checkpoint markers use tayo-query-checkpoint comments for unresolved selector review without fabricating RTL queries."
 requirements-completed: [QUERY-02, QUERY-03]
 duration: 7m
 completed: 2026-03-10
@@ -49,7 +49,7 @@ completed: 2026-03-10
 ## Accomplishments
 
 - Updated the JS generate command to resolve selector outcomes per step, reuse preserved recorder queries, and emit CLI warnings for unresolved selectors without inventing fake `getByTestId(...)` output.
-- Updated the generator and template path so unresolved JS selectors render explicit `taro-query-checkpoint` comments while valid recovered queries still render executable RTL code.
+- Updated the generator and template path so unresolved JS selectors render explicit `tayo-query-checkpoint` comments while valid recovered queries still render executable RTL code.
 - Added generator-level coverage proving unresolved selector checkpoints remain syntactically valid and that preserved recorder query evidence still wins over raw selector fallback logic.
 
 ## Task Commits
@@ -86,7 +86,7 @@ None - no external service configuration required.
 ## Next Phase Readiness
 
 - Phase 14-03 can now exercise URL-backed enrichment and dry-run/write parity against the shipped checkpoint markers rather than fake fallback queries.
-- Phase 16 scoring and verification work now has machine-detectable `taro-query-checkpoint` markers to account for low-confidence JS output explicitly.
+- Phase 16 scoring and verification work now has machine-detectable `tayo-query-checkpoint` markers to account for low-confidence JS output explicitly.
 
 ## Self-Check: PASSED
 

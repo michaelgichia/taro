@@ -1,14 +1,14 @@
 # Phase 4: Self-Scoring & Convention Learning - Research
 
-**Phase:** 04-self-scoring-convention-learning  
-**Research Date:** 2026-03-07  
+**Phase:** 04-self-scoring-convention-learning
+**Research Date:** 2026-03-07
 **Status:** Research Complete
 
 ---
 
 ## Executive Summary
 
-Phase 4 adds self-scoring and convention learning to Taro's test generation pipeline. This phase evaluates generated test quality before writing, verifies syntax after writing, and accumulates historical data to improve future runs. The implementation builds on existing Phase 1-3 infrastructure without modifying the core generation logic.
+Phase 4 adds self-scoring and convention learning to Tayo's test generation pipeline. This phase evaluates generated test quality before writing, verifies syntax after writing, and accumulates historical data to improve future runs. The implementation builds on existing Phase 1-3 infrastructure without modifying the core generation logic.
 
 **Key Findings:**
 - Multi-dimensional scoring can reuse `QueryResult[]` from generator.ts
@@ -39,7 +39,7 @@ The query quality dimension evaluates the accessibility-first query methods used
 ```typescript
 function calculateQueryScore(queryResults: QueryResult[]): number {
   if (queryResults.length === 0) return 100 // No queries to evaluate
-  
+
   const weights: Record<string, number> = {
     getByRole: 1.0,
     getByLabelText: 0.8,
@@ -48,11 +48,11 @@ function calculateQueryScore(queryResults: QueryResult[]): number {
     getByTestId: 0.2,
     // Default to 0.3 for unknown methods
   }
-  
+
   const totalWeight = queryResults.reduce((sum, qr) => {
     return sum + (weights[qr.method] ?? 0.3)
   }, 0)
-  
+
   return Math.round((totalWeight / queryResults.length) * 100)
 }
 ```
@@ -95,20 +95,20 @@ This dimension evaluates the organization of test code.
 function calculateStructureScore(code: string): number {
   const describeCount = (code.match(/describe\s*\(/g) ?? []).length
   const itCount = (code.match(/it\s*\(/g) ?? []).length
-  
+
   let score = 50 // Base score
-  
+
   // Bonus for describe block
   if (describeCount > 0) score += 20
-  
+
   // Bonus for multiple it blocks
   if (itCount >= 2) {
     score += Math.min((itCount - 1) * 10, 30) // Cap at +30
   }
-  
+
   // Penalty for single monolithic it (many lines without structure)
   const monolithicPenalty = itCount === 1 && code.length > 2000 ? -20 : 0
-  
+
   return Math.max(0, Math.min(100, score + monolithicPenalty))
 }
 ```
@@ -125,19 +125,19 @@ function calculateAggregateScore(
   // Weight: query 40%, assertions 35%, structure 25%
   const weighted = (queryScore * 0.4) + (assertionScore * 0.35) + (structureScore * 0.25)
   const total = Math.round(weighted)
-  
+
   const grade = total >= 90 ? 'A' :
                 total >= 80 ? 'B' :
                 total >= 70 ? 'C' :
                 total >= 60 ? 'D' : 'F'
-  
+
   return { total, grade }
 }
 ```
 
 **Output Format:**
 ```
-[taro] Score: 78/100 (B) — query: 85, assertions: 70, structure: 80
+[tayo] Score: 78/100 (B) — query: 85, assertions: 70, structure: 80
 ```
 
 ---
@@ -163,7 +163,7 @@ parse → validate → generate → [SCORE] → write → [VERIFY] → [UPDATE C
 const scoreResult = scoreGeneratedTest(generated.code, queryResults)
 
 console.log(
-  pc.dim('[taro]') + ` Score: ${scoreResult.total}/100 (${scoreResult.grade}) — ` +
+  pc.dim('[tayo]') + ` Score: ${scoreResult.total}/100 (${scoreResult.grade}) — ` +
   `query: ${scoreResult.dimensions.queryQuality}, ` +
   `assertions: ${scoreResult.dimensions.assertionSpecificity}, ` +
   `structure: ${scoreResult.dimensions.testStructure}`
@@ -172,15 +172,15 @@ console.log(
 // Emit hints for low-scoring dimensions
 if (scoreResult.dimensions.queryQuality < 60) {
   const testIdCount = queryResults.filter(qr => qr.method === 'getByTestId').length
-  console.log(pc.yellow(`[taro] Tip: ${testIdCount} getByTestId queries — consider adding aria-label`))
+  console.log(pc.yellow(`[tayo] Tip: ${testIdCount} getByTestId queries — consider adding aria-label`))
 }
 
 if (scoreResult.dimensions.assertionSpecificity < 60) {
-  console.log(pc.yellow('[taro] Tip: Add specific matchers like toHaveValue() for better assertions'))
+  console.log(pc.yellow('[tayo] Tip: Add specific matchers like toHaveValue() for better assertions'))
 }
 
 if (scoreResult.dimensions.testStructure < 60) {
-  console.log(pc.yellow('[taro] Tip: Split into multiple it() blocks for better test organization'))
+  console.log(pc.yellow('[tayo] Tip: Split into multiple it() blocks for better test organization'))
 }
 
 // Continue to write regardless of score
@@ -216,16 +216,16 @@ export function verifySyntax(code: string, filePath: string): VerificationResult
     // Determine parser options based on file extension
     const isTsx = filePath.endsWith('.tsx')
     const isTs = filePath.endsWith('.ts')
-    
+
     const plugins = isTsx ? ['typescript', 'jsx'] :
                     isTs ? ['typescript'] :
                     ['jsx']
-    
+
     babelParser.parse(code, {
       sourceType: 'module',
       plugins,
     })
-    
+
     return { valid: true }
   } catch (error) {
     return {
@@ -245,12 +245,12 @@ export function verifySyntax(code: string, filePath: string): VerificationResult
 const verification = verifySyntax(generated.code, outputPath)
 
 if (!verification.valid) {
-  console.error(pc.red('[taro] Error: Post-write verification failed'))
+  console.error(pc.red('[tayo] Error: Post-write verification failed'))
   console.error(pc.red(`  ${verification.error}`))
   process.exit(1)
 }
 
-console.log(pc.green('[taro] ✓ post-write verified'))
+console.log(pc.green('[tayo] ✓ post-write verified'))
 ```
 
 ---
@@ -283,7 +283,7 @@ export interface HistoryEntry {
 
 ### 4.2 History.json Schema
 
-**File:** `.taro/history.json`
+**File:** `.tayo/history.json`
 
 ```typescript
 // Array of HistoryEntry
@@ -314,21 +314,21 @@ export async function mergeConventions(
   newPatterns: Partial<ConventionFile>
 ): Promise<void> {
   const existing = await readConventions(projectRoot)
-  
+
   if (!existing) {
     // No existing conventions, use defaults
     return
   }
-  
+
   // Analyze new patterns from generated file
   const updated: ConventionsSchema = { ...existing }
-  
+
   // Additive merge: don't change majority vote unless new pattern is strong
   if (newPatterns.importStyle && newPatterns.importStyle !== existing.importStyle) {
     // Only update if existing is unknown or same pattern appears multiple times
     // For now, skip to maintain stability
   }
-  
+
   await persistConventions(projectRoot, updated)
 }
 ```
@@ -343,7 +343,7 @@ export async function mergeConventions(
 
 **Handling:**
 - Query dimension defaults to 100 if no queries to evaluate
-- Log informational message: `[taro] Score: --/100 (N/A) — no queries to evaluate`
+- Log informational message: `[tayo] Score: --/100 (N/A) — no queries to evaluate`
 
 ### 5.2 Parse Errors in Generated Code
 
@@ -352,7 +352,7 @@ export async function mergeConventions(
 **Handling:**
 - This should never happen with correct template generation
 - If it does, treat as critical bug: exit 1 with clear error
-- Add to error message: "This is a Taro bug. Please report it."
+- Add to error message: "This is a Tayo bug. Please report it."
 
 ### 5.3 History File Growth
 
@@ -365,7 +365,7 @@ export async function mergeConventions(
 
 ### 5.4 Concurrent Writes
 
-**Scenario:** Multiple Taro processes running simultaneously
+**Scenario:** Multiple Tayo processes running simultaneously
 
 **Handling:**
 - Use file system locking or atomic writes
@@ -379,7 +379,7 @@ export async function mergeConventions(
 **Handling:**
 - Read with try/catch
 - If invalid, back up corrupted file and start fresh
-- Log warning: `[taro] Warning: history.json corrupted, starting fresh`
+- Log warning: `[tayo] Warning: history.json corrupted, starting fresh`
 
 ### 5.6 Score Threshold Edge Cases
 
@@ -434,12 +434,12 @@ describe('calculateQueryScore', () => {
   it('returns 100 for empty query results', () => {
     expect(calculateQueryScore([])).toBe(100)
   })
-  
+
   it('returns 100 for all getByRole queries', () => {
     const queries = [{ method: 'getByRole', quality: 'excellent' }]
     expect(calculateQueryScore(queries)).toBe(100)
   })
-  
+
   it('calculates weighted average correctly', () => {
     const queries = [
       { method: 'getByRole', quality: 'excellent' },
@@ -467,7 +467,7 @@ Phase 4 implementation is straightforward given the existing codebase:
 1. **Scoring** - New `scorer.ts` module processes `GeneratedTestV3.queryResults[]` and generated code
 2. **Pre-write audit** - Simple checkpoint in `generate.ts` that logs score and hints
 3. **Post-write verification** - Reuses existing `@babel/parser` dependency
-4. **History tracking** - Append to `.taro/history.json` with new types
+4. **History tracking** - Append to `.tayo/history.json` with new types
 5. **Convention learning** - Re-scan generated file, merge into conventions.json
 
 **Risk Level:** Low - Implementation builds on stable Phase 1-3 infrastructure without modifying core generation logic.

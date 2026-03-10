@@ -19,12 +19,12 @@ human_verification: []
 ## Runtime Verification
 
 - `npm run build`
-- `node /Users/michaelgichia/workspace/taro/dist/index.js --help`
-- `node /Users/michaelgichia/workspace/taro/dist/index.js install --help`
-- `node /Users/michaelgichia/workspace/taro/dist/index.js`
-- `node /Users/michaelgichia/workspace/taro/dist/index.js --all --global`
+- `node /Users/michaelgichia/workspace/tayo/dist/index.js --help`
+- `node /Users/michaelgichia/workspace/tayo/dist/index.js install --help`
+- `node /Users/michaelgichia/workspace/tayo/dist/index.js`
+- `node /Users/michaelgichia/workspace/tayo/dist/index.js --all --global`
 - Interactive TTY flow:
-  1. `node /Users/michaelgichia/workspace/taro/dist/index.js`
+  1. `node /Users/michaelgichia/workspace/tayo/dist/index.js`
   2. Select runtimes `1,4`
   3. Select locations `1` (Claude global) and `2` (Codex local)
   4. Decline confirmation with `n`
@@ -79,5 +79,5 @@ Phase 10 resolves target directories and planned verification commands, but it i
 
 ---
 
-_Verified: 2026-03-07T15:54:10Z_  
+_Verified: 2026-03-07T15:54:10Z_
 _Verifier: Codex_

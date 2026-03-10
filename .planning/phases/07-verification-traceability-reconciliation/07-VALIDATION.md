@@ -62,7 +62,7 @@ None — Phase 7 uses existing repo test infrastructure. Legacy validation gaps 
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| Generated Phase 1 output is runnable in a real test harness | GEN-04 | Requires executing a generated test against a minimal React/Vitest harness, not just syntax parsing | Create `/tmp/taro-phase7-gen04-recording.json`, generate to `/tmp/taro-phase7-gen04-harness/generated.test.tsx`, install the minimal Vitest/RTL dependencies in `/tmp/taro-phase7-gen04-harness`, run `npx vitest run generated.test.tsx --environment jsdom`, and record the exact result plus any residual caveat in `01-VERIFICATION.md` |
+| Generated Phase 1 output is runnable in a real test harness | GEN-04 | Requires executing a generated test against a minimal React/Vitest harness, not just syntax parsing | Create `/tmp/tayo-phase7-gen04-recording.json`, generate to `/tmp/tayo-phase7-gen04-harness/generated.test.tsx`, install the minimal Vitest/RTL dependencies in `/tmp/tayo-phase7-gen04-harness`, run `npx vitest run generated.test.tsx --environment jsdom`, and record the exact result plus any residual caveat in `01-VERIFICATION.md` |
 | Final milestone audit is archive-ready | INPT-01..CNV-03 | Requires inspection of the regenerated audit report and any residual caveats | Rerun the milestone audit after all phase-local reconciliation work, inspect `v1.0-MILESTONE-AUDIT.md`, and confirm no stale partial/orphaned Phase 1/3/4 gaps remain |
 
 ---

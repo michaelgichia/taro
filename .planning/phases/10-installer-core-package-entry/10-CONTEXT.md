@@ -26,7 +26,7 @@ Turn `@tayo-dev/rtl` into an installer-first package entrypoint. This phase cove
 - Per-runtime location prompts should happen one by one with the runtime name shown clearly
 
 ### CLI coexistence
-- Keep `taro generate` available as the generator path during this phase
+- Keep `tayo generate` available as the generator path during this phase
 - Also add an explicit `install` command even though the package root becomes installer-first
 - CLI help/output should emphasize installer/setup first, with generation as an existing capability
 - A visible CLI onboarding shift is acceptable in Phase 10; backward compatibility is not a higher priority than making the installer-first model clear
@@ -81,7 +81,7 @@ Turn `@tayo-dev/rtl` into an installer-first package entrypoint. This phase cove
 
 - Runtime-specific asset payload details for Claude Code, OpenCode, Gemini CLI, and Codex — Phase 11
 - Rerun/update repair semantics and release verification — Phase 12
-- Broad `Taro` / `taro` naming migration across the full product — future milestone
+- Broad `Tayo` / `tayo` naming migration across the full product — future milestone
 - Separate umbrella installer package — future milestone if needed
 
 </deferred>

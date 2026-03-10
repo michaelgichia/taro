@@ -275,7 +275,7 @@ export function emitQuerySummary(queryResults: QueryResult[]): void {
         ? ` — see line${lines.length > 1 ? 's' : ''} ${lines.join(', ')}`
         : ''
     console.log(
-      pc.dim('[taro]') +
+      pc.dim('[tayo]') +
         ` ${count} ${method} (${quality}${lineInfo})`
     )
   }

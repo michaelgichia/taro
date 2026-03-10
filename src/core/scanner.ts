@@ -1,6 +1,6 @@
 /**
  * Codebase convention scanner
- * Scans project for test file conventions and persists to .taro/conventions.json
+ * Scans project for test file conventions and persists to .tayo/conventions.json
  */
 
 import { readdir, readFile, mkdir, writeFile, access } from 'node:fs/promises'
@@ -13,7 +13,7 @@ const SKIP_DIRS = new Set([
   'node_modules',
   '.git',
   'dist',
-  '.taro',
+  '.tayo',
   'coverage',
   '.next',
   '.nuxt',
@@ -266,14 +266,14 @@ function detectFileExtension(
 }
 
 /**
- * Read conventions from .taro/conventions.json
+ * Read conventions from .tayo/conventions.json
  * @param projectRoot - Root directory of the project
  * @returns ConventionsSchema or null if not found
  */
 export async function readConventions(
   projectRoot: string
 ): Promise<ConventionsSchema | null> {
-  const conventionsPath = join(projectRoot, '.taro', 'conventions.json')
+  const conventionsPath = join(projectRoot, '.tayo', 'conventions.json')
 
   try {
     await access(conventionsPath)
@@ -307,7 +307,7 @@ export async function scanConventions(
 
     // Log warning
     console.log(
-      pc.yellow('[taro] CTX: No test files found — using defaults')
+      pc.yellow('[tayo] CTX: No test files found — using defaults')
     )
 
     // Persist defaults
@@ -327,7 +327,7 @@ export async function scanConventions(
     if (file.hasHelperWithExpect) {
       console.log(
         pc.yellow(
-          `[taro] TEST-02: Helper function with expect() found in ${relative(
+          `[tayo] TEST-02: Helper function with expect() found in ${relative(
             projectRoot,
             file.path
           )}`
@@ -343,15 +343,15 @@ export async function scanConventions(
 }
 
 /**
- * Persist conventions to .taro/conventions.json
+ * Persist conventions to .tayo/conventions.json
  */
 export async function persistConventions(
   projectRoot: string,
   conventions: ConventionsSchema
 ): Promise<void> {
-  const taroDir = join(projectRoot, '.taro')
+  const taroDir = join(projectRoot, '.tayo')
 
-  // Ensure .taro directory exists
+  // Ensure .tayo directory exists
   await mkdir(taroDir, { recursive: true })
 
   // Write conventions.json

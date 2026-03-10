@@ -20,9 +20,9 @@ human_verification: []
 
 - `npm run build`
 - `npm run test:run -- src/install/*.test.ts src/cli/commands/*.test.ts`
-- `HOME="$(mktemp -d /tmp/taro-home.XXXXXX)" node /Users/michaelgichia/workspace/taro/dist/index.js --all --global`
-- `env NPM_CONFIG_CACHE=/tmp/taro-npm-cache npm pack --pack-destination "$(mktemp -d /tmp/taro-pack.XXXXXX)"`
-- `rg -n "Getting Started|Staying Updated|Non-interactive Install|Development Installation|@tayo-dev/rtl@latest" /Users/michaelgichia/workspace/taro/README.md`
+- `HOME="$(mktemp -d /tmp/tayo-home.XXXXXX)" node /Users/michaelgichia/workspace/tayo/dist/index.js --all --global`
+- `env NPM_CONFIG_CACHE=/tmp/tayo-npm-cache npm pack --pack-destination "$(mktemp -d /tmp/tayo-pack.XXXXXX)"`
+- `rg -n "Getting Started|Staying Updated|Non-interactive Install|Development Installation|@tayo-dev/rtl@latest" /Users/michaelgichia/workspace/tayo/README.md`
 
 Results on 2026-03-07:
 - Full installer suite passed, including rerun/repair semantics, runtime verification, tarball proof, and CLI reporting.
@@ -59,5 +59,5 @@ Phase 12 completes the milestone implementation, but milestone archival and rele
 
 ---
 
-_Verified: 2026-03-07T18:26:03Z_  
+_Verified: 2026-03-07T18:26:03Z_
 _Verifier: Codex_

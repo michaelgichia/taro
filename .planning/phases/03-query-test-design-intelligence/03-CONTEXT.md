@@ -42,7 +42,7 @@ Creating posts, recording interactions, or running tests are out of scope. This 
 ### Accessibility Gap Handling (QRY-03)
 - If Playwright finds the element but it has **no accessible role or name** (truly inaccessible):
   - Replace `document.querySelector(...)` with `screen.getByTestId('...')` (generated ID)
-  - Emit a console warning: `[taro] QRY-03: No accessible query for #radix-... — consider adding aria-label or data-testid to this element`
+  - Emit a console warning: `[tayo] QRY-03: No accessible query for #radix-... — consider adding aria-label or data-testid to this element`
 - Warning level: element-specific + actionable suggestion (not just a count, not full HTML dump)
 
 ### Test Concern Distribution (TEST-01)
@@ -72,8 +72,8 @@ Creating posts, recording interactions, or running tests are out of scope. This 
 - Infer from the element's role/type extracted during Playwright inspection
 
 ### Context Scanning (CTX-01–04)
-- Scan on **first run only** — if `.taro/conventions.json` exists, use cached; skip re-scan
-- Developer can force refresh with `taro scan` command
+- Scan on **first run only** — if `.tayo/conventions.json` exists, use cached; skip re-scan
+- Developer can force refresh with `tayo scan` command
 - What to scan:
   - Existing test files (`*.test.ts/tsx`, `*.spec.ts/tsx`) — import style, describe/it patterns, matcher usage
   - Folder & naming conventions — colocated vs `__tests__/`, TS vs JS, file naming
@@ -81,25 +81,25 @@ Creating posts, recording interactions, or running tests are out of scope. This 
   - **Not** package.json/tsconfig (Claude's discretion)
 
 ### Convention Storage (CTX-05)
-- Store learned conventions in `.taro/conventions.json`
+- Store learned conventions in `.tayo/conventions.json`
 - Updated after each run with any new patterns observed
 - Format: JSON (machine-readable, fast to parse on next invocation)
 
 ### Claude's Discretion
-- Exact `.taro/conventions.json` schema
+- Exact `.tayo/conventions.json` schema
 - How to handle Playwright timeout / app-not-running gracefully
 - Whether to lint-fix the generated output automatically
-- `taro scan` CLI command design (flags, output format)
+- `tayo scan` CLI command design (flags, output format)
 
 </decisions>
 
 <specifics>
 ## Specific Ideas
 
-- The sample input has the URL in the jest-environment-options comment header — Taro extracts this URL to drive Playwright to the right page for DOM inspection
+- The sample input has the URL in the jest-environment-options comment header — Tayo extracts this URL to drive Playwright to the right page for DOM inspection
 - The `#radix-_r_8s_-content-items` selectors are Radix UI generated IDs (unstable) — these are exactly the cases Playwright needs to resolve into accessible queries
-- The recording title format is `Recording-Add-Sale-KE-06/03/2026 at 08:25:15` — Taro should use this as the `describe()` block name
-- The input uses `require()` style — Taro output should match the project's import style (learned from CTX-01 scan: ESM vs CJS)
+- The recording title format is `Recording-Add-Sale-KE-06/03/2026 at 08:25:15` — Tayo should use this as the `describe()` block name
+- The input uses `require()` style — Tayo output should match the project's import style (learned from CTX-01 scan: ESM vs CJS)
 
 </specifics>
 
@@ -118,8 +118,8 @@ Creating posts, recording interactions, or running tests are out of scope. This 
 - Error handling: `throw new Error('...')` with descriptive messages (existing pattern in parser.ts and writer.ts)
 
 ### Integration Points
-- `src/cli/commands/generate.ts` — context scanning step runs here before generation; check for `.taro/conventions.json`, run scan if missing
-- `.taro/` directory — new directory created by Taro for persistent state (conventions.json); writer.ts pattern for mkdir is reusable
+- `src/cli/commands/generate.ts` — context scanning step runs here before generation; check for `.tayo/conventions.json`, run scan if missing
+- `.tayo/` directory — new directory created by Tayo for persistent state (conventions.json); writer.ts pattern for mkdir is reusable
 - Playwright already in the project stack (PROJECT.md key decisions: "Playwright for UI inspection — already in React ecosystem")
 
 </code_context>
@@ -128,7 +128,7 @@ Creating posts, recording interactions, or running tests are out of scope. This 
 ## Deferred Ideas
 
 - Helper function generation (extract repeated setup sequences into assertion-free helpers) — future phase
-- `taro scan` as a standalone command — Phase 3 adds auto-scan; explicit `taro scan` command can come later
+- `tayo scan` as a standalone command — Phase 3 adds auto-scan; explicit `tayo scan` command can come later
 - Support for both JS and JSON input formats — Phase 3 is JS-only; JSON format support deferred
 
 </deferred>

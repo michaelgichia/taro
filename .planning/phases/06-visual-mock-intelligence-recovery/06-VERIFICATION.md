@@ -21,12 +21,12 @@ gaps: []
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | Taro can capture structured visual state, including screenshots and dialog metadata, when a dialog-like flow is detected | ✓ VERIFIED | `captureVisualState()` and `extractDialogState()` in `src/core/resolver.ts` capture screenshots, page metadata, and dialog details; the final CLI verification logged a dialog-state screenshot for the Phase 6 fixture. |
+| 1 | Tayo can capture structured visual state, including screenshots and dialog metadata, when a dialog-like flow is detected | ✓ VERIFIED | `captureVisualState()` and `extractDialogState()` in `src/core/resolver.ts` capture screenshots, page metadata, and dialog details; the final CLI verification logged a dialog-state screenshot for the Phase 6 fixture. |
 | 2 | Dialog-like intent groups are identified and routed into visual capture without using navigation URLs as selectors | ✓ VERIFIED | `findVisualCaptureCandidates()` in `src/core/recording-intelligence.ts` marks dialog-like groups and now skips `navigate` steps when selecting a capture target; `src/core/recording-intelligence.test.ts` covers the selector preference fix. |
 | 3 | Mock intelligence now detects repeated targets and recommends inline vs extract deterministically | ✓ VERIFIED | `scanMockTargets()` and `deriveMockRecommendations()` in `src/core/mock-intelligence.ts` detect reuse counts and produce stable recommendations; unit coverage exists in `src/core/mock-intelligence.test.ts`. |
 | 4 | Mock intelligence identifies mutation lifecycle patterns in existing tests | ✓ VERIFIED | `analyzeMutationLifecycle()` detects loading/success/error cues from discovered test files and returns explicit lifecycle evidence; covered by focused tests in `src/core/mock-intelligence.test.ts`. |
 | 5 | Mock intelligence warns about unstable mock-instance patterns | ✓ VERIFIED | `detectMockInstability()` surfaces recreated factory and per-test churn warnings with deterministic evidence strings; covered by focused tests in `src/core/mock-intelligence.test.ts`. |
-| 6 | `taro generate` consumes visual and mock advice while preserving scoring, write, and post-write verification behavior | ✓ VERIFIED | `src/cli/commands/generate.ts` now logs visual state and mock analysis in both input paths before generation, and the final CLI verification still logged score output plus `✓ post-write verified`. |
+| 6 | `tayo generate` consumes visual and mock advice while preserving scoring, write, and post-write verification behavior | ✓ VERIFIED | `src/cli/commands/generate.ts` now logs visual state and mock analysis in both input paths before generation, and the final CLI verification still logged score output plus `✓ post-write verified`. |
 
 ### Required Artifacts
 
@@ -54,7 +54,7 @@ gaps: []
 
 - `npm run test:run -- src/core/resolver.test.ts src/core/mock-intelligence.test.ts src/core/js-parser.test.ts src/core/recording-intelligence.test.ts src/core/generator.test.ts` passed.
 - `npm run build` passed after the final integration changes.
-- `node /Users/michaelgichia/workspace/taro/dist/index.js generate dialog-recording.js --output generated.test.tsx --force` from `/tmp/taro-phase6-manual.Bjufyv` passed and logged dialog-aware visual capture, mock-analysis summaries, score output, and post-write verification.
+- `node /Users/michaelgichia/workspace/tayo/dist/index.js generate dialog-recording.js --output generated.test.tsx --force` from `/tmp/tayo-phase6-manual.Bjufyv` passed and logged dialog-aware visual capture, mock-analysis summaries, score output, and post-write verification.
 
 ### Human Verification Required
 
@@ -64,5 +64,5 @@ None.
 
 None.
 
-_Verified: 2026-03-07T10:32:13Z_  
+_Verified: 2026-03-07T10:32:13Z_
 _Verifier: Codex local verification fallback_

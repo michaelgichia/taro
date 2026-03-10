@@ -2,11 +2,11 @@
 
 ## Phase Intent
 
-Phase 15 made the JS path structurally better, but the product surface still does not fully tell the truth about what Taro can and cannot guarantee. The current generator can produce repo-aware JS output, explicit selector checkpoints, and boundary-safe module tests for supported flows, yet the score contract is still thin, the JSON path does not have representative milestone-level proof, the README still presents generation as JS-only, and Phase 13 still lacks the verification artifact needed for milestone closeout.
+Phase 15 made the JS path structurally better, but the product surface still does not fully tell the truth about what Tayo can and cannot guarantee. The current generator can produce repo-aware JS output, explicit selector checkpoints, and boundary-safe module tests for supported flows, yet the score contract is still thin, the JSON path does not have representative milestone-level proof, the README still presents generation as JS-only, and Phase 13 still lacks the verification artifact needed for milestone closeout.
 
 Phase 16 should finish the milestone by making the shipped trust story match the actual behavior:
 - scoring should explain low-confidence output instead of only printing a number,
-- JSON support should be proven at the public `taro generate` boundary, not just assumed from older tests,
+- JSON support should be proven at the public `tayo generate` boundary, not just assumed from older tests,
 - README/help/examples should acknowledge dual-input support and honest degraded output,
 - milestone evidence should be strong enough to re-audit and close `v1.3`.
 
@@ -15,7 +15,7 @@ Phase 16 should finish the milestone by making the shipped trust story match the
 ### VERIFY-01
 
 - The score must account for low-confidence states that now exist in the JS path: unresolved selector checkpoints, placeholder render targets, boundary draft warnings, and weak assertions.
-- The public score surface should stay recognizable, but it needs deterministic reasons/signals so a user can understand why Taro scored an output the way it did.
+- The public score surface should stay recognizable, but it needs deterministic reasons/signals so a user can understand why Tayo scored an output the way it did.
 - Low-confidence messaging should be stronger than the current per-dimension tips: a single clear banner for `C` or below, with the top blockers named directly.
 - Scoring must remain advisory. Phase 4 already locked that behavior and Phase 16 should not turn low scores into write-time failures.
 
@@ -30,7 +30,7 @@ Phase 16 should finish the milestone by making the shipped trust story match the
 
 - The README must stop implying JS-only generation support now that `loadInput()` and the public CLI already accept both recorder JS and Chrome Recorder JSON.
 - CLI help should stay concise, so the README/examples should carry most of the nuance around truthful degraded output.
-- One honest draft-quality example is important. Phase 15 proved that Taro often does the right thing by staying explicit rather than guessing, and the docs should show that instead of hiding it.
+- One honest draft-quality example is important. Phase 15 proved that Tayo often does the right thing by staying explicit rather than guessing, and the docs should show that instead of hiding it.
 - The Codex skill/help surface should stay aligned with the CLI and README so installed runtime instructions do not lag behind the package behavior.
 
 ### Milestone Closeout Backfill
@@ -91,7 +91,7 @@ This is the main gap for `VERIFY-02`.
 ### README and runtime docs still present generation as JS-only
 
 `README.md` currently:
-- documents `taro generate <file>` as accepting Testing Library Recorder JS files,
+- documents `tayo generate <file>` as accepting Testing Library Recorder JS files,
 - shows only JS examples,
 - omits Chrome Recorder JSON from the supported input list,
 - does not show an honest degraded-output example.

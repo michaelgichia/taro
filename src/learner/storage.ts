@@ -1,6 +1,6 @@
 /**
  * ConventionStore - SQLite-based persistence for learned conventions
- * 
+ *
  * Implements CNV-02 (conventions persist across runs) and CNV-03 (faster subsequent runs via caching)
  */
 
@@ -19,7 +19,7 @@ export { TestConvention };
 export class ConventionStore {
   private db: ReturnType<typeof Database> | null = null;
   private dbPath: string;
-  
+
   /**
    * Create a new ConventionStore
    * @param dbPath - Path to SQLite database file
@@ -27,7 +27,7 @@ export class ConventionStore {
   constructor(dbPath: string) {
     this.dbPath = dbPath;
   }
-  
+
   /**
    * Initialize the database - creates tables if they don't exist
    */
@@ -37,9 +37,9 @@ export class ConventionStore {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    
+
     this.db = new Database(this.dbPath);
-    
+
     // Create conventions table
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS conventions (
@@ -49,7 +49,7 @@ export class ConventionStore {
         updated_at TEXT NOT NULL
       )
     `);
-    
+
     // Create cache table with TTL support
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS cache (
@@ -58,10 +58,10 @@ export class ConventionStore {
         expires_at TEXT
       )
     `);
-    
+
     console.log(`[ConventionStore] Initialized database at ${this.dbPath}`);
   }
-  
+
   /**
    * Save conventions to the database
    * @param conventions - TestConvention object to save
@@ -71,10 +71,10 @@ export class ConventionStore {
     if (!this.db) {
       throw new Error('Database not initialized. Call init() first.');
     }
-    
+
     const value = JSON.stringify(conventions);
     const updatedAt = new Date().toISOString();
-    
+
     const stmt = this.db.prepare(`
       INSERT INTO conventions (key, value, updated_at)
       VALUES (?, ?, ?)
@@ -82,11 +82,11 @@ export class ConventionStore {
         value = excluded.value,
         updated_at = excluded.updated_at
     `);
-    
+
     stmt.run(key, value, updatedAt);
     console.log(`[ConventionStore] Saved conventions for key: ${key}`);
   }
-  
+
   /**
    * Load conventions from the database
    * @param key - Optional key for the conventions (default: 'default')
@@ -96,18 +96,18 @@ export class ConventionStore {
     if (!this.db) {
       throw new Error('Database not initialized. Call init() first.');
     }
-    
+
     const stmt = this.db.prepare(`
       SELECT value FROM conventions WHERE key = ?
     `);
-    
+
     const row = stmt.get(key) as { value: string } | undefined;
-    
+
     if (!row) {
       console.log(`[ConventionStore] No conventions found for key: ${key}`);
       return null;
     }
-    
+
     try {
       const conventions = JSON.parse(row.value) as TestConvention;
       console.log(`[ConventionStore] Loaded conventions for key: ${key}`);
@@ -117,7 +117,7 @@ export class ConventionStore {
       return null;
     }
   }
-  
+
   /**
    * Get a cached value
    * @param key - Cache key
@@ -127,17 +127,17 @@ export class ConventionStore {
     if (!this.db) {
       throw new Error('Database not initialized. Call init() first.');
     }
-    
+
     const stmt = this.db.prepare(`
       SELECT value, expires_at FROM cache WHERE key = ?
     `);
-    
+
     const row = stmt.get(key) as { value: string; expires_at: string | null } | undefined;
-    
+
     if (!row) {
       return null;
     }
-    
+
     // Check if expired
     if (row.expires_at) {
       const expiresAt = new Date(row.expires_at);
@@ -147,14 +147,14 @@ export class ConventionStore {
         return null;
       }
     }
-    
+
     try {
       return JSON.parse(row.value);
     } catch {
       return null;
     }
   }
-  
+
   /**
    * Set a cached value with optional TTL
    * @param key - Cache key
@@ -165,16 +165,16 @@ export class ConventionStore {
     if (!this.db) {
       throw new Error('Database not initialized. Call init() first.');
     }
-    
+
     const serializedValue = JSON.stringify(value);
     let expiresAt: string | null = null;
-    
+
     if (ttlSeconds && ttlSeconds > 0) {
       const expiryDate = new Date();
       expiryDate.setSeconds(expiryDate.getSeconds() + ttlSeconds);
       expiresAt = expiryDate.toISOString();
     }
-    
+
     const stmt = this.db.prepare(`
       INSERT INTO cache (key, value, expires_at)
       VALUES (?, ?, ?)
@@ -182,10 +182,10 @@ export class ConventionStore {
         value = excluded.value,
         expires_at = excluded.expires_at
     `);
-    
+
     stmt.run(key, serializedValue, expiresAt);
   }
-  
+
   /**
    * Delete a cached value
    * @param key - Cache key to delete
@@ -194,11 +194,11 @@ export class ConventionStore {
     if (!this.db) {
       throw new Error('Database not initialized. Call init() first.');
     }
-    
+
     const stmt = this.db.prepare(`DELETE FROM cache WHERE key = ?`);
     stmt.run(key);
   }
-  
+
   /**
    * Clear all cached values
    */
@@ -206,10 +206,10 @@ export class ConventionStore {
     if (!this.db) {
       throw new Error('Database not initialized. Call init() first.');
     }
-    
+
     this.db.exec(`DELETE FROM cache`);
   }
-  
+
   /**
    * Close the database connection
    */
@@ -224,15 +224,15 @@ export class ConventionStore {
 
 /**
  * Create a ConventionStore instance
- * @param projectRoot - Root directory of the project (will create .taro/ subdirectory)
+ * @param projectRoot - Root directory of the project (will create .tayo/ subdirectory)
  * @returns Initialized ConventionStore
  */
 export function createStore(projectRoot: string): ConventionStore {
-  const taroDir = path.join(projectRoot, '.taro');
+  const taroDir = path.join(projectRoot, '.tayo');
   const dbPath = path.join(taroDir, 'conventions.db');
-  
+
   const store = new ConventionStore(dbPath);
   store.init();
-  
+
   return store;
 }

@@ -43,4 +43,4 @@ Connected Phase 5 intent groups to Phase 6 visual intelligence so dialog-like or
 
 ## Outcome
 
-Taro can now recognize dialog-heavy or ambiguous UI states from analyzed recordings and trigger visual-state capture intentionally, without turning Playwright screenshots into a noisy always-on behavior.
+Tayo can now recognize dialog-heavy or ambiguous UI states from analyzed recordings and trigger visual-state capture intentionally, without turning Playwright screenshots into a noisy always-on behavior.

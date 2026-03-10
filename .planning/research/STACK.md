@@ -30,7 +30,7 @@
 |------|---------|-------|
 | `tsc` plus existing `verifySyntax` | Catch broken generated TS/TSX before reporting success | Keep the current post-write verification path; no formatter-only runtime dependency is needed |
 | Golden fixtures under `sample/` | Lock the baseline JS input and expected structured RTL output | Prefer explicit fixture comparisons over loose snapshots for this milestone |
-| `taro generate --dry-run` smoke runs | Keep CLI help, docs, and `.js` behavior truthful | Needed because current CLI copy still describes generation as Chrome Recorder-only in some surfaces |
+| `tayo generate --dry-run` smoke runs | Keep CLI help, docs, and `.js` behavior truthful | Needed because current CLI copy still describes generation as Chrome Recorder-only in some surfaces |
 
 ## Pipeline Integration Points
 
@@ -40,7 +40,7 @@
 - `src/core/resolver.ts`: keep Playwright as the fallback resolver for unresolved CSS selectors. Do not route already-accessible `screen.getBy*` queries through browser inspection.
 - `src/core/generator.ts` and `src/templates/test-template.ts`: add a structured generation path that can emit helper functions, separated test cases, scoped `within(...)` queries, and matcher selection. The current multi-`it()` path is reusable, but it is not enough on its own to reach the sample quality bar.
 - `src/core/scanner.ts` and `src/types/conventions.ts`: expand conventions beyond import style and mock style. The generator needs to learn helper segregation, `userEvent.setup()` placement, `within` usage, mock file locations, and whether assertion-free helpers are preferred.
-- `src/cli/commands/generate.ts` and `README.md`: update descriptions/help text so `.js` is described as a baseline artifact that Taro interprets and upgrades, not as a finished RTL test input.
+- `src/cli/commands/generate.ts` and `README.md`: update descriptions/help text so `.js` is described as a baseline artifact that Tayo interprets and upgrades, not as a finished RTL test input.
 
 ## Installation
 
@@ -60,7 +60,7 @@ npm install -D vitest typescript
 | Recommended | Alternative | When to Use Alternative |
 |-------------|-------------|-------------------------|
 | Babel runtime AST stack (`@babel/parser` + `@babel/traverse` + `@babel/types`) | `@typescript-eslint/typescript-estree` at runtime | Only if a later milestone needs ESTree-compatible transforms across arbitrary TSX source files; v1.3 only needs Recorder JS ingestion and lightweight convention reads |
-| Structured IR plus the current string/template generator | Recast or jscodeshift code-mod pipeline | Only if Taro starts editing existing user tests instead of generating new files from scratch |
+| Structured IR plus the current string/template generator | Recast or jscodeshift code-mod pipeline | Only if Tayo starts editing existing user tests instead of generating new files from scratch |
 | Existing Playwright selector inspection | `jsdom` or `happy-dom` execution layer | Only if a future offline mode must inspect DOM fixtures without a live URL; not needed for the current live-selector fallback |
 
 ## What NOT to Use
@@ -102,13 +102,13 @@ npm install -D vitest typescript
 
 ## Sources
 
-- `/Users/michaelgichia/workspace/taro/.planning/PROJECT.md` — v1.3 goal, scope, and current/required behavior
-- `/Users/michaelgichia/workspace/taro/src/core/js-parser.ts` — current JS ingestion collapses nested calls into shallow steps and records `document.querySelector` strings separately
-- `/Users/michaelgichia/workspace/taro/src/cli/commands/generate.ts` — current JS pipeline entrypoint, Playwright selector resolution, and CLI/help text surface
-- `/Users/michaelgichia/workspace/taro/src/core/generator.ts` and `/Users/michaelgichia/workspace/taro/src/templates/test-template.ts` — current generation remains linear and placeholder-based (`render(<App />)`), below the sample quality bar
-- `/Users/michaelgichia/workspace/taro/src/core/scanner.ts` and `/Users/michaelgichia/workspace/taro/src/types/conventions.ts` — current conventions learning is useful but too shallow for helper and mocking structure
-- `/Users/michaelgichia/workspace/taro/sample/sample-rest-recordingextension-output.js` and `/Users/michaelgichia/workspace/taro/sample/sample-add-sale-test.ts` — concrete baseline input and output quality target for this milestone
-- `/Users/michaelgichia/workspace/taro/package.json` — existing dependency versions; confirms Babel parser/traverse, Playwright, Zod, Vitest, and TypeScript are already in the repo
+- `/Users/michaelgichia/workspace/tayo/.planning/PROJECT.md` — v1.3 goal, scope, and current/required behavior
+- `/Users/michaelgichia/workspace/tayo/src/core/js-parser.ts` — current JS ingestion collapses nested calls into shallow steps and records `document.querySelector` strings separately
+- `/Users/michaelgichia/workspace/tayo/src/cli/commands/generate.ts` — current JS pipeline entrypoint, Playwright selector resolution, and CLI/help text surface
+- `/Users/michaelgichia/workspace/tayo/src/core/generator.ts` and `/Users/michaelgichia/workspace/tayo/src/templates/test-template.ts` — current generation remains linear and placeholder-based (`render(<App />)`), below the sample quality bar
+- `/Users/michaelgichia/workspace/tayo/src/core/scanner.ts` and `/Users/michaelgichia/workspace/tayo/src/types/conventions.ts` — current conventions learning is useful but too shallow for helper and mocking structure
+- `/Users/michaelgichia/workspace/tayo/sample/sample-rest-recordingextension-output.js` and `/Users/michaelgichia/workspace/tayo/sample/sample-add-sale-test.ts` — concrete baseline input and output quality target for this milestone
+- `/Users/michaelgichia/workspace/tayo/package.json` — existing dependency versions; confirms Babel parser/traverse, Playwright, Zod, Vitest, and TypeScript are already in the repo
 
 ---
 *Stack research for: local-first Testing Library Recorder JS baseline ingestion and RTL generation*

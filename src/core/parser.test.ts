@@ -7,7 +7,7 @@ import { parseRecording } from './parser.js'
 const tempDirs: string[] = []
 
 async function writeTempJson(content: unknown): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), 'taro-parser-'))
+  const directory = await mkdtemp(join(tmpdir(), 'tayo-parser-'))
   tempDirs.push(directory)
   const filePath = join(directory, 'recording.json')
   await writeFile(filePath, JSON.stringify(content), 'utf-8')

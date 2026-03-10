@@ -2,22 +2,22 @@
 
 ## Phase Intent
 
-Phase 13 already gives Taro a truthful JS baseline: stable `stepId`s, preserved `screen.getBy...` evidence, preserved `document.querySelector(...)` evidence, and recorded URL metadata. Phase 14 should not re-parse recorder JS. It should decide, per selector-backed step, whether Taro can upgrade that selector into a stronger query, must keep it as unresolved evidence, or must stop and ask for review.
+Phase 13 already gives Tayo a truthful JS baseline: stable `stepId`s, preserved `screen.getBy...` evidence, preserved `document.querySelector(...)` evidence, and recorded URL metadata. Phase 14 should not re-parse recorder JS. It should decide, per selector-backed step, whether Tayo can upgrade that selector into a stronger query, must keep it as unresolved evidence, or must stop and ask for review.
 
 ## What Must Be True
 
 ### QUERY-02
 
 - Every `document.querySelector(...)` step stays anchored to its original `stepId`.
-- Taro only upgrades that step when it has trustworthy evidence for a stronger query.
+- Tayo only upgrades that step when it has trustworthy evidence for a stronger query.
 - Trustworthy evidence means either:
   - the baseline already contains accessible query evidence for that same step, or
   - optional live DOM inspection can recover a stable accessible query from the recorded URL.
-- If Taro cannot justify an upgrade, the generated output must stay explicit with a warning/checkpoint instead of silently inventing a stronger query.
+- If Tayo cannot justify an upgrade, the generated output must stay explicit with a warning/checkpoint instead of silently inventing a stronger query.
 
 ### QUERY-03
 
-- Raw CSS selectors must never become fake `getByTestId(...)` queries just because Taro can sanitize a selector string.
+- Raw CSS selectors must never become fake `getByTestId(...)` queries just because Tayo can sanitize a selector string.
 - The current fallback behavior in `src/core/resolver.ts` (`buildQuery`) and `src/core/generator.ts` (`selectorToQuery`) is now the main correctness risk.
 - Unresolved selectors need a truthful representation such as:
   - preserved selector evidence on the step,

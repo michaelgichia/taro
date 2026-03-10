@@ -28,7 +28,7 @@ Phase 12 should be planned as **repair semantics -> runtime verification -> rele
 
 3. **README and release-ready docs**
    - The current README is still generator-first. It does not describe the installer-first flow, runtime selection prompts, non-interactive install flags, update behavior, or Codex skill installs.
-   - Phase 12 should rewrite onboarding around `npx @tayo-dev/rtl@latest`, then retain `taro generate` as the product capability after install.
+   - Phase 12 should rewrite onboarding around `npx @tayo-dev/rtl@latest`, then retain `tayo generate` as the product capability after install.
 
 ## Current-State Findings
 
@@ -70,7 +70,7 @@ Planning implication:
 
 Current README:
 - starts with `generate` usage
-- documents `npm install --save-dev @tayo-dev/rtl` followed by `taro generate`
+- documents `npm install --save-dev @tayo-dev/rtl` followed by `tayo generate`
 - includes older Claude skill guidance that predates installer-native runtime assets
 
 Gap:

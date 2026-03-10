@@ -8,7 +8,7 @@ tags: [readme, documentation, cli-reference, chrome-recorder, react-testing-libr
 requires: []
 provides:
   - README.md with Introduction, Quick Start, and CLI Reference sections
-  - Public-facing documentation root covering what Taro is, installation, and full flag reference
+  - Public-facing documentation root covering what Tayo is, installation, and full flag reference
 affects: [09-package-publish]
 
 # Tech tracking
@@ -23,7 +23,7 @@ key-files:
 
 key-decisions:
   - "All CLI flags documented from source code (src/cli/commands/generate.ts) — no fabricated features"
-  - "Quick Start uses both npx @tayo/rtl and taro invocations to cover install and no-install paths"
+  - "Quick Start uses both npx @tayo/rtl and tayo invocations to cover install and no-install paths"
   - "Introduction uses prose + bullet lists for scannable reading without code blocks in opening section"
 
 patterns-established:
@@ -38,7 +38,7 @@ completed: 2026-03-07
 
 # Phase 8 Plan 01: README Documentation Summary
 
-**README.md created with Introduction, Quick Start, and full CLI Reference for taro generate — all content accurate to source code**
+**README.md created with Introduction, Quick Start, and full CLI Reference for tayo generate — all content accurate to source code**
 
 ## Performance
 
@@ -50,9 +50,9 @@ completed: 2026-03-07
 
 ## Accomplishments
 
-- Created README.md with Introduction section explaining what Taro is, who it is for, and the problem it solves
+- Created README.md with Introduction section explaining what Tayo is, who it is for, and the problem it solves
 - Added Quick Start with prerequisites, install command, record steps, generate command, and expected terminal output
-- Added CLI Reference with complete flags table for `taro generate` (--output, --dry-run, --force), positional argument, examples, output naming, and supported formats
+- Added CLI Reference with complete flags table for `tayo generate` (--output, --dry-run, --force), positional argument, examples, output naming, and supported formats
 
 ## Task Commits
 

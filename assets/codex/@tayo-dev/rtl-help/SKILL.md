@@ -21,5 +21,5 @@ Invoke this skill with `$@tayo-dev/rtl-help`.
 
 1. Confirm the recording path or test target.
 2. Choose the matching packaged Tayo skill.
-3. If direct CLI execution is appropriate, run `taro generate <recording-file>` with any requested flags.
+3. If direct CLI execution is appropriate, run `tayo generate <recording-file>` with any requested flags.
 4. Report the generated file path, score, and any blocking issues.

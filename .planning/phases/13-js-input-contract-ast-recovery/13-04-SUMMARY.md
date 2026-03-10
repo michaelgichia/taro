@@ -35,10 +35,10 @@ completed: 2026-03-09
 
 ## Accomplishments
 
-- Added [`src/cli/commands/generate.test.ts`](/Users/michaelgichia/workspace/taro/src/cli/commands/generate.test.ts) to prove the real `taro generate <recording.js>` path supports `--dry-run`, `--output`, and `--force` without relying on helper-only assumptions.
-- Expanded [`src/core/input-loader.test.ts`](/Users/michaelgichia/workspace/taro/src/core/input-loader.test.ts) and [`src/core/recording-intelligence.test.ts`](/Users/michaelgichia/workspace/taro/src/core/recording-intelligence.test.ts) so shared loading stays truthful across `.json` and `.js` inputs and JS sync assertions no longer fragment intent grouping.
-- Added [`src/core/parser.test.ts`](/Users/michaelgichia/workspace/taro/src/core/parser.test.ts) to lock in JSON URL preservation, stable `json-step-*` ids, and the absence of JS baseline leakage in the legacy parser path.
-- Extended [`src/core/js-parser.test.ts`](/Users/michaelgichia/workspace/taro/src/core/js-parser.test.ts) with explicit phase-boundary coverage proving selector-only evidence remains selector-only evidence instead of becoming invented accessible queries.
+- Added [`src/cli/commands/generate.test.ts`](/Users/michaelgichia/workspace/tayo/src/cli/commands/generate.test.ts) to prove the real `tayo generate <recording.js>` path supports `--dry-run`, `--output`, and `--force` without relying on helper-only assumptions.
+- Expanded [`src/core/input-loader.test.ts`](/Users/michaelgichia/workspace/tayo/src/core/input-loader.test.ts) and [`src/core/recording-intelligence.test.ts`](/Users/michaelgichia/workspace/tayo/src/core/recording-intelligence.test.ts) so shared loading stays truthful across `.json` and `.js` inputs and JS sync assertions no longer fragment intent grouping.
+- Added [`src/core/parser.test.ts`](/Users/michaelgichia/workspace/tayo/src/core/parser.test.ts) to lock in JSON URL preservation, stable `json-step-*` ids, and the absence of JS baseline leakage in the legacy parser path.
+- Extended [`src/core/js-parser.test.ts`](/Users/michaelgichia/workspace/tayo/src/core/js-parser.test.ts) with explicit phase-boundary coverage proving selector-only evidence remains selector-only evidence instead of becoming invented accessible queries.
 
 ## Verification
 

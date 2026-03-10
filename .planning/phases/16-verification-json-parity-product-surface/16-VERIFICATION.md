@@ -20,8 +20,8 @@ human_verification: []
 
 - `npm run build`
 - `npm run test:run -- src/core/scorer.test.ts src/core/input-loader.test.ts src/core/parser.test.ts src/core/js-parser.test.ts src/core/recording-intelligence.test.ts src/cli/commands/generate.test.ts`
-- `node /Users/michaelgichia/workspace/taro/dist/index.js generate sample/sample-rest-recordingextension-output.js --dry-run`
-- `node /Users/michaelgichia/workspace/taro/dist/index.js generate sample/sample-json-recording-basic.json --dry-run`
+- `node /Users/michaelgichia/workspace/tayo/dist/index.js generate sample/sample-rest-recordingextension-output.js --dry-run`
+- `node /Users/michaelgichia/workspace/tayo/dist/index.js generate sample/sample-json-recording-basic.json --dry-run`
 
 Results on 2026-03-10:
 
@@ -37,7 +37,7 @@ Results on 2026-03-10:
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
 | 1 | Low-confidence generated output is now explainable through deterministic score signals, reasons, blockers, and a single advisory draft banner | ✓ VERIFIED | `src/core/scorer.ts`, `src/types/score.ts`, `src/core/scorer.test.ts`, `src/cli/commands/generate.ts`, and the built JS/JSON dry-runs show the score line plus `Manual review required` and `Top blockers`. |
-| 2 | Chrome Recorder JSON remains supported through the shared boundary and the public `taro generate` flow while JS baseline quality improves | ✓ VERIFIED | `sample/sample-json-recording-basic.json`, `sample/sample-json-recording-dialog.json`, `src/core/input-loader.test.ts`, `src/core/parser.test.ts`, `src/core/recording-intelligence.test.ts`, `src/cli/commands/generate.test.ts`, and the built JSON dry-run prove the parity path. |
+| 2 | Chrome Recorder JSON remains supported through the shared boundary and the public `tayo generate` flow while JS baseline quality improves | ✓ VERIFIED | `sample/sample-json-recording-basic.json`, `sample/sample-json-recording-dialog.json`, `src/core/input-loader.test.ts`, `src/core/parser.test.ts`, `src/core/recording-intelligence.test.ts`, `src/cli/commands/generate.test.ts`, and the built JSON dry-run prove the parity path. |
 | 3 | README, CLI help, and Codex runtime guidance now describe the same dual-input and draft-quality behavior that the shipped command exposes | ✓ VERIFIED | `README.md`, `src/cli/commands/generate.ts`, and `assets/codex/@tayo-dev/rtl-generate/SKILL.md` all advertise `.js` and `.json` support and explain advisory draft output honestly. |
 | 4 | The remaining milestone audit gap for Phase 13 is closed by a reusable verification artifact tied to current repo commands and files | ✓ VERIFIED | `.planning/phases/13-js-input-contract-ast-recovery/13-VERIFICATION.md` now documents `INPUT-01`, `INPUT-02`, `INPUT-03`, and `QUERY-01` with current build/test/CLI evidence. |
 
@@ -58,5 +58,5 @@ Results on 2026-03-10:
 
 ---
 
-_Verified: 2026-03-10T06:24:00Z_  
+_Verified: 2026-03-10T06:24:00Z_
 _Verifier: Codex_

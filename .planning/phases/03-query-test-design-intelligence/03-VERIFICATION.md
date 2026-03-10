@@ -62,7 +62,7 @@ Results on 2026-03-07:
 | `src/cli/commands/generate.ts` | `src/core/resolver.ts` | `buildQuery()`, `inspectElements()`, `selectMatcher()` | ✓ WIRED | Resolver output now includes matcher selection for assert steps. |
 | `src/core/generator.ts` | `src/templates/test-template.ts` | `generateTestFromGroups()` | ✓ WIRED | Grouped output renders matcher-aware assertions. |
 | `src/core/resolver.ts` | `src/cli/commands/generate.ts` | `emitQry03Warning()` | ✓ WIRED | Fragile query fallback is surfaced during generation. |
-| `src/core/scanner.ts` | `.taro/conventions.json` | `scanConventions()` persistence | ✓ WIRED | Convention data is cached for subsequent runs. |
+| `src/core/scanner.ts` | `.tayo/conventions.json` | `scanConventions()` persistence | ✓ WIRED | Convention data is cached for subsequent runs. |
 
 ### Requirements Coverage
 
@@ -78,7 +78,7 @@ Results on 2026-03-07:
 | CTX-02 | ✓ SATISFIED | Import style and mock patterns are derived from existing tests. |
 | CTX-03 | ✓ SATISFIED | Folder patterns are detected during convention scanning. |
 | CTX-04 | ✓ SATISFIED | Shared mock usage is inspected during convention scanning. |
-| CTX-05 | ✓ SATISFIED | Learned conventions persist in `.taro/conventions.json`. |
+| CTX-05 | ✓ SATISFIED | Learned conventions persist in `.tayo/conventions.json`. |
 
 ### Human Verification Required
 
@@ -86,5 +86,5 @@ None. Phase 7 reconciliation is supported by deterministic tests plus a clean Ty
 
 ---
 
-_Verified: 2026-03-07T10:56:40Z_  
+_Verified: 2026-03-07T10:56:40Z_
 _Verifier: Codex_

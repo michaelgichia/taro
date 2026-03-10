@@ -22,7 +22,7 @@ human_verification: []
 - `npm run test:run -- src/install/registry.test.ts src/install/manifest.test.ts src/install/prompt-runtimes.test.ts src/install/codex-runtime.test.ts src/install/write-execution.test.ts src/cli/commands/install.test.ts`
 - `rg -n "@tayo-dev/rtl:help|@tayo-dev/rtl-help" assets/claude assets/gemini assets/opencode`
 - `find assets/codex -name SKILL.md | wc -l`
-- `HOME="$(mktemp -d /tmp/taro-home.XXXXXX)" node /Users/michaelgichia/workspace/taro/dist/index.js --all --global`
+- `HOME="$(mktemp -d /tmp/tayo-home.XXXXXX)" node /Users/michaelgichia/workspace/tayo/dist/index.js --all --global`
 
 Results on 2026-03-07:
 - TypeScript build passed.
@@ -76,5 +76,5 @@ Phase 11 now writes runtime assets and manifests safely, but Phase 12 still need
 
 ---
 
-_Verified: 2026-03-07T17:55:14Z_  
+_Verified: 2026-03-07T17:55:14Z_
 _Verifier: Codex_

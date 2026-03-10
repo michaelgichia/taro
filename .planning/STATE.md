@@ -63,7 +63,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
 - [v1.3] Keep the milestone focused on JS baseline fidelity rather than installer or distribution work.
-- [v1.3] Treat recorder JS as a baseline artifact Taro must interpret and improve before writing a project test.
+- [v1.3] Treat recorder JS as a baseline artifact Tayo must interpret and improve before writing a project test.
 - [v1.3] Preserve Chrome Recorder JSON support while JS baseline quality improves.
 - [v1.3] Continue phase numbering from 13 because v1.2 shipped through Phase 12.
 - [13-01] Use a discriminated parsed-input envelope instead of another `isJsFormat` flag.

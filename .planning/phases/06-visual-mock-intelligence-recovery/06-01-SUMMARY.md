@@ -50,4 +50,4 @@ Extended the Playwright resolver from DOM-only inspection into a visual-state ca
 
 ## Outcome
 
-Taro now has a typed, tested visual-state capture primitive on top of the existing resolver. Phase 6 can build dialog-aware visual intelligence on this foundation without rewriting the Playwright integration again.
+Tayo now has a typed, tested visual-state capture primitive on top of the existing resolver. Phase 6 can build dialog-aware visual intelligence on this foundation without rewriting the Playwright integration again.

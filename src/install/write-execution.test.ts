@@ -17,7 +17,7 @@ afterEach(async () => {
 })
 
 async function createSandbox(label: string) {
-  const root = await mkdtemp(join(tmpdir(), `taro-${label}-`))
+  const root = await mkdtemp(join(tmpdir(), `tayo-${label}-`))
   const cwd = join(root, 'project')
   const home = join(root, 'home')
 

@@ -48,7 +48,7 @@ completed: 2026-03-07
 
 - `npm run build`
 - `npm run test:run -- src/install/write-execution.test.ts src/cli/commands/install.test.ts`
-- `HOME="$(mktemp -d /tmp/taro-home.XXXXXX)" node dist/index.js --all --global`
+- `HOME="$(mktemp -d /tmp/tayo-home.XXXXXX)" node dist/index.js --all --global`
 
 ## Task Commit
 

@@ -32,9 +32,9 @@ completed: 2026-03-10
 
 ## Accomplishments
 
-- Added structured selector-resolution result types in [recording.ts](/Users/michaelgichia/workspace/taro/src/types/recording.ts) so JS selector recovery can distinguish preserved baseline queries, live-DOM upgrades, missing URL state, inspection failures, and inaccessible selectors.
-- Refactored [resolver.ts](/Users/michaelgichia/workspace/taro/src/core/resolver.ts) so accessible-query derivation is separate from selector-resolution policy, with `resolveSelector()` returning truthful unresolved outcomes rather than fake `getByTestId(...)` fallbacks.
-- Expanded [resolver.test.ts](/Users/michaelgichia/workspace/taro/src/core/resolver.test.ts) to cover preserved-query precedence, accessible live-DOM upgrades, no-URL degradation, selector-not-found behavior, and inspection failures.
+- Added structured selector-resolution result types in [recording.ts](/Users/michaelgichia/workspace/tayo/src/types/recording.ts) so JS selector recovery can distinguish preserved baseline queries, live-DOM upgrades, missing URL state, inspection failures, and inaccessible selectors.
+- Refactored [resolver.ts](/Users/michaelgichia/workspace/tayo/src/core/resolver.ts) so accessible-query derivation is separate from selector-resolution policy, with `resolveSelector()` returning truthful unresolved outcomes rather than fake `getByTestId(...)` fallbacks.
+- Expanded [resolver.test.ts](/Users/michaelgichia/workspace/tayo/src/core/resolver.test.ts) to cover preserved-query precedence, accessible live-DOM upgrades, no-URL degradation, selector-not-found behavior, and inspection failures.
 
 ## Verification
 

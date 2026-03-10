@@ -10,7 +10,7 @@ duration: ~10min
 
 ## What Was Done
 
-Finished the mock-intelligence layer by detecting mutation lifecycle patterns and unstable mock-instance usage, then integrated that analysis into `taro generate` alongside the existing visual-intelligence, scoring, and post-write verification pipeline.
+Finished the mock-intelligence layer by detecting mutation lifecycle patterns and unstable mock-instance usage, then integrated that analysis into `tayo generate` alongside the existing visual-intelligence, scoring, and post-write verification pipeline.
 
 ## Changes Made
 
@@ -51,8 +51,8 @@ Finished the mock-intelligence layer by detecting mutation lifecycle patterns an
 
 - `npm run test:run -- src/core/mock-intelligence.test.ts src/core/generator.test.ts src/core/recording-intelligence.test.ts` ✓
 - `npm run build` ✓
-- `node /Users/michaelgichia/workspace/taro/dist/index.js generate dialog-recording.js --output generated.test.tsx --force` from `/tmp/taro-phase6-manual.Bjufyv` ✓
+- `node /Users/michaelgichia/workspace/tayo/dist/index.js generate dialog-recording.js --output generated.test.tsx --force` from `/tmp/tayo-phase6-manual.Bjufyv` ✓
 
 ## Outcome
 
-Taro now captures dialog-aware visual state, analyzes mock strategy before generation, emits mutation/stability advice, and still completes scoring plus post-write verification in the real CLI path.
+Tayo now captures dialog-aware visual state, analyzes mock strategy before generation, emits mutation/stability advice, and still completes scoring plus post-write verification in the real CLI path.

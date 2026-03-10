@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Taro CLI entry point
+ * Tayo CLI entry point
  * Installer-first package surface with generator access preserved under `generate`.
  */
 
@@ -20,15 +20,15 @@ const program = new Command()
 applyInstallOptions(program)
 
 program
-  .name('taro')
+  .name('tayo')
   .description(
-    `${pc.bold('@tayo-dev/rtl')} — Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex`
+    `${pc.bold('@tayo-dev/rtl')} — Install Tayo into Claude Code, OpenCode, Gemini CLI, or Codex`
   )
   .version('1.3.0-alpha.0', '-v, --version', 'Output the current version')
   .helpOption('-h, --help', 'Display help for command')
   .addHelpText(
     'after',
-    `\nExisting capability:\n  ${pc.bold('taro generate <file>')}  Generate RTL tests from Recorder exports`
+    `\nExisting capability:\n  ${pc.bold('tayo generate <file>')}  Generate RTL tests from Recorder exports`
   )
   .action(async () => {
     await runInstallCommand(program.optsWithGlobals() as InstallCommandOptions)

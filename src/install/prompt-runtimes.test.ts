@@ -33,7 +33,7 @@ function createSelection(runtime: RuntimeTarget, location: InstallLocation): Ins
 }
 
 async function createInstallContext(): Promise<{ cwd: string; home: string }> {
-  const root = await mkdtemp(join(tmpdir(), 'taro-install-'))
+  const root = await mkdtemp(join(tmpdir(), 'tayo-install-'))
   const cwd = join(root, 'project')
   const home = join(root, 'home')
 

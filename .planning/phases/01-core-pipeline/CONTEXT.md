@@ -1,45 +1,45 @@
 # Phase 1 Context: Core Pipeline
 
 **Phase:** 1 of 4
-**Goal:** Users can invoke Taro from CLI and generate valid RTL tests from Chrome Recorder exports
+**Goal:** Users can invoke Tayo from CLI and generate valid RTL tests from Chrome Recorder exports
 
 ## CLI Commands
 
 ### Setup & Discovery
 ```bash
-taro init           # Scaffold Taro internal state, config, conventions
-taro map-codebase   # Deep discovery - read tests, components, mocks, patterns
+tayo init           # Scaffold Tayo internal state, config, conventions
+tayo map-codebase   # Deep discovery - read tests, components, mocks, patterns
 ```
 
 ### Generation
 ```bash
-taro generate ./recordings/add-sale-ke.js    # Single file
-taro generate ./recordings/                  # Batch mode
+tayo generate ./recordings/add-sale-ke.js    # Single file
+tayo generate ./recordings/                  # Batch mode
 ```
 
 ### Maintenance
 ```bash
-taro remap   # Full rediscovery after structural changes
-taro sync    # Light update without full rediscovery
+tayo remap   # Full rediscovery after structural changes
+tayo sync    # Light update without full rediscovery
 ```
 
 ### Inspection & Debugging
 ```bash
-taro inspect ./recordings/add-sale-ke.js     # Preview without writing
-taro score ./src/path/TestFile.test.tsx     # Quality audit
+tayo inspect ./recordings/add-sale-ke.js     # Preview without writing
+tayo score ./src/path/TestFile.test.tsx     # Quality audit
 ```
 
 ### State Management
 ```bash
-taro state show   # Show current project knowledge
-taro state reset # Wipe internal state
+tayo state show   # Show current project knowledge
+tayo state reset # Wipe internal state
 ```
 
 ## Instructions Files
 
 Per-generation instructions override default behavior:
 ```bash
-taro generate ./recordings/flow.js -i ./instructions/flow.md
+tayo generate ./recordings/flow.js -i ./instructions/flow.md
 ```
 
 Instructions can specify:
@@ -51,7 +51,7 @@ Instructions can specify:
 
 Global instructions via:
 ```bash
-taro init --global-instructions ./taro-instructions.md
+tayo init --global-instructions ./tayo-instructions.md
 ```
 
 ## Requirements (from Roadmap)
@@ -62,7 +62,7 @@ taro init --global-instructions ./taro-instructions.md
 
 ## Design Principles
 
-- Instructions augment Taro's decisions, not replace them
+- Instructions augment Tayo's decisions, not replace them
 - Conflicts with core quality rules should be flagged
 - Instructions files are committable (audit trail)
-- Taro is a stateful agent that lives in the project
+- Tayo is a stateful agent that lives in the project

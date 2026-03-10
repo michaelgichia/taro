@@ -12,7 +12,7 @@ describe('sale flow', () => {
 `
 
     const placeholder = `
-// taro-boundary-warning: Prefer a repo-local module/container render boundary for this flow instead of targeting a leaf form component directly.
+// tayo-boundary-warning: Prefer a repo-local module/container render boundary for this flow instead of targeting a leaf form component directly.
 describe('sale flow', () => {
   it('saves a sale', async () => {
     render(<App />)
@@ -29,11 +29,11 @@ describe('sale flow', () => {
 describe('scoreGeneratedTest', () => {
   it('adds deterministic low-confidence signals, reasons, and blockers for draft output', () => {
     const draft = `
-// taro-boundary-warning: Taro could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.
+// tayo-boundary-warning: Tayo could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.
 describe('sale flow', () => {
   it('saves a sale', async () => {
     render(<App />)
-    // taro-query-checkpoint: click step requires manual RTL query recovery
+    // tayo-query-checkpoint: click step requires manual RTL query recovery
     expect(screen.getByText('Saved')).toBeInTheDocument()
   })
 })

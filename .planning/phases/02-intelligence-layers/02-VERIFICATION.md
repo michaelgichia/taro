@@ -24,7 +24,7 @@ gaps: []
 | 2 | Noise events (dblClick, cursor wandering, unintended scroll) are removed | ✓ VERIFIED | `filterNoiseSteps()` in `src/parser/steps/noise-filter.ts` filters dblClick, mousemove/mouseover/mouseout, and accidental scroll. Tests confirm. |
 | 3 | Time-based events are grouped correctly | ✓ VERIFIED | `dialog-detector.ts` uses `DIALOG_TIME_WINDOW_MS = 30000` to group related steps. Deduplicator uses `RAPID_CLICK_THRESHOLD_MS = 500`. Noise filter uses `INTENTIONAL_SCROLL_THRESHOLD_MS = 2000`. |
 | 4 | Playwright can launch browser and navigate to test URL | ✓ VERIFIED | `launchBrowser()` in `src/analyzer/visual/inspector.ts` launches headless Chromium. `navigateToUrl()` handles navigation with 30s timeout. |
-| 5 | Screenshots can be captured for complex UI states | ✓ VERIFIED | `captureScreenshot()` in inspector.ts saves screenshots to `.taro/visuals/`. Called in orchestrator runVisualInspection(). |
+| 5 | Screenshots can be captured for complex UI states | ✓ VERIFIED | `captureScreenshot()` in inspector.ts saves screenshots to `.tayo/visuals/`. Called in orchestrator runVisualInspection(). |
 | 6 | Element inspection retrieves accessibility properties | ✓ VERIFIED | `inspectElement()` extracts tagName, textContent, ariaRole, ariaLabel, nameAttr, id, classes, isVisible, isDisabled. |
 | 7 | API calls in recordings are detected and flagged | ✓ VERIFIED | `detectApiCalls()` in detector.ts scans recording steps for URLs, networkCall metadata, API patterns. |
 | 8 | Mock targets are identified from codebase analysis | ✓ VERIFIED | `analyzeMockTargets()` in target-analyzer.ts detects mock libraries from package.json and codebase usage. |

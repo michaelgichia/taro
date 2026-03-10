@@ -1,13 +1,13 @@
 # Project Research Summary
 
-**Project:** Taro
+**Project:** Tayo
 **Domain:** Testing Library Recorder JS baseline transformation for React Testing Library
 **Researched:** 2026-03-09
 **Confidence:** HIGH
 
 ## Executive Summary
 
-Taro already advertises `.js` input support, but the current implementation is still transcript-shaped rather than baseline-aware. The repo now has enough evidence to treat `v1.3 JS Baseline` as a fidelity milestone, not a greenfield parser effort: `src/core/js-parser.ts` exists, `generate.ts` already branches for `.js`, and the current dry run of `sample/sample-rest-recordingextension-output.js` shows the exact quality gaps to close.
+Tayo already advertises `.js` input support, but the current implementation is still transcript-shaped rather than baseline-aware. The repo now has enough evidence to treat `v1.3 JS Baseline` as a fidelity milestone, not a greenfield parser effort: `src/core/js-parser.ts` exists, `generate.ts` already branches for `.js`, and the current dry run of `sample/sample-rest-recordingextension-output.js` shows the exact quality gaps to close.
 
 The recommended approach is to keep the work on the existing `src/core/*` and `src/cli/commands/generate.ts` path, add only `@babel/types` to strengthen AST handling, and introduce a clearer internal pipeline: dual-source ingestion, richer JS baseline artifacts, semantic recording intelligence, step-anchored selector recovery, then suite planning before code emission. That architecture preserves JSON support while giving the JS path enough structure to produce output closer to `sample/sample-add-sale-test.ts`.
 
@@ -27,7 +27,7 @@ Reuse the existing runtime stack and keep this milestone narrow. The current rep
 
 ### Expected Features
 
-The table stakes are straightforward: `taro generate ./recording.js` must be a truthful, primary flow; AST parsing must preserve nested query/action/assertion intent; weak selectors must be upgraded or warned honestly; and the output must look like maintainable RTL instead of recorder replay. The differentiator is not "accept JS" by itself, but turning richer recorder JS structure into codebase-aware helpers, explicit assertions, and focused tests.
+The table stakes are straightforward: `tayo generate ./recording.js` must be a truthful, primary flow; AST parsing must preserve nested query/action/assertion intent; weak selectors must be upgraded or warned honestly; and the output must look like maintainable RTL instead of recorder replay. The differentiator is not "accept JS" by itself, but turning richer recorder JS structure into codebase-aware helpers, explicit assertions, and focused tests.
 
 **Must have (table stakes):**
 - First-class `.js` input parity with the existing `generate` command surface
@@ -48,7 +48,7 @@ The table stakes are straightforward: `taro generate ./recording.js` must be a t
 
 ### Architecture Approach
 
-The strongest architectural recommendation is to stop generating directly from raw JS steps. Instead, Taro should parse JSON and recorder JS through a shared input loader, normalize JS baselines into the common recording contract with richer metadata, run recording intelligence and selector recovery on that shared structure, then add a new suite-planning layer before `generator.ts` renders code.
+The strongest architectural recommendation is to stop generating directly from raw JS steps. Instead, Tayo should parse JSON and recorder JS through a shared input loader, normalize JS baselines into the common recording contract with richer metadata, run recording intelligence and selector recovery on that shared structure, then add a new suite-planning layer before `generator.ts` renders code.
 
 **Major components:**
 1. `input-loader.ts` and a richer `js-parser.ts` — unify source detection and recover nested query/assertion metadata
@@ -118,22 +118,22 @@ Phases with standard patterns (skip research-phase):
 
 ### Gaps to Address
 
-- **Render-target resolution:** the milestone needs a practical rule for when Taro can identify the component/module under test versus when it must checkpoint honestly
+- **Render-target resolution:** the milestone needs a practical rule for when Tayo can identify the component/module under test versus when it must checkpoint honestly
 - **Selector rescue policy:** optional browser inspection needs a safe host policy and a clear degraded mode when no trustworthy DOM is available
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- `/Users/michaelgichia/workspace/taro/.planning/research/STACK.md` — stack and dependency guidance
-- `/Users/michaelgichia/workspace/taro/.planning/research/FEATURES.md` — feature landscape and scope boundaries
-- `/Users/michaelgichia/workspace/taro/.planning/research/ARCHITECTURE.md` — pipeline and module recommendations
-- `/Users/michaelgichia/workspace/taro/.planning/research/PITFALLS.md` — observed failure modes and verification evidence
+- `/Users/michaelgichia/workspace/tayo/.planning/research/STACK.md` — stack and dependency guidance
+- `/Users/michaelgichia/workspace/tayo/.planning/research/FEATURES.md` — feature landscape and scope boundaries
+- `/Users/michaelgichia/workspace/tayo/.planning/research/ARCHITECTURE.md` — pipeline and module recommendations
+- `/Users/michaelgichia/workspace/tayo/.planning/research/PITFALLS.md` — observed failure modes and verification evidence
 
 ### Secondary (MEDIUM confidence)
-- `/Users/michaelgichia/workspace/taro/src/cli/commands/generate.ts` — current JS branch behavior and public command surface
-- `/Users/michaelgichia/workspace/taro/src/core/js-parser.ts` — current AST extraction limits
-- `/Users/michaelgichia/workspace/taro/sample/sample-rest-recordingextension-output.js` — baseline recorder artifact
-- `/Users/michaelgichia/workspace/taro/sample/sample-add-sale-test.ts` — target quality bar
+- `/Users/michaelgichia/workspace/tayo/src/cli/commands/generate.ts` — current JS branch behavior and public command surface
+- `/Users/michaelgichia/workspace/tayo/src/core/js-parser.ts` — current AST extraction limits
+- `/Users/michaelgichia/workspace/tayo/sample/sample-rest-recordingextension-output.js` — baseline recorder artifact
+- `/Users/michaelgichia/workspace/tayo/sample/sample-add-sale-test.ts` — target quality bar
 
 ---
 *Research completed: 2026-03-09*

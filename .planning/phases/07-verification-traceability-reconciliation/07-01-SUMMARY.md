@@ -31,10 +31,10 @@ Reconciled the Phase 1 evidence chain so the core input and generation requireme
 ## Verification
 
 - `npm run build` ✓
-- `node /Users/michaelgichia/workspace/taro/dist/index.js generate /tmp/taro-phase7-invalid-recording.json --dry-run` ✓ expected failure
-- `node /Users/michaelgichia/workspace/taro/dist/index.js generate /tmp/taro-phase7-gen04-recording.json --dry-run` ✓
-- `node /Users/michaelgichia/workspace/taro/dist/index.js generate /tmp/taro-phase7-gen04-recording.json --output /tmp/taro-phase7-gen04-harness/generated.test.tsx --force` ✓
-- `cd /tmp/taro-phase7-gen04-harness && npx vitest run generated.test.tsx --environment jsdom` ✓
+- `node /Users/michaelgichia/workspace/tayo/dist/index.js generate /tmp/tayo-phase7-invalid-recording.json --dry-run` ✓ expected failure
+- `node /Users/michaelgichia/workspace/tayo/dist/index.js generate /tmp/tayo-phase7-gen04-recording.json --dry-run` ✓
+- `node /Users/michaelgichia/workspace/tayo/dist/index.js generate /tmp/tayo-phase7-gen04-recording.json --output /tmp/tayo-phase7-gen04-harness/generated.test.tsx --force` ✓
+- `cd /tmp/tayo-phase7-gen04-harness && npx vitest run generated.test.tsx --environment jsdom` ✓
 
 ## Outcome
 

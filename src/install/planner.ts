@@ -29,7 +29,7 @@ export function buildInstallPlan(
 ): InstallPlan {
   return {
     packageName: '@tayo-dev/rtl',
-    commandName: 'taro',
+    commandName: 'tayo',
     stage: 'ready-to-write',
     source: selection.source,
     mode: selection.mode,

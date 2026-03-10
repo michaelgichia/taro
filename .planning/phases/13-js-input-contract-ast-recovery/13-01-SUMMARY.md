@@ -30,14 +30,14 @@ completed: 2026-03-09
 
 # Phase 13 Plan 01: Input Contract Summary
 
-**Chrome Recorder JSON and recorder JS now enter Taro through one parsed-input envelope with stable step IDs and preserved JS baseline evidence.**
+**Chrome Recorder JSON and recorder JS now enter Tayo through one parsed-input envelope with stable step IDs and preserved JS baseline evidence.**
 
 ## Accomplishments
 
-- Added `ParsedInput`, JS baseline evidence descriptors, and shared step-id support in [`src/types/recording.ts`](/Users/michaelgichia/workspace/taro/src/types/recording.ts).
-- Added [`src/core/input-loader.ts`](/Users/michaelgichia/workspace/taro/src/core/input-loader.ts) so JSON and recorder JS are detected at one boundary and returned through the same contract.
-- Kept JSON delegated to [`src/core/parser.ts`](/Users/michaelgichia/workspace/taro/src/core/parser.ts), while upgrading that path to assign stable `json-step-*` ids and preserve `settings.url`.
-- Added [`src/core/input-loader.test.ts`](/Users/michaelgichia/workspace/taro/src/core/input-loader.test.ts) coverage for `.json`, `.js`, and `@jest-environment-options`-driven JS detection plus shared-envelope behavior.
+- Added `ParsedInput`, JS baseline evidence descriptors, and shared step-id support in [`src/types/recording.ts`](/Users/michaelgichia/workspace/tayo/src/types/recording.ts).
+- Added [`src/core/input-loader.ts`](/Users/michaelgichia/workspace/tayo/src/core/input-loader.ts) so JSON and recorder JS are detected at one boundary and returned through the same contract.
+- Kept JSON delegated to [`src/core/parser.ts`](/Users/michaelgichia/workspace/tayo/src/core/parser.ts), while upgrading that path to assign stable `json-step-*` ids and preserve `settings.url`.
+- Added [`src/core/input-loader.test.ts`](/Users/michaelgichia/workspace/tayo/src/core/input-loader.test.ts) coverage for `.json`, `.js`, and `@jest-environment-options`-driven JS detection plus shared-envelope behavior.
 
 ## Verification
 

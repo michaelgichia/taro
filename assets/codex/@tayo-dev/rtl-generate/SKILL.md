@@ -16,7 +16,7 @@ Use `$@tayo-dev/rtl-generate` when the user wants to turn a Recorder JS export o
 
 ## Execution
 
-Run `taro generate <recording-file>` with the requested flags.
+Run `tayo generate <recording-file>` with the requested flags.
 
 ## Response contract
 

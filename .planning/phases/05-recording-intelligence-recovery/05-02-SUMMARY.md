@@ -38,4 +38,4 @@ Upgraded the recording-intelligence layer from pure noise cleanup to intent-awar
 
 ## Outcome
 
-Taro can now explain a cleaned recording in terms of intent-oriented groups instead of a flat event list. That gives the final Phase 5 integration step a stable, structured analysis result to wire into `taro generate`.
+Tayo can now explain a cleaned recording in terms of intent-oriented groups instead of a flat event list. That gives the final Phase 5 integration step a stable, structured analysis result to wire into `tayo generate`.

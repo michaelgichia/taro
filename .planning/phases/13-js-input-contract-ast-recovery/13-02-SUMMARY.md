@@ -33,10 +33,10 @@ completed: 2026-03-09
 
 ## Accomplishments
 
-- Refactored [`src/core/js-parser.ts`](/Users/michaelgichia/workspace/taro/src/core/js-parser.ts) to use explicit Babel node guards and recover `userEvent(screen.getBy...)`, `userEvent(document.querySelector(...))`, and `expect(...)` structures truthfully.
-- Added direct `@babel/types` support in [`package.json`](/Users/michaelgichia/workspace/taro/package.json) and aligned [`package-lock.json`](/Users/michaelgichia/workspace/taro/package-lock.json) with the new parser dependency surface.
+- Refactored [`src/core/js-parser.ts`](/Users/michaelgichia/workspace/tayo/src/core/js-parser.ts) to use explicit Babel node guards and recover `userEvent(screen.getBy...)`, `userEvent(document.querySelector(...))`, and `expect(...)` structures truthfully.
+- Added direct `@babel/types` support in [`package.json`](/Users/michaelgichia/workspace/tayo/package.json) and aligned [`package-lock.json`](/Users/michaelgichia/workspace/tayo/package-lock.json) with the new parser dependency surface.
 - Parser output now preserves recorder `test('...')` titles, query evidence, selector evidence, and assertion metadata without doing Phase 14 selector strengthening early.
-- Replaced toy-only parser coverage in [`src/core/js-parser.test.ts`](/Users/michaelgichia/workspace/taro/src/core/js-parser.test.ts) with focused nested-call tests plus golden assertions against `sample/sample-rest-recordingextension-output.js`.
+- Replaced toy-only parser coverage in [`src/core/js-parser.test.ts`](/Users/michaelgichia/workspace/tayo/src/core/js-parser.test.ts) with focused nested-call tests plus golden assertions against `sample/sample-rest-recordingextension-output.js`.
 
 ## Verification
 

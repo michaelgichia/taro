@@ -36,7 +36,7 @@ function createSelection(location: InstallLocation): InstallSelection {
 }
 
 async function createSandbox(label: string) {
-  const rootPath = await mkdtemp(join(tmpdir(), `taro-${label}-`))
+  const rootPath = await mkdtemp(join(tmpdir(), `tayo-${label}-`))
   sandboxRoots.push(rootPath)
 
   const homePath = join(rootPath, 'home')
@@ -108,7 +108,7 @@ describe('buildCodexOperations', () => {
       join(target.destinationDirectory, 'skills', '@tayo-dev', 'rtl-generate', 'SKILL.md'),
       'utf8'
     )
-    expect(generateSkill).toContain('Run `taro generate <recording-file>`')
+    expect(generateSkill).toContain('Run `tayo generate <recording-file>`')
     await access(join(target.destinationDirectory, 'skills', '@tayo-dev', 'rtl-mocks', 'SKILL.md'))
   })
 })

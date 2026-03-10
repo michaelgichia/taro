@@ -11,12 +11,12 @@ requirements-completed: [CNV-01, CNV-02]
 
 ## What Was Done
 
-Extended the convention scanner so generated test files can be re-analyzed and merged back into `.taro/conventions.json` after each run.
+Extended the convention scanner so generated test files can be re-analyzed and merged back into `.tayo/conventions.json` after each run.
 
 ## Changes Made
 
 ### `src/core/scanner.ts`
-- Exported `persistConventions()` so the pipeline can reuse the existing `.taro/conventions.json` writer
+- Exported `persistConventions()` so the pipeline can reuse the existing `.tayo/conventions.json` writer
 - Added `mergeConventions()`:
   - reads the persisted conventions state
   - normalizes the generated file path
@@ -32,4 +32,4 @@ Extended the convention scanner so generated test files can be re-analyzed and m
 
 ## Outcome
 
-Phase 4 now has the persistence hooks needed for convention learning. The generate pipeline can inspect its own output, merge those observations, and keep `.taro/conventions.json` current across runs.
+Phase 4 now has the persistence hooks needed for convention learning. The generate pipeline can inspect its own output, merge those observations, and keep `.tayo/conventions.json` current across runs.

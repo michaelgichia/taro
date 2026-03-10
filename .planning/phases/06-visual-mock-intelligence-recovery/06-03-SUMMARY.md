@@ -41,4 +41,4 @@ Built a dedicated mock-intelligence module that detects repeated mock targets an
 
 ## Outcome
 
-Taro now has a real mock-intelligence foundation instead of just a majority mock-style flag. The final Phase 6 plan can build mutation lifecycle/stability reasoning and wire mock analysis into generation.
+Tayo now has a real mock-intelligence foundation instead of just a majority mock-style flag. The final Phase 6 plan can build mutation lifecycle/stability reasoning and wire mock analysis into generation.

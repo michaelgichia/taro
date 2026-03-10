@@ -10,7 +10,7 @@
 ### Locked Decisions
 
 **Phase Goal**
-- Restore the missing recording-intelligence layer so Taro filters noisy recorder input and infers user intent before query generation
+- Restore the missing recording-intelligence layer so Tayo filters noisy recorder input and infers user intent before query generation
 - This phase closes REC-01, REC-02, REC-03, and REC-04 from the milestone audit
 
 **Audit-Derived Scope**
@@ -256,7 +256,7 @@ Also extend existing parser or CLI tests if needed to prove metadata preservatio
 
 ### Manual
 
-Run `taro generate` against a noisy JSON fixture and verify:
+Run `tayo generate` against a noisy JSON fixture and verify:
 
 - output contains fewer meaningless clicks
 - intent-critical actions remain present
