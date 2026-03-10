@@ -348,7 +348,12 @@ function stripSemanticMarkerStepsFromScenarios(
       steps: scenario.steps.filter((step) => !isSemanticMarkerStep(step)),
       helperRefs: scenario.helperRefs.filter((helperRef) => helperNames.has(helperRef)),
     }))
-    .filter((scenario) => scenario.steps.length > 0 || scenario.helperRefs.length > 0)
+    .filter(
+      (scenario) =>
+        scenario.steps.length > 0 ||
+        scenario.helperRefs.length > 0 ||
+        (scenario.markerAssertions?.length ?? 0) > 0
+    )
 }
 
 function dedupeQueryResults(queryResults: QueryResult[]): QueryResult[] {
