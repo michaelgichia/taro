@@ -20,6 +20,7 @@ import { analyzeBoundaryIsolation } from '../../core/boundary-intelligence.js'
 import { verifySyntax } from '../../core/verifier.js'
 import {
   analyzeSingleTestFile,
+  discoverRepoRenderTargets,
   mergeConventions,
   readConventions,
   scanConventions,
@@ -47,6 +48,8 @@ import type {
 } from '../../types/recording.js'
 import type { HistoryEntry, ScoreResult } from '../../types/score.js'
 import type { MockAnalysis } from '../../core/mock-intelligence.js'
+import type { RepoRenderTargetCandidate } from '../../core/scanner.js'
+import type { JsSuitePlan } from '../../core/suite-planner.js'
 
 export interface GenerateOptions {
   output?: string
@@ -226,6 +229,25 @@ function rehydrateItGroups(itGroups: ItGroup[], steps: NormalizedStep[]): ItGrou
   }))
 }
 
+function rehydrateSuitePlan(plan: JsSuitePlan, steps: NormalizedStep[]): JsSuitePlan {
+  const stepMap = new Map(steps.map((step) => [step.id, step]))
+
+  const mapStep = (step: NormalizedStep) => (step.id ? stepMap.get(step.id) ?? step : step)
+
+  return {
+    ...plan,
+    itGroups: rehydrateItGroups(plan.itGroups, steps),
+    helpers: plan.helpers.map((helper) => ({
+      ...helper,
+      steps: helper.steps.map(mapStep),
+    })),
+    scenarios: plan.scenarios.map((scenario) => ({
+      ...scenario,
+      steps: scenario.steps.map(mapStep),
+    })),
+  }
+}
+
 function dedupeQueryResults(queryResults: QueryResult[]): QueryResult[] {
   const seen = new Set<string>()
 
@@ -310,6 +332,97 @@ function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
 function summarizeBoundaryWarnings(warnings: string[]): void {
   for (const warning of warnings) {
     console.warn(pc.yellow(`[taro] Boundary: ${warning}`))
+  }
+}
+
+function tokenizeSuiteHint(value: string): string[] {
+  return value
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length >= 3)
+}
+
+function scoreRenderTargetCandidate(
+  candidate: RepoRenderTargetCandidate,
+  recording: NormalizedRecording,
+  mockAnalysis: MockAnalysis | null,
+  suitePlan: JsSuitePlan
+): number {
+  const recordingTokens = new Set([
+    ...tokenizeSuiteHint(recording.title),
+    ...recording.steps.flatMap((step) => tokenizeSuiteHint(step.target ?? '')),
+  ])
+  const candidateTokens = new Set([
+    ...tokenizeSuiteHint(candidate.symbol),
+    ...tokenizeSuiteHint(candidate.importPath),
+    ...tokenizeSuiteHint(candidate.sourceTestFile),
+    ...candidate.helperNames.flatMap((name) => tokenizeSuiteHint(name)),
+  ])
+
+  let score = 0
+  for (const token of candidateTokens) {
+    if (recordingTokens.has(token)) {
+      score += 3
+    }
+  }
+
+  if (/Module$/u.test(candidate.symbol) && suitePlan.renderBoundary.kind === 'module') {
+    score += 4
+  }
+
+  if (candidate.usesWithin) {
+    score += 1
+  }
+
+  if (mockAnalysis?.repeatedTargets.length) {
+    score += 1
+  }
+
+  return score
+}
+
+function resolveRepoRenderTarget(params: {
+  candidates: RepoRenderTargetCandidate[]
+  recording: NormalizedRecording
+  mockAnalysis: MockAnalysis | null
+  suitePlan: JsSuitePlan
+}): RepoRenderTargetCandidate | null {
+  const { candidates, recording, mockAnalysis, suitePlan } = params
+  if (candidates.length === 0) {
+    return null
+  }
+
+  const ranked = candidates
+    .map((candidate) => ({
+      candidate,
+      score: scoreRenderTargetCandidate(candidate, recording, mockAnalysis, suitePlan),
+    }))
+    .filter((entry) => entry.score > 0)
+    .sort((left, right) => right.score - left.score || left.candidate.symbol.localeCompare(right.candidate.symbol))
+
+  return ranked[0]?.candidate ?? null
+}
+
+function applyRepoRenderTarget(
+  suitePlan: JsSuitePlan,
+  renderTarget: RepoRenderTargetCandidate | null
+): JsSuitePlan {
+  if (!renderTarget) {
+    return suitePlan
+  }
+
+  return {
+    ...suitePlan,
+    renderBoundary: {
+      ...suitePlan.renderBoundary,
+      resolvedTarget: renderTarget.symbol,
+      confidence:
+        suitePlan.renderBoundary.confidence === 'low' ? 'medium' : suitePlan.renderBoundary.confidence,
+    },
+    warnings: suitePlan.warnings.filter(
+      (warning) =>
+        !warning.includes('Taro could not resolve the exact render target from repo context')
+    ),
   }
 }
 
@@ -565,12 +678,14 @@ export function createGenerateCommand(): Command {
         parsedInput.source === 'js' ? normalizeJsBaseline(parsedInput) : parsedInput.recording
 
       let conventions = undefined
+      let repoRenderTargets: RepoRenderTargetCandidate[] = []
       if (parsedInput.source === 'js') {
         conventions = await readConventions(projectRoot)
         if (!conventions) {
           console.log(pc.dim('[taro]') + ' Scanning project conventions...')
           conventions = await scanConventions(projectRoot)
         }
+        repoRenderTargets = await discoverRepoRenderTargets(projectRoot)
       }
 
       console.log(
@@ -594,7 +709,7 @@ export function createGenerateCommand(): Command {
       summarizeMockAnalysis(mockAnalysis)
 
       const outputPath = options.output ?? deriveOutputPath(filePath)
-      const jsSuitePlan =
+      const rawJsSuitePlan =
         parsedInput.source === 'js'
           ? planJsSuite({
               recording: normalizedRecording,
@@ -603,6 +718,20 @@ export function createGenerateCommand(): Command {
               fallbackTitle: normalizedRecording.title,
             })
           : null
+
+      const repoRenderTarget =
+        parsedInput.source === 'js' && rawJsSuitePlan
+          ? resolveRepoRenderTarget({
+              candidates: repoRenderTargets,
+              recording: normalizedRecording,
+              mockAnalysis,
+              suitePlan: rawJsSuitePlan,
+            })
+          : null
+
+      const jsSuitePlan = rawJsSuitePlan
+        ? applyRepoRenderTarget(rawJsSuitePlan, repoRenderTarget)
+        : null
 
       if (jsSuitePlan) {
         summarizeBoundaryWarnings(jsSuitePlan.warnings)
@@ -620,19 +749,30 @@ export function createGenerateCommand(): Command {
         summarizeSelectorWarnings(resolvedJsGeneration.warnings)
       }
 
+      const hydratedSuitePlan =
+        parsedInput.source === 'js' && jsSuitePlan
+          ? rehydrateSuitePlan(
+              jsSuitePlan,
+              resolvedJsGeneration?.recording.steps ?? normalizedRecording.steps
+            )
+          : jsSuitePlan
+
       const generated =
         parsedInput.source === 'js'
-          ? generateTestFromGroups(normalizedRecording.title, resolvedJsGeneration?.itGroups ?? jsSuitePlan?.itGroups ?? toItGroups(analyzedRecording, normalizedRecording.title), {
+          ? generateTestFromGroups(normalizedRecording.title, resolvedJsGeneration?.itGroups ?? hydratedSuitePlan?.itGroups ?? toItGroups(analyzedRecording, normalizedRecording.title), {
               outputPath,
               dryRun: options.dryRun,
               conventions,
               queryResults: resolvedJsGeneration?.queryResults ?? [],
+              helpers: hydratedSuitePlan?.helpers,
+              scenarios: hydratedSuitePlan?.scenarios,
+              renderTarget: repoRenderTarget,
             })
           : generateTest(analyzedRecording, { outputPath, dryRun: options.dryRun })
 
-      if (jsSuitePlan?.warnings.length) {
+      if (hydratedSuitePlan?.warnings.length) {
         generated.code = [
-          ...jsSuitePlan.warnings.map((warning) => `// taro-boundary-warning: ${warning}`),
+          ...hydratedSuitePlan.warnings.map((warning) => `// taro-boundary-warning: ${warning}`),
           generated.code,
         ].join('\n')
       }

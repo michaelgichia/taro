@@ -60,6 +60,14 @@ export interface TestFileContent {
   content: string
 }
 
+export interface RepoRenderTargetCandidate {
+  symbol: string
+  importPath: string
+  sourceTestFile: string
+  helperNames: string[]
+  usesWithin: boolean
+}
+
 /**
  * Load discovered test files with content for downstream analyzers.
  */
@@ -397,4 +405,57 @@ export async function analyzeSingleTestFile(
     : join(projectRoot, filePath)
 
   return analyzeTestFile(normalizedPath)
+}
+
+function extractHelperNames(content: string): string[] {
+  const matches = content.matchAll(/const\s+([a-z][A-Za-z0-9_]*)\s*=\s*async\s*\(/g)
+  return [...new Set([...matches].map((match) => match[1]!))].sort()
+}
+
+function extractRenderTargetCandidatesFromFile(
+  projectRoot: string,
+  file: TestFileContent
+): RepoRenderTargetCandidate[] {
+  const imports = new Map<string, string>()
+  for (const match of file.content.matchAll(/import\s+([A-Z][A-Za-z0-9_]*)\s+from\s+['"]([^'"]+)['"]/g)) {
+    imports.set(match[1]!, match[2]!)
+  }
+
+  const helperNames = extractHelperNames(file.content)
+  const usesWithin = file.content.includes('within(')
+  const sourceTestFile = relative(projectRoot, file.path)
+  const candidates: RepoRenderTargetCandidate[] = []
+
+  for (const match of file.content.matchAll(/render\(\s*<([A-Z][A-Za-z0-9_]*)/g)) {
+    const symbol = match[1]!
+    const importPath = imports.get(symbol)
+    if (!importPath) {
+      continue
+    }
+
+    candidates.push({
+      symbol,
+      importPath,
+      sourceTestFile,
+      helperNames,
+      usesWithin,
+    })
+  }
+
+  return candidates
+}
+
+export async function discoverRepoRenderTargets(
+  projectRoot: string
+): Promise<RepoRenderTargetCandidate[]> {
+  const testFiles = await readTestFiles(projectRoot)
+
+  return testFiles
+    .flatMap((file) => extractRenderTargetCandidatesFromFile(projectRoot, file))
+    .sort((left, right) => {
+      return (
+        left.sourceTestFile.localeCompare(right.sourceTestFile) ||
+        left.symbol.localeCompare(right.symbol)
+      )
+    })
 }

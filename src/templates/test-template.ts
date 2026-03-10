@@ -5,24 +5,51 @@
 
 import type { NormalizedAction } from '../types/recording.js'
 
-export function importBlock(hasUserEvents: boolean, importStyle: 'esm' | 'cjs' = 'esm'): string {
+export interface RenderTargetImport {
+  symbol: string
+  importPath: string
+}
+
+export interface ImportBlockOptions {
+  renderTarget?: RenderTargetImport | null
+  needsWithin?: boolean
+}
+
+export function importBlock(
+  hasUserEvents: boolean,
+  importStyle: 'esm' | 'cjs' = 'esm',
+  options: ImportBlockOptions = {}
+): string {
+  const testingLibraryMembers = ['render', 'screen']
+  if (options.needsWithin) {
+    testingLibraryMembers.push('within')
+  }
+
   if (importStyle === 'cjs') {
     const lines = [
-      "const { render, screen } = require('@testing-library/react')",
+      `const { ${testingLibraryMembers.join(', ')} } = require('@testing-library/react')`,
       "require('@testing-library/jest-dom')",
     ]
     if (hasUserEvents) {
       lines.push("const userEvent = require('@testing-library/user-event')")
     }
+    if (options.renderTarget) {
+      lines.push(
+        `const ${options.renderTarget.symbol} = require('${options.renderTarget.importPath}').default`
+      )
+    }
     return lines.join('\n')
   }
   // ESM (default)
   const lines = [
-    "import { render, screen } from '@testing-library/react'",
+    `import { ${testingLibraryMembers.join(', ')} } from '@testing-library/react'`,
     "import '@testing-library/jest-dom'",
   ]
   if (hasUserEvents) {
     lines.push("import userEvent from '@testing-library/user-event'")
+  }
+  if (options.renderTarget) {
+    lines.push(`import ${options.renderTarget.symbol} from '${options.renderTarget.importPath}'`)
   }
   return lines.join('\n')
 }
@@ -122,11 +149,31 @@ export interface ItBlockTemplate {
   hasUserEvents: boolean
 }
 
+export interface HelperBlockTemplate {
+  name: string
+  stepLines: string[]
+}
+
+export function helperBlock(block: HelperBlockTemplate): string {
+  const indented = indentLines(block.stepLines.join('\n'), 2)
+  return [
+    `const ${block.name} = async (user: ReturnType<typeof userEvent.setup>) => {`,
+    indented,
+    `}`,
+  ].join('\n')
+}
+
 export function describeBlockMultiIt(
   name: string,
-  itBlocks: ItBlockTemplate[]
+  itBlocks: ItBlockTemplate[],
+  options: {
+    renderExpression?: string
+    helpers?: HelperBlockTemplate[]
+  } = {}
 ): string {
   const escapedName = escapeSingleQuote(name)
+  const renderExpression = options.renderExpression ?? '<App />'
+  const helperBlocks = (options.helpers ?? []).map((block) => helperBlock(block))
   const blocks = itBlocks.map((block) => {
     const setup = block.hasUserEvents
       ? `    const user = userEvent.setup()\n`
@@ -134,12 +181,12 @@ export function describeBlockMultiIt(
     const indented = indentLines(block.stepLines.join('\n'), 4)
     return [
       `  it('${escapeSingleQuote(block.name)}', async () => {`,
-      `    render(<App />)`,
+      `    render(${renderExpression})`,
       setup,
       indented,
       `  })`,
     ].join('\n')
   })
 
-  return [`describe('${escapedName}', () => {`, ...blocks, `})`].join('\n')
+  return [`describe('${escapedName}', () => {`, ...helperBlocks, ...blocks, `})`].join('\n\n')
 }
