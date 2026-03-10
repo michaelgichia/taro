@@ -22,8 +22,8 @@ Requirements for milestone v1.4 Assertion Marker. Each maps to roadmap phases.
 ### Quality and Reporting
 
 - [x] **QUAL-01**: Tayo counts every semantic marker detected in the parsed recording and every assertion produced from those markers
-- [ ] **QUAL-02**: Tayo marks assertion strength as a quality-gate failure when semantic markers are present but zero marker-derived assertions are generated
-- [ ] **QUAL-03**: Tayo reports unresolved markers with warnings that cite the original recording line number when conversion cannot be completed truthfully
+- [x] **QUAL-02**: Tayo marks assertion strength as a quality-gate failure when semantic markers are present but zero marker-derived assertions are generated
+- [x] **QUAL-03**: Tayo reports unresolved markers with warnings that cite the original recording line number when conversion cannot be completed truthfully
 
 ### Guardrails
 
@@ -68,8 +68,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ASSERT-03 | Phase 18 | Complete |
 | ASSERT-04 | Phase 18 | Complete |
 | QUAL-01 | Phase 19 | Complete |
-| QUAL-02 | Phase 19 | Pending |
-| QUAL-03 | Phase 19 | Pending |
+| QUAL-02 | Phase 19 | Complete |
+| QUAL-03 | Phase 19 | Complete |
 | SAFE-01 | Phase 18 | Complete |
 | SAFE-02 | Phase 18 | Complete |
 
