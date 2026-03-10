@@ -61,8 +61,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MARK-01 | Phase 17 | Pending |
-| MARK-02 | Phase 17 | Pending |
+| MARK-01 | Phase 17 | Complete |
+| MARK-02 | Phase 17 | Complete |
 | ASSERT-01 | Phase 18 | Pending |
 | ASSERT-02 | Phase 18 | Pending |
 | ASSERT-03 | Phase 18 | Pending |
@@ -80,4 +80,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-10*
-*Last updated: 2026-03-10 after milestone v1.4 roadmap creation*
+*Last updated: 2026-03-10 after Phase 17 completion*

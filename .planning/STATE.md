@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Assertion Marker
-status: planning
-stopped_at: Phase 17 gap plan created
-last_updated: "2026-03-10T08:12:25.597Z"
-last_activity: 2026-03-10 — Roadmap created for milestone v1.4 Assertion Marker
+status: ready-for-planning
+stopped_at: Phase 17 completed and verified
+last_updated: "2026-03-10T08:30:00Z"
+last_activity: 2026-03-10 — Phase 17 Semantic Marker Intake completed and Phase 18 is ready for planning
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 3
-  percent: 0
+  completed_plans: 4
+  percent: 33
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, and Codex with near-zero setup friction
-**Current focus:** Prepare Phase 17 planning for semantic marker intake
+**Current focus:** Prepare Phase 18 planning for truthful marker assertion generation
 
 ## Current Position
 
-Phase: 17. Semantic Marker Intake
+Phase: 18. Truthful Marker Assertion Generation
 Plan: —
 Status: Ready for planning
-Last activity: 2026-03-10 — Roadmap created for milestone v1.4 Assertion Marker
+Last activity: 2026-03-10 — Phase 17 Semantic Marker Intake completed and verified
 
-Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
+Progress: [███████░░░░░░░░░░░░░] 33%
 
 ## Performance Metrics
 
@@ -43,17 +43,17 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 17. Semantic Marker Intake | 0 | - | - |
+| 17. Semantic Marker Intake | 4 | - | - |
 | 18. Truthful Marker Assertion Generation | 0 | - | - |
 | 19. Marker Coverage Audit & Reporting | 0 | - | - |
 
 **Recent Trend:**
-- Last completed milestone: v1.3 JS Baseline on 2026-03-10
+- Last completed phase: 17. Semantic Marker Intake on 2026-03-10
 - Trend: Stable
 
 **Recent Executions:**
-- Phase 16 verification | build + focused suites + JS/JSON dry-runs
-- Milestone v1.3 archival | roadmap, requirements, audit, and project state updates
+- Phase 17 execution | 4 plans, build + focused semantic-marker suites + gap closure
+- Phase 17 verification | representative sample anchor re-check + focused JS pipeline suites
 
 ## Accumulated Context
 
@@ -77,6 +77,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-10T08:12:25.594Z
-Stopped at: Phase 17 gap plan created
-Resume file: .planning/phases/17-semantic-marker-intake/17-04-PLAN.md
+Last session: 2026-03-10T08:30:00Z
+Stopped at: Phase 17 completed and verified
+Resume file: .planning/phases/17-semantic-marker-intake/17-VERIFICATION.md
