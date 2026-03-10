@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Assertion Marker
-status: defining-requirements
-stopped_at: Defining milestone requirements
-last_updated: "2026-03-10T07:15:00Z"
-last_activity: 2026-03-10 — Milestone v1.4 Assertion Marker started
+status: ready-for-planning
+stopped_at: Roadmap created; Phase 17 ready for planning
+last_updated: "2026-03-10T07:16:06Z"
+last_activity: 2026-03-10 — Roadmap created for milestone v1.4 Assertion Marker
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,39 +21,39 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Put high-quality RTL test generation inside Claude Code, OpenCode, Gemini CLI, and Codex with near-zero setup friction
-**Current focus:** Milestone v1.4 Assertion Marker definition
+**Current focus:** Prepare Phase 17 planning for semantic marker intake
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 17. Semantic Marker Intake
 Plan: —
-Status: Defining requirements
-Last activity: 2026-03-10 — Milestone v1.4 Assertion Marker started
+Status: Ready for planning
+Last activity: 2026-03-10 — Roadmap created for milestone v1.4 Assertion Marker
 
 Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 14
-- Average duration: mixed historical data from v1.2
-- Total execution time: mixed historical data from v1.2
+- Total phases completed historically: 16
+- Total plans completed historically: 14
+- Current milestone execution: not started
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 10. Installer Core & Package Entry | 3 | Mixed | Mixed |
-| 11. Runtime Targets & Asset Delivery | 4 | Mixed | Mixed |
-| 12. Verification, Updates & Release Docs | 3 | Mixed | Mixed |
+| 17. Semantic Marker Intake | 0 | - | - |
+| 18. Truthful Marker Assertion Generation | 0 | - | - |
+| 19. Marker Coverage Audit & Reporting | 0 | - | - |
 
 **Recent Trend:**
-- Last 5 plans: Phase 16 execution plans 16-02 and 16-03, Phase 13 verification backfill, Phase 16 verification, and milestone archival
-- Trend: Improving
+- Last completed milestone: v1.3 JS Baseline on 2026-03-10
+- Trend: Stable
 
 **Recent Executions:**
-- Phase 16 verification | 4 commands | build + 6-file suite + JS/JSON dry-runs
-- Milestone completion | archive + project evolution + tag prep
+- Phase 16 verification | build + focused suites + JS/JSON dry-runs
+- Milestone v1.3 archival | roadmap, requirements, audit, and project state updates
 
 ## Accumulated Context
 
@@ -62,32 +62,10 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- [v1.3] Keep the milestone focused on JS baseline fidelity rather than installer or distribution work.
-- [v1.3] Treat recorder JS as a baseline artifact Tayo must interpret and improve before writing a project test.
+- [v1.4] Use semantic `dblClick` as the assertion-marker convention for recorder users.
+- [v1.4] Keep marker conversion additive and user-facing only; do not invent hidden implementation assertions.
 - [v1.3] Preserve Chrome Recorder JSON support while JS baseline quality improves.
-- [v1.3] Continue phase numbering from 13 because v1.2 shipped through Phase 12.
-- [13-01] Use a discriminated parsed-input envelope instead of another `isJsFormat` flag.
-- [13-01] Assign stable step IDs at the parse and load boundary so later AST recovery can reference preserved evidence safely.
-- [13-02] Preserve recorder query and assertion evidence as AST-derived source slices so semantics survive parsing before later normalization and generation work.
-- [13-02] Keep raw CSS selector evidence attached to step IDs without strengthening it before Phase 14.
-- [13-03] Normalize JS baseline evidence onto shared recording steps instead of creating a parallel analysis contract for the CLI.
-- [13-03] Treat environment URL/title expectations as sync assertions so they do not fragment intent grouping in the shared flow.
-- [13-04] Prove JSON parity explicitly during the JS milestone and keep selector strengthening out of scope until Phase 14.
-- [14-01] Model selector recovery as explicit resolved/unresolved outcomes instead of forcing CSS selectors into fabricated fallback queries.
-- [14-01] Preserve recorder-derived accessible query evidence before attempting live-DOM inspection so weaker selector evidence cannot overwrite stronger baseline truth.
-- [14-02] Emit unresolved selector steps as explicit code checkpoints rather than executable placeholder queries.
-- [14-02] Let preserved recorder query evidence override raw selector fallback logic inside JS generation.
-- [Phase 14-03] Mock resolveSelector directly in CLI tests so selector recovery warnings and checkpoints stay deterministic.
-- [Phase 14-03] Use the shipped Add Sale recorder JS sample as the golden selector-truth regression fixture.
-- [Phase 14 verification] Treat host-level Playwright launch failures as truthful unresolved-selector evidence rather than a reason to abort JS dry-runs.
-- [Phase 15 planning] Separate suite-state modeling from repo-aware realization so Phase 15 can test state-safety policy independently from render-target/import emission.
-- [Phase 15 planning] Use the Add Sale gold-standard sample as the anchor for supported repo-aware output rather than aiming for abstract multi-it improvements only.
-- [Phase 15-01] Keep `itGroups` as a compatibility seam while adding richer scenario/helper/state-safety metadata so Wave 2 can adopt the new contract incrementally.
-- [Phase 15-01] Mark helper plans as `sync-only` to keep load-bearing assertions in the scenario body.
-- [Phase 15-02] Resolve repo-aware render targets from existing rendered-component tests instead of guessing from boundary warnings alone.
-- [Phase 15-02] Rehydrate suite-plan helper/scenario steps after selector resolution so helper checkpoints preserve truthful Phase 14 reasons.
-- [Phase 15-03] Once a real render target is resolved, generated output should stop advertising itself as a boundary draft while unsupported paths remain explicit drafts.
-- [Phase 15 verification] Inferred repo-aware helpers must be invoked even when only one helper overlaps the scenario.
+- [v1.3] Treat recorder JS as a baseline artifact Tayo must interpret and improve before writing a project test.
 
 ### Pending Todos
 
@@ -99,6 +77,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-10T06:03:30Z
-Stopped at: Defining milestone requirements
-Resume file: .planning/PROJECT.md
+Last session: 2026-03-10T07:16:06Z
+Stopped at: Roadmap created; Phase 17 ready for planning
+Resume file: .planning/ROADMAP.md

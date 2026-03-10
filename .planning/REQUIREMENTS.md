@@ -61,12 +61,23 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| MARK-01 | Phase 17 | Pending |
+| MARK-02 | Phase 17 | Pending |
+| ASSERT-01 | Phase 18 | Pending |
+| ASSERT-02 | Phase 18 | Pending |
+| ASSERT-03 | Phase 18 | Pending |
+| ASSERT-04 | Phase 18 | Pending |
+| QUAL-01 | Phase 19 | Pending |
+| QUAL-02 | Phase 19 | Pending |
+| QUAL-03 | Phase 19 | Pending |
+| SAFE-01 | Phase 18 | Pending |
+| SAFE-02 | Phase 18 | Pending |
 
 **Coverage:**
 - v1 requirements: 11 total
-- Mapped to phases: 0
-- Unmapped: 11 ⚠️
+- Mapped to phases: 11
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-10*
-*Last updated: 2026-03-10 after milestone v1.4 requirement definition draft*
+*Last updated: 2026-03-10 after milestone v1.4 roadmap creation*
