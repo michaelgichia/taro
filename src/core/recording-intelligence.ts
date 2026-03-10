@@ -4,6 +4,7 @@ import type {
   NormalizedRecording,
   NormalizedStep,
   RecordingDiagnostics,
+  SemanticMarkerAnchorLink,
   SemanticMarkerCandidate,
   SemanticMarkerLink,
   SemanticMarkerProofSubject,
@@ -55,6 +56,12 @@ const INTERACTIVE_ROLES = new Set([
   'tab',
   'textbox',
 ])
+
+const GENERIC_FIELD_CONTEXT_PATTERN =
+  /\b(details?|information|summary|review|section|panel|wrapper|container|layout|row|table|list|grid)\b/i
+
+const FIELD_LABEL_HINT_PATTERN =
+  /\b(name|email|phone|pin|quantity|amount|reference|description|notes?|comment|code|search|address|date|time|password|customer|type|number)\b/i
 
 function getAssertionKind(step: NormalizedStep): string | undefined {
   const assertion = step.metadata?.assertion
@@ -151,6 +158,12 @@ function isSupportedProofSubject(subject: SemanticMarkerProofSubject): boolean {
   )
 }
 
+function isPhase18ConsumableProofSubject(
+  subject: SemanticMarkerProofSubject
+): boolean {
+  return isSupportedProofSubject(subject) || subject === 'field-label'
+}
+
 function isProofLikeButUnsupportedSubject(
   subject: SemanticMarkerProofSubject
 ): boolean {
@@ -229,22 +242,17 @@ function buildSemanticMarkerLink(
   candidate: SemanticMarkerCandidate,
   anchorStep: NormalizedStep
 ): SemanticMarkerLink | undefined {
+  const anchor = buildSemanticMarkerAnchor(step, anchorStep)
   const markerStepId = step.id ?? candidate.stepId
-  const anchorStepId = anchorStep.id
 
-  if (!markerStepId || !anchorStepId) {
+  if (!markerStepId || !anchor?.anchorStepId || !anchor.relation) {
     return undefined
   }
 
-  const relation =
-    normalizedTarget(anchorStep.target) === normalizedTarget(step.target)
-      ? 'same-target'
-      : 'follows'
-
   return {
     markerStepId,
-    anchorStepId,
-    relation,
+    anchorStepId: anchor.anchorStepId,
+    relation: anchor.relation,
     proofSubject: candidate.proofSubject,
     target: candidate.target ?? step.target,
     proofText: candidate.proofText,
@@ -255,10 +263,32 @@ function buildSemanticMarkerLink(
   }
 }
 
+function buildSemanticMarkerAnchor(
+  step: NormalizedStep,
+  anchorStep: NormalizedStep
+): SemanticMarkerAnchorLink | undefined {
+  const anchorStepId = anchorStep.id
+
+  if (!anchorStepId) {
+    return undefined
+  }
+
+  const relation =
+    normalizedTarget(anchorStep.target) === normalizedTarget(step.target)
+      ? 'same-target'
+      : 'follows'
+
+  return {
+    anchorStepId,
+    relation,
+  }
+}
+
 function buildUnresolvedSemanticMarker(
   step: NormalizedStep,
   candidate: SemanticMarkerCandidate,
-  reason: UnresolvedSemanticMarker['reason']
+  reason: UnresolvedSemanticMarker['reason'],
+  anchor?: SemanticMarkerAnchorLink
 ): UnresolvedSemanticMarker | undefined {
   const stepId = step.id ?? candidate.stepId
 
@@ -276,7 +306,7 @@ function buildUnresolvedSemanticMarker(
     sourceContext: candidate.sourceContext,
     query: candidate.query,
     selector: candidate.selector,
-    anchor: candidate.anchor,
+    anchor: anchor ?? candidate.anchor,
   }
 }
 
@@ -289,12 +319,13 @@ function applySemanticMarkerState(
   const nextCandidate: SemanticMarkerCandidate = {
     ...candidate,
     status: semanticMarkerLink ? 'qualified' : 'unresolved',
-    anchor: semanticMarkerLink
-      ? {
-          anchorStepId: semanticMarkerLink.anchorStepId,
-          relation: semanticMarkerLink.relation,
-        }
-      : candidate.anchor,
+    anchor:
+      semanticMarkerLink
+        ? {
+            anchorStepId: semanticMarkerLink.anchorStepId,
+            relation: semanticMarkerLink.relation,
+          }
+        : unresolvedSemanticMarker?.anchor ?? candidate.anchor,
   }
 
   return {
@@ -311,6 +342,52 @@ function applySemanticMarkerState(
   }
 }
 
+function normalizeProofText(value?: string): string | undefined {
+  const normalized = value?.replace(/\s+/g, ' ').trim()
+  return normalized ? normalized : undefined
+}
+
+function isIconOnlyText(value?: string): boolean {
+  const normalized = normalizeProofText(value)
+  if (!normalized) {
+    return false
+  }
+
+  return normalized.length <= 2 && !/[a-z0-9]/i.test(normalized)
+}
+
+function isResolvableFieldContextCandidate(
+  candidate: SemanticMarkerCandidate
+): boolean {
+  if (candidate.selector) {
+    return false
+  }
+
+  const queryMethod = candidate.query?.method
+  if (!queryMethod) {
+    return false
+  }
+
+  const proofText = normalizeProofText(
+    candidate.proofText ?? candidate.query?.target ?? candidate.target
+  )
+
+  if (
+    !proofText ||
+    isIconOnlyText(proofText) ||
+    GENERIC_FIELD_CONTEXT_PATTERN.test(proofText) ||
+    /[/,]/.test(proofText)
+  ) {
+    return false
+  }
+
+  if (queryMethod === 'getByLabelText' || queryMethod === 'getByPlaceholderText') {
+    return true
+  }
+
+  return queryMethod === 'getByText' && FIELD_LABEL_HINT_PATTERN.test(proofText)
+}
+
 function annotateSemanticMarkers(steps: NormalizedStep[]): NormalizedStep[] {
   return steps.map((step, index) => {
     if (!isJsSemanticMarkerGesture(step)) {
@@ -322,8 +399,28 @@ function annotateSemanticMarkers(steps: NormalizedStep[]): NormalizedStep[] {
       return step
     }
 
-    if (isSupportedProofSubject(candidate.proofSubject)) {
+    if (isPhase18ConsumableProofSubject(candidate.proofSubject)) {
       const anchorStep = findNearestPriorMajorTransitionStep(steps, index)
+      const anchor = anchorStep
+        ? buildSemanticMarkerAnchor(step, anchorStep)
+        : candidate.anchor
+
+      if (
+        candidate.proofSubject === 'field-label' &&
+        !isResolvableFieldContextCandidate(candidate)
+      ) {
+        const unresolvedSemanticMarker = buildUnresolvedSemanticMarker(
+          step,
+          candidate,
+          'ambiguous-field-context',
+          anchor
+        )
+
+        return unresolvedSemanticMarker
+          ? applySemanticMarkerState(step, candidate, undefined, unresolvedSemanticMarker)
+          : step
+      }
+
       const semanticMarkerLink = anchorStep
         ? buildSemanticMarkerLink(step, candidate, anchorStep)
         : undefined
@@ -335,7 +432,8 @@ function annotateSemanticMarkers(steps: NormalizedStep[]): NormalizedStep[] {
       const unresolvedSemanticMarker = buildUnresolvedSemanticMarker(
         step,
         candidate,
-        'missing-anchor'
+        'missing-anchor',
+        anchor
       )
 
       return unresolvedSemanticMarker

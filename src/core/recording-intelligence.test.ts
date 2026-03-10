@@ -292,7 +292,7 @@ describe('filterNoiseSteps', () => {
     })
   })
 
-  it('treats field labels as dblClick noise instead of semantic markers', () => {
+  it('preserves resolvable field labels as semantic marker evidence', () => {
     const steps: NormalizedStep[] = [
       createJsClickStep('js-step-1', 'Save'),
       createJsMarkerStep({
@@ -306,12 +306,28 @@ describe('filterNoiseSteps', () => {
 
     const result = filterNoiseSteps(steps)
 
-    expect(result.steps).toEqual([createJsClickStep('js-step-1', 'Save')])
+    expect(result.steps).toHaveLength(2)
+    expect(result.steps[1]).toMatchObject({
+      id: 'js-step-2',
+      semanticMarkerLink: {
+        markerStepId: 'js-step-2',
+        anchorStepId: 'js-step-1',
+        relation: 'follows',
+        proofSubject: 'field-label',
+      },
+      semanticMarkerCandidate: {
+        status: 'qualified',
+        anchor: {
+          anchorStepId: 'js-step-1',
+          relation: 'follows',
+        },
+      },
+    })
     expect(result.diagnostics).toMatchObject({
-      preservedSemanticMarkers: 0,
+      preservedSemanticMarkers: 1,
       unresolvedSemanticMarkers: 0,
-      removedDoubleClickNoise: 1,
       removedRedundantClicks: 1,
+      removedDoubleClickNoise: 0,
     })
   })
 })

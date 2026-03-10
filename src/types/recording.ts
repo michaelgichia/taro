@@ -164,6 +164,8 @@ export interface QueryDescriptor {
   line?: number
   target?: string
   role?: string
+  name?: string
+  options?: Record<string, unknown>
   quality?: QueryQuality
   matcher?: string
   raw?: string
@@ -217,6 +219,7 @@ export interface SemanticMarkerLink {
 
 export type UnresolvedSemanticMarkerReason =
   | 'missing-anchor'
+  | 'ambiguous-field-context'
   | 'unsupported-proof-subject'
 
 export interface SemanticMarkerSourceContext {
@@ -251,6 +254,70 @@ export interface UnresolvedSemanticMarker {
   selector?: SelectorDescriptor
   anchor?: SemanticMarkerAnchorLink
 }
+
+export type SemanticMarkerAssertionProofKind =
+  | 'role-name'
+  | 'visible-text'
+  | 'visible-value'
+  | 'label-text'
+  | 'placeholder-text'
+
+export type SemanticMarkerAssertionExpectation = 'visibility'
+export type SemanticMarkerAssertionMatcher = 'toBeVisible'
+
+export interface SemanticMarkerAssertion {
+  markerStepId: StepId
+  anchorStepId: StepId
+  relation: SemanticMarkerAnchorRelation
+  proofKind: SemanticMarkerAssertionProofKind
+  proofSubject: SemanticMarkerProofSubject
+  target?: string
+  proofText?: string
+  line?: number
+  query: QueryDescriptor
+  queryExpression: string
+  expectation: SemanticMarkerAssertionExpectation
+  matcher: SemanticMarkerAssertionMatcher
+  sourceContext: SemanticMarkerSourceContext
+}
+
+export type SemanticMarkerAssertionUnresolvedReason =
+  | 'missing-marker-candidate'
+  | 'missing-anchor'
+  | 'missing-query'
+  | 'unsupported-proof-subject'
+  | 'ambiguous-field-context'
+  | 'unsupported-field-context'
+  | 'generic-container'
+  | 'css-only-evidence'
+  | 'icon-only-target'
+  | 'hidden-evidence'
+
+export interface ResolvedSemanticMarkerAssertionResolution {
+  status: 'resolved'
+  markerStepId: StepId
+  anchorStepId: StepId
+  assertion: SemanticMarkerAssertion
+}
+
+export interface UnresolvedSemanticMarkerAssertionResolution {
+  status: 'unresolved'
+  markerStepId: StepId
+  anchorStepId?: StepId
+  relation?: SemanticMarkerAnchorRelation
+  reason: SemanticMarkerAssertionUnresolvedReason
+  proofSubject: SemanticMarkerProofSubject
+  target?: string
+  proofText?: string
+  line?: number
+  sourceContext: SemanticMarkerSourceContext
+  query?: QueryDescriptor
+  selector?: SelectorDescriptor
+}
+
+export type SemanticMarkerAssertionResolution =
+  | ResolvedSemanticMarkerAssertionResolution
+  | UnresolvedSemanticMarkerAssertionResolution
 
 export interface ElementInfo {
   tagName: string
