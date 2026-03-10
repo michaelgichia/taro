@@ -3,6 +3,7 @@ import {
   captureVisualState,
   deriveAccessibleQuery,
   extractDialogState,
+  inspectElements,
   resolveSelector,
   selectMatcher,
 } from './resolver.js'
@@ -430,6 +431,46 @@ describe('captureVisualState', () => {
 
     expect(result).toBeNull()
     expect(closeMock).toHaveBeenCalled()
+  })
+})
+
+describe('inspectElements', () => {
+  it('returns null for individual selectors that cannot be inspected and continues', async () => {
+    locatorMock.mockImplementation((selector: string) => ({
+      first: () => ({
+        evaluate:
+          selector === '#missing'
+            ? vi.fn().mockRejectedValue(new Error('missing selector'))
+            : evaluateMock,
+      }),
+    }))
+
+    const result = await inspectElements('http://localhost:3000', ['#save', '#missing'])
+
+    expect(result.get('#save')).toEqual(accessibleButton)
+    expect(result.get('#missing')).toBeNull()
+    expect(gotoMock).toHaveBeenCalledWith('http://localhost:3000', {
+      timeout: 5000,
+      waitUntil: 'domcontentloaded',
+    })
+    expect(closeMock).toHaveBeenCalled()
+  })
+
+  it('returns null for all selectors when page inspection fails', async () => {
+    gotoMock.mockRejectedValueOnce(new Error('browser blocked'))
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    const result = await inspectElements('http://localhost:3000', ['#save', '#confirm'])
+
+    expect(result.get('#save')).toBeNull()
+    expect(result.get('#confirm')).toBeNull()
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[taro] QRY-02: Failed to inspect elements on http://localhost:3000: browser blocked'
+    )
+    expect(closeMock).toHaveBeenCalled()
+
+    warnSpy.mockRestore()
   })
 })
 
