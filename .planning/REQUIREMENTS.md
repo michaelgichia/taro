@@ -9,15 +9,15 @@ Requirements for milestone v1.4 Assertion Marker. Each maps to roadmap phases.
 
 ### Marker Detection
 
-- [ ] **MARK-01**: Recorder `dblClick` steps on visible, meaningful targets are detected as semantic assertion markers instead of ordinary interaction steps
-- [ ] **MARK-02**: Marker detection keeps the original recorder step context so conversion can stay attached to the UI action the user intended to verify
+- [x] **MARK-01**: Recorder `dblClick` steps on visible, meaningful targets are detected as semantic assertion markers instead of ordinary interaction steps
+- [x] **MARK-02**: Marker detection keeps the original recorder step context so conversion can stay attached to the UI action the user intended to verify
 
 ### Assertion Resolution
 
-- [ ] **ASSERT-01**: Marker conversion resolves to role-and-name assertions when accessible role evidence and an accessible name are present
-- [ ] **ASSERT-02**: Marker conversion resolves to visible-text assertions when text evidence is present and no stronger role-and-name evidence exists
-- [ ] **ASSERT-03**: Marker conversion resolves to label-or-placeholder assertions for form inputs when explicit field context exists and stronger evidence is absent
-- [ ] **ASSERT-04**: Marker-derived assertions are emitted in the nearest relevant generated test block rather than leaving the `dblClick` marker as a user interaction
+- [x] **ASSERT-01**: Marker conversion resolves to role-and-name assertions when accessible role evidence and an accessible name are present
+- [x] **ASSERT-02**: Marker conversion resolves to visible-text assertions when text evidence is present and no stronger role-and-name evidence exists
+- [x] **ASSERT-03**: Marker conversion resolves to label-or-placeholder assertions for form inputs when explicit field context exists and stronger evidence is absent
+- [x] **ASSERT-04**: Marker-derived assertions are emitted in the nearest relevant generated test block rather than leaving the `dblClick` marker as a user interaction
 
 ### Quality and Reporting
 
@@ -27,8 +27,8 @@ Requirements for milestone v1.4 Assertion Marker. Each maps to roadmap phases.
 
 ### Guardrails
 
-- [ ] **SAFE-01**: Marker assertions remain additive and do not replace required happy-path, validation, or failure coverage in generated tests
-- [ ] **SAFE-02**: Tayo never generates marker assertions from screenshots, hidden implementation details, generic containers, icon-only targets, or dynamic CSS-only selectors
+- [x] **SAFE-01**: Marker assertions remain additive and do not replace required happy-path, validation, or failure coverage in generated tests
+- [x] **SAFE-02**: Tayo never generates marker assertions from screenshots, hidden implementation details, generic containers, icon-only targets, or dynamic CSS-only selectors
 
 ## v2 Requirements
 
@@ -63,15 +63,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | MARK-01 | Phase 17 | Complete |
 | MARK-02 | Phase 17 | Complete |
-| ASSERT-01 | Phase 18 | Pending |
-| ASSERT-02 | Phase 18 | Pending |
-| ASSERT-03 | Phase 18 | Pending |
-| ASSERT-04 | Phase 18 | Pending |
+| ASSERT-01 | Phase 18 | Complete |
+| ASSERT-02 | Phase 18 | Complete |
+| ASSERT-03 | Phase 18 | Complete |
+| ASSERT-04 | Phase 18 | Complete |
 | QUAL-01 | Phase 19 | Pending |
 | QUAL-02 | Phase 19 | Pending |
 | QUAL-03 | Phase 19 | Pending |
-| SAFE-01 | Phase 18 | Pending |
-| SAFE-02 | Phase 18 | Pending |
+| SAFE-01 | Phase 18 | Complete |
+| SAFE-02 | Phase 18 | Complete |
 
 **Coverage:**
 - v1 requirements: 11 total
@@ -80,4 +80,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-10*
-*Last updated: 2026-03-10 after Phase 17 completion*
+*Last updated: 2026-03-10 after Phase 18 completion*

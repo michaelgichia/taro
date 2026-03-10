@@ -13,20 +13,20 @@
 Active milestone: **v1.4 Assertion Marker**
 
 Next step:
-- Run `$gsd-discuss-phase 18` to clarify marker assertion-generation decisions for the next v1.4 delivery slice.
+- Run `$gsd-discuss-phase 19` to clarify marker coverage and reporting decisions for the final v1.4 delivery slice.
 
 ## Phases
 
 - [x] **Phase 17: Semantic Marker Intake** - Detect recorder `dblClick` assertion markers and preserve the evidence needed to convert them later. (completed 2026-03-10)
-- [ ] **Phase 18: Truthful Marker Assertion Generation** - Turn resolved markers into explicit RTL assertions in the correct scenario block while enforcing user-facing guardrails.
+- [x] **Phase 18: Truthful Marker Assertion Generation** - Turn resolved markers into explicit RTL assertions in the correct scenario block while enforcing user-facing guardrails. (completed 2026-03-10)
 - [ ] **Phase 19: Marker Coverage Audit & Reporting** - Make marker conversion coverage visible, fail zero-conversion runs, and report unresolved markers with recorder line context.
 
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 17. Semantic Marker Intake | 0/0 | Complete    | 2026-03-10 |
-| 18. Truthful Marker Assertion Generation | 0/0 | Not started | - |
+| 17. Semantic Marker Intake | 4/4 | Complete    | 2026-03-10 |
+| 18. Truthful Marker Assertion Generation | 3/3 | Complete    | 2026-03-10 |
 | 19. Marker Coverage Audit & Reporting | 0/0 | Not started | - |
 
 ## Phase Details
