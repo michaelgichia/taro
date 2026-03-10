@@ -264,6 +264,54 @@ describe('createGenerateCommand', () => {
     expect(result.logs).not.toContain('screen.getByTestId(')
   })
 
+  it('uses the Add Sale sample as a regression guard against fabricated CSS-to-testid fallbacks', async () => {
+    const sandbox = await createSandbox('sample-regression')
+    const outputPath = join(sandbox.outputDir, 'generated.test.tsx')
+
+    resolveSelectorMock.mockImplementation(
+      (
+        selector: SelectorDescriptor,
+        options: {
+          url?: string
+          preservedQuery?: QueryDescriptor
+        } = {}
+      ) => {
+        if (options.preservedQuery) {
+          return resolvedSelector(selector, options.preservedQuery, 'baseline')
+        }
+
+        if (selector.selector === accessibleSelector) {
+          return unresolvedSelector(
+            selector,
+            'selector-inaccessible',
+            `Selector ${selector.selector} did not expose trustworthy accessible query evidence.`,
+            { url: options.url }
+          )
+        }
+
+        return defaultResolveSelector(selector, options)
+      }
+    )
+
+    const result = await runGenerate(
+      [samplePath, '--dry-run', '--output', outputPath],
+      sandbox.outputDir
+    )
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.errors).toBe('')
+    expect(result.logs).toContain(`Would write to: ${outputPath}`)
+    expect(result.logs).toContain(`// selector: ${accessibleSelector}`)
+    expect(result.logs).toContain(
+      `// reason: Selector ${accessibleSelector} did not expose trustworthy accessible query evidence.`
+    )
+    expect(result.warnings).toContain(
+      `unresolved selector ${accessibleSelector}: Selector ${accessibleSelector} did not expose trustworthy accessible query evidence.`
+    )
+    expect(result.logs).not.toContain("screen.getByRole('combobox', { name: 'Item selector' })")
+    expect(result.logs).not.toContain('screen.getByTestId(')
+  })
+
   it('overwrites an existing JS output file when --force is provided', async () => {
     const sandbox = await createSandbox('force')
     const outputPath = join(sandbox.outputDir, 'generated.test.tsx')
