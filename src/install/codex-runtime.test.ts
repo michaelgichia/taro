@@ -15,7 +15,9 @@ const EXPECTED_SKILLS = [
   '@tayo-dev/rtl-conventions',
   '@tayo-dev/rtl-generate',
   '@tayo-dev/rtl-help',
+  '@tayo-dev/rtl-init',
   '@tayo-dev/rtl-mocks',
+  '@tayo-dev/rtl-refresh',
 ] as const
 const EXPECTED_GENERATE_REFERENCES = [
   'assertion-markers.md',
@@ -97,6 +99,8 @@ describe('buildCodexOperations', () => {
     expect(helpSkill).toContain('$@tayo-dev/rtl-help')
     expect(helpSkill).toContain('## Routing guide')
     expect(operations.map((operation) => operation.entrypoint)).toContain('$@tayo-dev/rtl-help')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('$@tayo-dev/rtl-init')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('$@tayo-dev/rtl-refresh')
   })
 
   it('installs the same packaged skill surface into a local .codex directory', async () => {
@@ -146,5 +150,17 @@ describe('buildCodexOperations', () => {
     await access(mocksSkillPath)
     const mocksSkill = await readFile(mocksSkillPath, 'utf8')
     expect(mocksSkill).toContain('## Boundary Review Workflow')
+
+    const initSkill = await readFile(
+      join(target.destinationDirectory, 'skills', '@tayo-dev', 'rtl-init', 'SKILL.md'),
+      'utf8'
+    )
+    expect(initSkill).toContain('$@tayo-dev/rtl-init')
+
+    const refreshSkill = await readFile(
+      join(target.destinationDirectory, 'skills', '@tayo-dev', 'rtl-refresh', 'SKILL.md'),
+      'utf8'
+    )
+    expect(refreshSkill).toContain('$@tayo-dev/rtl-refresh')
   })
 })

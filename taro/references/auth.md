@@ -8,80 +8,27 @@ Authentication must never block test generation.
 Secrets are never stored in state.
 Only environment variable NAMES are stored.
 
-Auth recipes are stored inside:
-.taro/state.json → auth.recipes[]
+Current v1 status:
+Persistent auth recipes are not implemented in `.taro/state.json` yet.
+Authentication handling is transient and manual when screenshot capture hits a protected route.
 
 ---
 
-## Auth Recipe Structure (stored in state.json)
+## Current Behavior
 
-Each recipe looks like:
+- If Taro can generate without browser auth, it continues normally.
+- If optional browser inspection lands on a login page, Taro should treat that as an inspection limitation, not a generation blocker.
+- If a manual auth checkpoint is needed, the user completes it in-browser for that session only.
+- Secrets must never be written to `.taro/state.json`, `.taro/overrides.json`, or generated tests.
 
-{
-"id": "string",
-"label": "string",
-"scope": ["string"],
-"strategy": "none | ui_email_password | ui_oauth_manual | cookie | header",
-"detectAuthRequired": {
-"urlIncludes": ["string"],
-"pageTextIncludes": ["string"]
-},
-"detectAuthenticated": {
-"urlExcludes": ["string"],
-"pageTextExcludes": ["string"]
-},
-"ui": {
-"emailSelectors": ["string"],
-"passwordSelectors": ["string"],
-"submitSelectors": ["string"],
-"postLoginWait": {
-"urlNotIncludes": ["string"],
-"pageTextIncludes": ["string"],
-"timeoutMs": 8000
-}
-},
-"credentials": {
-"emailEnv": "string | null",
-"passwordEnv": "string | null",
-"cookieEnv": "string | null",
-"headerEnv": "string | null"
-},
-"confidence": 0.0,
-"evidence": [],
-"createdAt": "ISO-8601",
-"updatedAt": "ISO-8601"
-}
+## Future-Compatible Guidance
 
----
+If persistent auth support is added later, it still must follow these rules:
 
-## First Run Behavior
-
-If Taro detects a login page but no recipe exists:
-
-- Create a recipe with:
-  - strategy = "ui_oauth_manual"
-  - scope = current site origin
-  - detection fields filled from observed URL/text
-  - low confidence (0.4)
-- If browser tools are available, run a manual checkpoint:
-  - navigate to the protected route
-  - instruct the user to complete authentication in-browser
-  - wait/poll `detectAuthenticated` until timeout
-- If authenticated during checkpoint:
-  - set auth status to `authenticated`
-  - continue with screenshot capture
-- If not authenticated by timeout:
-  - keep auth status `unknown_recipe`
-  - skip screenshots and continue test generation.
-
-## Manual OAuth Checkpoint (ui_oauth_manual)
-
-When `strategy` is `ui_oauth_manual`:
-
-- Taro must open the browser and pause for user completion of login.
-- Taro must poll `detectAuthenticated` conditions (URL/text) until timeout.
-- Taro must not capture screenshots before authentication succeeds.
-- On success, set auth status `authenticated`; on timeout, set `failed` (or `unknown_recipe` for first-run templates).
+- store only environment variable names or other non-secret identifiers
+- keep auth recipes optional and provider-agnostic
+- never block core test generation on unavailable auth
+- prefer manual, explicit checkpoints over hidden automation when confidence is low
 
 ---
 

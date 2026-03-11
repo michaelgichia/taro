@@ -1,8 +1,8 @@
 # Taro
 
-Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex, then generate React Testing Library tests from Testing Library Recorder JS exports.
+Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex, run the runtime-native `init` entrypoint as the recommended first step, then generate React Testing Library tests from Testing Library Recorder JS exports.
 
-Taro ships as an installer-first package. The package entrypoint bootstraps runtime-native commands or skills into your agent environment, and those runtime entrypoints execute Taro's internal JS-only generation flow for Recorder-to-RTL output.
+Taro ships as an installer-first package. The package entrypoint bootstraps runtime-native commands or skills into your agent environment, and those runtime entrypoints run Taro's internal JS-only init, refresh, and generation flows.
 
 ## Getting Started
 
@@ -15,9 +15,16 @@ The installer prompts you to choose:
 1. **Runtime** — Claude Code, OpenCode, Gemini CLI, Codex, or all
 2. **Location** — Global (all projects) or local (current project only)
 
+After installation or reinstall, run the runtime-native `init` entrypoint:
+
+- Claude Code: `/@tayo-dev/rtl:init`
+- Gemini CLI: `/@tayo-dev/rtl:init`
+- OpenCode: `/@tayo-dev/rtl-init`
+- Codex: `$@tayo-dev/rtl-init`
+
 Check the installed package version with `tayo version` or `tayo --version`.
 
-Verify the install with the runtime-native help command:
+Use the runtime-native help entrypoint when you want routing guidance:
 
 - Claude Code: `/@tayo-dev/rtl:help`
 - Gemini CLI: `/@tayo-dev/rtl:help`
@@ -29,13 +36,20 @@ Verify the install with the runtime-native help command:
 
 ## Staying Updated
 
-Re-run the installer package to refresh owned assets and repair missing ones:
+Use the runtime-native `refresh` entrypoint for maintenance after Taro is already installed:
+
+- Claude Code: `/@tayo-dev/rtl:refresh`
+- Gemini CLI: `/@tayo-dev/rtl:refresh`
+- OpenCode: `/@tayo-dev/rtl-refresh`
+- Codex: `$@tayo-dev/rtl-refresh`
+
+If you need a newer package version first, rerun the installer package:
 
 ```bash
 npx @tayo-dev/rtl@latest
 ```
 
-Taro refreshes unchanged owned files automatically, restores missing owned files, and protects manual edits instead of overwriting them silently.
+After updating the package, run the runtime-native `refresh` entrypoint. Refresh is the maintenance path for owned assets: it restores missing owned files and protects manual edits instead of overwriting them silently.
 
 ## Non-interactive Install
 
@@ -109,7 +123,7 @@ The tarball flow is the closest match to what end users get from npm.
 
 ## Generate RTL Tests
 
-After installation, use the runtime-native installed generate command or skill for your agent:
+After installation and a first `init` run, use the runtime-native installed generate command or skill for your agent:
 
 - Claude Code: `/@tayo-dev/rtl:generate`
 - Gemini CLI: `/@tayo-dev/rtl:generate`
@@ -143,7 +157,7 @@ Created: src/components/MyComponent.test.tsx
 [taro] ✓ post-write verified
 ```
 
-On subsequent runs in the same project, Taro reads `.taro/conventions.json` to match your test style automatically.
+On subsequent runs in the same project, Taro reads `.taro/state.json` package profiles to match your test style automatically. If `.taro/state.json` is missing, `generate` performs a light bootstrap, but `init` remains the recommended first step for brownfield repos.
 
 ### Draft-quality output is explicit
 
@@ -228,14 +242,15 @@ describe('login flow', () => {
 
 ## Agent Usage
 
-After installation, each runtime gets a namespaced help entrypoint plus a generate command or skill that runs Taro's internal JS generator.
+After installation, each runtime gets a namespaced help entrypoint plus `init`, `refresh`, and `generate` entrypoints. Use `init` first, `refresh` for maintenance, and `generate` for Recorder-to-RTL output.
 
 ### Tips
 
 - Taro writes the generated test next to the recording file using the same basename
 - If you re-record a flow, rename or delete the old generated test before running Taro again
-- If you record multiple flows, run Taro on each to build up convention state in `.taro/conventions.json` — later runs benefit from earlier ones
-- The `.taro/` directory should be committed to your repo so convention learning persists across team members
+- If you record multiple flows, run Taro on each to build up package state in `.taro/state.json` — later runs benefit from earlier ones
+- Commit `.taro/state.json` when you want learned package profiles to persist across teammates and CI
+- Add `.taro/overrides.json` when you need to pin runner, render helper, or shared mock policy for a package
 
 ### Notes
 

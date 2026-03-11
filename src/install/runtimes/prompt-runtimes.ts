@@ -20,11 +20,25 @@ const PROMPT_RUNTIME_ASSETS: Record<PromptRuntimeTarget, RuntimeAssetDefinition[
       entrypoint: '/@tayo-dev/rtl:help',
     },
     {
+      id: 'init',
+      kind: 'command',
+      sourceSegments: ['commands', 'claude', '@tayo-dev', 'rtl', 'init.md'],
+      destinationSegments: ['commands', '@tayo-dev', 'rtl', 'init.md'],
+      entrypoint: '/@tayo-dev/rtl:init',
+    },
+    {
       id: 'generate',
       kind: 'command',
       sourceSegments: ['commands', 'claude', '@tayo-dev', 'rtl', 'generate.md'],
       destinationSegments: ['commands', '@tayo-dev', 'rtl', 'generate.md'],
       entrypoint: '/@tayo-dev/rtl:generate',
+    },
+    {
+      id: 'refresh',
+      kind: 'command',
+      sourceSegments: ['commands', 'claude', '@tayo-dev', 'rtl', 'refresh.md'],
+      destinationSegments: ['commands', '@tayo-dev', 'rtl', 'refresh.md'],
+      entrypoint: '/@tayo-dev/rtl:refresh',
     },
     ...TARO_REFERENCE_FILES.map((fileName) => ({
       id: `generate-reference-${fileName.replace(/\.md$/, '')}`,
@@ -42,11 +56,25 @@ const PROMPT_RUNTIME_ASSETS: Record<PromptRuntimeTarget, RuntimeAssetDefinition[
       entrypoint: '/@tayo-dev/rtl:help',
     },
     {
+      id: 'init',
+      kind: 'command',
+      sourceSegments: ['commands', 'gemini', '@tayo-dev', 'rtl', 'init.toml'],
+      destinationSegments: ['commands', '@tayo-dev', 'rtl', 'init.toml'],
+      entrypoint: '/@tayo-dev/rtl:init',
+    },
+    {
       id: 'generate',
       kind: 'command',
       sourceSegments: ['commands', 'gemini', '@tayo-dev', 'rtl', 'generate.toml'],
       destinationSegments: ['commands', '@tayo-dev', 'rtl', 'generate.toml'],
       entrypoint: '/@tayo-dev/rtl:generate',
+    },
+    {
+      id: 'refresh',
+      kind: 'command',
+      sourceSegments: ['commands', 'gemini', '@tayo-dev', 'rtl', 'refresh.toml'],
+      destinationSegments: ['commands', '@tayo-dev', 'rtl', 'refresh.toml'],
+      entrypoint: '/@tayo-dev/rtl:refresh',
     },
   ],
   opencode: [
@@ -58,11 +86,25 @@ const PROMPT_RUNTIME_ASSETS: Record<PromptRuntimeTarget, RuntimeAssetDefinition[
       entrypoint: '/@tayo-dev/rtl-help',
     },
     {
+      id: 'init',
+      kind: 'command',
+      sourceSegments: ['commands', 'opencode', '@tayo-dev', 'rtl-init.md'],
+      destinationSegments: ['commands', '@tayo-dev', 'rtl-init.md'],
+      entrypoint: '/@tayo-dev/rtl-init',
+    },
+    {
       id: 'generate',
       kind: 'command',
       sourceSegments: ['commands', 'opencode', '@tayo-dev', 'rtl-generate.md'],
       destinationSegments: ['commands', '@tayo-dev', 'rtl-generate.md'],
       entrypoint: '/@tayo-dev/rtl-generate',
+    },
+    {
+      id: 'refresh',
+      kind: 'command',
+      sourceSegments: ['commands', 'opencode', '@tayo-dev', 'rtl-refresh.md'],
+      destinationSegments: ['commands', '@tayo-dev', 'rtl-refresh.md'],
+      entrypoint: '/@tayo-dev/rtl-refresh',
     },
   ],
 }

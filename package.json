@@ -1,6 +1,6 @@
 {
   "name": "@tayo-dev/rtl",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Generate high-quality React Testing Library tests from Recorder exports",
   "type": "module",
   "bin": {

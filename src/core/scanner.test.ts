@@ -86,12 +86,12 @@ describe('scanConventions', () => {
     expect(flagged).toBeDefined()
   })
 
-  it('persists result to .taro/conventions.json (CTX-05)', async () => {
+  it('persists result to .taro/state.json (CTX-05)', async () => {
     const { readFile } = await import('node:fs/promises')
     await scanConventions(testDir)
-    const content = await readFile(join(testDir, '.taro', 'conventions.json'), 'utf-8')
+    const content = await readFile(join(testDir, '.taro', 'state.json'), 'utf-8')
     const parsed = JSON.parse(content)
-    expect(parsed.projectRoot).toBe(testDir)
+    expect(parsed.packages).toEqual({})
   })
 
   it('reads legacy .tayo conventions before the project is migrated', async () => {

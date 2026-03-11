@@ -2,7 +2,8 @@
 
 Taro keeps its generation context local to each project. The primary state lives in:
 
-- `.taro/conventions.json` for learned import style, render helpers, mock shape, and file placement
+- `.taro/state.json` for learned package profiles, render helpers, runner preference, repeated mock targets, fixture roots, and generated-test history
+- `.taro/overrides.json` for manual package-level policy overrides such as runner, render helper, or preferred shared mocks
 - `.taro/visual/` for optional screenshots or visual debugging artifacts
 
 The repository includes lightweight helpers for checking that state:

@@ -24,7 +24,7 @@ Taro must:
 - translate DOM mechanics into semantic user intent
 - convert semantic checkpoints into explicit user-visible assertions
 - preserve entry-path fidelity when the recording opens UI through a parent trigger
-- prefer evidence-based conventions from repo context and `.taro/conventions.json`
+- prefer evidence-based conventions from repo context, `.taro/state.json`, and `.taro/overrides.json`
 - avoid UI-library component reimplementation in mocks
 - interpret scoring and verification output honestly instead of overstating confidence
 
@@ -32,7 +32,7 @@ Output: a generated `{recording-name}.test.tsx` file written next to the recordi
 </objective>
 
 <execution_context>
-Taro CLI and repository-local conventions, especially `.taro/conventions.json` when present.
+Taro CLI and repository-local package state, especially `.taro/state.json` and optional `.taro/overrides.json` when present.
 </execution_context>
 
 <context>

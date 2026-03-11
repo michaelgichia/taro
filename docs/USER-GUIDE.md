@@ -1,6 +1,6 @@
 # Taro User Guide
 
-Taro installs runtime-native commands or skills into Claude Code, Gemini CLI, OpenCode, and Codex, then turns Testing Library Recorder `.js` exports into repository-aware React Testing Library tests.
+Taro installs runtime-native commands or skills into Claude Code, Gemini CLI, OpenCode, and Codex. The recommended first step after install is the runtime-native `init` entrypoint, and `refresh` is the maintenance path for owned assets after that. Taro then turns Testing Library Recorder `.js` exports into repository-aware React Testing Library tests.
 
 ## Install
 
@@ -14,6 +14,13 @@ Use runtime flags plus one location flag to skip prompts:
 npx @tayo-dev/rtl@latest --codex --local
 npx @tayo-dev/rtl@latest --all --global
 ```
+
+After install or reinstall, run the runtime-native `init` entrypoint:
+
+- Claude Code: `/@tayo-dev/rtl:init`
+- Gemini CLI: `/@tayo-dev/rtl:init`
+- OpenCode: `/@tayo-dev/rtl-init`
+- Codex: `$@tayo-dev/rtl-init`
 
 Check the installed package version with `tayo version` or `tayo --version`.
 
@@ -35,21 +42,33 @@ That command builds Taro, installs the Codex skill surface into this repo's `./.
 
 ## Runtime Entrypoints
 
-- Claude Code: `/@tayo-dev/rtl:help`, `/@tayo-dev/rtl:generate`
-- Gemini CLI: `/@tayo-dev/rtl:help`, `/@tayo-dev/rtl:generate`
-- OpenCode: `/@tayo-dev/rtl-help`, `/@tayo-dev/rtl-generate`
-- Codex: `$@tayo-dev/rtl-help`, `$@tayo-dev/rtl-generate`
+- Claude Code: `/@tayo-dev/rtl:help`, `/@tayo-dev/rtl:init`, `/@tayo-dev/rtl:refresh`, `/@tayo-dev/rtl:generate`
+- Gemini CLI: `/@tayo-dev/rtl:help`, `/@tayo-dev/rtl:init`, `/@tayo-dev/rtl:refresh`, `/@tayo-dev/rtl:generate`
+- OpenCode: `/@tayo-dev/rtl-help`, `/@tayo-dev/rtl-init`, `/@tayo-dev/rtl-refresh`, `/@tayo-dev/rtl-generate`
+- Codex: `$@tayo-dev/rtl-help`, `$@tayo-dev/rtl-init`, `$@tayo-dev/rtl-refresh`, `$@tayo-dev/rtl-generate`
+
+## Refresh Maintenance
+
+Use the runtime-native `refresh` entrypoint when Taro is already installed and you want to refresh owned assets or repair missing ones:
+
+- Claude Code: `/@tayo-dev/rtl:refresh`
+- Gemini CLI: `/@tayo-dev/rtl:refresh`
+- OpenCode: `/@tayo-dev/rtl-refresh`
+- Codex: `$@tayo-dev/rtl-refresh`
+
+If you need a newer package version first, rerun `npx @tayo-dev/rtl@latest` and then run the runtime-native `refresh` entrypoint.
 
 ## Generation Rules
 
 1. Provide a Testing Library Recorder `.js` export.
-2. Taro writes `{recording-name}.test.tsx` next to the recording.
-3. Existing generated siblings are never overwritten.
-4. Draft-quality output is reported explicitly through score, blockers, and boundary warnings.
+2. Run the runtime-native `init` entrypoint first when Taro has just been installed or reinstalled.
+3. Taro writes `{recording-name}.test.tsx` next to the recording.
+4. Existing generated siblings are never overwritten.
+5. Draft-quality output is reported explicitly through score, blockers, and boundary warnings.
 
 ## Learned Context
 
-Taro persists convention learning in `.taro/conventions.json` and optional visual artifacts under `.taro/visual`. Commit `.taro/` when you want convention learning to carry across teammates and CI.
+Taro persists package-scoped learning in `.taro/state.json`, reads optional manual policy overrides from `.taro/overrides.json`, and may write visual artifacts under `.taro/visual`. Commit `.taro/state.json` when you want learned package profiles to carry across teammates and CI.
 
 ## Repo Layout
 

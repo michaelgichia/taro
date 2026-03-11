@@ -27,7 +27,7 @@ Read only the files that apply to the current problem:
 - `references/intent-model.md` for parsed-step normalization and interaction-intent recovery
 - `references/assertion-markers.md` for converting semantic `dblClick` checkpoints into explicit assertions
 - `references/entry-path-fidelity.md` when deciding parent trigger flow versus direct dialog/form harnesses
-- `references/conventions-schema.md` when interpreting `.taro/conventions.json` or convention drift
+- `references/conventions-schema.md` when interpreting `.taro/state.json`, `.taro/overrides.json`, or convention drift
 - `references/mock-store.md` when deciding fixture reuse or persistent mock storage
 - `references/quality-scoring.md` when explaining score changes, grade drops, or blocker priorities
 - `references/verification-gate.md` when deciding whether generated output is acceptable to hand off

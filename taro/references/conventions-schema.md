@@ -1,184 +1,109 @@
-# Conventions Schema (Self-Evolving Signals)
+# Conventions Schema
 
-Stored in unified state at:
-.taro/state.json → conventions.signals
+Stored in:
+- `.taro/state.json`
+- optional `.taro/overrides.json`
 
-Goal:
-Learn conventions over time without imposing assumptions.
+Purpose:
+Describe how Taro currently learns and applies test conventions in v1.
 
-Principle:
+## Source of Truth
 
-- Record observations (evidence)
-- Derive candidates
-- Track confidence
-- Keep ranked alternatives when mixed
-- Stay project-agnostic
+Taro does not persist a standalone `conventions.json` anymore.
 
----
-
-## Signal Shape
-
-Each signal uses this shape:
+Convention learning now lives inside package profiles under:
 
 ```jsonc
-{
-  "value": "any",
-  "confidence": 0.0,
-  "evidence": [
-    {
-      "file": "path",
-      "kind": "import|call|usage|pathPrefix|wrapper",
-      "match": "string"
-    }
-  ],
-  "updatedAt": "ISO-8601"
-}
+.taro/state.json -> packages.<packagePath>
 ```
 
-Signals may store a single value or a ranked list of candidates.
+The target package is resolved from the recording/output path, with repo-level fallback when no package-specific profile matches.
 
----
+## Learned Signals Per Package
 
-## Required Signals
-
-### testFramework
+Each package profile stores:
 
 ```jsonc
 {
-  "value": "vitest|jest|unknown",
-  "confidence": 0.0,
-  "evidence": []
-}
-```
-
-Evidence examples:
-
-- import from "vitest"
-- import from "@jest/globals"
-- describe/test usage patterns when imports are absent
-
-### mockStrategy
-
-```jsonc
-{
-  "value": "vi.mock|jest.mock|msw|unknown",
-  "confidence": 0.0,
-  "evidence": []
-}
-```
-
-Evidence examples:
-
-- vi.mock(
-- jest.mock(
-- setupServer(
-- http.get(
-
-### importAliases
-
-Ranked candidates:
-
-```jsonc
-{
-  "value": [
-    { "alias": "@/", "count": 12, "confidence": 0.8 },
-    { "alias": "~/", "count": 3, "confidence": 0.2 }
-  ],
-  "confidence": 0.8,
-  "evidence": []
-}
-```
-
-### renderHelpers
-
-Ranked candidates:
-
-```jsonc
-{
-  "value": [
+  "packagePath": "packages/dashboard",
+  "packageName": "@repo/dashboard",
+  "testFileCount": 12,
+  "conventions": {
+    "importStyle": "esm",
+    "mockPattern": "vi.mock",
+    "folderPattern": "colocated",
+    "fileExtension": "ts"
+  },
+  "importStyle": {
+    "value": "esm",
+    "confidence": "high",
+    "evidence": ["packages/dashboard/src/foo.test.tsx"]
+  },
+  "runner": {
+    "value": "vitest",
+    "confidence": "high",
+    "evidence": ["packages/dashboard: vitest.config.* present"]
+  },
+  "renderHelpers": [
     {
       "name": "renderWithProviders",
-      "path": "@/tests/utils/render",
-      "count": 5,
-      "confidence": 0.7
+      "importPath": "@/tests/renderWithProviders",
+      "importKind": "named",
+      "sourceTestFile": "packages/dashboard/src/foo.test.tsx",
+      "usageCount": 8,
+      "usesWithin": true
     }
   ],
-  "confidence": 0.7,
-  "evidence": []
+  "providerWrappers": [],
+  "renderTargets": [],
+  "repeatedMockTargets": [],
+  "sharedMockFactories": [],
+  "inlineSafeMockTargets": [],
+  "fixtureRoots": [],
+  "exemplars": [],
+  "warnings": []
 }
 ```
 
-### queryStyle
+## Effective Convention Resolution
 
-Tracks observed querying patterns:
+Generation uses this precedence order:
+
+1. `.taro/overrides.json`
+2. matching package profile in `.taro/state.json`
+3. repo fallback package profile
+4. generic safe defaults
+
+Overrides support:
 
 ```jsonc
 {
-  "value": {
-    "usesRoleQueries": true,
-    "usesLabelQueries": true,
-    "usesTestId": false
-  },
-  "confidence": 0.6,
-  "evidence": []
-}
-```
-
-### sharedMockSetups
-
-Ranked reusable mock setup imports:
-
-```jsonc
-{
-  "value": [
-    {
-      "path": "@/tests/mocks/digitax-components",
-      "count": 4,
-      "confidence": 0.8
+  "packages": {
+    "packages/dashboard": {
+      "runner": "vitest",
+      "renderHelper": {
+        "name": "renderDashboard",
+        "importPath": "@/tests/renderDashboard"
+      },
+      "forbidMocks": ["@digitax/components"],
+      "preferredSharedMocks": {
+        "@digitax/data-layer": "@/tests/mocks/digitax-data-layer"
+      }
     }
-  ],
-  "confidence": 0.8,
-  "evidence": []
+  }
 }
 ```
 
-Evidence examples:
+## How Conventions Change
 
-- side-effect mock setup imports in test files
-- centralized mock bootstrap modules reused across directories
+- `init` performs the first bounded repo scan and writes `.taro/state.json`.
+- `refresh` rescans package profiles and rewrites state from fresh evidence.
+- `generate` bootstraps state when missing, then refreshes state again after a successful write.
 
-Generation preference:
+## Practical Interpretation
 
-- If `sharedMockSetups` has confidence >= 0.8, prefer importing the setup over re-mocking the same UI package locally.
+When generated output drifts:
 
----
-
-## Confidence Rules (Deterministic)
-
-Suggested confidence computation:
-
-- For categorical signals:
-  confidence = topCount / totalRelevantCount (clamp 0..1)
-- For ranked lists:
-  overall confidence = topCount / totalCount
-- If totalRelevantCount < 3:
-  cap confidence at 0.5 (insufficient evidence)
-
-If two candidates are close (difference <= 10%):
-
-- keep both candidates
-- reduce confidence by 0.1
-
----
-
-## Update/Merge Rules
-
-On each run:
-
-1. Add new evidence to existing evidence (bounded cap).
-2. Recompute counts and confidence.
-3. Update updatedAt.
-4. Never delete a signal; mark unknown if confidence falls.
-
-Generation must prefer signals with confidence >= 0.8.
-Otherwise use safe fallback and log limitation.
+- missing or weak package profiles usually mean `init` was not run, or the package has too few local examples
+- wrong runner or render helper should be fixed with package-local examples first, then overrides if the repo is mixed
+- repo fallback is acceptable, but it is weaker than a package-specific profile and should be described that way

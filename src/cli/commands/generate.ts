@@ -4,14 +4,11 @@
  */
 
 import { Command } from 'commander'
-import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { access, mkdir } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
 import { cwd } from 'node:process'
 import pc from 'picocolors'
-import {
-  ensureProjectStateDir,
-  getProjectStatePath,
-} from '../../project-state.js'
+import { ensureProjectStateDir } from '../../project-state.js'
 import { writeTestFile } from '../../core/writer.js'
 import {
   captureVisualState,
@@ -21,13 +18,6 @@ import { scoreGeneratedTest } from '../../core/scorer.js'
 import { analyzeBoundaryIsolation } from '../../core/boundary-intelligence.js'
 import { verifySyntax } from '../../core/verifier.js'
 import {
-  analyzeSingleTestFile,
-  discoverRepoRenderTargets,
-  mergeConventions,
-  readConventions,
-  scanConventions,
-} from '../../core/scanner.js'
-import {
   analyzeRecording,
   findVisualCaptureCandidates,
 } from '../../core/recording-intelligence.js'
@@ -36,6 +26,14 @@ import { generateTestFromGroups, emitQuerySummary } from '../../core/generator.j
 import { loadInput } from '../../core/input-loader.js'
 import { normalizeJsBaseline } from '../../core/baseline-normalizer.js'
 import { planJsSuite } from '../../core/suite-planner.js'
+import {
+  appendGeneratedTestRecord,
+  detectPackageProfileStaleness,
+  loadOrBootstrapTaroState,
+  readTaroOverrides,
+  refreshTaroState,
+  resolveTaroPackageProfile,
+} from '../../core/state.js'
 import type {
   AnalyzedRecording,
   ItGroup,
@@ -50,10 +48,10 @@ import type {
   UnresolvedSemanticMarkerAssertionResolution,
   VisualState,
 } from '../../types/recording.js'
-import type { HistoryEntry, MarkerCoverageTotals, ScoreResult } from '../../types/score.js'
+import type { MarkerCoverageTotals, ScoreResult } from '../../types/score.js'
 import type { MockAnalysis } from '../../core/mock-intelligence.js'
-import type { RepoRenderTargetCandidate } from '../../core/scanner.js'
 import type { JsSuitePlan } from '../../core/suite-planner.js'
+import type { RepoRenderTargetCandidate, ResolvedTaroPackageProfile } from '../../types/state.js'
 
 const EMPTY_MARKER_COVERAGE: MarkerCoverageTotals = {
   detected: 0,
@@ -561,6 +559,9 @@ function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
   }
 
   const parts: string[] = []
+  if (mockAnalysis.source === 'package-profile' && mockAnalysis.packagePath) {
+    parts.push(`package=${mockAnalysis.packagePath}`)
+  }
 
   if (mockAnalysis.repeatedTargets.length > 0) {
     parts.push(`${mockAnalysis.repeatedTargets.length} repeated target(s)`)
@@ -588,6 +589,20 @@ function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
     )
   }
 
+  const preferredSharedMock = Object.entries(mockAnalysis.preferredSharedMocks)[0]
+  if (preferredSharedMock) {
+    console.log(
+      pc.dim('[taro]') +
+        ` Shared mock preference: ${preferredSharedMock[0]} -> ${preferredSharedMock[1]}`
+    )
+  }
+
+  if (mockAnalysis.forbidMocks.length > 0) {
+    console.warn(
+      pc.yellow(`[taro] Mock policy: forbidden targets ${mockAnalysis.forbidMocks.join(', ')}`)
+    )
+  }
+
   const topLifecycle = mockAnalysis.mutationLifecycles[0]
   if (topLifecycle) {
     console.log(
@@ -606,6 +621,27 @@ function summarizeBoundaryWarnings(warnings: string[]): void {
   for (const warning of warnings) {
     console.warn(pc.yellow(`[taro] Boundary: ${warning}`))
   }
+}
+
+function summarizeResolvedPackageProfile(
+  packageProfile: ResolvedTaroPackageProfile | null
+): void {
+  if (!packageProfile) {
+    console.warn(
+      pc.yellow('[taro] State profile: no matching package profile found; using generic defaults.')
+    )
+    return
+  }
+
+  const parts = [
+    `package=${packageProfile.packagePath}`,
+    `runner=${packageProfile.effectiveRunner}`,
+    `renderHelper=${packageProfile.effectiveRenderHelper?.name ?? 'none'}`,
+    `sharedMocks=${packageProfile.sharedMockFactories.length}`,
+    `inlineMocks=${packageProfile.inlineSafeMockTargets.length}`,
+  ]
+
+  console.log(pc.dim('[taro]') + ` State profile: ${parts.join(', ')}`)
 }
 
 function tokenizeSuiteHint(value: string): string[] {
@@ -851,32 +887,15 @@ async function maybeCaptureVisualState(params: {
   return null
 }
 
-async function maybeAnalyzeMocks(projectRoot: string): Promise<MockAnalysis | null> {
+async function maybeAnalyzeMocks(
+  projectRoot: string,
+  packageProfile: ResolvedTaroPackageProfile | null
+): Promise<MockAnalysis | null> {
   try {
-    return await analyzeMocks(projectRoot)
+    return await analyzeMocks(projectRoot, { packageProfile })
   } catch {
     return null
   }
-}
-
-async function appendHistoryEntry(
-  projectRoot: string,
-  historyEntry: HistoryEntry
-): Promise<void> {
-  await ensureProjectStateDir(projectRoot)
-  const historyPath = getProjectStatePath(projectRoot, 'history.json')
-  let history: HistoryEntry[] = []
-
-  try {
-    await access(historyPath)
-    const historyContent = await readFile(historyPath, 'utf-8')
-    history = JSON.parse(historyContent) as HistoryEntry[]
-  } catch {
-    history = []
-  }
-
-  history.push(historyEntry)
-  await writeFile(historyPath, JSON.stringify(history, null, 2), 'utf-8')
 }
 
 async function finalizeGeneratedOutput(params: {
@@ -885,8 +904,9 @@ async function finalizeGeneratedOutput(params: {
   projectRoot: string
   recordingFile: string
   scoreResult: ScoreResult
+  packageProfile: ResolvedTaroPackageProfile | null
 }): Promise<void> {
-  const { code, outputPath, projectRoot, recordingFile, scoreResult } = params
+  const { code, outputPath, projectRoot, recordingFile, scoreResult, packageProfile } = params
 
   const verification = verifySyntax(code, outputPath)
   if (!verification.valid) {
@@ -898,19 +918,20 @@ async function finalizeGeneratedOutput(params: {
 
   console.log(pc.green('[taro] ✓ post-write verified'))
 
-  await appendHistoryEntry(projectRoot, {
-    timestamp: new Date().toISOString(),
-    recordingFile,
-    score: scoreResult.total,
-    grade: scoreResult.grade,
-    dimensions: scoreResult.dimensions,
-  })
-
   try {
-    const detectedConventions = await analyzeSingleTestFile(projectRoot, outputPath)
-    await mergeConventions(projectRoot, detectedConventions)
+    await refreshTaroState(projectRoot)
+    await appendGeneratedTestRecord(projectRoot, {
+      packagePath: packageProfile?.packagePath ?? '.',
+      recordingFile,
+      testFile: outputPath,
+      scoreResult,
+    })
+    console.log(
+      pc.dim('[taro]') +
+        ` Updated .taro/state.json for package ${packageProfile?.packagePath ?? '.'}.`
+    )
   } catch {
-    // Convention learning is best-effort, do not fail generation.
+    // State updates are best-effort; generation should still succeed.
   }
 }
 
@@ -945,14 +966,69 @@ export function createGenerateCommand(): Command {
       }
 
       const normalizedRecording = normalizeJsBaseline(parsedInput)
+      const hadState = await access(join(projectRoot, '.taro', 'state.json'))
+        .then(() => true)
+        .catch(() => false)
+      const outputPath = deriveOutputPath(filePath)
+      let bootstrappedState = await loadOrBootstrapTaroState(projectRoot)
+      let overrides = await readTaroOverrides(projectRoot)
+      let packageProfile = resolveTaroPackageProfile(
+        bootstrappedState.state,
+        projectRoot,
+        outputPath,
+        overrides
+      )
 
-      let conventions = await readConventions(projectRoot)
-      if (!conventions) {
-        console.log(pc.dim('[taro]') + ' Scanning project conventions...')
-        conventions = await scanConventions(projectRoot)
+      if (bootstrappedState.summary.warnings.length > 0) {
+        for (const warning of bootstrappedState.summary.warnings) {
+          console.warn(pc.yellow(`[taro] State: ${warning}`))
+        }
       }
+
+      if (packageProfile) {
+        const staleness = await detectPackageProfileStaleness(projectRoot, packageProfile)
+        if (staleness.stale) {
+          console.log(
+            pc.dim('[taro]') +
+              ` Detected stale package profile ${packageProfile.packagePath}; refreshing before generation.`
+          )
+          if (staleness.reason) {
+            console.warn(pc.yellow(`[taro] State: ${staleness.reason}`))
+          }
+          bootstrappedState = await refreshTaroState(projectRoot)
+          overrides = await readTaroOverrides(projectRoot)
+          packageProfile = resolveTaroPackageProfile(
+            bootstrappedState.state,
+            projectRoot,
+            outputPath,
+            overrides
+          )
+        }
+      }
+
+      const conventions =
+        packageProfile?.conventions ?? {
+          scannedAt: new Date().toISOString(),
+          projectRoot,
+          importStyle: 'esm',
+          mockPattern: 'none',
+          testFiles: [],
+          folderPattern: 'unknown',
+          fileExtension: 'ts',
+        }
       const repoRenderTargets: RepoRenderTargetCandidate[] =
-        await discoverRepoRenderTargets(projectRoot)
+        packageProfile?.renderTargets ?? []
+
+      if (!hadState) {
+        console.log(pc.dim('[taro]') + ' Bootstrapped .taro/state.json from current repo tests.')
+      }
+      if (packageProfile?.appliedOverrides.length) {
+        console.log(
+          pc.dim('[taro]') +
+            ` Applied overrides for ${packageProfile.packagePath}: ${packageProfile.appliedOverrides.join(', ')}`
+        )
+      }
+      summarizeResolvedPackageProfile(packageProfile)
 
       console.log(
         pc.green('Parsed:') +
@@ -970,10 +1046,8 @@ export function createGenerateCommand(): Command {
         url: findRecordingUrl(analyzedRecording),
       })
       summarizeVisualState(visualState)
-      const mockAnalysis = await maybeAnalyzeMocks(projectRoot)
+      const mockAnalysis = await maybeAnalyzeMocks(projectRoot, packageProfile)
       summarizeMockAnalysis(mockAnalysis)
-
-      const outputPath = deriveOutputPath(filePath)
       const rawJsSuitePlan = planJsSuite({
         recording: markerAwareRecording,
         analyzedRecording,
@@ -1027,10 +1101,12 @@ export function createGenerateCommand(): Command {
       const generated = generateTestFromGroups(normalizedRecording.title, generationItGroups, {
         outputPath,
         conventions,
+        runner: packageProfile?.effectiveRunner ?? 'unknown',
         queryResults: resolvedJsGeneration?.queryResults ?? [],
         helpers: generationHelpers,
         scenarios: generationScenarios,
         renderTarget: repoRenderTarget,
+        renderHelper: packageProfile?.effectiveRenderHelper ?? null,
       })
       const markerCoverage = buildMarkerCoverageSummary({
         analyzedRecording,
@@ -1066,6 +1142,7 @@ export function createGenerateCommand(): Command {
           projectRoot,
           recordingFile: filePath,
           scoreResult,
+          packageProfile,
         })
         const action = result.overwritten ? pc.yellow('Updated') : pc.green('Created')
         console.log(`${action}: ${pc.bold(result.filePath)}`)

@@ -44,6 +44,8 @@ function createAnalyzedRecording(
 function createMockAnalysis(): MockAnalysis {
   return {
     conventions: null,
+    packagePath: 'packages/dashboard',
+    source: 'package-profile',
     recommendations: [
       {
         count: 3,
@@ -68,6 +70,10 @@ function createMockAnalysis(): MockAnalysis {
       },
     ],
     instabilityWarnings: [],
+    sharedMockFactories: [],
+    inlineSafeMockTargets: [],
+    preferredSharedMocks: {},
+    forbidMocks: [],
   }
 }
 

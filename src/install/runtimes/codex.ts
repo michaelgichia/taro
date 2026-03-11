@@ -12,11 +12,25 @@ const CODEX_SKILL_ASSETS: RuntimeAssetDefinition[] = [
     entrypoint: '$@tayo-dev/rtl-help',
   },
   {
+    id: 'init',
+    kind: 'skill',
+    sourceSegments: ['agents', 'tayo-init.md'],
+    destinationSegments: ['skills', '@tayo-dev', 'rtl-init', 'SKILL.md'],
+    entrypoint: '$@tayo-dev/rtl-init',
+  },
+  {
     id: 'generate',
     kind: 'skill',
     sourceSegments: ['agents', 'tayo-generate.md'],
     destinationSegments: ['skills', '@tayo-dev', 'rtl-generate', 'SKILL.md'],
     entrypoint: '$@tayo-dev/rtl-generate',
+  },
+  {
+    id: 'refresh',
+    kind: 'skill',
+    sourceSegments: ['agents', 'tayo-refresh.md'],
+    destinationSegments: ['skills', '@tayo-dev', 'rtl-refresh', 'SKILL.md'],
+    entrypoint: '$@tayo-dev/rtl-refresh',
   },
   ...TARO_REFERENCE_FILES.map((fileName) => ({
     id: `generate-reference-${fileName.replace(/\.md$/, '')}`,

@@ -77,9 +77,19 @@ describe('prompt runtime install builders', () => {
 
     const helpPath = join(home, '.claude', 'commands', '@tayo-dev', 'rtl', 'help.md')
     const helpContent = await expectFile(helpPath)
+    const initContent = await expectFile(
+      join(home, '.claude', 'commands', '@tayo-dev', 'rtl', 'init.md')
+    )
+    const refreshContent = await expectFile(
+      join(home, '.claude', 'commands', '@tayo-dev', 'rtl', 'refresh.md')
+    )
 
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@tayo-dev/rtl:help')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@tayo-dev/rtl:init')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@tayo-dev/rtl:refresh')
     expect(helpContent).toContain('/@tayo-dev/rtl:help')
+    expect(initContent).toContain('tayo __init')
+    expect(refreshContent).toContain('tayo __refresh')
     expect(operations.map((operation) => operation.relativeDestinationPath)).toContain(
       'commands/@tayo-dev/rtl/references/assertion-markers.md'
     )
@@ -113,9 +123,19 @@ describe('prompt runtime install builders', () => {
     const helpContent = await expectFile(
       join(home, '.gemini', 'commands', '@tayo-dev', 'rtl', 'help.toml')
     )
+    const initContent = await expectFile(
+      join(home, '.gemini', 'commands', '@tayo-dev', 'rtl', 'init.toml')
+    )
+    const refreshContent = await expectFile(
+      join(home, '.gemini', 'commands', '@tayo-dev', 'rtl', 'refresh.toml')
+    )
 
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@tayo-dev/rtl:help')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@tayo-dev/rtl:init')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@tayo-dev/rtl:refresh')
     expect(helpContent).toContain('/@tayo-dev/rtl:help')
+    expect(initContent).toContain('`tayo __init`')
+    expect(refreshContent).toContain('`tayo __refresh`')
   })
 
   it('installs Gemini CLI assets into the local .gemini command namespace', async () => {
@@ -141,9 +161,19 @@ describe('prompt runtime install builders', () => {
     const helpContent = await expectFile(
       join(home, '.config', 'opencode', 'commands', '@tayo-dev', 'rtl-help.md')
     )
+    const initContent = await expectFile(
+      join(home, '.config', 'opencode', 'commands', '@tayo-dev', 'rtl-init.md')
+    )
+    const refreshContent = await expectFile(
+      join(home, '.config', 'opencode', 'commands', '@tayo-dev', 'rtl-refresh.md')
+    )
 
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@tayo-dev/rtl-help')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@tayo-dev/rtl-init')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@tayo-dev/rtl-refresh')
     expect(helpContent).toContain('/@tayo-dev/rtl-help')
+    expect(initContent).toContain('tayo __init')
+    expect(refreshContent).toContain('tayo __refresh')
   })
 
   it('installs OpenCode assets into the local .opencode command namespace', async () => {

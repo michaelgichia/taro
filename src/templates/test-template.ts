@@ -10,8 +10,16 @@ export interface RenderTargetImport {
   importPath: string
 }
 
+export interface RenderHelperImport {
+  name: string
+  importPath: string
+  importKind: 'named' | 'default'
+}
+
 export interface ImportBlockOptions {
   renderTarget?: RenderTargetImport | null
+  renderHelper?: RenderHelperImport | null
+  jestDomImportPath?: string
   needsWithin?: boolean
 }
 
@@ -20,15 +28,19 @@ export function importBlock(
   importStyle: 'esm' | 'cjs' = 'esm',
   options: ImportBlockOptions = {}
 ): string {
-  const testingLibraryMembers = ['render', 'screen']
+  const testingLibraryMembers = ['screen']
   if (options.needsWithin) {
     testingLibraryMembers.push('within')
   }
+  if (!options.renderHelper) {
+    testingLibraryMembers.unshift('render')
+  }
+  const jestDomImportPath = options.jestDomImportPath ?? '@testing-library/jest-dom'
 
   if (importStyle === 'cjs') {
     const lines = [
       `const { ${testingLibraryMembers.join(', ')} } = require('@testing-library/react')`,
-      "require('@testing-library/jest-dom')",
+      `require('${jestDomImportPath}')`,
     ]
     if (hasUserEvents) {
       lines.push("const userEvent = require('@testing-library/user-event')")
@@ -38,18 +50,32 @@ export function importBlock(
         `const ${options.renderTarget.symbol} = require('${options.renderTarget.importPath}').default`
       )
     }
+    if (options.renderHelper) {
+      const helperImport =
+        options.renderHelper.importKind === 'default'
+          ? `require('${options.renderHelper.importPath}').default`
+          : `require('${options.renderHelper.importPath}').${options.renderHelper.name}`
+      lines.push(`const ${options.renderHelper.name} = ${helperImport}`)
+    }
     return lines.join('\n')
   }
   // ESM (default)
   const lines = [
     `import { ${testingLibraryMembers.join(', ')} } from '@testing-library/react'`,
-    "import '@testing-library/jest-dom'",
+    `import '${jestDomImportPath}'`,
   ]
   if (hasUserEvents) {
     lines.push("import userEvent from '@testing-library/user-event'")
   }
   if (options.renderTarget) {
     lines.push(`import ${options.renderTarget.symbol} from '${options.renderTarget.importPath}'`)
+  }
+  if (options.renderHelper) {
+    lines.push(
+      options.renderHelper.importKind === 'default'
+        ? `import ${options.renderHelper.name} from '${options.renderHelper.importPath}'`
+        : `import { ${options.renderHelper.name} } from '${options.renderHelper.importPath}'`
+    )
   }
   return lines.join('\n')
 }
@@ -183,11 +209,13 @@ export function describeBlockMultiIt(
   itBlocks: ItBlockTemplate[],
   options: {
     renderExpression?: string
+    renderFunctionName?: string
     helpers?: HelperBlockTemplate[]
   } = {}
 ): string {
   const escapedName = escapeSingleQuote(name)
   const renderExpression = options.renderExpression ?? '<App />'
+  const renderFunctionName = options.renderFunctionName ?? 'render'
   const helperBlocks = (options.helpers ?? []).map((block) => helperBlock(block))
   const blocks = itBlocks.map((block) => {
     const setup = block.hasUserEvents
@@ -196,7 +224,7 @@ export function describeBlockMultiIt(
     const indented = indentLines(block.stepLines.join('\n'), 4)
     return [
       `  it('${escapeSingleQuote(block.name)}', async () => {`,
-      `    render(${renderExpression})`,
+      `    ${renderFunctionName}(${renderExpression})`,
       setup,
       indented,
       `  })`,

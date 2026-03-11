@@ -91,6 +91,7 @@ describe('analyzeMocks', () => {
     const analysis = await analyzeMocks(testDir)
 
     expect(analysis.conventions?.mockPattern).toBe('vi.mock')
+    expect(analysis.source).toBe('repo-scan')
     expect(analysis.repeatedTargets).toEqual([
       {
         target: './api/orders',
@@ -106,6 +107,100 @@ describe('analyzeMocks', () => {
     )
     expect(analysis.mutationLifecycles).toEqual([])
     expect(analysis.instabilityWarnings).toEqual([])
+    expect(analysis.sharedMockFactories).toEqual([])
+    expect(analysis.preferredSharedMocks).toEqual({})
+    expect(analysis.forbidMocks).toEqual([])
+  })
+
+  it('uses the resolved package profile when provided', async () => {
+    const analysis = await analyzeMocks(testDir, {
+      packageProfile: {
+        packagePath: 'packages/dashboard',
+        packageName: '@repo/dashboard',
+        scannedAt: new Date().toISOString(),
+        testFileCount: 2,
+        conventions: {
+          scannedAt: new Date().toISOString(),
+          projectRoot: '.',
+          importStyle: 'esm',
+          mockPattern: 'vi.mock',
+          testFiles: [],
+          folderPattern: 'colocated',
+          fileExtension: 'ts',
+        },
+        importStyle: { value: 'esm', confidence: 'high', evidence: [] },
+        runner: { value: 'vitest', confidence: 'high', evidence: [] },
+        mockPattern: { value: 'vi.mock', confidence: 'high', evidence: [] },
+        folderPattern: { value: 'colocated', confidence: 'high', evidence: [] },
+        fileExtension: { value: 'ts', confidence: 'high', evidence: [] },
+        renderHelpers: [],
+        providerWrappers: [],
+        renderTargets: [],
+        repeatedMockTargets: [
+          {
+            target: '@/modules/orders/api',
+            files: ['packages/dashboard/src/a.test.tsx', 'packages/dashboard/src/b.test.tsx'],
+            count: 2,
+          },
+          {
+            target: '@digitax/components',
+            files: ['packages/dashboard/src/a.test.tsx'],
+            count: 1,
+          },
+        ],
+        sharedMockFactories: [
+          {
+            target: 'mockOrdersApi',
+            importPath: '@/tests/mocks/orders',
+            files: ['packages/dashboard/src/a.test.tsx'],
+            count: 1,
+          },
+        ],
+        inlineSafeMockTargets: ['next/navigation'],
+        mutationLifecycles: [],
+        instabilityWarnings: [],
+        mockRecommendations: [
+          {
+            target: '@/modules/orders/api',
+            kind: 'extract',
+            reason: 'Mock target appears in multiple tests and should be shared',
+            files: ['packages/dashboard/src/a.test.tsx', 'packages/dashboard/src/b.test.tsx'],
+            count: 2,
+          },
+        ],
+        fixtureRoots: [],
+        exemplars: [],
+        warnings: [],
+        appliedOverrides: ['preferredSharedMocks', 'forbidMocks'],
+        effectiveRunner: 'vitest',
+        effectiveRenderHelper: null,
+        forbidMocks: ['@digitax/components'],
+        preferredSharedMocks: {
+          '@/modules/orders/api': '@/tests/mocks/orders',
+        },
+      },
+    })
+
+    expect(analysis.source).toBe('package-profile')
+    expect(analysis.packagePath).toBe('packages/dashboard')
+    expect(analysis.repeatedTargets).toEqual([
+      {
+        target: '@/modules/orders/api',
+        files: ['packages/dashboard/src/a.test.tsx', 'packages/dashboard/src/b.test.tsx'],
+        count: 2,
+      },
+    ])
+    expect(analysis.recommendations[0]).toEqual(
+      expect.objectContaining({
+        target: '@/modules/orders/api',
+        kind: 'extract',
+        reason: 'Shared mock preference pinned to @/tests/mocks/orders',
+      })
+    )
+    expect(analysis.forbidMocks).toEqual(['@digitax/components'])
+    expect(analysis.preferredSharedMocks).toEqual({
+      '@/modules/orders/api': '@/tests/mocks/orders',
+    })
   })
 })
 

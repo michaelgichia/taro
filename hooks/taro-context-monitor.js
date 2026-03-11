@@ -20,16 +20,27 @@ async function readDirectory(path) {
 }
 
 const projectRoot = process.cwd()
-const conventions = await readJson(
-  (await findReadableStatePath(projectRoot, 'conventions.json')) ?? ''
+const state = await readJson(
+  (await findReadableStatePath(projectRoot, 'state.json')) ?? ''
 )
+const legacyConventions = state
+  ? null
+  : await readJson((await findReadableStatePath(projectRoot, 'conventions.json')) ?? '')
 const visualArtifacts = await readDirectory(
   (await findReadableStatePath(projectRoot, 'visual')) ?? ''
 )
 
+const packageCount =
+  state && typeof state === 'object' && state.packages && typeof state.packages === 'object'
+    ? Object.keys(state.packages).length
+    : 0
 const importStyle =
-  typeof conventions?.importStyle === 'string' ? conventions.importStyle : 'unlearned'
+  typeof state?.packages?.['.']?.importStyle?.value === 'string'
+    ? state.packages['.'].importStyle.value
+    : typeof legacyConventions?.importStyle === 'string'
+      ? legacyConventions.importStyle
+      : 'unlearned'
 
 console.log(
-  `[taro] context: importStyle=${importStyle}; visualArtifacts=${visualArtifacts.length}`
+  `[taro] context: packages=${packageCount}; importStyle=${importStyle}; visualArtifacts=${visualArtifacts.length}`
 )
