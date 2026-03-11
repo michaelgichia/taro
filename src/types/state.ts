@@ -31,6 +31,7 @@ export interface RepoRenderTargetCandidate {
   sourceTestFile: string
   helperNames: string[]
   usesWithin: boolean
+  evidenceTerms?: string[]
 }
 
 export interface TaroRenderHelperProfile {

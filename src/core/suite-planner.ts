@@ -323,7 +323,9 @@ function isWizardFlow(recording: NormalizedRecording): boolean {
     return /^(continue|save|submit)$/i.test(step.target) || /(review|dialog)/i.test(step.target)
   })
   const hasFormInput = recording.steps.some((step) => step.action === 'fill' || step.action === 'select')
-  const hasReviewLanguage = recording.steps.some((step) => /(review|invoice|details)/i.test(step.target ?? ''))
+  const hasReviewLanguage = recording.steps.some((step) =>
+    /(review|summary|confirm|details|step\s+\d+|next step)/i.test(step.target ?? '')
+  )
 
   return actionableSteps.length >= 6 && hasFormInput && (milestoneClicks.length >= 2 || hasReviewLanguage)
 }

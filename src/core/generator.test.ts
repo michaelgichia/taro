@@ -190,14 +190,14 @@ describe('generateTestFromGroups', () => {
 
   it('renders repo-aware imports, helper functions, and scoped queries for supported flows', () => {
     const generated = generateTestFromGroups(
-      'Add Sale Flow',
+      'Example Flow',
       [
         {
-          name: 'save sale',
+          name: 'complete example flow',
           steps: [
             {
               action: 'click',
-              target: 'Add Sale (Invoice)',
+              target: 'Open Example Flow',
               originalType: 'click',
               source: 'js',
             },
@@ -209,7 +209,7 @@ describe('generateTestFromGroups', () => {
             },
             {
               action: 'assert',
-              target: 'Review Sale (Invoice)',
+              target: 'Review Example Flow',
               originalType: 'getByText',
               source: 'js',
             },
@@ -219,14 +219,14 @@ describe('generateTestFromGroups', () => {
       {
         helpers: [
           {
-            name: 'planOpenSaleDialog',
-            sourceGroup: 'open sale dialog',
-            purpose: 'Navigate to the add sale dialog.',
+            name: 'planOpenExampleDialog',
+            sourceGroup: 'open example dialog',
+            purpose: 'Navigate to the example dialog.',
             assertionPolicy: 'sync-only',
             steps: [
               {
                 action: 'click',
-                target: 'Add Sale (Invoice)',
+                target: 'Open Example Flow',
                 originalType: 'click',
                 source: 'js',
               },
@@ -241,12 +241,12 @@ describe('generateTestFromGroups', () => {
         ],
         scenarios: [
           {
-            name: 'save sale',
+            name: 'complete example flow',
             goal: 'flow',
             steps: [
               {
                 action: 'click',
-                target: 'Add Sale (Invoice)',
+                target: 'Open Example Flow',
                 originalType: 'click',
                 source: 'js',
               },
@@ -258,31 +258,31 @@ describe('generateTestFromGroups', () => {
               },
               {
                 action: 'assert',
-                target: 'Review Sale (Invoice)',
+                target: 'Review Example Flow',
                 originalType: 'getByText',
                 source: 'js',
               },
             ],
-            helperRefs: ['planOpenSaleDialog'],
+            helperRefs: ['planOpenExampleDialog'],
             requiresFreshRender: true,
           },
         ],
         renderTarget: {
-          symbol: 'SalesModule',
-          importPath: './SalesModule',
-          sourceTestFile: 'sample/sample-add-sale-test.tsx',
-          helperNames: ['openAddSaleDialog'],
+          symbol: 'FeatureModule',
+          importPath: './FeatureModule',
+          sourceTestFile: 'sample/feature-flow.test.tsx',
+          helperNames: ['openExampleDialog'],
           usesWithin: true,
         },
       }
     )
 
     expect(generated.code).toContain("import { render, screen, within } from '@testing-library/react'")
-    expect(generated.code).toContain("import SalesModule from './SalesModule'")
-    expect(generated.code).toContain('const planOpenSaleDialog = async')
+    expect(generated.code).toContain("import FeatureModule from './FeatureModule'")
+    expect(generated.code).toContain('const planOpenExampleDialog = async')
     expect(generated.code).toContain("await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^continue$/i }))")
-    expect(generated.code).toContain('render(<SalesModule />)')
-    expect(generated.code).toContain('await planOpenSaleDialog(user)')
+    expect(generated.code).toContain('render(<FeatureModule />)')
+    expect(generated.code).toContain('await planOpenExampleDialog(user)')
     expect(generated.code).not.toContain('render(<App />)')
     expect(verifySyntax(generated.code, '/tmp/generated.test.tsx')).toEqual({ valid: true })
   })
@@ -291,7 +291,7 @@ describe('generateTestFromGroups', () => {
     const openDialogStep = {
       id: 'js-step-1',
       action: 'click' as const,
-      target: 'screen.getByRole(\'button\', { name: \'Open Sale Dialog\' })',
+      target: 'screen.getByRole(\'button\', { name: \'Open Example Dialog\' })',
       originalType: 'click',
       source: 'js' as const,
     }
@@ -305,32 +305,32 @@ describe('generateTestFromGroups', () => {
     const assertStep = {
       id: 'js-step-3',
       action: 'assert' as const,
-      target: 'screen.getByText(\'Sale dialog\')',
+      target: 'screen.getByText(\'Example dialog\')',
       originalType: 'assert',
       source: 'js' as const,
     }
 
     const generated = generateTestFromGroups(
-      'Review Sale Flow',
+      'Review Example Flow',
       [
         {
-          name: 'review sale',
+          name: 'review example',
           steps: [openDialogStep, continueStep, assertStep],
         },
       ],
       {
         helpers: [
           {
-            name: 'planOpenSaleDialog',
-            sourceGroup: 'open sale dialog',
-            purpose: 'Open the sale dialog.',
+            name: 'planOpenExampleDialog',
+            sourceGroup: 'open example dialog',
+            purpose: 'Open the example dialog.',
             assertionPolicy: 'sync-only',
             steps: [openDialogStep, continueStep],
           },
         ],
         scenarios: [
           {
-            name: 'review sale',
+            name: 'review example',
             goal: 'review',
             steps: [openDialogStep, continueStep, assertStep],
             helperRefs: [],
@@ -344,8 +344,8 @@ describe('generateTestFromGroups', () => {
                   stepId: 'js-step-2',
                 },
                 proofKind: 'visible-text',
-                queryExpression: "screen.findByText('Review Sale')",
-                proofText: 'Review Sale',
+                queryExpression: "screen.findByText('Review Example')",
+                proofText: 'Review Example',
               }),
               createMarkerAssertion({
                 markerStepId: 'js-marker-2',
@@ -355,8 +355,8 @@ describe('generateTestFromGroups', () => {
                   stepId: 'js-step-2',
                 },
                 proofKind: 'role-name',
-                queryExpression: "screen.findByRole('heading', { name: 'Review Sale' })",
-                proofText: 'Review Sale',
+                queryExpression: "screen.findByRole('heading', { name: 'Review Example' })",
+                proofText: 'Review Example',
               }),
             ],
             unresolvedMarkerAssertions: [],
@@ -365,20 +365,20 @@ describe('generateTestFromGroups', () => {
       }
     )
 
-    expect(generated.code).toContain('await planOpenSaleDialog(user)')
+    expect(generated.code).toContain('await planOpenExampleDialog(user)')
     expect(generated.code).toContain(
-      "expect(await screen.findByRole('heading', { name: 'Review Sale' })).toBeVisible()"
+      "expect(await screen.findByRole('heading', { name: 'Review Example' })).toBeVisible()"
     )
-    expect(generated.code).not.toContain("expect(await screen.findByText('Review Sale')).toBeVisible()")
-    expect(generated.code.indexOf('await planOpenSaleDialog(user)')).toBeLessThan(
+    expect(generated.code).not.toContain("expect(await screen.findByText('Review Example')).toBeVisible()")
+    expect(generated.code.indexOf('await planOpenExampleDialog(user)')).toBeLessThan(
       generated.code.indexOf(
-        "expect(await screen.findByRole('heading', { name: 'Review Sale' })).toBeVisible()"
+        "expect(await screen.findByRole('heading', { name: 'Review Example' })).toBeVisible()"
       )
     )
     expect(
       countOccurrences(
         generated.code,
-        "expect(await screen.findByRole('heading', { name: 'Review Sale' })).toBeVisible()"
+        "expect(await screen.findByRole('heading', { name: 'Review Example' })).toBeVisible()"
       )
     ).toBe(1)
     expect(verifySyntax(generated.code, '/tmp/generated.test.tsx')).toEqual({ valid: true })
@@ -450,8 +450,8 @@ describe('generateTestFromGroups', () => {
                   stepId: 'js-step-2',
                 },
                 proofKind: 'visible-value',
-                queryExpression: "screen.findByText('KES 4,800.00')",
-                proofText: 'KES 4,800.00',
+                queryExpression: "screen.findByText('USD 4,800.00')",
+                proofText: 'USD 4,800.00',
               }),
               createMarkerAssertion({
                 markerStepId: 'js-marker-5',
@@ -461,8 +461,8 @@ describe('generateTestFromGroups', () => {
                   stepId: 'js-step-3',
                 },
                 proofKind: 'label-text',
-                queryExpression: "screen.findByLabelText('Customer PIN')",
-                proofText: 'Customer PIN',
+                queryExpression: "screen.findByLabelText('Customer Reference')",
+                proofText: 'Customer Reference',
               }),
               createMarkerAssertion({
                 markerStepId: 'js-marker-6',
@@ -472,8 +472,8 @@ describe('generateTestFromGroups', () => {
                   stepId: 'js-step-4',
                 },
                 proofKind: 'placeholder-text',
-                queryExpression: "screen.findByPlaceholderText('Enter customer name')",
-                proofText: 'Enter customer name',
+                queryExpression: "screen.findByPlaceholderText('Enter customer reference')",
+                proofText: 'Enter customer reference',
               }),
             ],
             unresolvedMarkerAssertions: [],
@@ -486,13 +486,13 @@ describe('generateTestFromGroups', () => {
       "expect(await screen.findByText('Saved successfully')).toBeVisible()"
     )
     expect(generated.code).toContain(
-      "expect(await screen.findByText('KES 4,800.00')).toBeVisible()"
+      "expect(await screen.findByText('USD 4,800.00')).toBeVisible()"
     )
     expect(generated.code).toContain(
-      "expect(await screen.findByLabelText('Customer PIN')).toBeVisible()"
+      "expect(await screen.findByLabelText('Customer Reference')).toBeVisible()"
     )
     expect(generated.code).toContain(
-      "expect(await screen.findByPlaceholderText('Enter customer name')).toBeVisible()"
+      "expect(await screen.findByPlaceholderText('Enter customer reference')).toBeVisible()"
     )
     expect(generated.code).not.toContain('toHaveValue(')
     expect(countOccurrences(generated.code, '.toBeVisible()')).toBe(4)
@@ -541,8 +541,8 @@ describe('generateTestFromGroups', () => {
                   stepId: 'js-step-1',
                 },
                 proofKind: 'role-name',
-                queryExpression: "screen.findByRole('heading', { name: 'Review Sale' })",
-                proofText: 'Review Sale',
+                queryExpression: "screen.findByRole('heading', { name: 'Review Example' })",
+                proofText: 'Review Example',
               }),
             ],
             unresolvedMarkerAssertions: [
@@ -552,8 +552,8 @@ describe('generateTestFromGroups', () => {
                 anchorStepId: 'js-step-1',
                 reason: 'ambiguous-field-context',
                 proofSubject: 'field-label',
-                target: 'Customer PIN / Name',
-                proofText: 'Customer PIN / Name',
+                target: 'Customer Reference / Name',
+                proofText: 'Customer Reference / Name',
                 line: 88,
                 sourceContext: {
                   line: 88,
@@ -567,10 +567,10 @@ describe('generateTestFromGroups', () => {
     )
 
     expect(generated.code).toContain(
-      "expect(await screen.findByRole('heading', { name: 'Review Sale' })).toBeVisible()"
+      "expect(await screen.findByRole('heading', { name: 'Review Example' })).toBeVisible()"
     )
-    expect(generated.code).not.toContain("findByLabelText('Customer PIN / Name')")
-    expect(generated.code).not.toContain('Customer PIN / Name')
+    expect(generated.code).not.toContain("findByLabelText('Customer Reference / Name')")
+    expect(generated.code).not.toContain('Customer Reference / Name')
     expect(countOccurrences(generated.code, '.toBeVisible()')).toBe(1)
     expect(verifySyntax(generated.code, '/tmp/generated.test.tsx')).toEqual({ valid: true })
   })
@@ -616,8 +616,8 @@ describe('generateTestFromGroups', () => {
                 anchorStepId: 'js-step-1',
                 reason: 'ambiguous-field-context',
                 proofSubject: 'field-label',
-                target: 'Customer PIN / Name',
-                proofText: 'Customer PIN / Name',
+                target: 'Customer Reference / Name',
+                proofText: 'Customer Reference / Name',
                 sourceContext: {
                   originalType: 'dblClick',
                 },
@@ -664,7 +664,7 @@ describe('generateTestFromGroups', () => {
       }
     )
 
-    expect(generated.code).not.toContain("findByLabelText('Customer PIN / Name')")
+    expect(generated.code).not.toContain("findByLabelText('Customer Reference / Name')")
     expect(generated.code).not.toContain("findByText('Details panel')")
     expect(generated.code).not.toContain("findByText('div.css-19bb58m')")
     expect(generated.code).not.toContain("findByText('+')")

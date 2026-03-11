@@ -1,6 +1,6 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createGenerateCommand } from './generate.js'
 import { analyzeBoundaryIsolation } from '../../core/boundary-intelligence.js'
@@ -31,6 +31,7 @@ vi.mock('../../core/mock-intelligence.js', () => ({
 
 const { taroStateControl } = vi.hoisted(() => ({
   taroStateControl: {
+    statePackages: {} as Record<string, unknown>,
     stale: false,
     staleReason: null as string | null,
     profile: {
@@ -93,7 +94,7 @@ vi.mock('../../core/state.js', async (importOriginal) => {
           updatedAt: new Date(0).toISOString(),
           taroVersion: 'test',
         },
-        packages: {},
+        packages: taroStateControl.statePackages as Record<string, never>,
         mockStore: {
           rootDir: null,
           importHint: null,
@@ -145,7 +146,26 @@ vi.mock('../../core/state.js', async (importOriginal) => {
         warnings: [],
       },
     })),
-    resolveTaroPackageProfile: vi.fn(() => taroStateControl.profile),
+    resolveTaroPackageProfile: vi.fn(
+      (
+        _state: unknown,
+        _projectRoot: string,
+        targetPath: string
+      ) => {
+        const normalizedTarget = targetPath.replace(/\\/g, '/')
+        const matchingPackage = Object.keys(taroStateControl.statePackages)
+          .filter((packagePath) => packagePath !== '.')
+          .sort((left, right) => right.length - left.length)
+          .find((packagePath) => normalizedTarget.includes(`/${packagePath}/`))
+
+        if (matchingPackage) {
+          return (taroStateControl.statePackages[matchingPackage] as typeof taroStateControl.profile) ??
+            taroStateControl.profile
+        }
+
+        return taroStateControl.profile
+      }
+    ),
   }
 })
 
@@ -180,6 +200,15 @@ function deriveOutputPath(recordingPath: string): string {
   return recordingPath.replace(/\.js$/, '.test.tsx')
 }
 
+async function createProjectInlineJsFixture(label: string, source: string) {
+  const sandbox = await createSandbox(label)
+  const recordingsDir = join(sandbox.outputDir, 'recordings')
+  await mkdir(recordingsDir, { recursive: true })
+  const recordingPath = join(recordingsDir, `${label}.js`)
+  await writeFile(recordingPath, source, 'utf-8')
+  return { ...sandbox, recordingPath }
+}
+
 function resolvedSelector(
   selector: SelectorDescriptor,
   query: QueryDescriptor,
@@ -191,7 +220,7 @@ function resolvedSelector(
     source,
     stepId: selector.stepId,
     selector,
-    url: 'http://localhost:3001/dashboard',
+    url: 'http://localhost:3001/workspace',
     query,
     warnings: [],
   }
@@ -341,9 +370,12 @@ async function runGenerate(args: string[], cwdPath: string) {
 beforeEach(() => {
   captureVisualStateMock.mockReset()
   captureVisualStateMock.mockResolvedValue(null)
+  taroStateControl.statePackages = {}
   taroStateControl.stale = false
   taroStateControl.staleReason = null
   taroStateControl.profile.renderTargets = []
+  taroStateControl.profile.folderPattern = { value: 'unknown', confidence: 'low', evidence: [] }
+  taroStateControl.profile.conventions.folderPattern = 'unknown'
   taroStateControl.profile.effectiveRunner = 'unknown'
   taroStateControl.profile.effectiveRenderHelper = null
   taroStateControl.profile.appliedOverrides = []
@@ -364,10 +396,10 @@ describe('createGenerateCommand', () => {
 
     taroStateControl.profile.renderTargets = [
       {
-        symbol: 'SalesModule',
-        importPath: './SalesModule',
-        sourceTestFile: 'sample/sample-add-sale-test.tsx',
-        helperNames: ['openAddSaleDialog', 'addItemToCart', 'fillOtherDetails'],
+        symbol: 'FeatureFlow',
+        importPath: './FeatureFlow',
+        sourceTestFile: 'sample/feature-flow.test.tsx',
+        helperNames: ['openFeatureEntry', 'completeFeatureFlow', 'reviewFeatureState'],
         usesWithin: true,
       },
     ]
@@ -382,8 +414,8 @@ describe('createGenerateCommand', () => {
     expect(result.logs).toContain('[taro] ✓ post-write verified')
     expect(result.logs).toContain('Updated .taro/state.json for package .')
     expect(result.logs).toContain(`Created: ${outputPath}`)
-    expect(written).toContain("import SalesModule from './SalesModule'")
-    expect(written).toContain('render(<SalesModule />)')
+    expect(written).toContain("import FeatureFlow from './FeatureFlow'")
+    expect(written).toContain('render(<FeatureFlow />)')
     expect(written).toContain('const planSubmitContinue = async')
     expect(written).toContain('await planSubmitContinue(user)')
     expect(written).toContain('within(screen.getByRole(')
@@ -401,6 +433,92 @@ describe('createGenerateCommand', () => {
     )
     expect(result.warnings).not.toContain('Taro could not resolve the exact render target')
     expect(analyzeBoundaryIsolation(written)).toEqual([])
+  })
+
+  it('uses recording text matches to select package context and recover a source render target', async () => {
+    const fixture = await createProjectInlineJsFixture(
+      'context-example',
+      `/**
+ * ${environmentUrlMarker}
+ * ${environmentOptionsMarker} { "url": "http://localhost:3001/example" }
+ */
+const {screen} = require('@testing-library/dom')
+const {default: userEvent} = require('@testing-library/user-event')
+require('@testing-library/jest-dom')
+
+test('Example flow', async () => {
+  expect(location.href).toBe('http://localhost:3001/example')
+  await userEvent.click(screen.getByRole('button', { name: 'Open Example Flow' }))
+  await userEvent.dblClick(screen.getByRole('heading', { name: 'Review Example Flow' }))
+  await userEvent.click(screen.getByRole('heading', { name: 'Review Example Flow' }))
+})`
+    )
+    const outputPath = deriveOutputPath(fixture.recordingPath)
+    const featureFlowPath = join(
+      fixture.outputDir,
+      'packages',
+      'example-app',
+      'src',
+      'features',
+      'FeatureFlow.tsx'
+    )
+    await mkdir(dirname(featureFlowPath), { recursive: true })
+    await writeFile(
+      featureFlowPath,
+      `
+        export default function FeatureFlow() {
+          return (
+            <>
+              <button>Open Example Flow</button>
+              <h1>Review Example Flow</h1>
+            </>
+          )
+        }
+      `,
+      'utf-8'
+    )
+
+    const exampleProfile = {
+      ...structuredClone(taroStateControl.profile),
+      packagePath: 'packages/example-app',
+      packageName: '@repo/example-app',
+      renderTargets: [],
+      fixtureRoots: [
+        {
+          path: '@/test-support/mock-store',
+          kind: 'mock-store' as const,
+          source: 'import' as const,
+        },
+      ],
+      mutationLifecycles: [
+        {
+          file: 'packages/example-app/src/features/feature-flow.test.tsx',
+          stages: ['success', 'error'],
+          evidence: ['mutation stages detected'],
+        },
+      ],
+      effectiveRunner: 'vitest' as const,
+    }
+
+    taroStateControl.statePackages = {
+      '.': taroStateControl.profile,
+      'packages/example-app': exampleProfile,
+    }
+
+    const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
+    const written = await readFile(outputPath, 'utf-8')
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.errors).toBe('')
+    expect(result.logs).toContain('Context matches:')
+    expect(result.logs).toContain('packages/example-app/src/features/FeatureFlow.tsx')
+    expect(result.logs).toContain(
+      'Context-selected package profile packages/example-app: packages/example-app/src/features/FeatureFlow.tsx matched recording text evidence.'
+    )
+    expect(result.logs).toContain('State profile: package=packages/example-app')
+    expect(result.logs).toContain(`Created: ${outputPath}`)
+    expect(written).toContain("import FeatureFlow from '../packages/example-app/src/features/FeatureFlow'")
+    expect(written).toContain('render(<FeatureFlow />)')
   })
 
   it('keeps selector degradation explicit when recorder JS has no URL evidence', async () => {
@@ -435,18 +553,18 @@ describe('createGenerateCommand', () => {
       'semantic-marker',
       `/**
  * ${environmentUrlMarker}
- * ${environmentOptionsMarker} { "url": "http://localhost:3001/sales" }
+ * ${environmentOptionsMarker} { "url": "http://localhost:3001/example" }
  */
 const {screen} = require('@testing-library/dom')
 const {default: userEvent} = require('@testing-library/user-event')
 require('@testing-library/jest-dom')
 
 test('Semantic marker flow', async () => {
-  expect(location.href).toBe('http://localhost:3001/sales')
+  expect(location.href).toBe('http://localhost:3001/example')
   await userEvent.dblClick(screen.getByRole('heading', { name: 'Starting state' }))
   await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-  await userEvent.dblClick(screen.getByRole('heading', { name: 'Review Sale' }))
-  await userEvent.click(screen.getByRole('heading', { name: 'Review Sale' }))
+  await userEvent.dblClick(screen.getByRole('heading', { name: 'Review Example' }))
+  await userEvent.click(screen.getByRole('heading', { name: 'Review Example' }))
 })`
     )
     const outputPath = deriveOutputPath(fixture.recordingPath)
@@ -469,10 +587,10 @@ test('Semantic marker flow', async () => {
     expect(result.logs).toContain(`Created: ${outputPath}`)
     expect(written).toContain("await user.click(screen.getByRole('button', { name: 'Save' }))")
     expect(written).toContain(
-      "expect(await screen.findByRole('heading', { name: 'Review Sale' })).toBeVisible()"
+      "expect(await screen.findByRole('heading', { name: 'Review Example' })).toBeVisible()"
     )
     expect(written).not.toContain(
-      "await user.click(screen.getByRole('heading', { name: 'Review Sale' }))"
+      "await user.click(screen.getByRole('heading', { name: 'Review Example' }))"
     )
     expect(written).not.toContain(
       "await user.click(screen.getByRole('heading', { name: 'Starting state' }))"
@@ -494,20 +612,21 @@ test('Semantic marker flow', async () => {
       '// taro-boundary-warning: Taro could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.'
     )
     expect(written).toContain('render(<App />)')
-    expect(written).not.toContain("import SalesModule from './SalesModule'")
+    expect(written).not.toContain("import FeatureFlow from './FeatureFlow'")
   })
 
   it('refreshes stale package state before generation and reports the reason', async () => {
     const fixture = await createRecordingFixture('stale-profile')
     taroStateControl.stale = true
-    taroStateControl.staleReason = 'packages/dashboard/src/sales.test.tsx changed after the package profile was scanned.'
+    taroStateControl.staleReason =
+      'packages/example-app/src/feature-flow.test.tsx changed after the package profile was scanned.'
 
     const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
 
     expect(result.thrown).toBeUndefined()
     expect(result.logs).toContain('Detected stale package profile .; refreshing before generation.')
     expect(result.warnings).toContain(
-      'packages/dashboard/src/sales.test.tsx changed after the package profile was scanned.'
+      'packages/example-app/src/feature-flow.test.tsx changed after the package profile was scanned.'
     )
   })
 
@@ -516,14 +635,14 @@ test('Semantic marker flow', async () => {
       'qual-gate-write-fail',
       `/**
  * ${environmentUrlMarker}
- * ${environmentOptionsMarker} { "url": "http://localhost:3001/sales" }
+ * ${environmentOptionsMarker} { "url": "http://localhost:3001/example" }
  */
 const {screen} = require('@testing-library/dom')
 const {default: userEvent} = require('@testing-library/user-event')
 require('@testing-library/jest-dom')
 
 test('Marker gate fail in write mode', async () => {
-  expect(location.href).toBe('http://localhost:3001/sales')
+  expect(location.href).toBe('http://localhost:3001/example')
   await userEvent.dblClick(screen.getByRole('heading', { name: 'Starting state' }))
   await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 })`

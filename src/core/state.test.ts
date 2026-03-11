@@ -53,14 +53,14 @@ describe('initTaroState', () => {
   })
 
   it('builds package-scoped runner profiles for mixed workspaces', async () => {
-    const vitestPackage = join(projectRoot, 'packages', 'dashboard')
+    const vitestPackage = join(projectRoot, 'packages', 'example-app')
     const jestPackage = join(projectRoot, 'packages', 'legacy')
 
     await mkdir(join(vitestPackage, 'src'), { recursive: true })
     await mkdir(join(jestPackage, 'src'), { recursive: true })
     await writeFile(
       join(vitestPackage, 'package.json'),
-      JSON.stringify({ name: '@repo/dashboard', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
       'utf-8'
     )
     await writeFile(
@@ -71,8 +71,8 @@ describe('initTaroState', () => {
     await writeFile(join(vitestPackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
     await writeFile(join(jestPackage, 'jest.config.ts'), 'module.exports = {}', 'utf-8')
     await writeFile(
-      join(vitestPackage, 'src', 'dashboard.test.tsx'),
-      "import { describe, expect, it } from 'vitest'\ndescribe('dashboard', () => { it('works', () => expect(true).toBe(true)) })",
+      join(vitestPackage, 'src', 'example-app.test.tsx'),
+      "import { describe, expect, it } from 'vitest'\ndescribe('example-app', () => { it('works', () => expect(true).toBe(true)) })",
       'utf-8'
     )
     await writeFile(
@@ -83,37 +83,37 @@ describe('initTaroState', () => {
 
     const result = await initTaroState(projectRoot)
 
-    expect(result.state.packages['packages/dashboard']?.runner.value).toBe('vitest')
+    expect(result.state.packages['packages/example-app']?.runner.value).toBe('vitest')
     expect(result.state.packages['packages/legacy']?.runner.value).toBe('jest')
   })
 
   it('learns render helpers, repeated mocks, fixture roots, and respects overrides', async () => {
-    const dashboardPackage = join(projectRoot, 'packages', 'dashboard')
-    await mkdir(join(dashboardPackage, 'src', 'tests', 'mock-store'), { recursive: true })
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src', 'tests', 'mock-store'), { recursive: true })
     await writeFile(
-      join(dashboardPackage, 'package.json'),
-      JSON.stringify({ name: '@repo/dashboard', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
       'utf-8'
     )
-    await writeFile(join(dashboardPackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
     await writeFile(
-      join(dashboardPackage, 'src', 'tests', 'mock-store', 'orders.ts'),
+      join(examplePackage, 'src', 'tests', 'mock-store', 'orders.ts'),
       "export const ORDER_001 = { id: 'ORDER_001' }\n",
       'utf-8'
     )
     await writeFile(
-      join(dashboardPackage, 'src', 'sales.test.tsx'),
+      join(examplePackage, 'src', 'feature-flow.test.tsx'),
       `
         import { describe, expect, it, vi } from 'vitest'
         import { renderWithProviders } from '@/tests/renderWithProviders'
         import { ORDER_001 } from '@/tests/mock-store/orders'
-        import SalesModule from './SalesModule'
+        import FeatureModule from './FeatureModule'
 
-        vi.mock('@/modules/orders/api')
+        vi.mock('@/features/orders/api')
 
-        describe('sales', () => {
+        describe('feature flow', () => {
           it('renders', () => {
-            renderWithProviders(<SalesModule />, { wrapper: QueryClientProvider })
+            renderWithProviders(<FeatureModule />, { wrapper: QueryClientProvider })
             expect(ORDER_001.id).toBe('ORDER_001')
           })
         })
@@ -121,10 +121,10 @@ describe('initTaroState', () => {
       'utf-8'
     )
     await writeFile(
-      join(dashboardPackage, 'src', 'checkout.test.tsx'),
+      join(examplePackage, 'src', 'checkout.test.tsx'),
       `
         import { describe, expect, it, vi } from 'vitest'
-        vi.mock('@/modules/orders/api')
+        vi.mock('@/features/orders/api')
         describe('checkout', () => {
           it('saves', () => {
             expect(true).toBe(true)
@@ -139,11 +139,11 @@ describe('initTaroState', () => {
       JSON.stringify(
         {
           packages: {
-            'packages/dashboard': {
+            'packages/example-app': {
               runner: 'jest',
               renderHelper: {
-                name: 'renderDashboard',
-                importPath: '@/tests/renderDashboard',
+                name: 'renderExampleApp',
+                importPath: '@/tests/renderExampleApp',
               },
             },
           },
@@ -155,38 +155,38 @@ describe('initTaroState', () => {
     )
 
     const result = await initTaroState(projectRoot)
-    const dashboardProfile = result.state.packages['packages/dashboard']
+    const exampleProfile = result.state.packages['packages/example-app']
     const resolvedProfile = resolveTaroPackageProfile(
       result.state,
       projectRoot,
-      join(dashboardPackage, 'src', 'sales.test.tsx'),
+      join(examplePackage, 'src', 'feature-flow.test.tsx'),
       {
         packages: {
-          'packages/dashboard': {
+          'packages/example-app': {
             runner: 'jest',
             renderHelper: {
-              name: 'renderDashboard',
-              importPath: '@/tests/renderDashboard',
+              name: 'renderExampleApp',
+              importPath: '@/tests/renderExampleApp',
             },
           },
         },
       }
     )
 
-    expect(dashboardProfile?.renderHelpers[0]).toEqual(
+    expect(exampleProfile?.renderHelpers[0]).toEqual(
       expect.objectContaining({
         name: 'renderWithProviders',
         importPath: '@/tests/renderWithProviders',
       })
     )
-    expect(dashboardProfile?.repeatedMockTargets).toEqual([
+    expect(exampleProfile?.repeatedMockTargets).toEqual([
       {
-        target: '@/modules/orders/api',
-        files: ['packages/dashboard/src/checkout.test.tsx', 'packages/dashboard/src/sales.test.tsx'],
+        target: '@/features/orders/api',
+        files: ['packages/example-app/src/checkout.test.tsx', 'packages/example-app/src/feature-flow.test.tsx'],
         count: 2,
       },
     ])
-    expect(dashboardProfile?.fixtureRoots).toEqual(
+    expect(exampleProfile?.fixtureRoots).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           path: '@/tests/mock-store',
@@ -194,12 +194,12 @@ describe('initTaroState', () => {
         }),
       ])
     )
-    expect(result.state.mockStore.rootDir).toBe('packages/dashboard/src/tests/mock-store')
+    expect(result.state.mockStore.rootDir).toBe('packages/example-app/src/tests/mock-store')
     expect(resolvedProfile?.effectiveRunner).toBe('jest')
     expect(resolvedProfile?.effectiveRenderHelper).toEqual(
       expect.objectContaining({
-        name: 'renderDashboard',
-        importPath: '@/tests/renderDashboard',
+        name: 'renderExampleApp',
+        importPath: '@/tests/renderExampleApp',
       })
     )
   })
@@ -280,28 +280,28 @@ describe('loadOrBootstrapTaroState', () => {
 
 describe('state hardening', () => {
   it('detects stale package profiles when package evidence changes after scan', async () => {
-    const dashboardPackage = join(projectRoot, 'packages', 'dashboard')
-    await mkdir(join(dashboardPackage, 'src'), { recursive: true })
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
     await writeFile(
-      join(dashboardPackage, 'package.json'),
-      JSON.stringify({ name: '@repo/dashboard', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
       'utf-8'
     )
-    await writeFile(join(dashboardPackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
-    const testFile = join(dashboardPackage, 'src', 'dashboard.test.tsx')
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    const testFile = join(examplePackage, 'src', 'example-app.test.tsx')
     await writeFile(
       testFile,
-      "import { describe, expect, it } from 'vitest'\ndescribe('dashboard', () => { it('works', () => expect(true).toBe(true)) })",
+      "import { describe, expect, it } from 'vitest'\ndescribe('example-app', () => { it('works', () => expect(true).toBe(true)) })",
       'utf-8'
     )
 
     const result = await initTaroState(projectRoot)
-    const profile = result.state.packages['packages/dashboard']!
+    const profile = result.state.packages['packages/example-app']!
 
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 15))
     await writeFile(
       testFile,
-      "import { describe, expect, it } from 'vitest'\ndescribe('dashboard', () => { it('works again', () => expect(true).toBe(true)) })",
+      "import { describe, expect, it } from 'vitest'\ndescribe('example-app', () => { it('works again', () => expect(true).toBe(true)) })",
       'utf-8'
     )
 

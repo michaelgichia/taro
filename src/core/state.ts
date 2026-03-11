@@ -125,6 +125,7 @@ const renderTargetCandidateSchema = z.object({
   sourceTestFile: z.string(),
   helperNames: z.array(z.string()),
   usesWithin: z.boolean(),
+  evidenceTerms: z.array(z.string()).optional(),
 })
 const renderHelperProfileSchema = z.object({
   name: z.string(),

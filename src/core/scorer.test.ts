@@ -4,17 +4,17 @@ import { calculateStructureScore, scoreGeneratedTest } from './scorer.js'
 describe('calculateStructureScore', () => {
   it('penalizes placeholder render targets and unresolved boundary warnings', () => {
     const baseline = `
-describe('sale flow', () => {
-  it('saves a sale', async () => {
-    render(<SalesModule />)
+describe('example flow', () => {
+  it('completes an example flow', async () => {
+    render(<FeatureModule />)
   })
 })
 `
 
     const placeholder = `
 // taro-boundary-warning: Prefer a repo-local module/container render boundary for this flow instead of targeting a leaf form component directly.
-describe('sale flow', () => {
-  it('saves a sale', async () => {
+describe('example flow', () => {
+  it('completes an example flow', async () => {
     render(<App />)
   })
 })
@@ -30,8 +30,8 @@ describe('scoreGeneratedTest', () => {
   it('adds deterministic low-confidence signals, reasons, and blockers for draft output', () => {
     const draft = `
 // taro-boundary-warning: Taro could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.
-describe('sale flow', () => {
-  it('saves a sale', async () => {
+describe('example flow', () => {
+  it('completes an example flow', async () => {
     render(<App />)
     // taro-query-checkpoint: click step requires manual RTL query recovery
     expect(screen.getByText('Saved')).toBeInTheDocument()
@@ -78,15 +78,15 @@ describe('sale flow', () => {
 
   it('keeps stronger repo-aware output out of draft mode when blockers are absent', () => {
     const stable = `
-describe('sale flow', () => {
-  it('saves a sale', async () => {
-    render(<SalesModule />)
+describe('example flow', () => {
+  it('completes an example flow', async () => {
+    render(<FeatureModule />)
     expect(screen.getByRole('status')).toHaveTextContent('Saved')
   })
 
   it('shows review state', async () => {
-    render(<SalesModule />)
-    expect(screen.getByRole('heading', { name: 'Review Sale' })).toBeVisible()
+    render(<FeatureModule />)
+    expect(screen.getByRole('heading', { name: 'Review Example' })).toBeVisible()
   })
 })
 `
@@ -95,7 +95,7 @@ describe('sale flow', () => {
       { method: 'getByRole', query: "screen.getByRole('status')", quality: 'excellent' },
       {
         method: 'getByRole',
-        query: "screen.getByRole('heading', { name: 'Review Sale' })",
+        query: "screen.getByRole('heading', { name: 'Review Example' })",
         quality: 'excellent',
       },
     ])

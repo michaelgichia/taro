@@ -530,11 +530,11 @@ describe('resolveSemanticMarkerAssertion', () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
         id: 'js-step-2',
-        target: 'Review Sale',
+        target: 'Review Example',
         proofSubject: 'heading',
         method: 'getByRole',
         role: 'heading',
-        name: 'Review Sale',
+        name: 'Review Example',
       })
     )
 
@@ -549,10 +549,10 @@ describe('resolveSemanticMarkerAssertion', () => {
           query: expect.objectContaining({
             method: 'findByRole',
             role: 'heading',
-            target: 'Review Sale',
-            raw: "screen.findByRole('heading', { name: 'Review Sale' })",
+            target: 'Review Example',
+            raw: "screen.findByRole('heading', { name: 'Review Example' })",
           }),
-          queryExpression: "screen.findByRole('heading', { name: 'Review Sale' })",
+          queryExpression: "screen.findByRole('heading', { name: 'Review Example' })",
         }),
       })
     )
@@ -652,7 +652,7 @@ describe('resolveSemanticMarkerAssertion', () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
         id: 'js-step-7',
-        target: 'Customer PIN / Name',
+        target: 'Customer Reference / Name',
         proofSubject: 'field-label',
         unresolvedReason: 'ambiguous-field-context',
       })

@@ -34,13 +34,13 @@ describe('segmentIntoItGroups', () => {
   it('splits into two groups at modal boundary (click button + heading same name)', () => {
     const steps = [
       { action: 'navigate', target: 'http://localhost:3000', value: undefined, originalType: 'navigate' },
-      { action: 'click', target: 'Add Sale', value: undefined, originalType: 'click' },
-      { action: 'assert', target: 'Add Sale', value: undefined, originalType: 'waitForElement' },
+      { action: 'click', target: 'Open Example Flow', value: undefined, originalType: 'click' },
+      { action: 'assert', target: 'Open Example Flow', value: undefined, originalType: 'waitForElement' },
       { action: 'fill', target: 'Customer', value: 'Acme', originalType: 'change' },
     ]
     const groups = segmentIntoItGroups(steps as any)
     expect(groups).toHaveLength(2)
-    expect(groups[1].name).toContain('Add Sale')
+    expect(groups[1].name).toContain('Open Example Flow')
   })
 })
 
@@ -266,7 +266,7 @@ describe('parseJsRecording', () => {
   it('keeps field-label dblClick steps distinguishable as unresolved non-proof candidates', async () => {
     const recording = await parseJsRecording(`
       test('Recorder Flow', async () => {
-        await userEvent.dblClick(screen.getByText('Customer PIN'))
+        await userEvent.dblClick(screen.getByText('Customer Reference'))
       })
     `)
 
@@ -274,15 +274,15 @@ describe('parseJsRecording', () => {
       expect.objectContaining({
         action: 'click',
         originalType: 'dblClick',
-        target: 'Customer PIN',
+        target: 'Customer Reference',
         semanticMarkerCandidate: expect.objectContaining({
           status: 'unresolved',
           originalGesture: 'dblClick',
           proofSubject: 'field-label',
-          proofText: 'Customer PIN',
+          proofText: 'Customer Reference',
           query: expect.objectContaining({
             method: 'getByText',
-            target: 'Customer PIN',
+            target: 'Customer Reference',
           }),
         }),
       })
@@ -291,7 +291,7 @@ describe('parseJsRecording', () => {
       expect.objectContaining({
         status: 'unresolved',
         proofSubject: 'field-label',
-        proofText: 'Customer PIN',
+        proofText: 'Customer Reference',
       }),
     ])
   })

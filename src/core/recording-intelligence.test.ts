@@ -225,11 +225,11 @@ describe('filterNoiseSteps', () => {
       createJsClickStep('js-step-1', 'Continue'),
       createJsMarkerStep({
         id: 'js-step-2',
-        target: 'Review Sale',
+        target: 'Review Example',
         proofSubject: 'heading',
         role: 'heading',
       }),
-      createJsClickStep('js-step-3', 'Review Sale'),
+      createJsClickStep('js-step-3', 'Review Example'),
     ]
 
     const result = filterNoiseSteps(steps)
@@ -336,11 +336,11 @@ describe('filterNoiseSteps', () => {
       createJsClickStep('js-step-1', 'Continue'),
       createJsMarkerStep({
         id: 'js-step-2',
-        target: 'Customer PIN / Name',
+        target: 'Customer Reference / Name',
         proofSubject: 'field-label',
         method: 'getByText',
       }),
-      createJsClickStep('js-step-3', 'Customer PIN / Name'),
+      createJsClickStep('js-step-3', 'Customer Reference / Name'),
     ]
 
     const result = filterNoiseSteps(steps)
@@ -404,15 +404,15 @@ describe('analyzeRecording', () => {
 
   it('links qualified markers to the nearest prior major transition step', () => {
     const recording: NormalizedRecording = {
-      title: 'Review flow',
+      title: 'Example review flow',
       rawStepCount: 4,
       steps: [
-        createJsClickStep('js-step-1', 'Open sale'),
+        createJsClickStep('js-step-1', 'Open example flow'),
         createJsFillStep('js-step-2', 'Reference', 'INV-001'),
         createJsClickStep('js-step-3', 'Continue'),
         createJsMarkerStep({
           id: 'js-step-4',
-          target: 'Review Sale',
+          target: 'Review Example',
           proofSubject: 'heading',
           role: 'heading',
         }),
@@ -501,12 +501,12 @@ describe('analyzeRecording', () => {
         {
           id: 'js-step-2',
           action: 'select',
-          target: 'Invoice Type',
+          target: 'Workflow Type',
           value: 'NORMAL',
           originalType: 'selectOptions',
           source: 'js',
         },
-        createJsClickStep('js-step-3', 'Customer PIN'),
+        createJsClickStep('js-step-3', 'Customer Reference'),
         createJsMarkerStep({
           id: 'js-step-4',
           target: 'Saved successfully',
@@ -574,7 +574,7 @@ describe('inferIntentGroups', () => {
         {
           action: 'assert',
           target: 'location.href',
-          value: 'http://localhost:3000/sales',
+          value: 'http://localhost:3000/example',
           originalType: 'toBe',
           source: 'js',
           metadata: {
@@ -595,13 +595,13 @@ describe('inferIntentGroups', () => {
         },
         {
           action: 'click',
-          target: 'Add Sale',
+          target: 'Open Example Flow',
           originalType: 'click',
           source: 'js',
         },
         {
           action: 'assert',
-          target: 'Add Sale',
+          target: 'Open Example Flow',
           originalType: 'getByRole',
           source: 'js',
         },
@@ -609,7 +609,7 @@ describe('inferIntentGroups', () => {
     })
 
     expect(analyzed.intentGroups).toHaveLength(1)
-    expect(analyzed.intentGroups[0]?.name).toBe('confirm Add Sale')
+    expect(analyzed.intentGroups[0]?.name).toBe('confirm Open Example Flow')
     expect(analyzed.intentGroups[0]?.steps).toHaveLength(2)
   })
 
@@ -617,19 +617,19 @@ describe('inferIntentGroups', () => {
     const steps: NormalizedStep[] = [
       {
         action: 'navigate',
-        target: 'http://localhost:3000/sales',
+        target: 'http://localhost:3000/example',
         originalType: 'navigate',
         source: 'json',
       },
       {
         action: 'click',
-        target: 'Add Sale',
+        target: 'Open Example Flow',
         originalType: 'click',
         source: 'json',
       },
       {
         action: 'assert',
-        target: 'Add Sale',
+        target: 'Open Example Flow',
         originalType: 'assertElementVisible',
         source: 'json',
       },
@@ -649,13 +649,13 @@ describe('inferIntentGroups', () => {
       },
       {
         action: 'click',
-        target: 'Submit Sale',
+        target: 'Submit Example Flow',
         originalType: 'click',
         source: 'json',
       },
       {
         action: 'assert',
-        target: 'Sale created',
+        target: 'Example flow created',
         originalType: 'assertElementVisible',
         source: 'json',
       },
@@ -665,9 +665,9 @@ describe('inferIntentGroups', () => {
 
     expect(groups).toHaveLength(3)
     expect(groups.map((group) => group.name)).toEqual([
-      'navigate to http://localhost:3000/sales',
-      'confirm Add Sale',
-      'submit Submit Sale',
+      'navigate to http://localhost:3000/example',
+      'confirm Open Example Flow',
+      'submit Submit Example Flow',
     ])
     expect(groups[2]?.steps).toHaveLength(4)
   })

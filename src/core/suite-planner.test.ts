@@ -14,7 +14,7 @@ import type {
 
 function createRecording(steps: NormalizedRecording['steps']): NormalizedRecording {
   return {
-    title: 'Add sale flow',
+    title: 'Example flow',
     rawStepCount: steps.length,
     steps,
   }
@@ -23,8 +23,8 @@ function createRecording(steps: NormalizedRecording['steps']): NormalizedRecordi
 function createAnalyzedRecording(
   recording: NormalizedRecording,
   intentGroups: ItGroup[] = [
-    { name: 'open sale dialog', steps: recording.steps.slice(0, 2) },
-    { name: 'complete sale wizard', steps: recording.steps.slice(2) },
+    { name: 'open example dialog', steps: recording.steps.slice(0, 2) },
+    { name: 'complete example wizard', steps: recording.steps.slice(2) },
   ]
 ): AnalyzedRecording {
   return {
@@ -44,27 +44,27 @@ function createAnalyzedRecording(
 function createMockAnalysis(): MockAnalysis {
   return {
     conventions: null,
-    packagePath: 'packages/dashboard',
+    packagePath: 'packages/example-app',
     source: 'package-profile',
     recommendations: [
       {
         count: 3,
-        files: ['src/modules/kenya/sales/SalesModule.test.tsx'],
+        files: ['src/features/FeatureFlow.test.tsx'],
         kind: 'extract',
         reason: 'Mock target appears in multiple tests and should be shared',
-        target: '@digitax/data-layer',
+        target: '@repo/data-client',
       },
     ],
     repeatedTargets: [
       {
         count: 3,
-        files: ['src/modules/kenya/sales/SalesModule.test.tsx'],
-        target: '@digitax/data-layer',
+        files: ['src/features/FeatureFlow.test.tsx'],
+        target: '@repo/data-client',
       },
     ],
     mutationLifecycles: [
       {
-        file: 'src/modules/kenya/sales/SalesModule.test.tsx',
+        file: 'src/features/FeatureFlow.test.tsx',
         stages: ['loading', 'success', 'error'],
         evidence: ['loading cues detected', 'success cues detected', 'error cues detected'],
       },
@@ -84,15 +84,15 @@ describe('planJsSuite', () => {
       status: 'qualified',
       originalGesture: 'dblClick',
       proofSubject: 'heading',
-      proofText: 'Review Sale',
-      target: 'Review Sale',
+      proofText: 'Review Example',
+      target: 'Review Example',
       query: {
         stepId: 'js-step-2',
         method: 'getByRole',
         queryRoot: 'screen',
         role: 'heading',
-        raw: "screen.getByRole('heading', { name: 'Review Sale' })",
-        target: 'Review Sale',
+        raw: "screen.getByRole('heading', { name: 'Review Example' })",
+        target: 'Review Example',
       },
       anchor: {
         anchorStepId: 'js-step-1',
@@ -107,8 +107,8 @@ describe('planJsSuite', () => {
       anchorStepId: 'js-step-1',
       relation: 'precedes',
       proofSubject: 'heading',
-      proofText: 'Review Sale',
-      target: 'Review Sale',
+      proofText: 'Review Example',
+      target: 'Review Example',
       sourceContext: {
         originalType: 'dblClick',
       },
@@ -118,8 +118,8 @@ describe('planJsSuite', () => {
       stepId: 'js-step-4',
       reason: 'ambiguous-field-context',
       proofSubject: 'field-label',
-      proofText: 'Customer PIN',
-      target: 'Customer PIN',
+      proofText: 'Customer Reference',
+      target: 'Customer Reference',
       line: 27,
       sourceContext: {
         line: 27,
@@ -133,8 +133,8 @@ describe('planJsSuite', () => {
         stepId: 'js-step-3',
         method: 'getByText',
         queryRoot: 'screen',
-        raw: "screen.getByText('Customer PIN')",
-        target: 'Customer PIN',
+        raw: "screen.getByText('Customer Reference')",
+        target: 'Customer Reference',
       },
     }
 
@@ -144,14 +144,14 @@ describe('planJsSuite', () => {
         {
           id: 'js-step-1',
           action: 'click',
-          target: 'Open Sale Dialog',
+          target: 'Open Example Dialog',
           originalType: 'click',
           source: 'js',
         },
         {
           id: 'js-step-2',
           action: 'click',
-          target: 'Review Sale',
+          target: 'Review Example',
           originalType: 'dblClick',
           source: 'js',
           metadata: {
@@ -162,14 +162,14 @@ describe('planJsSuite', () => {
         {
           id: 'js-step-3',
           action: 'assert',
-          target: 'Sale dialog',
+          target: 'Example dialog',
           originalType: 'assert',
           source: 'js',
         },
         {
           id: 'js-step-4',
           action: 'click',
-          target: 'Customer PIN',
+          target: 'Customer Reference',
           originalType: 'dblClick',
           source: 'js',
           metadata: {
@@ -184,7 +184,7 @@ describe('planJsSuite', () => {
         },
       ]),
       baseline: {
-        environmentUrl: 'http://localhost:3001/sales',
+        environmentUrl: 'http://localhost:3001/example',
         queries: [],
         selectors: [],
         assertions: [],
@@ -198,7 +198,7 @@ describe('planJsSuite', () => {
         ],
         itGroups: [
           {
-            name: 'open sale dialog',
+            name: 'open example dialog',
             steps: [],
           },
         ],
@@ -211,7 +211,7 @@ describe('planJsSuite', () => {
         ...parsedInput.baseline,
         itGroups: [
           {
-            name: 'open sale dialog',
+            name: 'open example dialog',
             steps: parsedInput.recording.steps.map((step) => ({
               ...step,
               semanticMarkerCandidate: undefined,
@@ -223,7 +223,7 @@ describe('planJsSuite', () => {
       },
     })
     const intentGroups: ItGroup[] = [
-      { name: 'open sale dialog', steps: normalized.steps },
+      { name: 'open example dialog', steps: normalized.steps },
     ]
 
     const plan = planJsSuite({
@@ -242,7 +242,7 @@ describe('planJsSuite', () => {
       unresolvedSemanticMarker,
     })
     expect(plan.helpers[0]).toMatchObject({
-      name: 'planOpenSaleDialog',
+      name: 'planOpenExampleDialog',
       assertionPolicy: 'sync-only',
     })
     expect(plan.helpers[0]?.steps.map((step) => step.id)).toEqual([
@@ -253,14 +253,14 @@ describe('planJsSuite', () => {
       'js-step-1',
       'js-step-3',
     ])
-    expect(plan.scenarios[0]?.helperRefs).toEqual(['planOpenSaleDialog'])
+    expect(plan.scenarios[0]?.helperRefs).toEqual(['planOpenExampleDialog'])
     expect(plan.scenarios[0]?.markerAssertions).toHaveLength(1)
     expect(plan.scenarios[0]?.markerAssertions?.[0]).toMatchObject({
       markerStepId: 'js-step-2',
       anchorStepId: 'js-step-1',
       placement: {
         kind: 'after-helper',
-        helperName: 'planOpenSaleDialog',
+        helperName: 'planOpenExampleDialog',
         stepId: 'js-step-1',
       },
       assertion: {
@@ -294,7 +294,7 @@ describe('planJsSuite', () => {
       {
         id: 'js-step-2',
         action: 'click',
-        target: 'Review Sale',
+        target: 'Review Example',
         originalType: 'dblClick',
         source: 'js',
         semanticMarkerCandidate: {
@@ -302,8 +302,8 @@ describe('planJsSuite', () => {
           status: 'qualified',
           originalGesture: 'dblClick',
           proofSubject: 'visible-message',
-          proofText: 'Review Sale',
-          target: 'Review Sale',
+          proofText: 'Review Example',
+          target: 'Review Example',
           sourceContext: {
             originalType: 'dblClick',
           },
@@ -311,8 +311,8 @@ describe('planJsSuite', () => {
             stepId: 'js-step-2',
             method: 'getByText',
             queryRoot: 'screen',
-            raw: "screen.getByText('Review Sale')",
-            target: 'Review Sale',
+            raw: "screen.getByText('Review Example')",
+            target: 'Review Example',
           },
           anchor: {
             anchorStepId: 'js-step-1',
@@ -323,7 +323,7 @@ describe('planJsSuite', () => {
       {
         id: 'js-step-3',
         action: 'click',
-        target: 'Review Sale',
+        target: 'Review Example',
         originalType: 'dblClick',
         source: 'js',
         semanticMarkerCandidate: {
@@ -331,8 +331,8 @@ describe('planJsSuite', () => {
           status: 'qualified',
           originalGesture: 'dblClick',
           proofSubject: 'heading',
-          proofText: 'Review Sale',
-          target: 'Review Sale',
+          proofText: 'Review Example',
+          target: 'Review Example',
           sourceContext: {
             originalType: 'dblClick',
           },
@@ -341,8 +341,8 @@ describe('planJsSuite', () => {
             method: 'getByRole',
             queryRoot: 'screen',
             role: 'heading',
-            raw: "screen.getByRole('heading', { name: 'Review Sale' })",
-            target: 'Review Sale',
+            raw: "screen.getByRole('heading', { name: 'Review Example' })",
+            target: 'Review Example',
           },
           anchor: {
             anchorStepId: 'js-step-1',
@@ -360,7 +360,7 @@ describe('planJsSuite', () => {
       {
         id: 'js-step-5',
         action: 'click',
-        target: 'Review Sale',
+        target: 'Review Example',
         originalType: 'dblClick',
         source: 'js',
         semanticMarkerCandidate: {
@@ -368,8 +368,8 @@ describe('planJsSuite', () => {
           status: 'unresolved',
           originalGesture: 'dblClick',
           proofSubject: 'field-label',
-          proofText: 'Review Sale',
-          target: 'Review Sale',
+          proofText: 'Review Example',
+          target: 'Review Example',
           sourceContext: {
             originalType: 'dblClick',
           },
@@ -377,8 +377,8 @@ describe('planJsSuite', () => {
             stepId: 'js-step-5',
             method: 'getByText',
             queryRoot: 'screen',
-            raw: "screen.getByText('Review Sale')",
-            target: 'Review Sale',
+            raw: "screen.getByText('Review Example')",
+            target: 'Review Example',
           },
           anchor: {
             anchorStepId: 'js-step-1',
@@ -389,8 +389,8 @@ describe('planJsSuite', () => {
           stepId: 'js-step-5',
           reason: 'ambiguous-field-context',
           proofSubject: 'field-label',
-          proofText: 'Review Sale',
-          target: 'Review Sale',
+          proofText: 'Review Example',
+          target: 'Review Example',
           sourceContext: {
             originalType: 'dblClick',
           },
@@ -398,8 +398,8 @@ describe('planJsSuite', () => {
             stepId: 'js-step-5',
             method: 'getByText',
             queryRoot: 'screen',
-            raw: "screen.getByText('Review Sale')",
-            target: 'Review Sale',
+            raw: "screen.getByText('Review Example')",
+            target: 'Review Example',
           },
           anchor: {
             anchorStepId: 'js-step-1',
@@ -410,7 +410,7 @@ describe('planJsSuite', () => {
     ])
 
     const intentGroups: ItGroup[] = [
-      { name: 'review sale', steps: recording.steps },
+      { name: 'review example', steps: recording.steps },
     ]
 
     const plan = planJsSuite({
@@ -435,7 +435,7 @@ describe('planJsSuite', () => {
       anchorStepId: 'js-step-1',
       placement: {
         kind: 'after-helper',
-        helperName: 'planReviewSale',
+        helperName: 'planReviewExample',
         stepId: 'js-step-1',
       },
       assertion: {
@@ -452,12 +452,12 @@ describe('planJsSuite', () => {
 
   it('marks multi-step mutation-heavy flows as module-boundary drafts', () => {
     const recording = createRecording([
-      { action: 'click', target: 'Add Sale (Invoice)', originalType: 'click', source: 'js' },
+      { action: 'click', target: 'Open Example Wizard', originalType: 'click', source: 'js' },
       { action: 'fill', target: 'Quantity', value: '4', originalType: 'fill', source: 'js' },
-      { action: 'select', target: 'Customer PIN / Name', value: 'John Doe', originalType: 'select', source: 'js' },
-      { action: 'fill', target: 'General Invoice Details', value: 'Hello world', originalType: 'fill', source: 'js' },
+      { action: 'select', target: 'Customer', value: 'John Doe', originalType: 'select', source: 'js' },
+      { action: 'fill', target: 'Example Details', value: 'Hello world', originalType: 'fill', source: 'js' },
       { action: 'click', target: 'Continue', originalType: 'click', source: 'js' },
-      { action: 'click', target: 'Review Sale (Invoice)', originalType: 'click', source: 'js' },
+      { action: 'click', target: 'Review Example', originalType: 'click', source: 'js' },
       { action: 'click', target: 'Save', originalType: 'click', source: 'js' },
     ])
 
@@ -478,7 +478,7 @@ describe('planJsSuite', () => {
     expect(plan.warnings).toContain(
       'Prefer a repo-local module/container render boundary for this flow instead of targeting a leaf form component directly.'
     )
-    expect(plan.warnings.some((warning) => warning.includes('@digitax/data-layer'))).toBe(true)
+    expect(plan.warnings.some((warning) => warning.includes('@repo/data-client'))).toBe(true)
   })
 
   it('keeps simple flows at component scope without boundary warnings', () => {
@@ -550,12 +550,12 @@ describe('planJsSuite', () => {
 
   it('keeps stateful wizard flows explicit when the owning render target is still unresolved', () => {
     const recording = createRecording([
-      { action: 'click', target: 'Open invoice wizard', originalType: 'click', source: 'js' },
+      { action: 'click', target: 'Open example wizard', originalType: 'click', source: 'js' },
       { action: 'fill', target: 'Customer', value: 'Jane', originalType: 'fill', source: 'js' },
       { action: 'fill', target: 'Email', value: 'jane@example.com', originalType: 'fill', source: 'js' },
       { action: 'click', target: 'Continue', originalType: 'click', source: 'js' },
       { action: 'fill', target: 'Notes', value: 'hello', originalType: 'fill', source: 'js' },
-      { action: 'click', target: 'Review Invoice', originalType: 'click', source: 'js' },
+      { action: 'click', target: 'Review Example', originalType: 'click', source: 'js' },
       { action: 'click', target: 'Save', originalType: 'click', source: 'js' },
     ])
 

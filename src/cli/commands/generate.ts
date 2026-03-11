@@ -4,8 +4,8 @@
  */
 
 import { Command } from 'commander'
-import { access, mkdir } from 'node:fs/promises'
-import { basename, dirname, join, resolve } from 'node:path'
+import { access, mkdir, readdir, readFile } from 'node:fs/promises'
+import { basename, dirname, extname, join, relative, resolve } from 'node:path'
 import { cwd } from 'node:process'
 import pc from 'picocolors'
 import { ensureProjectStateDir } from '../../project-state.js'
@@ -59,6 +59,30 @@ const EMPTY_MARKER_COVERAGE: MarkerCoverageTotals = {
   unresolved: 0,
 }
 
+const CONTEXT_SEARCH_SKIP_DIRS = new Set([
+  'node_modules',
+  '.git',
+  'dist',
+  '.taro',
+  'coverage',
+  '.next',
+  '.nuxt',
+])
+
+const CONTEXT_SEARCH_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx'])
+const GENERIC_CONTEXT_TERMS = new Set([
+  'add',
+  'back',
+  'cancel',
+  'close',
+  'continue',
+  'done',
+  'next',
+  'open',
+  'save',
+  'submit',
+])
+
 const UNRESOLVED_MARKER_REASON_GUIDANCE: Record<
   SemanticMarkerAssertionUnresolvedReason,
   string
@@ -89,6 +113,319 @@ function deriveOutputPath(inputPath: string): string {
   const dir = dirname(inputPath)
   const name = basename(inputPath).replace(/\.[cm]?[jt]sx?$/, '')
   return join(dir, `${name}.test.tsx`)
+}
+
+interface RepoContextMatch {
+  filePath: string
+  matchedTerms: string[]
+  kind: 'source' | 'test'
+  score: number
+}
+
+function looksLikeSelectorLikeString(value: string): boolean {
+  return (
+    /^[#.[]/.test(value) ||
+    /^[a-z][a-z0-9-]*(?:[.#[:>])/i.test(value) ||
+    /^(button|input|select|textarea|a|img|h[1-6])$/i.test(value)
+  )
+}
+
+function normalizeContextTerm(value?: string): string | null {
+  const normalized = value?.replace(/\s+/g, ' ').trim()
+  if (!normalized || normalized.length < 4 || looksLikeSelectorLikeString(normalized)) {
+    return null
+  }
+
+  const lower = normalized.toLowerCase()
+  if (!/\s/.test(normalized) && GENERIC_CONTEXT_TERMS.has(lower)) {
+    return null
+  }
+
+  return normalized
+}
+
+function scoreContextTerm(term: string): number {
+  let score = term.length
+  if (/\s/.test(term)) {
+    score += 10
+  }
+  if (/[()/:+-]/.test(term)) {
+    score += 4
+  }
+  if (/\d/.test(term)) {
+    score += 2
+  }
+
+  return score
+}
+
+function collectRepoContextSearchTerms(recording: NormalizedRecording): string[] {
+  const termScores = new Map<string, number>()
+
+  const registerTerm = (value?: string) => {
+    const term = normalizeContextTerm(value)
+    if (!term) {
+      return
+    }
+
+    termScores.set(term, (termScores.get(term) ?? 0) + scoreContextTerm(term))
+  }
+
+  registerTerm(recording.title)
+  for (const step of recording.steps) {
+    registerTerm(step.target)
+    registerTerm(step.value)
+  }
+
+  return [...termScores.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+    .map(([term]) => term)
+    .slice(0, 8)
+}
+
+async function findRepoContextMatches(params: {
+  projectRoot: string
+  terms: string[]
+  excludePaths: string[]
+}): Promise<RepoContextMatch[]> {
+  const { projectRoot, terms, excludePaths } = params
+  if (terms.length === 0) {
+    return []
+  }
+
+  const normalizedTerms = terms.map((term) => ({
+    raw: term,
+    lower: term.toLowerCase(),
+    weight: scoreContextTerm(term),
+  }))
+  const comparableProjectRoot = normalizeComparablePath(resolve(projectRoot))
+  const excluded = new Set(
+    excludePaths.map((value) => normalizeComparablePath(resolve(value)))
+  )
+  const excludedRelativePaths = new Set(
+    excludePaths
+      .map((value) =>
+        relative(comparableProjectRoot, normalizeComparablePath(resolve(value))).replace(/\\/g, '/')
+      )
+      .filter((value) => value && !value.startsWith('..'))
+  )
+  const matches: RepoContextMatch[] = []
+
+  async function walk(dir: string): Promise<void> {
+    let entries
+    try {
+      entries = await readdir(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name)
+
+      if (entry.isDirectory()) {
+        if (!CONTEXT_SEARCH_SKIP_DIRS.has(entry.name)) {
+          await walk(fullPath)
+        }
+        continue
+      }
+
+      if (!entry.isFile() || !CONTEXT_SEARCH_EXTENSIONS.has(extname(entry.name))) {
+        continue
+      }
+
+      const resolvedPath = normalizeComparablePath(resolve(fullPath))
+      const relativePath = relative(comparableProjectRoot, resolvedPath).replace(/\\/g, '/')
+      if (excluded.has(resolvedPath) || excludedRelativePaths.has(relativePath)) {
+        continue
+      }
+
+      let content: string
+      try {
+        content = await readFile(resolvedPath, 'utf-8')
+      } catch {
+        continue
+      }
+
+      if (content.length > 500_000) {
+        continue
+      }
+
+      const lowered = content.toLowerCase()
+      const matchedTerms = normalizedTerms
+        .filter((term) => lowered.includes(term.lower))
+        .map((term) => term.raw)
+
+      if (matchedTerms.length === 0) {
+        continue
+      }
+
+      const score = normalizedTerms
+        .filter((term) => matchedTerms.includes(term.raw))
+        .reduce((sum, term) => sum + term.weight, 0)
+
+      matches.push({
+        filePath: relativePath,
+        matchedTerms,
+        kind: /\.(test|spec)\.[jt]sx?$/u.test(entry.name) ? 'test' : 'source',
+        score,
+      })
+    }
+  }
+
+  await walk(projectRoot)
+
+  return matches
+    .sort((left, right) => {
+      return (
+        right.score - left.score ||
+        right.matchedTerms.length - left.matchedTerms.length ||
+        left.filePath.localeCompare(right.filePath)
+      )
+    })
+    .slice(0, 10)
+}
+
+function formatContextMatchesSummary(matches: RepoContextMatch[]): string {
+  return matches
+    .slice(0, 3)
+    .map((match) => `${match.filePath} [${match.matchedTerms.slice(0, 2).join(', ')}]`)
+    .join(' | ')
+}
+
+function normalizeComparablePath(value: string): string {
+  return value.replace(/^\/private(?=\/var\/)/u, '')
+}
+
+function resolvePackageProfileFromContextMatches(params: {
+  state: Awaited<ReturnType<typeof loadOrBootstrapTaroState>>['state']
+  currentProfile: ResolvedTaroPackageProfile | null
+  projectRoot: string
+  overrides: Awaited<ReturnType<typeof readTaroOverrides>>
+  matches: RepoContextMatch[]
+}): { profile: ResolvedTaroPackageProfile | null; reason: string | null } {
+  const { state, currentProfile, projectRoot, overrides, matches } = params
+  if (matches.length === 0) {
+    return {
+      profile: currentProfile,
+      reason: null,
+    }
+  }
+
+  const scores = new Map<string, { score: number; filePath: string }>()
+  const packagePaths = Object.keys(state.packages).sort((left, right) => right.length - left.length)
+
+  for (const match of matches) {
+    const matchingPackagePath = packagePaths.find((packagePath) => {
+      return packagePath !== '.' &&
+        (match.filePath === packagePath || match.filePath.startsWith(`${packagePath}/`))
+    })
+
+    if (!matchingPackagePath) {
+      continue
+    }
+
+    const existing = scores.get(matchingPackagePath)
+    if (existing) {
+      existing.score += match.score
+      continue
+    }
+
+    scores.set(matchingPackagePath, {
+      score: match.score,
+      filePath: match.filePath,
+    })
+  }
+
+  const bestMatch = [...scores.entries()]
+    .sort((left, right) => right[1].score - left[1].score || left[0].localeCompare(right[0]))[0]
+
+  if (!bestMatch) {
+    return {
+      profile: currentProfile,
+      reason: null,
+    }
+  }
+
+  const [packagePath, info] = bestMatch
+  if (currentProfile?.packagePath === packagePath || info.score <= 0) {
+    return {
+      profile: currentProfile,
+      reason: null,
+    }
+  }
+
+  const resolvedProfile = resolveTaroPackageProfile(
+    state,
+    projectRoot,
+    join(projectRoot, packagePath, '__taro-context-match__.test.tsx'),
+    overrides
+  )
+
+  if (!resolvedProfile) {
+    return {
+      profile: currentProfile,
+      reason: null,
+    }
+  }
+
+  return {
+    profile: resolvedProfile,
+    reason: `${info.filePath} matched recording text evidence`,
+  }
+}
+
+function toImportPath(fromDir: string, absoluteFilePath: string): string {
+  const withoutExtension = normalizeComparablePath(absoluteFilePath).replace(/\.[^.]+$/u, '')
+  const relativePath = relative(
+    normalizeComparablePath(fromDir),
+    withoutExtension
+  ).replace(/\\/g, '/')
+  return relativePath.startsWith('.') ? relativePath : `./${relativePath}`
+}
+
+function isLikelyRenderTargetSymbol(symbol: string): boolean {
+  return /^[A-Z][A-Za-z0-9_]*$/u.test(symbol)
+}
+
+function deriveContextRenderTargets(params: {
+  projectRoot: string
+  outputPath: string
+  matches: RepoContextMatch[]
+}): RepoRenderTargetCandidate[] {
+  const { projectRoot, outputPath, matches } = params
+  const candidates: RepoRenderTargetCandidate[] = []
+  const seen = new Set<string>()
+  const outputDir = dirname(outputPath)
+
+  for (const match of matches) {
+    if (match.kind !== 'source') {
+      continue
+    }
+
+    const absolutePath = join(projectRoot, match.filePath)
+    const symbol = basename(match.filePath).replace(/\.[^.]+$/u, '')
+    if (!isLikelyRenderTargetSymbol(symbol)) {
+      continue
+    }
+
+    const importPath = toImportPath(outputDir, absolutePath)
+    const dedupeKey = `${symbol}|${importPath}`
+    if (seen.has(dedupeKey)) {
+      continue
+    }
+
+    seen.add(dedupeKey)
+    candidates.push({
+      symbol,
+      importPath,
+      sourceTestFile: match.filePath,
+      helperNames: [],
+      usesWithin: false,
+      evidenceTerms: match.matchedTerms,
+    })
+  }
+
+  return candidates
 }
 
 function logScore(scoreResult: ScoreResult): void {
@@ -666,6 +1003,7 @@ function scoreRenderTargetCandidate(
     ...tokenizeSuiteHint(candidate.importPath),
     ...tokenizeSuiteHint(candidate.sourceTestFile),
     ...candidate.helperNames.flatMap((name) => tokenizeSuiteHint(name)),
+    ...(candidate.evidenceTerms ?? []).flatMap((term) => tokenizeSuiteHint(term)),
   ])
 
   let score = 0
@@ -969,15 +1307,30 @@ export function createGenerateCommand(): Command {
       const hadState = await access(join(projectRoot, '.taro', 'state.json'))
         .then(() => true)
         .catch(() => false)
-      const outputPath = deriveOutputPath(filePath)
+      const defaultOutputPath = deriveOutputPath(filePath)
       let bootstrappedState = await loadOrBootstrapTaroState(projectRoot)
       let overrides = await readTaroOverrides(projectRoot)
       let packageProfile = resolveTaroPackageProfile(
         bootstrappedState.state,
         projectRoot,
-        outputPath,
+        defaultOutputPath,
         overrides
       )
+      const contextSearchTerms = collectRepoContextSearchTerms(normalizedRecording)
+      const contextMatches = await findRepoContextMatches({
+        projectRoot,
+        terms: contextSearchTerms,
+        excludePaths: [filePath, defaultOutputPath],
+      })
+      const contextProfile = resolvePackageProfileFromContextMatches({
+        state: bootstrappedState.state,
+        currentProfile: packageProfile,
+        projectRoot,
+        overrides,
+        matches: contextMatches,
+      })
+      packageProfile = contextProfile.profile
+      let contextProfileReason = contextProfile.reason
 
       if (bootstrappedState.summary.warnings.length > 0) {
         for (const warning of bootstrappedState.summary.warnings) {
@@ -1000,9 +1353,18 @@ export function createGenerateCommand(): Command {
           packageProfile = resolveTaroPackageProfile(
             bootstrappedState.state,
             projectRoot,
-            outputPath,
+            defaultOutputPath,
             overrides
           )
+          const refreshedContextProfile = resolvePackageProfileFromContextMatches({
+            state: bootstrappedState.state,
+            currentProfile: packageProfile,
+            projectRoot,
+            overrides,
+            matches: contextMatches,
+          })
+          packageProfile = refreshedContextProfile.profile
+          contextProfileReason = refreshedContextProfile.reason
         }
       }
 
@@ -1016,16 +1378,32 @@ export function createGenerateCommand(): Command {
           folderPattern: 'unknown',
           fileExtension: 'ts',
         }
-      const repoRenderTargets: RepoRenderTargetCandidate[] =
-        packageProfile?.renderTargets ?? []
+      const contextRenderTargets = deriveContextRenderTargets({
+        projectRoot,
+        outputPath: defaultOutputPath,
+        matches: contextMatches,
+      })
+      const repoRenderTargets = [...contextRenderTargets, ...(packageProfile?.renderTargets ?? [])]
 
       if (!hadState) {
         console.log(pc.dim('[taro]') + ' Bootstrapped .taro/state.json from current repo tests.')
+      }
+      if (contextMatches.length > 0) {
+        console.log(
+          pc.dim('[taro]') +
+            ` Context matches: ${formatContextMatchesSummary(contextMatches)}`
+        )
       }
       if (packageProfile?.appliedOverrides.length) {
         console.log(
           pc.dim('[taro]') +
             ` Applied overrides for ${packageProfile.packagePath}: ${packageProfile.appliedOverrides.join(', ')}`
+        )
+      }
+      if (contextProfileReason && packageProfile) {
+        console.log(
+          pc.dim('[taro]') +
+            ` Context-selected package profile ${packageProfile.packagePath}: ${contextProfileReason}.`
         )
       }
       summarizeResolvedPackageProfile(packageProfile)
@@ -1061,6 +1439,7 @@ export function createGenerateCommand(): Command {
         mockAnalysis,
         suitePlan: rawJsSuitePlan,
       })
+      const outputPath = defaultOutputPath
 
       const jsSuitePlan = rawJsSuitePlan
         ? applyRepoRenderTarget(rawJsSuitePlan, repoRenderTarget)
