@@ -65,6 +65,21 @@ describe('runInstallCommand', () => {
     await expect(
       readFile(join(sandbox.home, '.codex', 'skills', '@tayo-dev', 'rtl-help', 'SKILL.md'), 'utf8')
     ).resolves.toContain('$@tayo-dev/rtl-help')
+    await expect(
+      readFile(join(sandbox.home, '.claude', 'commands', '@tayo-dev', 'rtl', 'init.md'), 'utf8')
+    ).resolves.toContain('tayo __init')
+    await expect(
+      readFile(join(sandbox.home, '.claude', 'commands', '@tayo-dev', 'rtl', 'refresh.md'), 'utf8')
+    ).resolves.toContain('tayo __refresh')
+    await expect(
+      readFile(join(sandbox.home, '.codex', 'skills', '@tayo-dev', 'rtl-init', 'SKILL.md'), 'utf8')
+    ).resolves.toContain('$@tayo-dev/rtl-init')
+    await expect(
+      readFile(
+        join(sandbox.home, '.codex', 'skills', '@tayo-dev', 'rtl-refresh', 'SKILL.md'),
+        'utf8'
+      )
+    ).resolves.toContain('$@tayo-dev/rtl-refresh')
   })
 
   it('reports update results on rerun in non-interactive mode', async () => {
@@ -95,7 +110,7 @@ describe('runInstallCommand', () => {
     const output = secondRun.logs.join('\n')
 
     expect(process.exitCode).toBeUndefined()
-    expect(output).toContain('updated 2 owned asset(s)')
+    expect(output).toContain('updated 14 owned asset(s)')
   })
 
   it('reports repaired outcomes when a rerun restores a missing owned asset', async () => {
@@ -129,6 +144,6 @@ describe('runInstallCommand', () => {
     const output = secondRun.logs.join('\n')
 
     expect(process.exitCode).toBeUndefined()
-    expect(output).toContain('repaired 2 owned asset(s)')
+    expect(output).toContain('repaired 4 owned asset(s)')
   })
 })

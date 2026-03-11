@@ -18,7 +18,7 @@ import type {
   SelectorDescriptor,
   SelectorResolutionResult,
 } from '../types/recording.js'
-import type { RepoRenderTargetCandidate } from './scanner.js'
+import type { RepoRenderTargetCandidate, TaroRenderHelperProfile, TaroTestRunner } from '../types/state.js'
 import type { ConventionsSchema } from '../types/conventions.js'
 import {
   importBlock,
@@ -276,7 +276,7 @@ export function emitQuerySummary(queryResults: QueryResult[]): void {
         ? ` — see line${lines.length > 1 ? 's' : ''} ${lines.join(', ')}`
         : ''
     console.log(
-      pc.dim('[tayo]') +
+      pc.dim('[taro]') +
         ` ${count} ${method} (${quality}${lineInfo})`
     )
   }
@@ -285,10 +285,12 @@ export function emitQuerySummary(queryResults: QueryResult[]): void {
 export interface GenerateFromGroupsOptions {
   outputPath?: string
   conventions?: ConventionsSchema
+  runner?: TaroTestRunner
   queryResults?: QueryResult[]
   helpers?: JsHelperPlan[]
   scenarios?: JsScenarioPlan[]
   renderTarget?: RepoRenderTargetCandidate | null
+  renderHelper?: TaroRenderHelperProfile | null
 }
 
 function getScenarioHelperRefs(
@@ -409,13 +411,18 @@ export function generateTestFromGroups(
 ): GeneratedTestV3 {
   const {
     conventions,
+    runner = 'unknown',
     queryResults = [],
     outputPath,
     helpers = [],
     scenarios,
     renderTarget = null,
+    renderHelper = null,
   } = options
   const importStyle = conventions?.importStyle ?? 'esm'
+  const jestDomImportPath =
+    runner === 'vitest' ? '@testing-library/jest-dom/vitest' : '@testing-library/jest-dom'
+  const renderFunctionName = renderHelper?.name ?? 'render'
 
   // Build query -> matcher map for context-aware assert matchers
   const matcherMap = new Map<string, string>()
@@ -560,10 +567,19 @@ export function generateTestFromGroups(
           importPath: renderTarget.importPath,
         }
       : null,
+    renderHelper: renderHelper
+      ? {
+          name: renderHelper.name,
+          importPath: renderHelper.importPath,
+          importKind: renderHelper.importKind,
+        }
+      : null,
+    jestDomImportPath,
     needsWithin: renderTarget?.usesWithin ?? false,
   })
   const describeCode = describeBlockMultiIt(title, itBlocks, {
     renderExpression: renderTarget ? `<${renderTarget.symbol} />` : '<App />',
+    renderFunctionName,
     helpers: helperBlocks,
   })
   const code = `${imports}\n\n${describeCode}\n`

@@ -1,13 +1,13 @@
-import { mkdtemp, mkdir, rm } from 'node:fs/promises'
 import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
+import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { promisify } from 'node:util'
 import { afterEach, describe, expect, it } from 'vitest'
-import { buildInstallPlan } from './planner.js'
-import { verifyInstalledRuntime } from './verification.js'
 import { executeInstallPlan } from './executor.js'
+import { buildInstallPlan } from './planner.js'
 import type { InstallSelection, RuntimeLocationSelections, RuntimeTarget } from './types.js'
+import { verifyInstalledRuntime } from './verification.js'
 
 const execFileAsync = promisify(execFile)
 const sandboxRoots: string[] = []
@@ -67,7 +67,7 @@ describe('verifyInstalledRuntime', () => {
 })
 
 describe('package smoke proof', () => {
-  it('packs dist and runtime assets into the npm tarball', async () => {
+  it('packs dist, authored runtime sources, and docs into the npm tarball', async () => {
     const { root } = await createSandbox('pack')
     const packDir = join(root, 'pack')
     const cacheDir = join(root, 'npm-cache')
@@ -94,13 +94,13 @@ describe('package smoke proof', () => {
     })
 
     expect(tarList.stdout).toContain('package/dist/index.js')
-    expect(tarList.stdout).toContain('package/assets/claude/commands/@tayo-dev/rtl/help.md')
-    expect(tarList.stdout).toContain('package/assets/gemini/commands/@tayo-dev/rtl/help.toml')
-    expect(tarList.stdout).toContain('package/assets/opencode/commands/@tayo-dev/rtl-help.md')
-    expect(tarList.stdout).toContain('package/assets/codex/@tayo-dev/rtl-help/SKILL.md')
-    expect(tarList.stdout).toContain(
-      'package/assets/codex/@tayo-dev/rtl-generate/references/quality-scoring.md'
-    )
+    expect(tarList.stdout).toContain('package/bin/install.js')
+    expect(tarList.stdout).toContain('package/commands/claude/@tayo-dev/rtl/help.md')
+    expect(tarList.stdout).toContain('package/commands/gemini/@tayo-dev/rtl/help.toml')
+    expect(tarList.stdout).toContain('package/commands/opencode/@tayo-dev/rtl-help.md')
+    expect(tarList.stdout).toContain('package/agents/tayo-help.md')
+    expect(tarList.stdout).toContain('package/taro/references/quality-scoring.md')
+    expect(tarList.stdout).toContain('package/docs/USER-GUIDE.md')
     expect(tarList.stdout).toContain('package/README.md')
   })
 })

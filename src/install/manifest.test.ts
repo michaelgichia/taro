@@ -6,7 +6,7 @@ import {
 } from './manifest.js'
 
 describe('createOwnershipManifest', () => {
-  it('creates a Tayo-owned manifest with hashed files', () => {
+  it('creates a Taro-owned manifest with hashed files', () => {
     const file = createOwnedFile({
       relativePath: 'commands/@tayo-dev/rtl/help.md',
       kind: 'command',

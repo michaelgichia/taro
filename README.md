@@ -1,8 +1,8 @@
-# Tayo
+# Taro
 
-Install Tayo into Claude Code, OpenCode, Gemini CLI, or Codex, then generate React Testing Library tests from Testing Library Recorder JS exports.
+Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex, run the runtime-native `init` entrypoint as the recommended first step, then generate React Testing Library tests from Testing Library Recorder JS exports.
 
-Tayo ships as an installer-first package. The package entrypoint bootstraps runtime-native commands or skills into your agent environment, and those runtime entrypoints execute Tayo's internal JS-only generation flow for Recorder-to-RTL output.
+Taro ships as an installer-first package. The package entrypoint bootstraps runtime-native commands or skills into your agent environment, and those runtime entrypoints run Taro's internal JS-only init, refresh, and generation flows.
 
 ## Getting Started
 
@@ -15,7 +15,16 @@ The installer prompts you to choose:
 1. **Runtime** — Claude Code, OpenCode, Gemini CLI, Codex, or all
 2. **Location** — Global (all projects) or local (current project only)
 
-Verify the install with the runtime-native help command:
+After installation or reinstall, run the runtime-native `init` entrypoint:
+
+- Claude Code: `/@tayo-dev/rtl:init`
+- Gemini CLI: `/@tayo-dev/rtl:init`
+- OpenCode: `/@tayo-dev/rtl-init`
+- Codex: `$@tayo-dev/rtl-init`
+
+Check the installed package version with `tayo version` or `tayo --version`.
+
+Use the runtime-native help entrypoint when you want routing guidance:
 
 - Claude Code: `/@tayo-dev/rtl:help`
 - Gemini CLI: `/@tayo-dev/rtl:help`
@@ -27,13 +36,20 @@ Verify the install with the runtime-native help command:
 
 ## Staying Updated
 
-Re-run the installer package to refresh owned assets and repair missing ones:
+Use the runtime-native `refresh` entrypoint for maintenance after Taro is already installed:
+
+- Claude Code: `/@tayo-dev/rtl:refresh`
+- Gemini CLI: `/@tayo-dev/rtl:refresh`
+- OpenCode: `/@tayo-dev/rtl-refresh`
+- Codex: `$@tayo-dev/rtl-refresh`
+
+If you need a newer package version first, rerun the installer package:
 
 ```bash
 npx @tayo-dev/rtl@latest
 ```
 
-Tayo refreshes unchanged owned files automatically, restores missing owned files, and protects manual edits instead of overwriting them silently.
+After updating the package, run the runtime-native `refresh` entrypoint. Refresh is the maintenance path for owned assets: it restores missing owned files and protects manual edits instead of overwriting them silently.
 
 ## Non-interactive Install
 
@@ -76,6 +92,12 @@ When you want to test the installer from a local checkout instead of the publish
 # Build the CLI
 npm run build
 
+# Build, install locally for this repo, then reinstall the global Claude surface cleanly
+npm run build:claude
+
+# Build, install locally for this repo, then reinstall the global Codex surface cleanly
+npm run build:codex
+
 # Exercise the installer from the built package entrypoint
 node dist/index.js --all --local
 
@@ -86,9 +108,22 @@ npx /tmp/tayo-pack/tayo-dev-rtl-1.0.0.tgz --codex --local
 
 The tarball flow is the closest match to what end users get from npm.
 
+`npm run build:claude` performs three steps:
+
+1. builds the package
+2. installs Claude commands into this repo's `./.claude/`
+3. deletes the existing global Taro Claude command directory at `~/.claude/commands/@tayo-dev/rtl` and reinstalls it cleanly
+
+`npm run build:codex` performs the Codex equivalent:
+
+1. builds the package
+2. installs Codex skills into this repo's `./.codex/`
+3. deletes the existing global Taro Codex skill directories plus `~/.codex/@tayo-dev-rtl-manifest.json`
+4. reinstalls the global Codex surface cleanly
+
 ## Generate RTL Tests
 
-After installation, use the runtime-native installed generate command or skill for your agent:
+After installation and a first `init` run, use the runtime-native installed generate command or skill for your agent:
 
 - Claude Code: `/@tayo-dev/rtl:generate`
 - Gemini CLI: `/@tayo-dev/rtl:generate`
@@ -105,37 +140,37 @@ After installation, use the runtime-native installed generate command or skill f
 
 Open Chrome DevTools → Recorder panel → click "Start new recording" → perform your user flow → click "End recording".
 
-Tayo supports one export path:
+Taro supports one export path:
 
 - Testing Library Recorder JS export: save as `recording.js`
 
 ### Generate the test
 
-Run your runtime-native generate entrypoint against `recording.js`. Tayo writes `recording.test.tsx` next to the recording and refuses to overwrite an existing file, so rename or delete the previous generated file before rerunning.
+Run your runtime-native generate entrypoint against `recording.js`. Taro writes `recording.test.tsx` next to the recording and refuses to overwrite an existing file, so rename or delete the previous generated file before rerunning.
 
 Expected output:
 
 ```text
 Parsed: my user flow — 8 steps
-[tayo] Score: 78/100 (B) — query: 80, assertions: 70, structure: 85
+[taro] Score: 78/100 (B) — query: 80, assertions: 70, structure: 85
 Created: src/components/MyComponent.test.tsx
-[tayo] ✓ post-write verified
+[taro] ✓ post-write verified
 ```
 
-On subsequent runs in the same project, Tayo reads `.tayo/conventions.json` to match your test style automatically.
+On subsequent runs in the same project, Taro reads `.taro/state.json` package profiles to match your test style automatically. If `.taro/state.json` is missing, `generate` performs a light bootstrap, but `init` remains the recommended first step for brownfield repos.
 
 ### Draft-quality output is explicit
 
-When Tayo cannot prove the final render/query boundary yet, it keeps the output writable but marks it as draft-quality instead of pretending the gaps are solved.
+When Taro cannot prove the final render/query boundary yet, it keeps the output writable but marks it as draft-quality instead of pretending the gaps are solved.
 
 ```text
-[tayo] Score: 77/100 (C) — query: 100, assertions: 30, structure: 70, boundary: 100
-[tayo] Manual review required — this generated test is still a draft (77/100, C).
-[tayo] Top blockers: The generated test still renders <App /> instead of a resolved repo target. | Boundary warnings remain in the generated file, so the render/mock boundary still needs cleanup.
-// tayo-query-checkpoint: click step requires manual RTL query recovery
+[taro] Score: 77/100 (C) — query: 100, assertions: 30, structure: 70, boundary: 100
+[taro] Manual review required — this generated test is still a draft (77/100, C).
+[taro] Top blockers: The generated test still renders <App /> instead of a resolved repo target. | Boundary warnings remain in the generated file, so the render/mock boundary still needs cleanup.
+// taro-query-checkpoint: click step requires manual RTL query recovery
 ```
 
-That draft banner is advisory. Tayo does not block writes, but it does tell you when import targets, placeholder queries, or unresolved boundaries still need cleanup.
+That draft banner is advisory. Taro does not block writes, but it does tell you when import targets, placeholder queries, or unresolved boundaries still need cleanup.
 
 ## Worked Example
 
@@ -165,14 +200,14 @@ Run your installed runtime-native generate entrypoint with `./login-flow.js`.
 
 ```
 Parsed: login flow — 7 steps
-[tayo] Score: 82/100 (B) — query: 90, assertions: 75, structure: 80
+[taro] Score: 82/100 (B) — query: 90, assertions: 75, structure: 80
 Created: login-flow.test.tsx
-[tayo] ✓ post-write verified
+[taro] ✓ post-write verified
 ```
 
 ### Output: Generated test (`login-flow.test.tsx`)
 
-Tayo generates a convention-aware RTL test with accessible queries:
+Taro generates a convention-aware RTL test with accessible queries:
 
 ```typescript
 import { render, screen } from '@testing-library/react'
@@ -195,7 +230,7 @@ describe('login flow', () => {
 })
 ```
 
-### What Tayo did here
+### What Taro did here
 
 - Parsed the navigate step and inferred the component under test
 - Upgraded CSS selectors (`#email`, `#password`) to accessible `getByRole` queries using aria attributes from the recording
@@ -203,20 +238,21 @@ describe('login flow', () => {
 - Mapped the `waitForElement` step to a `toBeInTheDocument()` assertion
 - Scored the output (82/100) and emitted no blocking errors
 
-> **Note:** The component import path (`../LoginPage`) is a placeholder. Tayo generates a comment in the file indicating where to update it.
+> **Note:** The component import path (`../LoginPage`) is a placeholder. Taro generates a comment in the file indicating where to update it.
 
 ## Agent Usage
 
-After installation, each runtime gets a namespaced help entrypoint plus a generate command or skill that runs Tayo's internal JS generator.
+After installation, each runtime gets a namespaced help entrypoint plus `init`, `refresh`, and `generate` entrypoints. Use `init` first, `refresh` for maintenance, and `generate` for Recorder-to-RTL output.
 
 ### Tips
 
-- Tayo writes the generated test next to the recording file using the same basename
-- If you re-record a flow, rename or delete the old generated test before running Tayo again
-- If you record multiple flows, run Tayo on each to build up convention state in `.tayo/conventions.json` — later runs benefit from earlier ones
-- The `.tayo/` directory should be committed to your repo so convention learning persists across team members
+- Taro writes the generated test next to the recording file using the same basename
+- If you re-record a flow, rename or delete the old generated test before running Taro again
+- If you record multiple flows, run Taro on each to build up package state in `.taro/state.json` — later runs benefit from earlier ones
+- Commit `.taro/state.json` when you want learned package profiles to persist across teammates and CI
+- Add `.taro/overrides.json` when you need to pin runner, render helper, or shared mock policy for a package
 
 ### Notes
 
-- Tayo does not require network access at generation time (DOM inspection via Playwright is optional and only runs when a live URL is in the recording)
-- All state is local to `.tayo/` — no external service is contacted
+- Taro does not require network access at generation time (DOM inspection via Playwright is optional and only runs when a live URL is in the recording)
+- All state is local to `.taro/` — no external service is contacted

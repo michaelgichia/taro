@@ -120,7 +120,7 @@ describe('generateTestFromGroups', () => {
       {}
     )
 
-    expect(generated.code).toContain('// tayo-query-checkpoint: click step requires manual RTL query recovery')
+    expect(generated.code).toContain('// taro-query-checkpoint: click step requires manual RTL query recovery')
     expect(generated.code).toContain('// selector: .checkout-dialog')
     expect(generated.code).not.toContain('screen.getByTestId(')
     expect(generated.code).toContain("expect(screen.getByText('Checkout Dialog'))")
@@ -183,7 +183,7 @@ describe('generateTestFromGroups', () => {
     expect(generated.code).toContain(
       "await user.click(screen.getByRole('dialog', { name: 'Checkout Dialog' }))"
     )
-    expect(generated.code).not.toContain('tayo-query-checkpoint')
+    expect(generated.code).not.toContain('taro-query-checkpoint')
     expect(generated.code).toContain("await user.click(screen.getByText('Confirm'))")
     expect(verifySyntax(generated.code, '/tmp/generated.test.tsx')).toEqual({ valid: true })
   })

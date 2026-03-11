@@ -9,14 +9,21 @@ import type {
   MutationLifecyclePattern,
   MutationLifecycleStage,
 } from '../types/conventions.js'
+import type { ResolvedTaroPackageProfile, TaroSharedMockFactoryProfile } from '../types/state.js'
 import type { TestFileContent } from './scanner.js'
 
 export interface MockAnalysis {
   conventions: ConventionsSchema | null
+  packagePath: string | null
+  source: 'repo-scan' | 'package-profile'
   recommendations: MockRecommendation[]
   repeatedTargets: MockTargetUsage[]
   mutationLifecycles: MutationLifecyclePattern[]
   instabilityWarnings: MockInstabilityWarning[]
+  sharedMockFactories: TaroSharedMockFactoryProfile[]
+  inlineSafeMockTargets: string[]
+  preferredSharedMocks: Record<string, string>
+  forbidMocks: string[]
 }
 
 const MOCK_TARGET_REGEX = /(?:vi|jest)\.mock\(\s*['"`]([^'"`]+)['"`]/g
@@ -180,7 +187,55 @@ export async function detectMockInstability(
   return detectMockInstabilityInFiles(projectRoot, testFiles)
 }
 
-export async function analyzeMocks(projectRoot: string): Promise<MockAnalysis> {
+export async function analyzeMocks(
+  projectRoot: string,
+  options: {
+    packageProfile?: ResolvedTaroPackageProfile | null
+  } = {}
+): Promise<MockAnalysis> {
+  const packageProfile = options.packageProfile ?? null
+  if (packageProfile) {
+    const forbiddenTargets = new Set(packageProfile.forbidMocks)
+    const repeatedTargets = packageProfile.repeatedMockTargets.filter(
+      (target) => !forbiddenTargets.has(target.target)
+    )
+    const packageRecommendations = packageProfile.mockRecommendations.filter(
+      (recommendation) => !forbiddenTargets.has(recommendation.target)
+    )
+    const preferredRecommendations = Object.entries(packageProfile.preferredSharedMocks).map(
+      ([target, importPath]) => {
+        const repeatedTarget = repeatedTargets.find((entry) => entry.target === target)
+        return {
+          target,
+          kind: 'extract' as const,
+          reason: `Shared mock preference pinned to ${importPath}`,
+          files: repeatedTarget?.files ?? [],
+          count: repeatedTarget?.count ?? 1,
+        }
+      }
+    )
+
+    return {
+      conventions: packageProfile.conventions,
+      packagePath: packageProfile.packagePath,
+      source: 'package-profile',
+      recommendations: [
+        ...preferredRecommendations,
+        ...packageRecommendations.filter(
+          (recommendation) =>
+            !preferredRecommendations.some((preferred) => preferred.target === recommendation.target)
+        ),
+      ],
+      repeatedTargets,
+      mutationLifecycles: packageProfile.mutationLifecycles,
+      instabilityWarnings: packageProfile.instabilityWarnings,
+      sharedMockFactories: packageProfile.sharedMockFactories,
+      inlineSafeMockTargets: packageProfile.inlineSafeMockTargets,
+      preferredSharedMocks: packageProfile.preferredSharedMocks,
+      forbidMocks: packageProfile.forbidMocks,
+    }
+  }
+
   const testFiles = await readTestFiles(projectRoot)
   const [conventions] = await Promise.all([readConventions(projectRoot)])
   const targets = scanMockTargetsInFiles(projectRoot, testFiles)
@@ -189,9 +244,15 @@ export async function analyzeMocks(projectRoot: string): Promise<MockAnalysis> {
 
   return {
     conventions,
+    packagePath: null,
+    source: 'repo-scan',
     recommendations: deriveMockRecommendations(targets),
     repeatedTargets: targets.filter((target) => target.count > 1),
     mutationLifecycles,
     instabilityWarnings,
+    sharedMockFactories: [],
+    inlineSafeMockTargets: [],
+    preferredSharedMocks: {},
+    forbidMocks: [],
   }
 }

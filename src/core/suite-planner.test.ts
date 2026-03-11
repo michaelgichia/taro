@@ -44,6 +44,8 @@ function createAnalyzedRecording(
 function createMockAnalysis(): MockAnalysis {
   return {
     conventions: null,
+    packagePath: 'packages/dashboard',
+    source: 'package-profile',
     recommendations: [
       {
         count: 3,
@@ -68,6 +70,10 @@ function createMockAnalysis(): MockAnalysis {
       },
     ],
     instabilityWarnings: [],
+    sharedMockFactories: [],
+    inlineSafeMockTargets: [],
+    preferredSharedMocks: {},
+    forbidMocks: [],
   }
 }
 
@@ -564,7 +570,7 @@ describe('planJsSuite', () => {
     expect(plan.stateSafety.status).toBe('unknown')
     expect(plan.renderBoundary.resolvedTarget).toBeNull()
     expect(plan.warnings).toContain(
-      'Tayo could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.'
+      'Taro could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.'
     )
   })
 })

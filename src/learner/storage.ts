@@ -6,6 +6,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { ensureProjectStateDirSync } from '../project-state.js';
 import { TestConvention, createEmptyConvention } from './types.js';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -224,11 +225,11 @@ export class ConventionStore {
 
 /**
  * Create a ConventionStore instance
- * @param projectRoot - Root directory of the project (will create .tayo/ subdirectory)
+ * @param projectRoot - Root directory of the project (will create .taro/ subdirectory)
  * @returns Initialized ConventionStore
  */
 export function createStore(projectRoot: string): ConventionStore {
-  const taroDir = path.join(projectRoot, '.tayo');
+  const taroDir = ensureProjectStateDirSync(projectRoot);
   const dbPath = path.join(taroDir, 'conventions.db');
 
   const store = new ConventionStore(dbPath);

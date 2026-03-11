@@ -29,25 +29,125 @@ vi.mock('../../core/mock-intelligence.js', () => ({
   analyzeMocks: vi.fn(async () => null),
 }))
 
-const { discoverRepoRenderTargetsMock } = vi.hoisted(() => ({
-  discoverRepoRenderTargetsMock: vi.fn(async () => []),
+const { taroStateControl } = vi.hoisted(() => ({
+  taroStateControl: {
+    stale: false,
+    staleReason: null as string | null,
+    profile: {
+      packagePath: '.',
+      packageName: null,
+      scannedAt: new Date(0).toISOString(),
+      testFileCount: 0,
+      conventions: {
+        scannedAt: new Date(0).toISOString(),
+        projectRoot: '/tmp/project',
+        importStyle: 'esm',
+        mockPattern: 'none',
+        testFiles: [],
+        folderPattern: 'unknown',
+        fileExtension: 'ts',
+      },
+      importStyle: { value: 'esm', confidence: 'high', evidence: [] as string[] },
+      runner: { value: 'unknown' as const, confidence: 'low', evidence: [] as string[] },
+      mockPattern: { value: 'none' as const, confidence: 'low', evidence: [] as string[] },
+      folderPattern: { value: 'unknown' as const, confidence: 'low', evidence: [] as string[] },
+      fileExtension: { value: 'ts' as const, confidence: 'high', evidence: [] as string[] },
+      renderHelpers: [],
+      providerWrappers: [],
+      renderTargets: [] as Array<{
+        symbol: string
+        importPath: string
+        sourceTestFile: string
+        helperNames: string[]
+        usesWithin: boolean
+      }>,
+      repeatedMockTargets: [],
+      sharedMockFactories: [],
+      inlineSafeMockTargets: [],
+      mutationLifecycles: [],
+      instabilityWarnings: [],
+      mockRecommendations: [],
+      fixtureRoots: [],
+      exemplars: [],
+      warnings: [],
+      effectiveRunner: 'unknown' as const,
+      effectiveRenderHelper: null,
+      appliedOverrides: [] as string[],
+      forbidMocks: [] as string[],
+      preferredSharedMocks: {},
+    },
+  },
 }))
 
-vi.mock('../../core/scanner.js', () => ({
-  analyzeSingleTestFile: vi.fn(async () => ({})),
-  discoverRepoRenderTargets: discoverRepoRenderTargetsMock,
-  mergeConventions: vi.fn(async () => undefined),
-  readConventions: vi.fn(async () => null),
-  scanConventions: vi.fn(async () => ({
-    scannedAt: new Date(0).toISOString(),
-    projectRoot: '/tmp/project',
-    importStyle: 'esm',
-    mockPattern: 'none',
-    testFiles: [],
-    folderPattern: 'unknown',
-    fileExtension: 'ts',
-  })),
-}))
+vi.mock('../../core/state.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../core/state.js')>()
+
+  return {
+    ...actual,
+    appendGeneratedTestRecord: vi.fn(async () => undefined),
+    loadOrBootstrapTaroState: vi.fn(async () => ({
+      state: {
+        version: 1,
+        meta: {
+          createdAt: new Date(0).toISOString(),
+          updatedAt: new Date(0).toISOString(),
+          taroVersion: 'test',
+        },
+        packages: {},
+        mockStore: {
+          rootDir: null,
+          importHint: null,
+          resources: [],
+        },
+        generatedTests: [],
+      },
+      summary: {
+        packageCount: 1,
+        renderHelperCount: 0,
+        repeatedMockTargetCount: 0,
+        fixtureRootCount: 0,
+        migratedLegacyState: false,
+        overridePackageCount: 0,
+        packages: [],
+        warnings: [],
+      },
+    })),
+    detectPackageProfileStaleness: vi.fn(async () => ({
+      stale: taroStateControl.stale,
+      reason: taroStateControl.staleReason,
+      latestEvidencePath: taroStateControl.staleReason ? 'src/example.test.tsx' : null,
+    })),
+    readTaroOverrides: vi.fn(async () => ({})),
+    refreshTaroState: vi.fn(async () => ({
+      state: {
+        version: 1,
+        meta: {
+          createdAt: new Date(0).toISOString(),
+          updatedAt: new Date(0).toISOString(),
+          taroVersion: 'test',
+        },
+        packages: {},
+        mockStore: {
+          rootDir: null,
+          importHint: null,
+          resources: [],
+        },
+        generatedTests: [],
+      },
+      summary: {
+        packageCount: 1,
+        renderHelperCount: 0,
+        repeatedMockTargetCount: 0,
+        fixtureRootCount: 0,
+        migratedLegacyState: false,
+        overridePackageCount: 0,
+        packages: [],
+        warnings: [],
+      },
+    })),
+    resolveTaroPackageProfile: vi.fn(() => taroStateControl.profile),
+  }
+})
 
 const { planJsSuiteMock } = vi.hoisted(() => ({
   planJsSuiteMock: vi.fn(),
@@ -241,8 +341,12 @@ async function runGenerate(args: string[], cwdPath: string) {
 beforeEach(() => {
   captureVisualStateMock.mockReset()
   captureVisualStateMock.mockResolvedValue(null)
-  discoverRepoRenderTargetsMock.mockReset()
-  discoverRepoRenderTargetsMock.mockResolvedValue([])
+  taroStateControl.stale = false
+  taroStateControl.staleReason = null
+  taroStateControl.profile.renderTargets = []
+  taroStateControl.profile.effectiveRunner = 'unknown'
+  taroStateControl.profile.effectiveRenderHelper = null
+  taroStateControl.profile.appliedOverrides = []
   planJsSuiteMock.mockClear()
   resolveSelectorMock.mockReset()
   resolveSelectorMock.mockImplementation(defaultResolveSelector)
@@ -258,7 +362,7 @@ describe('createGenerateCommand', () => {
     const fixture = await createRecordingFixture('write-sample')
     const outputPath = deriveOutputPath(fixture.recordingPath)
 
-    discoverRepoRenderTargetsMock.mockResolvedValue([
+    taroStateControl.profile.renderTargets = [
       {
         symbol: 'SalesModule',
         importPath: './SalesModule',
@@ -266,7 +370,7 @@ describe('createGenerateCommand', () => {
         helperNames: ['openAddSaleDialog', 'addItemToCart', 'fillOtherDetails'],
         usesWithin: true,
       },
-    ])
+    ]
 
     const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
     const written = await readFile(outputPath, 'utf-8')
@@ -274,7 +378,9 @@ describe('createGenerateCommand', () => {
     expect(result.thrown).toBeUndefined()
     expect(result.errors).toBe('')
     expect(result.logs).toContain('Parsed: Recording-Add-Sale-KE-06/03/2026 at 08:25:15')
-    expect(result.logs).toContain('[tayo] ✓ post-write verified')
+    expect(result.logs).toContain('State profile: package=.')
+    expect(result.logs).toContain('[taro] ✓ post-write verified')
+    expect(result.logs).toContain('Updated .taro/state.json for package .')
     expect(result.logs).toContain(`Created: ${outputPath}`)
     expect(written).toContain("import SalesModule from './SalesModule'")
     expect(written).toContain('render(<SalesModule />)')
@@ -283,7 +389,7 @@ describe('createGenerateCommand', () => {
     expect(written).toContain('within(screen.getByRole(')
     expect(written).toContain("screen.getByRole('button', {name: '+ Add Item to Cart'})")
     expect(written).toContain("screen.getByRole('combobox', { name: 'Item selector' })")
-    expect(written).toContain('// tayo-query-checkpoint: click step requires manual RTL query recovery')
+    expect(written).toContain('// taro-query-checkpoint: click step requires manual RTL query recovery')
     expect(written).toContain(`// selector: ${inaccessibleSelector}`)
     expect(written).not.toContain(`// selector: ${inspectionFailureSelector}`)
     expect(written).not.toContain('screen.getByTestId(')
@@ -293,7 +399,7 @@ describe('createGenerateCommand', () => {
     expect(result.warnings).toContain(
       `Playwright inspection failed for selector ${inspectionFailureSelector}.`
     )
-    expect(result.warnings).not.toContain('Tayo could not resolve the exact render target')
+    expect(result.warnings).not.toContain('Taro could not resolve the exact render target')
     expect(analyzeBoundaryIsolation(written)).toEqual([])
   })
 
@@ -354,7 +460,7 @@ test('Semantic marker flow', async () => {
       'Recording cleanup: 1 redundant click(s), 1 preserved semantic marker(s), 1 unresolved semantic marker(s)'
     )
     expect(result.logs).toContain('markers: detected=2, emitted=1, unresolved=1')
-    expect(result.logs).toContain('[tayo] Marker coverage:')
+    expect(result.logs).toContain('[taro] Marker coverage:')
     expect(result.logs).toContain('QUAL-02 gate: PASS (markers-converted)')
     expect(countOccurrences(result.warnings, 'MKR-03 unresolved-marker')).toBe(1)
     expect(result.warnings).toMatch(
@@ -378,17 +484,31 @@ test('Semantic marker flow', async () => {
     const fixture = await createRecordingFixture('boundary-draft')
     const outputPath = deriveOutputPath(fixture.recordingPath)
 
-    discoverRepoRenderTargetsMock.mockResolvedValue([])
+    taroStateControl.profile.renderTargets = []
 
     const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
     const written = await readFile(outputPath, 'utf-8')
 
     expect(result.thrown).toBeUndefined()
     expect(written).toContain(
-      '// tayo-boundary-warning: Tayo could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.'
+      '// taro-boundary-warning: Taro could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.'
     )
     expect(written).toContain('render(<App />)')
     expect(written).not.toContain("import SalesModule from './SalesModule'")
+  })
+
+  it('refreshes stale package state before generation and reports the reason', async () => {
+    const fixture = await createRecordingFixture('stale-profile')
+    taroStateControl.stale = true
+    taroStateControl.staleReason = 'packages/dashboard/src/sales.test.tsx changed after the package profile was scanned.'
+
+    const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.logs).toContain('Detected stale package profile .; refreshing before generation.')
+    expect(result.warnings).toContain(
+      'packages/dashboard/src/sales.test.tsx changed after the package profile was scanned.'
+    )
   })
 
   it('fails with exit code 1 when QUAL-02 gate fails after writing output', async () => {
@@ -414,7 +534,7 @@ test('Marker gate fail in write mode', async () => {
     const written = await readFile(outputPath, 'utf-8')
 
     expect(result.thrown).toBeUndefined()
-    expect(result.logs).toContain('[tayo] ✓ post-write verified')
+    expect(result.logs).toContain('[taro] ✓ post-write verified')
     expect(result.logs).toContain(`Created: ${outputPath}`)
     expect(result.logs).toContain('QUAL-02 gate: FAIL (zero-marker-conversion)')
     expect(result.errors).toContain('QUAL-02 FAIL:')

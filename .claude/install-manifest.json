@@ -1,0 +1,69 @@
+{
+  "packageName": "@tayo-dev/rtl",
+  "runtime": "claude",
+  "location": "local",
+  "manifestVersion": 1,
+  "generatedAt": "2026-03-10T16:49:35.331Z",
+  "files": [
+    {
+      "relativePath": "commands/@tayo-dev/rtl/help.md",
+      "kind": "command",
+      "checksum": "201f9e0699c134f446088a8c8e64649cd754e2a3325823419edb289da63ac662"
+    },
+    {
+      "relativePath": "commands/@tayo-dev/rtl/generate.md",
+      "kind": "command",
+      "checksum": "490361f5b2bff1b81f70b896a9c8861a934838ae02572a391d9ce4668d7715b0"
+    },
+    {
+      "relativePath": "commands/@tayo-dev/rtl/references/assertion-markers.md",
+      "kind": "command",
+      "checksum": "c274f1cb550880c1b301967a7df7f860af381036c3f2de278c0e530fa1858957"
+    },
+    {
+      "relativePath": "commands/@tayo-dev/rtl/references/auth.md",
+      "kind": "command",
+      "checksum": "be082d85c1565f8ca4af135508e8a3c432a8543c96efefbb426cc088b2439809"
+    },
+    {
+      "relativePath": "commands/@tayo-dev/rtl/references/conventions-schema.md",
+      "kind": "command",
+      "checksum": "ec2ef88e82740bab77465bc2802ebeaf9cc875367732c78ed989fcdf838067bf"
+    },
+    {
+      "relativePath": "commands/@tayo-dev/rtl/references/entry-path-fidelity.md",
+      "kind": "command",
+      "checksum": "edf8b78a976aad30bb231c7a60bbaab522de2618ab5d7a4dd1b76a40d8f71144"
+    },
+    {
+      "relativePath": "commands/@tayo-dev/rtl/references/intent-model.md",
+      "kind": "command",
+      "checksum": "54ec39770d8fc97313161758faaf53c7db8ef16fe0738946092f164fbf14c0a4"
+    },
+    {
+      "relativePath": "commands/@tayo-dev/rtl/references/mock-store.md",
+      "kind": "command",
+      "checksum": "c4da35383f67432b18ea1fd198b665848e535571abd73137039e9c48ef45db6f"
+    },
+    {
+      "relativePath": "commands/@tayo-dev/rtl/references/quality-scoring.md",
+      "kind": "command",
+      "checksum": "843417c060b9e0c6cc81e865476e44037199d6fc81c2893ed87bfeb5cfb46574"
+    },
+    {
+      "relativePath": "commands/@tayo-dev/rtl/references/state-schema.md",
+      "kind": "command",
+      "checksum": "d17595273d6f99e3565b185f311c3826e8d78a17796e4763e60f06a994359514"
+    },
+    {
+      "relativePath": "commands/@tayo-dev/rtl/references/test-index.md",
+      "kind": "command",
+      "checksum": "214a92a26a5ce9268c9001a94ceef1df43e00d059733c3ed5c46599d3e18d7e8"
+    },
+    {
+      "relativePath": "commands/@tayo-dev/rtl/references/verification-gate.md",
+      "kind": "command",
+      "checksum": "ff2ccf8305cb0e81d4c156a898785d8658a24de5e9209e6d8d81924bf8e500dd"
+    }
+  ]
+}

@@ -1,25 +1,35 @@
 {
   "name": "@tayo-dev/rtl",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Generate high-quality React Testing Library tests from Recorder exports",
   "type": "module",
   "bin": {
-    "tayo": "dist/index.js"
+    "tayo": "bin/install.js"
   },
   "files": [
     "dist",
+    "agents",
     "assets",
+    "bin",
+    "commands",
+    "docs",
+    "taro",
+    "hooks",
     "README.md",
+    "CHANGELOG.md",
+    "SECURITY.md",
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
+    "build": "node scripts/build-hooks.js && tsc",
+    "build:claude": "npm run build && node scripts/build-claude.js",
+    "build:codex": "npm run build && node scripts/build-codex.js",
+    "start": "node bin/install.js",
     "dev": "tsc && node dist/index.js",
     "pack:check": "npm pack --json --dry-run",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test": "node scripts/run-tests.cjs",
+    "test:run": "node scripts/run-tests.cjs run",
+    "test:coverage": "node scripts/run-tests.cjs run --coverage"
   },
   "exports": {
     ".": "./dist/index.js"
