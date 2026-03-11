@@ -36,11 +36,11 @@ interface InstallCommandContext {
 
 export function applyInstallOptions(command: Command): Command {
   return command
-    .option('--claude', 'Install Tayo assets for Claude Code')
-    .option('--opencode', 'Install Tayo assets for OpenCode')
-    .option('--gemini', 'Install Tayo assets for Gemini CLI')
-    .option('--codex', 'Install Tayo assets for Codex')
-    .option('--all', 'Install Tayo assets for all supported runtimes')
+    .option('--claude', 'Install Taro assets for Claude Code')
+    .option('--opencode', 'Install Taro assets for OpenCode')
+    .option('--gemini', 'Install Taro assets for Gemini CLI')
+    .option('--codex', 'Install Taro assets for Codex')
+    .option('--all', 'Install Taro assets for all supported runtimes')
     .option('--global', 'Install into the runtime global configuration directory')
     .option('--local', 'Install into the current project only')
 }
@@ -109,7 +109,7 @@ export function createInstallCommand(): Command {
   applyInstallOptions(install)
 
   install
-    .description('Install Tayo into Claude Code, OpenCode, Gemini CLI, or Codex')
+    .description('Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex')
     .action(async (options: InstallCommandOptions) => {
       await runInstallCommand(options)
     })

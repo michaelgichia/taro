@@ -564,7 +564,7 @@ describe('planJsSuite', () => {
     expect(plan.stateSafety.status).toBe('unknown')
     expect(plan.renderBoundary.resolvedTarget).toBeNull()
     expect(plan.warnings).toContain(
-      'Tayo could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.'
+      'Taro could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.'
     )
   })
 })

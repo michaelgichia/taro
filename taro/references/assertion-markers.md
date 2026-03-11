@@ -1,4 +1,4 @@
-# Assertion Markers (Tayo)
+# Assertion Markers (Taro)
 
 Purpose:
 Allow non-technical users to mark "this should be asserted" during recording
@@ -15,7 +15,7 @@ User action pattern:
 
 Interpretation:
 
-- Tayo treats semantic `dblClick` events as `assertExists` markers.
+- Taro treats semantic `dblClick` events as `assertExists` markers.
 - Marker assertions are generated as explicit RTL expectations in the closest
   relevant test block.
 

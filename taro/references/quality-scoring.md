@@ -1,7 +1,7 @@
-# Test Quality Scoring (Tayo)
+# Test Quality Scoring (Taro)
 
 Purpose:
-Provide a deterministic, explainable score for each generated test file so Tayo can:
+Provide a deterministic, explainable score for each generated test file so Taro can:
 
 - measure whether changes improve quality,
 - avoid regressions,
@@ -161,7 +161,7 @@ Hard fail cap:
 
 ## Deterministic Extraction Rules
 
-To score, Tayo inspects the generated test file text and checks for patterns:
+To score, Taro inspects the generated test file text and checks for patterns:
 
 - CSS selectors: `container.querySelector`, `document.querySelector`, or `screen.*` calls using selectors (should be absent)
 - Role queries: `getByRole`, `findByRole`
@@ -180,8 +180,8 @@ This scoring is heuristic but deterministic.
 
 ## Evolution Rules
 
-- Every run stores a score snapshot in `.tayo/state.json`.
-- When Tayo changes its generation logic, compare:
+- Every run stores a score snapshot in `.taro/state.json`.
+- When Taro changes its generation logic, compare:
   - latest score vs previous score for same component (or same recording)
 
 - If score drops by >= 5 points:

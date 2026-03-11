@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { scanConventions, findTestFiles } from './scanner.js'
+import { scanConventions, findTestFiles, readConventions } from './scanner.js'
 import { DEFAULT_CONVENTIONS } from '../types/conventions.js'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 let testDir: string
 
 beforeEach(async () => {
-  testDir = join(tmpdir(), `tayo-test-${Date.now()}`)
+  testDir = join(tmpdir(), `taro-test-${Date.now()}`)
   await mkdir(testDir, { recursive: true })
 })
 
@@ -86,11 +86,28 @@ describe('scanConventions', () => {
     expect(flagged).toBeDefined()
   })
 
-  it('persists result to .tayo/conventions.json (CTX-05)', async () => {
+  it('persists result to .taro/conventions.json (CTX-05)', async () => {
     const { readFile } = await import('node:fs/promises')
     await scanConventions(testDir)
-    const content = await readFile(join(testDir, '.tayo', 'conventions.json'), 'utf-8')
+    const content = await readFile(join(testDir, '.taro', 'conventions.json'), 'utf-8')
     const parsed = JSON.parse(content)
     expect(parsed.projectRoot).toBe(testDir)
+  })
+
+  it('reads legacy .tayo conventions before the project is migrated', async () => {
+    await mkdir(join(testDir, '.tayo'), { recursive: true })
+    await writeFile(
+      join(testDir, '.tayo', 'conventions.json'),
+      JSON.stringify({
+        ...DEFAULT_CONVENTIONS,
+        projectRoot: testDir,
+        scannedAt: new Date().toISOString(),
+      }),
+      'utf-8'
+    )
+
+    const result = await readConventions(testDir)
+
+    expect(result?.projectRoot).toBe(testDir)
   })
 })

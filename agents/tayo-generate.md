@@ -1,9 +1,9 @@
 ---
 name: "@tayo-dev/rtl-generate"
-description: "Generate deterministic, repository-aware React Testing Library tests from Testing Library Recorder JS exports with Tayo. Use when a user provides a Recorder `.js` file, asks to turn a recorded flow into an RTL test, needs render-boundary or mock strategy guidance, or needs score and verification output interpreted precisely."
+description: "Generate deterministic, repository-aware React Testing Library tests from Testing Library Recorder JS exports with Taro. Use when a user provides a Recorder `.js` file, asks to turn a recorded flow into an RTL test, needs render-boundary or mock strategy guidance, or needs score and verification output interpreted precisely."
 ---
 
-# Tayo Generate
+# Taro Generate
 
 Invoke this skill with `$@tayo-dev/rtl-generate`.
 
@@ -13,7 +13,7 @@ Transform a Testing Library Recorder `.js` recording into a maintainable, projec
 
 Non-negotiable expectations:
 
-- parse recordings deterministically through the Tayo pipeline; do not improvise a second parser
+- parse recordings deterministically through the Taro pipeline; do not improvise a second parser
 - prefer semantic user intent over DOM mechanics
 - treat semantic `dblClick` checkpoints as assertion evidence, not as UI actions to replay
 - preserve the real entry path when the recording opens UI through a parent trigger or route flow
@@ -27,7 +27,7 @@ Read only the files that apply to the current problem:
 - `references/intent-model.md` for parsed-step normalization and interaction-intent recovery
 - `references/assertion-markers.md` for converting semantic `dblClick` checkpoints into explicit assertions
 - `references/entry-path-fidelity.md` when deciding parent trigger flow versus direct dialog/form harnesses
-- `references/conventions-schema.md` when interpreting `.tayo/conventions.json` or convention drift
+- `references/conventions-schema.md` when interpreting `.taro/conventions.json` or convention drift
 - `references/mock-store.md` when deciding fixture reuse or persistent mock storage
 - `references/quality-scoring.md` when explaining score changes, grade drops, or blocker priorities
 - `references/verification-gate.md` when deciding whether generated output is acceptable to hand off
@@ -42,7 +42,7 @@ Keep discovery narrow and deliberate.
 - Prioritize target source, nearest sibling test, shared mock setup, nearest fixture store, then config.
 - If uncertainty remains after that cap, stop expanding scope and report the limitation instead of scanning blindly.
 
-When you do repo inspection beyond Tayo's own console output, report:
+When you do repo inspection beyond Taro's own console output, report:
 
 - `Surface scan: {N}/5 files`
 - `Selected files: [...]`
@@ -51,9 +51,9 @@ When you do repo inspection beyond Tayo's own console output, report:
 ## Preflight
 
 1. Accept only Testing Library Recorder `.js` exports.
-2. Tayo writes `{recording-name}.test.tsx` next to the recording.
+2. Taro writes `{recording-name}.test.tsx` next to the recording.
 3. If that sibling output file already exists, stop and tell the user to rename or delete it before rerunning generation.
-4. If the user is asking for convention diagnosis or mock review instead of generation, route them to the more specific Tayo skill when that is the better fit.
+4. If the user is asking for convention diagnosis or mock review instead of generation, route them to the more specific Taro skill when that is the better fit.
 
 ## Generation Workflow
 
@@ -78,7 +78,7 @@ Default behavior:
 
 - if the recording clicks a parent trigger first, prefer rendering the parent/module composition and replaying that trigger
 - do not replace a real parent-trigger flow with a directly-open dialog harness when the parent path is available
-- if Tayo emits boundary warnings or falls back to `render(<App />)`, explain that as a fidelity or context gap, not a finished solution
+- if Taro emits boundary warnings or falls back to `render(<App />)`, explain that as a fidelity or context gap, not a finished solution
 
 ## Mock Boundary Policy
 
@@ -114,7 +114,7 @@ Minimum reporting standard after generation:
 - top blockers
 - whether marker coverage or boundary fidelity is still incomplete
 
-If Tayo reports draft-quality output, QUAL-02 failure, or unresolved marker/boundary gaps, state plainly that the result is not production-ready yet.
+If Taro reports draft-quality output, QUAL-02 failure, or unresolved marker/boundary gaps, state plainly that the result is not production-ready yet.
 
 ## Auth and Screenshots
 

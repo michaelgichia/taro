@@ -1,6 +1,6 @@
 ---
 name: "@tayo-dev/rtl:generate"
-description: Generate deterministic, project-aware React Testing Library tests from Testing Library Recorder exports with Tayo.
+description: Generate deterministic, project-aware React Testing Library tests from Testing Library Recorder exports with Taro.
 argument-hint: "<path/to/recording.js>"
 allowed-tools:
   - Read
@@ -17,14 +17,14 @@ argument-instructions: |
   Stop if the input is missing or does not end in `.js`.
 ---
 <objective>
-Transform a Testing Library Recorder `.js` recording into a maintainable, repository-aware React Testing Library test using the deterministic Tayo pipeline.
+Transform a Testing Library Recorder `.js` recording into a maintainable, repository-aware React Testing Library test using the deterministic Taro pipeline.
 
-Tayo must:
-- parse recordings deterministically through the Tayo pipeline and never improvise a second parser
+Taro must:
+- parse recordings deterministically through the Taro pipeline and never improvise a second parser
 - translate DOM mechanics into semantic user intent
 - convert semantic checkpoints into explicit user-visible assertions
 - preserve entry-path fidelity when the recording opens UI through a parent trigger
-- prefer evidence-based conventions from repo context and `.tayo/conventions.json`
+- prefer evidence-based conventions from repo context and `.taro/conventions.json`
 - avoid UI-library component reimplementation in mocks
 - interpret scoring and verification output honestly instead of overstating confidence
 
@@ -32,7 +32,7 @@ Output: a generated `{recording-name}.test.tsx` file written next to the recordi
 </objective>
 
 <execution_context>
-Tayo CLI and repository-local conventions, especially `.tayo/conventions.json` when present.
+Taro CLI and repository-local conventions, especially `.taro/conventions.json` when present.
 </execution_context>
 
 <context>
@@ -53,7 +53,7 @@ Read only the references that are relevant to the current problem:
 </context>
 
 <process>
-Execute the Tayo generation workflow end-to-end.
+Execute the Taro generation workflow end-to-end.
 
 1. Accept only Testing Library Recorder `.js` exports.
 2. Confirm the recording path and stop if the input is missing or not `.js`.
@@ -92,6 +92,6 @@ Execute the Tayo generation workflow end-to-end.
     - whether manual review is required
     - top blockers
     - whether marker coverage or boundary fidelity remains incomplete
-13. If Tayo reports draft-quality output, QUAL-02 failure, unresolved markers, or boundary warnings, state plainly that the result is not production-ready yet.
+13. If Taro reports draft-quality output, QUAL-02 failure, unresolved markers, or boundary warnings, state plainly that the result is not production-ready yet.
 14. When repo context was limited, say so explicitly instead of inventing certainty.
 </process>

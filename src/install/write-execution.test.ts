@@ -130,7 +130,7 @@ describe('writeInstallPlan conflict handling', () => {
     await expect(readFile(helpPath, 'utf8')).resolves.toBe('manual edit\n')
   })
 
-  it('blocks colliding non-Tayo files without mutating them', async () => {
+  it('blocks colliding non-Taro files without mutating them', async () => {
     const { cwd, home } = await createSandbox('external-collision')
     const plan = buildInstallPlan(createSelection(['opencode'], 'global'), { cwd, home })
     const target = plan.targets[0]!

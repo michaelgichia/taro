@@ -8,6 +8,10 @@ import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
 import { cwd } from 'node:process'
 import pc from 'picocolors'
+import {
+  ensureProjectStateDir,
+  getProjectStatePath,
+} from '../../project-state.js'
 import { writeTestFile } from '../../core/writer.js'
 import {
   captureVisualState,
@@ -95,7 +99,7 @@ function logScore(scoreResult: ScoreResult): void {
     `emitted=${scoreResult.markerCoverage.emitted}, ` +
     `unresolved=${scoreResult.markerCoverage.unresolved}`
   console.log(
-    pc.dim('[tayo]') +
+    pc.dim('[taro]') +
       ` Score: ${scoreResult.total}/100 (${scoreResult.grade}) — ` +
       `query: ${scoreResult.dimensions.queryQuality}, ` +
       `assertions: ${scoreResult.dimensions.assertionSpecificity}, ` +
@@ -107,17 +111,17 @@ function logScore(scoreResult: ScoreResult): void {
 
 function emitMarkerCoverageSection(scoreResult: ScoreResult): void {
   const gateStatus = scoreResult.markerQualityGate.failing ? pc.red('FAIL') : pc.green('PASS')
-  console.log(pc.dim('[tayo]') + ' Marker coverage:')
-  console.log(pc.dim('[tayo]') + `   detected: ${scoreResult.markerCoverage.detected}`)
-  console.log(pc.dim('[tayo]') + `   emitted: ${scoreResult.markerCoverage.emitted}`)
-  console.log(pc.dim('[tayo]') + `   unresolved: ${scoreResult.markerCoverage.unresolved}`)
+  console.log(pc.dim('[taro]') + ' Marker coverage:')
+  console.log(pc.dim('[taro]') + `   detected: ${scoreResult.markerCoverage.detected}`)
+  console.log(pc.dim('[taro]') + `   emitted: ${scoreResult.markerCoverage.emitted}`)
+  console.log(pc.dim('[taro]') + `   unresolved: ${scoreResult.markerCoverage.unresolved}`)
   console.log(
-    pc.dim('[tayo]') +
+    pc.dim('[taro]') +
       `   QUAL-02 gate: ${gateStatus} (${scoreResult.markerQualityGate.reason})`
   )
 
   if (scoreResult.markerQualityGate.failing) {
-    console.error(pc.red(`[tayo] QUAL-02 FAIL: ${scoreResult.markerQualityGate.message}`))
+    console.error(pc.red(`[taro] QUAL-02 FAIL: ${scoreResult.markerQualityGate.message}`))
   }
 }
 
@@ -177,7 +181,7 @@ function emitUnresolvedMarkerWarnings(suitePlan: JsSuitePlan | null): void {
 
   const unresolvedMarkers = collectUnresolvedMarkerAssertions(suitePlan)
   for (const unresolvedMarker of unresolvedMarkers) {
-    console.warn(pc.yellow(`[tayo] ${formatUnresolvedMarkerWarning(unresolvedMarker)}`))
+    console.warn(pc.yellow(`[taro] ${formatUnresolvedMarkerWarning(unresolvedMarker)}`))
   }
 }
 
@@ -187,7 +191,7 @@ function enforceMarkerGateExit(scoreResult: ScoreResult): void {
   }
 
   process.exitCode = 1
-  console.error(pc.red('[tayo] Exiting with code 1: QUAL-02 gate failed after generation.'))
+  console.error(pc.red('[taro] Exiting with code 1: QUAL-02 gate failed after generation.'))
 }
 
 function emitLowConfidenceBanner(scoreResult: ScoreResult): void {
@@ -197,12 +201,12 @@ function emitLowConfidenceBanner(scoreResult: ScoreResult): void {
 
   console.warn(
     pc.yellow(
-      `[tayo] Manual review required — this generated test is still a draft (${scoreResult.total}/100, ${scoreResult.grade}).`
+      `[taro] Manual review required — this generated test is still a draft (${scoreResult.total}/100, ${scoreResult.grade}).`
     )
   )
 
   if (scoreResult.blockers.length > 0) {
-    console.warn(pc.yellow(`[tayo] Top blockers: ${scoreResult.blockers.join(' | ')}`))
+    console.warn(pc.yellow(`[taro] Top blockers: ${scoreResult.blockers.join(' | ')}`))
   }
 }
 
@@ -217,7 +221,7 @@ function emitScoreHints(
     }).length
     console.log(
       pc.yellow(
-        `[tayo] Tip: ${testIdCount} getByTestId queries — consider adding aria-label`
+        `[taro] Tip: ${testIdCount} getByTestId queries — consider adding aria-label`
       )
     )
   }
@@ -225,7 +229,7 @@ function emitScoreHints(
   if (scoreResult.dimensions.assertionSpecificity < 60) {
     console.log(
       pc.yellow(
-        '[tayo] Tip: Add specific matchers like toHaveValue() for better assertions'
+        '[taro] Tip: Add specific matchers like toHaveValue() for better assertions'
       )
     )
   }
@@ -233,15 +237,15 @@ function emitScoreHints(
   if (scoreResult.dimensions.testStructure < 60) {
     console.log(
       pc.yellow(
-        '[tayo] Tip: Split into multiple it() blocks for better test organization'
+        '[taro] Tip: Split into multiple it() blocks for better test organization'
       )
     )
   }
 
   if (scoreResult.dimensions.boundaryIsolation < 60) {
     for (const issue of boundaryIssues) {
-      console.warn(pc.yellow(`[tayo] Boundary: ${issue.message}`))
-      console.warn(pc.yellow(`[tayo] Tip: ${issue.suggestion}`))
+      console.warn(pc.yellow(`[taro] Boundary: ${issue.message}`))
+      console.warn(pc.yellow(`[taro] Tip: ${issue.suggestion}`))
     }
   }
 }
@@ -278,7 +282,7 @@ function summarizeCleanup(analyzedRecording: AnalyzedRecording): void {
     return
   }
 
-  console.log(pc.dim('[tayo]') + ` Recording cleanup: ${parts.join(', ')}`)
+  console.log(pc.dim('[taro]') + ` Recording cleanup: ${parts.join(', ')}`)
 }
 
 function countPlannedScenarioMarkers(
@@ -548,7 +552,7 @@ function summarizeVisualState(visualState: VisualState | null): void {
     parts.push(`screenshot=${visualState.screenshotPath}`)
   }
 
-  console.log(pc.dim('[tayo]') + ` Visual state: ${parts.join(', ')}`)
+  console.log(pc.dim('[taro]') + ` Visual state: ${parts.join(', ')}`)
 }
 
 function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
@@ -574,12 +578,12 @@ function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
     return
   }
 
-  console.log(pc.dim('[tayo]') + ` Mock analysis: ${parts.join(', ')}`)
+  console.log(pc.dim('[taro]') + ` Mock analysis: ${parts.join(', ')}`)
 
   const topRecommendation = mockAnalysis.recommendations[0]
   if (topRecommendation) {
     console.log(
-      pc.dim('[tayo]') +
+      pc.dim('[taro]') +
         ` Mock hint: ${topRecommendation.kind} ${topRecommendation.target} (${topRecommendation.count} file(s))`
     )
   }
@@ -587,20 +591,20 @@ function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
   const topLifecycle = mockAnalysis.mutationLifecycles[0]
   if (topLifecycle) {
     console.log(
-      pc.dim('[tayo]') +
+      pc.dim('[taro]') +
         ` Mutation lifecycle: ${topLifecycle.stages.join(' -> ')} in ${topLifecycle.file}`
     )
   }
 
   const topWarning = mockAnalysis.instabilityWarnings[0]
   if (topWarning) {
-    console.warn(pc.yellow(`[tayo] Mock stability: ${topWarning.reason} (${topWarning.file})`))
+    console.warn(pc.yellow(`[taro] Mock stability: ${topWarning.reason} (${topWarning.file})`))
   }
 }
 
 function summarizeBoundaryWarnings(warnings: string[]): void {
   for (const warning of warnings) {
-    console.warn(pc.yellow(`[tayo] Boundary: ${warning}`))
+    console.warn(pc.yellow(`[taro] Boundary: ${warning}`))
   }
 }
 
@@ -690,7 +694,7 @@ function applyRepoRenderTarget(
     },
     warnings: suitePlan.warnings.filter(
       (warning) =>
-        !warning.includes('Tayo could not resolve the exact render target from repo context') &&
+        !warning.includes('Taro could not resolve the exact render target from repo context') &&
         !warning.includes('Prefer a repo-local module/container render boundary')
     ),
   }
@@ -731,7 +735,7 @@ async function resolveJsGeneration(
 
   if (selectorGroups.size > 0 && recording.url) {
     console.log(
-      pc.dim('[tayo]') +
+      pc.dim('[taro]') +
         ` Resolving ${baseline.selectors.length} selector(s) via Playwright...`
     )
   }
@@ -807,7 +811,7 @@ async function resolveJsGeneration(
 
 function summarizeSelectorWarnings(warnings: string[]): void {
   for (const warning of warnings) {
-    console.warn(pc.yellow(`[tayo] ${warning}`))
+    console.warn(pc.yellow(`[taro] ${warning}`))
   }
 }
 
@@ -823,7 +827,8 @@ async function maybeCaptureVisualState(params: {
   }
 
   const candidates = findVisualCaptureCandidates(analyzedRecording)
-  const visualDir = join(projectRoot, '.tayo', 'visual')
+  const stateDir = await ensureProjectStateDir(projectRoot)
+  const visualDir = join(stateDir, 'visual')
 
   if (candidates.length > 0) {
     await mkdir(visualDir, { recursive: true })
@@ -858,10 +863,8 @@ async function appendHistoryEntry(
   projectRoot: string,
   historyEntry: HistoryEntry
 ): Promise<void> {
-  const taroDir = join(projectRoot, '.tayo')
-  await mkdir(taroDir, { recursive: true })
-
-  const historyPath = join(taroDir, 'history.json')
+  await ensureProjectStateDir(projectRoot)
+  const historyPath = getProjectStatePath(projectRoot, 'history.json')
   let history: HistoryEntry[] = []
 
   try {
@@ -887,13 +890,13 @@ async function finalizeGeneratedOutput(params: {
 
   const verification = verifySyntax(code, outputPath)
   if (!verification.valid) {
-    console.error(pc.red('[tayo] Error: Post-write verification failed'))
+    console.error(pc.red('[taro] Error: Post-write verification failed'))
     console.error(pc.red(`  ${verification.error}`))
-    console.error(pc.red('  This is a Tayo bug. Please report it.'))
+    console.error(pc.red('  This is a Taro bug. Please report it.'))
     process.exit(1)
   }
 
-  console.log(pc.green('[tayo] ✓ post-write verified'))
+  console.log(pc.green('[taro] ✓ post-write verified'))
 
   await appendHistoryEntry(projectRoot, {
     timestamp: new Date().toISOString(),
@@ -945,7 +948,7 @@ export function createGenerateCommand(): Command {
 
       let conventions = await readConventions(projectRoot)
       if (!conventions) {
-        console.log(pc.dim('[tayo]') + ' Scanning project conventions...')
+        console.log(pc.dim('[taro]') + ' Scanning project conventions...')
         conventions = await scanConventions(projectRoot)
       }
       const repoRenderTargets: RepoRenderTargetCandidate[] =
@@ -1036,7 +1039,7 @@ export function createGenerateCommand(): Command {
 
       if (hydratedSuitePlan?.warnings.length) {
         generated.code = [
-          ...hydratedSuitePlan.warnings.map((warning) => `// tayo-boundary-warning: ${warning}`),
+          ...hydratedSuitePlan.warnings.map((warning) => `// taro-boundary-warning: ${warning}`),
           generated.code,
         ].join('\n')
       }

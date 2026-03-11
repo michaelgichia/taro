@@ -1,8 +1,8 @@
-# Tayo
+# Taro
 
-Install Tayo into Claude Code, OpenCode, Gemini CLI, or Codex, then generate React Testing Library tests from Testing Library Recorder JS exports.
+Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex, then generate React Testing Library tests from Testing Library Recorder JS exports.
 
-Tayo ships as an installer-first package. The package entrypoint bootstraps runtime-native commands or skills into your agent environment, and those runtime entrypoints execute Tayo's internal JS-only generation flow for Recorder-to-RTL output.
+Taro ships as an installer-first package. The package entrypoint bootstraps runtime-native commands or skills into your agent environment, and those runtime entrypoints execute Taro's internal JS-only generation flow for Recorder-to-RTL output.
 
 ## Getting Started
 
@@ -35,7 +35,7 @@ Re-run the installer package to refresh owned assets and repair missing ones:
 npx @tayo-dev/rtl@latest
 ```
 
-Tayo refreshes unchanged owned files automatically, restores missing owned files, and protects manual edits instead of overwriting them silently.
+Taro refreshes unchanged owned files automatically, restores missing owned files, and protects manual edits instead of overwriting them silently.
 
 ## Non-interactive Install
 
@@ -126,37 +126,37 @@ After installation, use the runtime-native installed generate command or skill f
 
 Open Chrome DevTools → Recorder panel → click "Start new recording" → perform your user flow → click "End recording".
 
-Tayo supports one export path:
+Taro supports one export path:
 
 - Testing Library Recorder JS export: save as `recording.js`
 
 ### Generate the test
 
-Run your runtime-native generate entrypoint against `recording.js`. Tayo writes `recording.test.tsx` next to the recording and refuses to overwrite an existing file, so rename or delete the previous generated file before rerunning.
+Run your runtime-native generate entrypoint against `recording.js`. Taro writes `recording.test.tsx` next to the recording and refuses to overwrite an existing file, so rename or delete the previous generated file before rerunning.
 
 Expected output:
 
 ```text
 Parsed: my user flow — 8 steps
-[tayo] Score: 78/100 (B) — query: 80, assertions: 70, structure: 85
+[taro] Score: 78/100 (B) — query: 80, assertions: 70, structure: 85
 Created: src/components/MyComponent.test.tsx
-[tayo] ✓ post-write verified
+[taro] ✓ post-write verified
 ```
 
-On subsequent runs in the same project, Tayo reads `.tayo/conventions.json` to match your test style automatically.
+On subsequent runs in the same project, Taro reads `.taro/conventions.json` to match your test style automatically.
 
 ### Draft-quality output is explicit
 
-When Tayo cannot prove the final render/query boundary yet, it keeps the output writable but marks it as draft-quality instead of pretending the gaps are solved.
+When Taro cannot prove the final render/query boundary yet, it keeps the output writable but marks it as draft-quality instead of pretending the gaps are solved.
 
 ```text
-[tayo] Score: 77/100 (C) — query: 100, assertions: 30, structure: 70, boundary: 100
-[tayo] Manual review required — this generated test is still a draft (77/100, C).
-[tayo] Top blockers: The generated test still renders <App /> instead of a resolved repo target. | Boundary warnings remain in the generated file, so the render/mock boundary still needs cleanup.
-// tayo-query-checkpoint: click step requires manual RTL query recovery
+[taro] Score: 77/100 (C) — query: 100, assertions: 30, structure: 70, boundary: 100
+[taro] Manual review required — this generated test is still a draft (77/100, C).
+[taro] Top blockers: The generated test still renders <App /> instead of a resolved repo target. | Boundary warnings remain in the generated file, so the render/mock boundary still needs cleanup.
+// taro-query-checkpoint: click step requires manual RTL query recovery
 ```
 
-That draft banner is advisory. Tayo does not block writes, but it does tell you when import targets, placeholder queries, or unresolved boundaries still need cleanup.
+That draft banner is advisory. Taro does not block writes, but it does tell you when import targets, placeholder queries, or unresolved boundaries still need cleanup.
 
 ## Worked Example
 
@@ -186,14 +186,14 @@ Run your installed runtime-native generate entrypoint with `./login-flow.js`.
 
 ```
 Parsed: login flow — 7 steps
-[tayo] Score: 82/100 (B) — query: 90, assertions: 75, structure: 80
+[taro] Score: 82/100 (B) — query: 90, assertions: 75, structure: 80
 Created: login-flow.test.tsx
-[tayo] ✓ post-write verified
+[taro] ✓ post-write verified
 ```
 
 ### Output: Generated test (`login-flow.test.tsx`)
 
-Tayo generates a convention-aware RTL test with accessible queries:
+Taro generates a convention-aware RTL test with accessible queries:
 
 ```typescript
 import { render, screen } from '@testing-library/react'
@@ -216,7 +216,7 @@ describe('login flow', () => {
 })
 ```
 
-### What Tayo did here
+### What Taro did here
 
 - Parsed the navigate step and inferred the component under test
 - Upgraded CSS selectors (`#email`, `#password`) to accessible `getByRole` queries using aria attributes from the recording
@@ -224,20 +224,20 @@ describe('login flow', () => {
 - Mapped the `waitForElement` step to a `toBeInTheDocument()` assertion
 - Scored the output (82/100) and emitted no blocking errors
 
-> **Note:** The component import path (`../LoginPage`) is a placeholder. Tayo generates a comment in the file indicating where to update it.
+> **Note:** The component import path (`../LoginPage`) is a placeholder. Taro generates a comment in the file indicating where to update it.
 
 ## Agent Usage
 
-After installation, each runtime gets a namespaced help entrypoint plus a generate command or skill that runs Tayo's internal JS generator.
+After installation, each runtime gets a namespaced help entrypoint plus a generate command or skill that runs Taro's internal JS generator.
 
 ### Tips
 
-- Tayo writes the generated test next to the recording file using the same basename
-- If you re-record a flow, rename or delete the old generated test before running Tayo again
-- If you record multiple flows, run Tayo on each to build up convention state in `.tayo/conventions.json` — later runs benefit from earlier ones
-- The `.tayo/` directory should be committed to your repo so convention learning persists across team members
+- Taro writes the generated test next to the recording file using the same basename
+- If you re-record a flow, rename or delete the old generated test before running Taro again
+- If you record multiple flows, run Taro on each to build up convention state in `.taro/conventions.json` — later runs benefit from earlier ones
+- The `.taro/` directory should be committed to your repo so convention learning persists across team members
 
 ### Notes
 
-- Tayo does not require network access at generation time (DOM inspection via Playwright is optional and only runs when a live URL is in the recording)
-- All state is local to `.tayo/` — no external service is contacted
+- Taro does not require network access at generation time (DOM inspection via Playwright is optional and only runs when a live URL is in the recording)
+- All state is local to `.taro/` — no external service is contacted

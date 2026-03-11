@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { readdir, readFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { findReadableStatePath } from './state-paths.js'
 
 async function readJson(path) {
   try {
@@ -20,12 +20,16 @@ async function readDirectory(path) {
 }
 
 const projectRoot = process.cwd()
-const conventions = await readJson(join(projectRoot, '.tayo', 'conventions.json'))
-const visualArtifacts = await readDirectory(join(projectRoot, '.tayo', 'visual'))
+const conventions = await readJson(
+  (await findReadableStatePath(projectRoot, 'conventions.json')) ?? ''
+)
+const visualArtifacts = await readDirectory(
+  (await findReadableStatePath(projectRoot, 'visual')) ?? ''
+)
 
 const importStyle =
   typeof conventions?.importStyle === 'string' ? conventions.importStyle : 'unlearned'
 
 console.log(
-  `[tayo] context: importStyle=${importStyle}; visualArtifacts=${visualArtifacts.length}`
+  `[taro] context: importStyle=${importStyle}; visualArtifacts=${visualArtifacts.length}`
 )

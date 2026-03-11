@@ -822,7 +822,7 @@ describe('inspectElements', () => {
     expect(result.get('#save')).toBeNull()
     expect(result.get('#confirm')).toBeNull()
     expect(warnSpy).toHaveBeenCalledWith(
-      '[tayo] QRY-02: Failed to inspect elements on http://localhost:3000: browser blocked'
+      '[taro] QRY-02: Failed to inspect elements on http://localhost:3000: browser blocked'
     )
     expect(closeMock).toHaveBeenCalled()
 

@@ -1,9 +1,9 @@
 ---
 name: "@tayo-dev/rtl-mocks"
-description: "Review mock targets, provider boundaries, fixture shape, and post-generation follow-up for Tayo output. Use when a generated RTL test needs API mocking, router/auth/context setup, fixture guidance, or when the user asks why Tayo suggested certain mocks."
+description: "Review mock targets, provider boundaries, fixture shape, and post-generation follow-up for Taro output. Use when a generated RTL test needs API mocking, router/auth/context setup, fixture guidance, or when the user asks why Taro suggested certain mocks."
 ---
 
-# Tayo Mocks
+# Taro Mocks
 
 Invoke this skill with `$@tayo-dev/rtl-mocks`.
 
@@ -22,7 +22,7 @@ Invoke this skill with `$@tayo-dev/rtl-mocks`.
 
 ## Mock Instability Patterns to Fix
 
-Tayo detects and flags two instability patterns:
+Taro detects and flags two instability patterns:
 
 **`recreated-factory`** — `vi.mock()` or `jest.mock()` is declared inside `it()`/`test()` bodies. This recreates the module factory on every test run and produces inconsistent state.
 - Fix: move `vi.mock('...')` to module scope (outside all test callbacks).

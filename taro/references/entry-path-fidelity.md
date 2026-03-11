@@ -1,4 +1,4 @@
-# Entry Path Fidelity (Tayo)
+# Entry Path Fidelity (Taro)
 
 Purpose:
 Ensure generated tests preserve the real user entry path captured by recording

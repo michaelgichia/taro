@@ -9,7 +9,7 @@ Secrets are never stored in state.
 Only environment variable NAMES are stored.
 
 Auth recipes are stored inside:
-.tayo/state.json → auth.recipes[]
+.taro/state.json → auth.recipes[]
 
 ---
 
@@ -56,7 +56,7 @@ Each recipe looks like:
 
 ## First Run Behavior
 
-If Tayo detects a login page but no recipe exists:
+If Taro detects a login page but no recipe exists:
 
 - Create a recipe with:
   - strategy = "ui_oauth_manual"
@@ -78,9 +78,9 @@ If Tayo detects a login page but no recipe exists:
 
 When `strategy` is `ui_oauth_manual`:
 
-- Tayo must open the browser and pause for user completion of login.
-- Tayo must poll `detectAuthenticated` conditions (URL/text) until timeout.
-- Tayo must not capture screenshots before authentication succeeds.
+- Taro must open the browser and pause for user completion of login.
+- Taro must poll `detectAuthenticated` conditions (URL/text) until timeout.
+- Taro must not capture screenshots before authentication succeeds.
 - On success, set auth status `authenticated`; on timeout, set `failed` (or `unknown_recipe` for first-run templates).
 
 ---

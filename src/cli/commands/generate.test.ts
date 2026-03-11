@@ -274,7 +274,7 @@ describe('createGenerateCommand', () => {
     expect(result.thrown).toBeUndefined()
     expect(result.errors).toBe('')
     expect(result.logs).toContain('Parsed: Recording-Add-Sale-KE-06/03/2026 at 08:25:15')
-    expect(result.logs).toContain('[tayo] ✓ post-write verified')
+    expect(result.logs).toContain('[taro] ✓ post-write verified')
     expect(result.logs).toContain(`Created: ${outputPath}`)
     expect(written).toContain("import SalesModule from './SalesModule'")
     expect(written).toContain('render(<SalesModule />)')
@@ -283,7 +283,7 @@ describe('createGenerateCommand', () => {
     expect(written).toContain('within(screen.getByRole(')
     expect(written).toContain("screen.getByRole('button', {name: '+ Add Item to Cart'})")
     expect(written).toContain("screen.getByRole('combobox', { name: 'Item selector' })")
-    expect(written).toContain('// tayo-query-checkpoint: click step requires manual RTL query recovery')
+    expect(written).toContain('// taro-query-checkpoint: click step requires manual RTL query recovery')
     expect(written).toContain(`// selector: ${inaccessibleSelector}`)
     expect(written).not.toContain(`// selector: ${inspectionFailureSelector}`)
     expect(written).not.toContain('screen.getByTestId(')
@@ -293,7 +293,7 @@ describe('createGenerateCommand', () => {
     expect(result.warnings).toContain(
       `Playwright inspection failed for selector ${inspectionFailureSelector}.`
     )
-    expect(result.warnings).not.toContain('Tayo could not resolve the exact render target')
+    expect(result.warnings).not.toContain('Taro could not resolve the exact render target')
     expect(analyzeBoundaryIsolation(written)).toEqual([])
   })
 
@@ -354,7 +354,7 @@ test('Semantic marker flow', async () => {
       'Recording cleanup: 1 redundant click(s), 1 preserved semantic marker(s), 1 unresolved semantic marker(s)'
     )
     expect(result.logs).toContain('markers: detected=2, emitted=1, unresolved=1')
-    expect(result.logs).toContain('[tayo] Marker coverage:')
+    expect(result.logs).toContain('[taro] Marker coverage:')
     expect(result.logs).toContain('QUAL-02 gate: PASS (markers-converted)')
     expect(countOccurrences(result.warnings, 'MKR-03 unresolved-marker')).toBe(1)
     expect(result.warnings).toMatch(
@@ -385,7 +385,7 @@ test('Semantic marker flow', async () => {
 
     expect(result.thrown).toBeUndefined()
     expect(written).toContain(
-      '// tayo-boundary-warning: Tayo could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.'
+      '// taro-boundary-warning: Taro could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.'
     )
     expect(written).toContain('render(<App />)')
     expect(written).not.toContain("import SalesModule from './SalesModule'")
@@ -414,7 +414,7 @@ test('Marker gate fail in write mode', async () => {
     const written = await readFile(outputPath, 'utf-8')
 
     expect(result.thrown).toBeUndefined()
-    expect(result.logs).toContain('[tayo] ✓ post-write verified')
+    expect(result.logs).toContain('[taro] ✓ post-write verified')
     expect(result.logs).toContain(`Created: ${outputPath}`)
     expect(result.logs).toContain('QUAL-02 gate: FAIL (zero-marker-conversion)')
     expect(result.errors).toContain('QUAL-02 FAIL:')

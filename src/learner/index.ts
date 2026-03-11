@@ -1,14 +1,15 @@
 /**
  * Convention Learning Module
  *
- * Analyzes existing test patterns to derive Tayo's conventions.
- * Implements CNV-01: Tayo derives conventions from observation.
+ * Analyzes existing test patterns to derive Taro's conventions.
+ * Implements CNV-01: Taro derives conventions from observation.
  * Implements CNV-02: Conventions persist across runs via SQLite storage.
  * Implements CNV-03: Faster subsequent runs via caching.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { findReadableProjectStatePathSync } from '../project-state.js';
 import { extractConventions } from './analyzer.js';
 import { ConventionStore, createStore } from './storage.js';
 import {
@@ -179,11 +180,10 @@ function mergeConventions(a: TestConvention, b: TestConvention): TestConvention 
  */
 export function getConventions(projectRoot: string): TestConvention | null {
   try {
-    const taroDir = path.join(projectRoot, '.tayo');
-    const dbPath = path.join(taroDir, 'conventions.db');
+    const dbPath = findReadableProjectStatePathSync(projectRoot, 'conventions.db');
 
     // Check if database exists
-    if (!fs.existsSync(dbPath)) {
+    if (!dbPath || !fs.existsSync(dbPath)) {
       return null;
     }
 

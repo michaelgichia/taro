@@ -1,7 +1,7 @@
 # Conventions Schema (Self-Evolving Signals)
 
 Stored in unified state at:
-.tayo/state.json → conventions.signals
+.taro/state.json → conventions.signals
 
 Goal:
 Learn conventions over time without imposing assumptions.

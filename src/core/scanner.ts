@@ -1,11 +1,18 @@
 /**
  * Codebase convention scanner
- * Scans project for test file conventions and persists to .tayo/conventions.json
+ * Scans project for test file conventions and persists to .taro/conventions.json
  */
 
-import { readdir, readFile, mkdir, writeFile, access } from 'node:fs/promises'
+import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { join, extname, relative, isAbsolute } from 'node:path'
 import pc from 'picocolors'
+import {
+  LEGACY_TAYO_STATE_DIRNAME,
+  TARO_STATE_DIRNAME,
+  ensureProjectStateDir,
+  findReadableProjectStatePath,
+  getProjectStatePath,
+} from '../project-state.js'
 import { DEFAULT_CONVENTIONS } from '../types/conventions.js'
 import type { ConventionsSchema, ConventionFile, ImportStyle, MockPattern } from '../types/conventions.js'
 
@@ -13,7 +20,8 @@ const SKIP_DIRS = new Set([
   'node_modules',
   '.git',
   'dist',
-  '.tayo',
+  TARO_STATE_DIRNAME,
+  LEGACY_TAYO_STATE_DIRNAME,
   'coverage',
   '.next',
   '.nuxt',
@@ -266,17 +274,22 @@ function detectFileExtension(
 }
 
 /**
- * Read conventions from .tayo/conventions.json
+ * Read conventions from .taro/conventions.json
  * @param projectRoot - Root directory of the project
  * @returns ConventionsSchema or null if not found
  */
 export async function readConventions(
   projectRoot: string
 ): Promise<ConventionsSchema | null> {
-  const conventionsPath = join(projectRoot, '.tayo', 'conventions.json')
+  const conventionsPath = await findReadableProjectStatePath(
+    projectRoot,
+    'conventions.json'
+  )
 
   try {
-    await access(conventionsPath)
+    if (!conventionsPath) {
+      return null
+    }
     const content = await readFile(conventionsPath, 'utf-8')
     return JSON.parse(content) as ConventionsSchema
   } catch {
@@ -307,7 +320,7 @@ export async function scanConventions(
 
     // Log warning
     console.log(
-      pc.yellow('[tayo] CTX: No test files found — using defaults')
+      pc.yellow('[taro] CTX: No test files found — using defaults')
     )
 
     // Persist defaults
@@ -327,7 +340,7 @@ export async function scanConventions(
     if (file.hasHelperWithExpect) {
       console.log(
         pc.yellow(
-          `[tayo] TEST-02: Helper function with expect() found in ${relative(
+          `[taro] TEST-02: Helper function with expect() found in ${relative(
             projectRoot,
             file.path
           )}`
@@ -343,19 +356,14 @@ export async function scanConventions(
 }
 
 /**
- * Persist conventions to .tayo/conventions.json
+ * Persist conventions to .taro/conventions.json
  */
 export async function persistConventions(
   projectRoot: string,
   conventions: ConventionsSchema
 ): Promise<void> {
-  const taroDir = join(projectRoot, '.tayo')
-
-  // Ensure .tayo directory exists
-  await mkdir(taroDir, { recursive: true })
-
-  // Write conventions.json
-  const conventionsPath = join(taroDir, 'conventions.json')
+  await ensureProjectStateDir(projectRoot)
+  const conventionsPath = getProjectStatePath(projectRoot, 'conventions.json')
   await writeFile(
     conventionsPath,
     JSON.stringify(conventions, null, 2),

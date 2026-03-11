@@ -1,5 +1,5 @@
 /**
- * Core orchestrator for Tayo test generation pipeline
+ * Core orchestrator for Taro test generation pipeline
  * Coordinates parsing, optional visual inspection, and test generation
  */
 
@@ -56,7 +56,7 @@ export interface OrchestratorOptions {
 export async function run(options: OrchestratorOptions): Promise<void> {
   const { recordingPath, outputPath = './tests', visual = false, mocks = true, url } = options;
 
-  console.log(`\n📼 Tayo - Chrome Recorder to RTL Test Generator\n`);
+  console.log(`\n📼 Taro - Chrome Recorder to RTL Test Generator\n`);
   console.log(`📂 Recording: ${recordingPath}`);
   if (visual) {
     console.log(`👁️  Visual inspection: ENABLED`);
@@ -199,7 +199,7 @@ async function runVisualInspection(
   }
 
   // Create screenshots directory
-  const screenshotsDir = resolve('.tayo/visuals');
+  const screenshotsDir = resolve('.taro/visual');
   if (!existsSync(screenshotsDir)) {
     mkdirSync(screenshotsDir, { recursive: true });
   }

@@ -1,9 +1,9 @@
 ---
 name: "@tayo-dev/rtl-help"
-description: "Route Codex users to the correct packaged Tayo skill and explain the installed Codex entrypoints. Use when the user asks how to use Tayo in Codex, which Tayo skill to invoke, whether installation worked, or whether they need generate, conventions, or mocks guidance."
+description: "Route Codex users to the correct packaged Taro skill and explain the installed Codex entrypoints. Use when the user asks how to use Taro in Codex, which Taro skill to invoke, whether installation worked, or whether they need generate, conventions, or mocks guidance."
 ---
 
-# Tayo Codex Help
+# Taro Codex Help
 
 ## Entrypoint
 
@@ -25,15 +25,15 @@ Invoke this skill with `$@tayo-dev/rtl-help`.
 
 1. Confirm whether the user needs generation, convention diagnosis, or mock guidance.
 2. Ask for the recording path or generated test path only if that input is still missing.
-3. Choose the matching packaged Tayo skill.
-4. For generation, use `$@tayo-dev/rtl-generate`. Tayo writes `{recording-name}.test.tsx` next to the `.js` recording and refuses to overwrite an existing file.
+3. Choose the matching packaged Taro skill.
+4. For generation, use `$@tayo-dev/rtl-generate`. Taro writes `{recording-name}.test.tsx` next to the `.js` recording and refuses to overwrite an existing file.
 5. Report the generated file path if generation ran, the score, and blockers that still require manual cleanup.
 
 ## Response contract
 
 Return:
 
-- the correct Tayo skill or runtime entrypoint
+- the correct Taro skill or runtime entrypoint
 - the next runtime action to take
 - any missing input required before proceeding
 - any blocker that prevents safe generation or review

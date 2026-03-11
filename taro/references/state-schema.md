@@ -1,10 +1,10 @@
 # Unified State Schema
 
 Stored at:
-.tayo/state.json
+.taro/state.json
 
 Purpose:
-Persistent, self-evolving knowledge graph of the repository and Tayo runs.
+Persistent, self-evolving knowledge graph of the repository and Taro runs.
 
 Rules:
 - Must remain project-agnostic.
@@ -115,5 +115,5 @@ Recommended caps:
 
 When `verification.checkpoint.status` is `approval_required`:
 
-- Tayo must not append a new generatedTests history entry.
-- Tayo must output checkpoint details and stop write operations for generated tests/state history.
+- Taro must not append a new generatedTests history entry.
+- Taro must output checkpoint details and stop write operations for generated tests/state history.

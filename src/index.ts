@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Tayo CLI entry point
+ * Taro CLI entry point
  * Installer-first package surface with runtime-native generation entrypoints.
  */
 
@@ -27,11 +27,11 @@ if (process.argv[2] === '__generate') {
   program
     .name('tayo')
     .description(
-      `${pc.bold('@tayo-dev/rtl')} — Install Tayo into Claude Code, OpenCode, Gemini CLI, or Codex`
+      `${pc.bold('@tayo-dev/rtl')} — Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex`
     )
     .version(TARO_VERSION, '-v, --version', 'Output the current version')
     .helpOption('-h, --help', 'Display help for command')
-    .addHelpText('after', '\nAfter install, use the runtime-native Tayo help/generate entrypoints.')
+    .addHelpText('after', '\nAfter install, use the runtime-native Taro help/generate entrypoints.')
     .action(async () => {
       await runInstallCommand(program.optsWithGlobals() as InstallCommandOptions)
     })

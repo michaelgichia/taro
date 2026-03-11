@@ -1,7 +1,7 @@
 # Verification Gate
 
 Goal:
-Prevent Tayo from claiming success unless the generated test is demonstrably runnable
+Prevent Taro from claiming success unless the generated test is demonstrably runnable
 and compliant with mock-boundary policy.
 
 Rules:
@@ -33,7 +33,7 @@ If forbidden replacement is detected:
 - set `blockedWrites = true`
 - record offending targets in `verification.mockAudit.forbiddenReimplementations`
 - do not write generated test file
-- do not mutate `.tayo/state.json` generated-test history
+- do not mutate `.taro/state.json` generated-test history
 - output:
   - violation reason
   - exact offending target(s)
@@ -52,7 +52,7 @@ If forbidden replacement is detected:
 
 ## Command Detection (project-agnostic heuristics)
 
-Tayo may attempt to infer commands by checking:
+Taro may attempt to infer commands by checking:
 
 - package.json scripts (if readable/locatable)
 - presence of vitest/jest dependencies in lockfiles or package manifests

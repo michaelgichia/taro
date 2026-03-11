@@ -1,21 +1,11 @@
 #!/usr/bin/env node
 
-import { access } from 'node:fs/promises'
-import { join } from 'node:path'
-
-async function exists(path) {
-  try {
-    await access(path)
-    return true
-  } catch {
-    return false
-  }
-}
+import { findReadableStatePath } from './state-paths.js'
 
 const projectRoot = process.cwd()
-const hasConventions = await exists(join(projectRoot, '.tayo', 'conventions.json'))
-const hasVisualState = await exists(join(projectRoot, '.tayo', 'visual'))
+const hasConventions = (await findReadableStatePath(projectRoot, 'conventions.json')) !== null
+const hasVisualState = (await findReadableStatePath(projectRoot, 'visual')) !== null
 
 console.log(
-  `Tayo | conventions:${hasConventions ? 'yes' : 'no'} | visual:${hasVisualState ? 'yes' : 'no'}`
+  `Taro | conventions:${hasConventions ? 'yes' : 'no'} | visual:${hasVisualState ? 'yes' : 'no'}`
 )

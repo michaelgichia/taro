@@ -1,6 +1,6 @@
-# Tayo User Guide
+# Taro User Guide
 
-Tayo installs runtime-native commands or skills into Claude Code, Gemini CLI, OpenCode, and Codex, then turns Testing Library Recorder `.js` exports into repository-aware React Testing Library tests.
+Taro installs runtime-native commands or skills into Claude Code, Gemini CLI, OpenCode, and Codex, then turns Testing Library Recorder `.js` exports into repository-aware React Testing Library tests.
 
 ## Install
 
@@ -43,13 +43,13 @@ That command builds Taro, installs the Codex skill surface into this repo's `./.
 ## Generation Rules
 
 1. Provide a Testing Library Recorder `.js` export.
-2. Tayo writes `{recording-name}.test.tsx` next to the recording.
+2. Taro writes `{recording-name}.test.tsx` next to the recording.
 3. Existing generated siblings are never overwritten.
 4. Draft-quality output is reported explicitly through score, blockers, and boundary warnings.
 
 ## Learned Context
 
-Tayo persists convention learning in `.tayo/conventions.json` and optional visual artifacts under `.tayo/visual`. Commit `.tayo/` when you want convention learning to carry across teammates and CI.
+Taro persists convention learning in `.taro/conventions.json` and optional visual artifacts under `.taro/visual`. Commit `.taro/` when you want convention learning to carry across teammates and CI.
 
 ## Repo Layout
 
