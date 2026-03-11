@@ -342,7 +342,11 @@ export interface ElementInfo {
   role: string | null
   ariaLabel: string | null
   ariaLabelledBy: string | null
+  labelText: string | null
   innerText: string
+  altText: string | null
+  title: string | null
+  testId: string | null
   value: string | undefined
   type: string | undefined
   placeholder: string | null
@@ -365,6 +369,7 @@ export type SelectorResolutionOutcome =
   | 'inspection-failed'
   | 'selector-not-found'
   | 'selector-inaccessible'
+  | 'unsupported-selector'
 
 interface BaseSelectorResolutionResult {
   stepId: StepId
@@ -390,6 +395,7 @@ export interface UnresolvedSelectorResolutionResult
     | 'inspection-failed'
     | 'selector-not-found'
     | 'selector-inaccessible'
+    | 'unsupported-selector'
   reason: string
   inspectionError?: string
 }

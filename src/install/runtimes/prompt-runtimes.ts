@@ -1,6 +1,5 @@
-import { join } from 'node:path'
-import { resolveAssetSource } from '../assets.js'
 import { TARO_REFERENCE_FILES } from '../reference-files.js'
+import { buildRuntimeOperationsFromAssets } from '../runtime-launcher.js'
 import type {
   InstallFileOperation,
   ResolvedInstallTarget,
@@ -121,18 +120,5 @@ export function buildPromptRuntimeOperations(
     throw new Error(`Prompt runtime operations do not support ${target.id}.`)
   }
 
-  return PROMPT_RUNTIME_ASSETS[target.id].map((asset) => {
-    const relativeDestinationPath = join(...asset.destinationSegments)
-
-    return {
-      assetId: asset.id,
-      runtime: target.id,
-      location: target.location,
-      kind: asset.kind,
-      sourcePath: resolveAssetSource(asset.sourceSegments, fromModuleUrl),
-      relativeDestinationPath,
-      targetPath: join(target.destinationDirectory, relativeDestinationPath),
-      entrypoint: asset.entrypoint,
-    }
-  })
+  return buildRuntimeOperationsFromAssets(target, PROMPT_RUNTIME_ASSETS[target.id], fromModuleUrl)
 }

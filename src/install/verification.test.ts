@@ -63,6 +63,12 @@ describe('verifyInstalledRuntime', () => {
       '$@taro-dev/rtl-help',
     ])
     expect(results.every((result) => result.status === 'verified')).toBe(true)
+    expect(results.map((result) => result.checkedPath)).toEqual(
+      plan.targets.map((target) => target.runtimeEntrypointPath)
+    )
+    expect(results.map((result) => result.launcherCommand)).toEqual(
+      plan.targets.map((target) => target.runtimeCommand)
+    )
   })
 })
 

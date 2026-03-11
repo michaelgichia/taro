@@ -1,4 +1,4 @@
-import { access, copyFile, mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { access, copyFile, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { mkdir } from 'node:fs/promises'
@@ -48,7 +48,11 @@ async function createInstallContext(): Promise<{ cwd: string; home: string }> {
 async function materializeOperations(operations: InstallFileOperation[]): Promise<void> {
   for (const operation of operations) {
     await mkdir(dirname(operation.targetPath), { recursive: true })
-    await copyFile(operation.sourcePath, operation.targetPath)
+    if (operation.renderedContent != null) {
+      await writeFile(operation.targetPath, operation.renderedContent)
+    } else {
+      await copyFile(operation.sourcePath, operation.targetPath)
+    }
   }
 }
 
@@ -88,8 +92,8 @@ describe('prompt runtime install builders', () => {
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl:init')
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl:refresh')
     expect(helpContent).toContain('/@taro-dev/rtl:help')
-    expect(initContent).toContain('taro __init')
-    expect(refreshContent).toContain('taro __refresh')
+    expect(initContent).toContain(`${target.runtimeCommand} __init`)
+    expect(refreshContent).toContain(`${target.runtimeCommand} __refresh`)
     expect(operations.map((operation) => operation.relativeDestinationPath)).toContain(
       'commands/@taro-dev/rtl/references/assertion-markers.md'
     )
@@ -134,8 +138,8 @@ describe('prompt runtime install builders', () => {
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl:init')
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl:refresh')
     expect(helpContent).toContain('/@taro-dev/rtl:help')
-    expect(initContent).toContain('`taro __init`')
-    expect(refreshContent).toContain('`taro __refresh`')
+    expect(initContent).toContain(`\`${target.runtimeCommand} __init\``)
+    expect(refreshContent).toContain(`\`${target.runtimeCommand} __refresh\``)
   })
 
   it('installs Gemini CLI assets into the local .gemini command namespace', async () => {
@@ -147,7 +151,7 @@ describe('prompt runtime install builders', () => {
     const generateContent = await expectFile(
       join(cwd, '.gemini', 'commands', '@taro-dev', 'rtl', 'generate.toml')
     )
-    expect(generateContent).toContain('`taro __generate <recording-file>`')
+    expect(generateContent).toContain(`\`${target.runtimeCommand} __generate <recording-file>\``)
     expect(generateContent).not.toContain('--dry-run')
   })
 
@@ -172,8 +176,8 @@ describe('prompt runtime install builders', () => {
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl-init')
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl-refresh')
     expect(helpContent).toContain('/@taro-dev/rtl-help')
-    expect(initContent).toContain('taro __init')
-    expect(refreshContent).toContain('taro __refresh')
+    expect(initContent).toContain(`${target.runtimeCommand} __init`)
+    expect(refreshContent).toContain(`${target.runtimeCommand} __refresh`)
   })
 
   it('installs OpenCode assets into the local .opencode command namespace', async () => {
@@ -185,7 +189,7 @@ describe('prompt runtime install builders', () => {
     const generateContent = await expectFile(
       join(cwd, '.opencode', 'commands', '@taro-dev', 'rtl-generate.md')
     )
-    expect(generateContent).toContain('`taro __generate <recording-file>`')
+    expect(generateContent).toContain(`\`${target.runtimeCommand} __generate <recording-file>\``)
     expect(generateContent).not.toContain('--dry-run')
   })
 })

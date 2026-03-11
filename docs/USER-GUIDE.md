@@ -22,7 +22,7 @@ After install or reinstall, run the runtime-native `init` entrypoint:
 - OpenCode: `/@taro-dev/rtl-init`
 - Codex: `$@taro-dev/rtl-init`
 
-Check the installed package version with `taro version` or `taro --version`.
+The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `npx @taro-dev/rtl@latest --version`.
 
 For Claude Code local testing from this repo, run:
 
@@ -38,7 +38,7 @@ For the Codex equivalent, run:
 npm run build:codex
 ```
 
-That command builds Taro, installs the Codex skill surface into this repo's `./.codex/`, deletes the existing global Taro Codex skill directories plus the Taro Codex manifest, and reinstalls the global Codex surface cleanly.
+That command builds Taro, installs the Codex skill surface into this repo's `./.codex/`, deletes the existing global Taro Codex skill directories plus the Taro Codex manifest, and reinstalls the global Codex surface cleanly. It does not place a global `taro` binary on your shell `PATH`; the installed Codex skills call this checkout's `dist/index.js` directly. If you move or replace the checkout, rerun `npm run build:codex` so the launcher paths stay current.
 
 ## Runtime Entrypoints
 

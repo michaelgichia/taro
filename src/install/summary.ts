@@ -129,6 +129,10 @@ export function renderInstallExecutionResult(result: InstallExecutionResult): st
         return `- ${target.displayName}: ${target.verificationCommand} (missing ${target.verification.missingPaths.join(', ')})`
       }
 
+      if (target.verification?.status === 'runtime-check-failed') {
+        return `- ${target.displayName}: ${target.verificationCommand} (runtime check failed: ${target.verification.errorMessage})`
+      }
+
       return `- ${target.displayName}: ${target.verificationCommand} (verification metadata missing)`
     })
 

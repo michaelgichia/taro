@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mkdtemp, mkdir } from 'node:fs/promises'
 import { afterEach, describe, expect, it } from 'vitest'
+import { buildRuntimeCommand } from '../../install/runtime-launcher.js'
 import { runInstallCommand } from './install.js'
 
 const sandboxRoots: string[] = []
@@ -62,15 +63,20 @@ describe('runInstallCommand', () => {
     expect(output).toContain('/@taro-dev/rtl-help (verified at')
     expect(output).toContain('$@taro-dev/rtl-help (verified at')
 
+    const runtimeCommand = buildRuntimeCommand(
+      process.execPath,
+      join(process.cwd(), 'dist', 'index.js')
+    )
+
     await expect(
       readFile(join(sandbox.home, '.codex', 'skills', '@taro-dev', 'rtl-help', 'SKILL.md'), 'utf8')
     ).resolves.toContain('$@taro-dev/rtl-help')
     await expect(
       readFile(join(sandbox.home, '.claude', 'commands', '@taro-dev', 'rtl', 'init.md'), 'utf8')
-    ).resolves.toContain('taro __init')
+    ).resolves.toContain(`${runtimeCommand} __init`)
     await expect(
       readFile(join(sandbox.home, '.claude', 'commands', '@taro-dev', 'rtl', 'refresh.md'), 'utf8')
-    ).resolves.toContain('taro __refresh')
+    ).resolves.toContain(`${runtimeCommand} __refresh`)
     await expect(
       readFile(join(sandbox.home, '.codex', 'skills', '@taro-dev', 'rtl-init', 'SKILL.md'), 'utf8')
     ).resolves.toContain('$@taro-dev/rtl-init')

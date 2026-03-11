@@ -18,6 +18,16 @@ import type {
   UnresolvedSemanticMarker,
   VisualState,
 } from '../types/recording.js'
+import {
+  getUnsupportedSelectorReason,
+  isDisplayValueQueryMethod,
+  isLabelTextQueryMethod,
+  isPlaceholderTextQueryMethod,
+  isRoleQueryMethod,
+  isTestIdQueryMethod,
+  isTextQueryMethod,
+  toSingularAsyncQueryMethod,
+} from './query-policy.js'
 
 /**
  * Maps HTML tag names to implied ARIA roles.
@@ -93,12 +103,42 @@ async function readElementInfo(page: Page, selector: string): Promise<ElementInf
   const locator = page.locator(selector).first()
   const elementInfo = await locator.evaluate((el: Element) => {
     const htmlEl = el as HTMLElement
+    const normalizeText = (value?: string | null) => {
+      const normalized = value?.replace(/\s+/g, ' ').trim()
+      return normalized ? normalized : null
+    }
+    const associatedLabelText =
+      'labels' in htmlEl && htmlEl.labels
+        ? Array.from(htmlEl.labels)
+            .map((label) => normalizeText(label.textContent))
+            .filter((value): value is string => Boolean(value))
+            .join(' ')
+        : null
+    const ariaLabelledByText = normalizeText(
+      el
+        .getAttribute('aria-labelledby')
+        ?.split(/\s+/)
+        .map((id) => normalizeText(document.getElementById(id)?.textContent))
+        .filter((value): value is string => Boolean(value))
+        .join(' ')
+    )
+    const labelText = normalizeText(associatedLabelText) ?? ariaLabelledByText
+    const altText = normalizeText((el as HTMLImageElement).alt)
+    const title = normalizeText(el.getAttribute('title'))
+    const testId = normalizeText(
+      el.getAttribute('data-testid') ?? el.getAttribute('data-test-id')
+    )
+
     return {
       tagName: el.tagName.toLowerCase(),
       role: el.getAttribute('role') ?? null,
       ariaLabel: el.getAttribute('aria-label') ?? null,
       ariaLabelledBy: el.getAttribute('aria-labelledby') ?? null,
+      labelText,
       innerText: htmlEl.innerText ?? '',
+      altText,
+      title,
+      testId,
       value: (htmlEl as HTMLInputElement).value ?? undefined,
       type: (htmlEl as HTMLInputElement).type ?? undefined,
       placeholder: (htmlEl as HTMLInputElement).placeholder ?? null,
@@ -110,7 +150,12 @@ async function readElementInfo(page: Page, selector: string): Promise<ElementInf
 }
 
 function getAccessibleName(info: ElementInfo): string | null {
-  const accessibleName = info.ariaLabel ?? info.innerText
+  const accessibleName =
+    info.ariaLabel ??
+    info.labelText ??
+    info.innerText ??
+    info.altText ??
+    info.title
   const normalizedName = accessibleName?.trim()
 
   return normalizedName ? normalizedName : null
@@ -220,23 +265,6 @@ function isIconOnlyText(value?: string): boolean {
   }
 
   return normalized.length <= 2 && !/[a-z0-9]/i.test(normalized)
-}
-
-function toAsyncQueryMethod(method: string): string | undefined {
-  switch (method) {
-    case 'getByRole':
-      return 'findByRole'
-    case 'getByText':
-      return 'findByText'
-    case 'getByDisplayValue':
-      return 'findByDisplayValue'
-    case 'getByLabelText':
-      return 'findByLabelText'
-    case 'getByPlaceholderText':
-      return 'findByPlaceholderText'
-    default:
-      return undefined
-  }
 }
 
 function getQueryScope(query: QueryDescriptor): string | undefined {
@@ -437,8 +465,9 @@ function resolveVisibleValueAssertion(
     return undefined
   }
 
-  const nextMethod =
-    query.method === 'getByDisplayValue' ? 'findByDisplayValue' : 'findByText'
+  const nextMethod = isDisplayValueQueryMethod(query.method)
+    ? 'findByDisplayValue'
+    : 'findByText'
   const asyncQuery = buildAsyncQueryDescriptor(query, {
     method: nextMethod,
     target: proofText,
@@ -481,7 +510,7 @@ function resolveFieldContextAssertion(
     return toUnresolvedAssertion(step, 'ambiguous-field-context', candidate)
   }
 
-  if (query.method === 'getByLabelText') {
+  if (isLabelTextQueryMethod(query.method)) {
     const asyncQuery = buildAsyncQueryDescriptor(query, {
       method: 'findByLabelText',
       target: proofText,
@@ -499,7 +528,7 @@ function resolveFieldContextAssertion(
       : toUnresolvedAssertion(step, 'unsupported-field-context', candidate)
   }
 
-  if (query.method === 'getByPlaceholderText') {
+  if (isPlaceholderTextQueryMethod(query.method)) {
     const asyncQuery = buildAsyncQueryDescriptor(query, {
       method: 'findByPlaceholderText',
       target: proofText,
@@ -517,7 +546,7 @@ function resolveFieldContextAssertion(
       : toUnresolvedAssertion(step, 'unsupported-field-context', candidate)
   }
 
-  if (query.method === 'getByText' && FIELD_LABEL_HINT_PATTERN.test(proofText)) {
+  if (isTextQueryMethod(query.method) && FIELD_LABEL_HINT_PATTERN.test(proofText)) {
     const asyncQuery = buildAsyncQueryDescriptor(query, {
       method: 'findByLabelText',
       target: proofText,
@@ -535,7 +564,7 @@ function resolveFieldContextAssertion(
       : toUnresolvedAssertion(step, 'unsupported-field-context', candidate)
   }
 
-  if (query.method === 'getByText') {
+  if (isTextQueryMethod(query.method)) {
     return toUnresolvedAssertion(step, 'ambiguous-field-context', candidate)
   }
 
@@ -579,7 +608,7 @@ export function resolveSemanticMarkerAssertion(
 
   if (
     candidate.query.queryRoot === 'document' ||
-    candidate.query.method === 'getByTestId' ||
+    isTestIdQueryMethod(candidate.query.method) ||
     /data-testid|querySelector|nth-(?:of-type|child)|css-[\w-]+/i.test(
       candidate.query.raw ?? ''
     )
@@ -617,7 +646,7 @@ export function resolveSemanticMarkerAssertion(
     return resolveFieldContextAssertion(step, candidate, candidate.query)
   }
 
-  const asyncMethod = toAsyncQueryMethod(candidate.query.method)
+  const asyncMethod = toSingularAsyncQueryMethod(candidate.query.method)
   return asyncMethod
     ? toUnresolvedAssertion(step, 'unsupported-proof-subject', candidate, unresolvedMarker)
     : toUnresolvedAssertion(step, 'missing-query', candidate, unresolvedMarker)
@@ -717,7 +746,8 @@ export async function captureVisualState(
 
 /**
  * Builds the highest-priority RTL query for an element based on its accessibility properties.
- * Priority: getByRole > getByLabelText > getByText > getByPlaceholderText > getByTestId
+ * Priority: getByRole > getByLabelText > getByPlaceholderText > getByText >
+ * getByAltText > getByTitle > getByDisplayValue > getByTestId
  *
  * @param info - Element information from DOM inspection
  * @param selector - Original CSS selector
@@ -736,16 +766,26 @@ export function deriveAccessibleQuery(info: ElementInfo): QueryResult | null {
     }
   }
 
-  // Priority 2: getByLabelText when ariaLabel exists (no role match)
-  if (info.ariaLabel) {
+  // Priority 2: getByLabelText when explicit label evidence exists
+  const labelText = info.labelText ?? info.ariaLabel
+  if (labelText) {
     return {
       method: 'getByLabelText',
       quality: 'excellent' as QueryQuality,
-      query: `screen.getByLabelText('${escapeSingleQuote(info.ariaLabel)}')`,
+      query: `screen.getByLabelText('${escapeSingleQuote(labelText)}')`,
     }
   }
 
-  // Priority 3: getByText when innerText exists
+  // Priority 3: getByPlaceholderText when placeholder exists
+  if (info.placeholder) {
+    return {
+      method: 'getByPlaceholderText',
+      quality: 'acceptable' as QueryQuality,
+      query: `screen.getByPlaceholderText('${escapeSingleQuote(info.placeholder)}')`,
+    }
+  }
+
+  // Priority 4: getByText when innerText exists
   if (info.innerText) {
     return {
       method: 'getByText',
@@ -754,12 +794,39 @@ export function deriveAccessibleQuery(info: ElementInfo): QueryResult | null {
     }
   }
 
-  // Priority 4: getByPlaceholderText when placeholder exists
-  if (info.placeholder) {
+  // Priority 5: getByAltText for images or image-like content
+  if (info.altText) {
     return {
-      method: 'getByPlaceholderText',
+      method: 'getByAltText',
+      quality: 'excellent' as QueryQuality,
+      query: `screen.getByAltText('${escapeSingleQuote(info.altText)}')`,
+    }
+  }
+
+  // Priority 6: getByTitle when title is the strongest remaining hook
+  if (info.title) {
+    return {
+      method: 'getByTitle',
       quality: 'acceptable' as QueryQuality,
-      query: `screen.getByPlaceholderText('${escapeSingleQuote(info.placeholder)}')`,
+      query: `screen.getByTitle('${escapeSingleQuote(info.title)}')`,
+    }
+  }
+
+  // Priority 7: getByDisplayValue for filled form controls
+  if (info.value) {
+    return {
+      method: 'getByDisplayValue',
+      quality: 'acceptable' as QueryQuality,
+      query: `screen.getByDisplayValue('${escapeSingleQuote(info.value)}')`,
+    }
+  }
+
+  // Priority 8: getByTestId only when the element already exposes one
+  if (info.testId) {
+    return {
+      method: 'getByTestId',
+      quality: 'fragile' as QueryQuality,
+      query: `screen.getByTestId('${escapeSingleQuote(info.testId)}')`,
     }
   }
 
@@ -846,6 +913,16 @@ export async function resolveSelector(
       selector,
       'no-url',
       `No recorded URL is available to inspect selector ${selector.selector}.`
+    )
+  }
+
+  const unsupportedSelectorReason = getUnsupportedSelectorReason(selector.selector)
+  if (unsupportedSelectorReason) {
+    return toUnresolvedSelectorResult(
+      selector,
+      'unsupported-selector',
+      unsupportedSelectorReason,
+      { url }
     )
   }
 

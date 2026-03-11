@@ -22,7 +22,7 @@ After installation or reinstall, run the runtime-native `init` entrypoint:
 - OpenCode: `/@taro-dev/rtl-init`
 - Codex: `$@taro-dev/rtl-init`
 
-Check the installed package version with `taro version` or `taro --version`.
+The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `npx @taro-dev/rtl@latest --version`.
 
 Use the runtime-native help entrypoint when you want routing guidance:
 
@@ -120,6 +120,8 @@ The tarball flow is the closest match to what end users get from npm.
 2. installs Codex skills into this repo's `./.codex/`
 3. deletes the existing global Taro Codex skill directories plus `~/.codex/@taro-dev-rtl-manifest.json`
 4. reinstalls the global Codex surface cleanly
+
+That reinstalls the Codex skill surface only. It does not place a global `taro` binary on your shell `PATH`; the installed Codex skills call this checkout's `dist/index.js` directly. When you move or replace the checkout, rerun `npm run build:codex` so the launcher paths stay current.
 
 ## Generate RTL Tests
 

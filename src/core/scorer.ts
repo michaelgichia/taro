@@ -8,20 +8,27 @@ import type {
   ScoreResult,
   ScoreSignals,
 } from '../types/score.js'
+import {
+  getSupportedTestingLibraryQueryFamily,
+  isTestIdQueryMethod,
+} from './query-policy.js'
 
 const QUERY_WEIGHTS: Record<string, number> = {
-  getByRole: 1.0,
-  getByLabelText: 0.8,
-  getByText: 0.6,
-  getByPlaceholderText: 0.5,
-  getByTestId: 0.2,
+  ByRole: 1.0,
+  ByLabelText: 0.8,
+  ByPlaceholderText: 0.7,
+  ByText: 0.6,
+  ByAltText: 0.6,
+  ByTitle: 0.5,
+  ByDisplayValue: 0.5,
+  ByTestId: 0.2,
 }
 
 const STRONG_ASSERTION_REGEX = /\.toHaveValue\(|\.toBeChecked\(|\.toHaveTextContent\(|\.toBeVisible\(/g
 const WEAK_ASSERTION_REGEX = /\.toBeInTheDocument\(/g
 const QUERY_CHECKPOINT_REGEX = /taro-query-checkpoint:/g
-const ROLE_QUERY_REGEX = /\b(?:getByRole|findByRole)\s*\(/g
-const TEST_ID_QUERY_REGEX = /\b(?:getByTestId|findByTestId)\s*\(/g
+const ROLE_QUERY_REGEX = /\b(?:get|query|find)(?:All)?ByRole\s*\(/g
+const TEST_ID_QUERY_REGEX = /\b(?:get|query|find)(?:All)?ByTestId\s*\(/g
 const BOUNDARY_WARNING_REGEX = /taro-boundary-warning:/g
 const TEST_BLOCK_REGEX = /\b(?:it|test)\s*\(/g
 
@@ -47,7 +54,8 @@ export function calculateQueryScore(queryResults: QueryResult[]): number {
   }
 
   const totalWeight = queryResults.reduce((sum, queryResult) => {
-    return sum + (QUERY_WEIGHTS[queryResult.method] ?? 0.2)
+    const family = getSupportedTestingLibraryQueryFamily(queryResult.method)
+    return sum + (family ? QUERY_WEIGHTS[family] : 0.2)
   }, 0)
 
   return clampScore((totalWeight / queryResults.length) * 100)
@@ -103,10 +111,10 @@ function collectSignals(
   return {
     queryCheckpointCount: countMatches(code, QUERY_CHECKPOINT_REGEX),
     roleQueryCount:
-      queryResults.filter((queryResult) => queryResult.method === 'getByRole').length +
+      queryResults.filter((queryResult) => getSupportedTestingLibraryQueryFamily(queryResult.method) === 'ByRole').length +
       countMatches(code, ROLE_QUERY_REGEX),
     testIdQueryCount:
-      queryResults.filter((queryResult) => queryResult.method === 'getByTestId').length +
+      queryResults.filter((queryResult) => isTestIdQueryMethod(queryResult.method)).length +
       countMatches(code, TEST_ID_QUERY_REGEX),
     strongAssertionCount: countMatches(code, STRONG_ASSERTION_REGEX),
     weakAssertionCount: countMatches(code, WEAK_ASSERTION_REGEX),

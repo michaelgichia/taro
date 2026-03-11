@@ -60,7 +60,7 @@ When you do repo inspection beyond Taro's own console output, report:
 1. Validate the input recording and confirm it is the intended flow.
 2. Recover semantic intent from the recording before discussing code changes.
 3. Resolve render boundary and mock plan with entry-path fidelity in mind.
-4. Run `taro __generate <recording-file>`.
+4. Run `{{TARO_RUNTIME_COMMAND}} __generate <recording-file>`.
 5. Interpret score, blockers, marker coverage, and verification output before calling the result complete.
 
 ## Intent Recovery Rules

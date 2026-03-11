@@ -32,7 +32,11 @@ const {
     role: 'button',
     ariaLabel: 'Save',
     ariaLabelledBy: null,
+    labelText: null,
     innerText: 'Save',
+    altText: null,
+    title: null,
+    testId: null,
     value: undefined,
     type: undefined,
     placeholder: null,
@@ -95,7 +99,11 @@ const accessibleButton: ElementInfo = {
   role: 'button',
   ariaLabel: 'Save',
   ariaLabelledBy: null,
+  labelText: null,
   innerText: 'Save',
+  altText: null,
+  title: null,
+  testId: null,
   value: undefined,
   type: undefined,
   placeholder: null,
@@ -107,7 +115,11 @@ const inaccessibleElement: ElementInfo = {
   role: null,
   ariaLabel: null,
   ariaLabelledBy: null,
+  labelText: null,
   innerText: '',
+  altText: null,
+  title: null,
+  testId: null,
   value: undefined,
   type: undefined,
   placeholder: null,
@@ -119,7 +131,11 @@ const inputElement: ElementInfo = {
   role: 'textbox',
   ariaLabel: 'Customer Name',
   ariaLabelledBy: null,
+  labelText: null,
   innerText: '',
+  altText: null,
+  title: null,
+  testId: null,
   value: 'Acme Corp',
   type: 'text',
   placeholder: null,
@@ -132,6 +148,14 @@ const selectorDescriptor: SelectorDescriptor = {
   selectorKind: 'document.querySelector',
   line: 12,
   raw: "document.querySelector('#save')",
+}
+
+const unsupportedSelectorDescriptor: SelectorDescriptor = {
+  stepId: 'js-step-2',
+  selector: '#radix-_r_8s_-content-items > div:nth-of-type(1) input',
+  selectorKind: 'document.querySelector',
+  line: 18,
+  raw: "document.querySelector('#radix-_r_8s_-content-items > div:nth-of-type(1) input')",
 }
 
 const preservedQuery: QueryDescriptor = {
@@ -319,7 +343,11 @@ beforeEach(() => {
     role: 'button',
     ariaLabel: 'Save',
     ariaLabelledBy: null,
+    labelText: null,
     innerText: 'Save',
+    altText: null,
+    title: null,
+    testId: null,
     value: undefined,
     type: undefined,
     placeholder: null,
@@ -366,6 +394,28 @@ describe('deriveAccessibleQuery', () => {
     const result = deriveAccessibleQuery(labeledDiv)
     expect(result?.method).toBe('getByLabelText')
     expect(result?.quality).toBe('excellent')
+  })
+
+  it('supports title, alt text, and display value as fallback families', () => {
+    const titledResult = deriveAccessibleQuery({
+      ...inaccessibleElement,
+      title: 'Open details',
+    })
+    const imageResult = deriveAccessibleQuery({
+      ...inaccessibleElement,
+      tagName: 'img',
+      altText: 'Invoice preview',
+    })
+    const displayValueResult = deriveAccessibleQuery({
+      ...inaccessibleElement,
+      tagName: 'input',
+      value: 'KES 4,800.00',
+      type: 'text',
+    })
+
+    expect(titledResult?.method).toBe('getByTitle')
+    expect(imageResult?.method).toBe('getByAltText')
+    expect(displayValueResult?.method).toBe('getByDisplayValue')
   })
 })
 
@@ -461,6 +511,29 @@ describe('resolveSelector', () => {
     )
     expect(result.reason).toContain('trustworthy accessible query evidence')
     expect('query' in result).toBe(false)
+  })
+
+  it('skips volatile Radix and positional selectors before Playwright inspection', async () => {
+    const inspect = vi.fn().mockResolvedValue(foundInspection(accessibleButton))
+
+    const result = await resolveSelector(unsupportedSelectorDescriptor, {
+      url: 'http://localhost:3000',
+      inspect,
+    })
+    if (result.status !== 'unresolved') {
+      throw new Error('expected unresolved selector result')
+    }
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'unresolved',
+        outcome: 'unsupported-selector',
+        selector: unsupportedSelectorDescriptor,
+      })
+    )
+    expect(result.reason).toContain('volatile DOM implementation detail')
+    expect(result.reason).toContain('ByRole')
+    expect(inspect).not.toHaveBeenCalled()
   })
 
   it('returns selector-not-found when the inspected page does not contain the selector', async () => {

@@ -10,6 +10,11 @@ import type {
   SemanticMarkerProofSubject,
   UnresolvedSemanticMarker,
 } from '../types/recording.js'
+import {
+  isLabelTextQueryMethod,
+  isPlaceholderTextQueryMethod,
+  isTextQueryMethod,
+} from './query-policy.js'
 
 export interface VisualCaptureCandidate {
   groupName: string
@@ -381,11 +386,11 @@ function isResolvableFieldContextCandidate(
     return false
   }
 
-  if (queryMethod === 'getByLabelText' || queryMethod === 'getByPlaceholderText') {
+  if (isLabelTextQueryMethod(queryMethod) || isPlaceholderTextQueryMethod(queryMethod)) {
     return true
   }
 
-  return queryMethod === 'getByText' && FIELD_LABEL_HINT_PATTERN.test(proofText)
+  return isTextQueryMethod(queryMethod) && FIELD_LABEL_HINT_PATTERN.test(proofText)
 }
 
 function annotateSemanticMarkers(steps: NormalizedStep[]): NormalizedStep[] {

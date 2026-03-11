@@ -80,7 +80,7 @@ Execute the Taro generation workflow end-to-end.
      - environment/browser gaps
      - explicit local child modules when isolation clearly requires them
    - If the mock plan would violate this policy, stop and call out the violation instead of writing a misleading result.
-9. Run `taro __generate <recording-file>`.
+9. Run `{{TARO_RUNTIME_COMMAND}} __generate <recording-file>`.
 10. Read and apply:
     - `references/quality-scoring.md`
     - `references/verification-gate.md`

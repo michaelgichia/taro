@@ -1,4 +1,4 @@
-import { access, copyFile, mkdir, mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { access, copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -65,7 +65,11 @@ async function createSandbox(label: string) {
 async function materializeOperations(operations: InstallFileOperation[]): Promise<void> {
   for (const operation of operations) {
     await mkdir(dirname(operation.targetPath), { recursive: true })
-    await copyFile(operation.sourcePath, operation.targetPath)
+    if (operation.renderedContent != null) {
+      await writeFile(operation.targetPath, operation.renderedContent)
+    } else {
+      await copyFile(operation.sourcePath, operation.targetPath)
+    }
   }
 }
 
@@ -127,7 +131,7 @@ describe('buildCodexOperations', () => {
       'utf8'
     )
     expect(generateSkill).toContain('## Reference Map')
-    expect(generateSkill).toContain('Run `taro __generate <recording-file>`')
+    expect(generateSkill).toContain(`Run \`${target.runtimeCommand} __generate <recording-file>\``)
 
     const installedGenerateReferences = (
       await readdir(join(target.destinationDirectory, 'skills', '@taro-dev', 'rtl-generate', 'references'))

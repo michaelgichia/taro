@@ -61,6 +61,9 @@ export interface RuntimeDefinition {
 export interface ResolvedInstallTarget extends RuntimeDefinition {
   location: InstallLocation
   destinationDirectory: string
+  runtimeNodePath: string
+  runtimeEntrypointPath: string
+  runtimeCommand: string
 }
 
 export interface InstallOwnedFile {
@@ -78,6 +81,7 @@ export interface InstallFileOperation {
   relativeDestinationPath: string
   targetPath: string
   entrypoint?: string
+  renderedContent?: string
 }
 
 export interface PlannedInstallTarget extends ResolvedInstallTarget {
@@ -86,8 +90,14 @@ export interface PlannedInstallTarget extends ResolvedInstallTarget {
 
 export interface RuntimeVerificationResult {
   verificationCommand: string
-  status: 'verified' | 'missing-entrypoint' | 'missing-installed-assets'
+  status:
+    | 'verified'
+    | 'missing-entrypoint'
+    | 'missing-installed-assets'
+    | 'runtime-check-failed'
   checkedPath?: string
+  launcherCommand?: string
+  errorMessage?: string
   missingPaths: string[]
 }
 

@@ -3,7 +3,8 @@
  * Converts NormalizedRecording into valid React Testing Library test code.
  *
  * Query priority (accessibility-first):
- *   getByRole > getByLabelText > getByText > getByPlaceholderText > getByTestId
+ *   getByRole > getByLabelText > getByPlaceholderText > getByText >
+ *   getByAltText > getByTitle > getByDisplayValue > getByTestId
  */
 
 import type {
@@ -28,6 +29,11 @@ import {
   describeBlockMultiIt,
 } from '../templates/test-template.js'
 import pc from 'picocolors'
+import {
+  getUnsupportedSelectorReason,
+  isRoleQueryMethod,
+  isSupportedTestingLibraryQueryMethod,
+} from './query-policy.js'
 
 export interface GeneratorOptions {
   outputPath?: string
@@ -55,6 +61,20 @@ function selectorToQuery(selector: string | undefined): string {
   if (selector.includes('[aria-labelledby')) {
     return `screen.getByLabelText(/* aria-labelledby */ /./)`
   }
+
+  // placeholder attribute
+  const placeholderMatch = selector.match(/\[placeholder=['"]?([^'"[\]]+)['"]?\]/)
+  if (placeholderMatch) return `screen.getByPlaceholderText('${placeholderMatch[1]}')`
+
+  // alt/title/display-value attributes
+  const altMatch = selector.match(/\[alt=['"]?([^'"[\]]+)['"]?\]/)
+  if (altMatch) return `screen.getByAltText('${altMatch[1]}')`
+
+  const titleMatch = selector.match(/\[title=['"]?([^'"[\]]+)['"]?\]/)
+  if (titleMatch) return `screen.getByTitle('${titleMatch[1]}')`
+
+  const valueMatch = selector.match(/\[value=['"]?([^'"[\]]+)['"]?\]/)
+  if (valueMatch) return `screen.getByDisplayValue('${valueMatch[1]}')`
 
   // Element-level role inference
   if (/(?:^|[\s>])button(?:[^a-z]|$)|\[type=['"]?(?:button|submit)['"]?\]/.test(selector)) {
@@ -171,9 +191,13 @@ function reconstructQuery(
     return target
   }
 
-  if (step.source === 'js' && step.action === 'assert' && step.originalType.startsWith('getBy')) {
+  if (
+    step.source === 'js' &&
+    step.action === 'assert' &&
+    isSupportedTestingLibraryQueryMethod(step.originalType)
+  ) {
     const escapedTarget = target.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
-    return step.originalType === 'getByRole'
+    return isRoleQueryMethod(step.originalType)
       ? `screen.getByRole('${escapedTarget}')`
       : `screen.${step.originalType}('${escapedTarget}')`
   }
@@ -200,8 +224,11 @@ function getSelectorCheckpoint(step: NormalizedStep): { reason: string; selector
 
   const selector = getSelectorDescriptor(step)?.selector ?? step.target
   if (step.source === 'js' && selector && looksLikeCssSelector(selector)) {
+    const unsupportedSelectorReason = getUnsupportedSelectorReason(selector)
     return {
-      reason: 'No trustworthy RTL query evidence was recovered for this selector.',
+      reason:
+        unsupportedSelectorReason ??
+        'No trustworthy RTL query evidence was recovered for this selector.',
       selector,
     }
   }

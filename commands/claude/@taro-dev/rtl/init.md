@@ -10,7 +10,7 @@ Run Taro's initialization entrypoint from Claude Code. This is the recommended f
 </objective>
 
 <process>
-1. Run `taro __init`.
+1. Run `{{TARO_RUNTIME_COMMAND}} __init`.
 2. Report the command run and the important output or blocker.
 3. If the user wants maintenance or owned-asset repair later, direct them to `/@taro-dev/rtl:refresh`.
 4. If initialization succeeds and they have a Testing Library Recorder `.js` export, direct them to `/@taro-dev/rtl:generate`.

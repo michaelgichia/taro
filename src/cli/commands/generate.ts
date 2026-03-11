@@ -52,6 +52,7 @@ import type { MarkerCoverageTotals, ScoreResult } from '../../types/score.js'
 import type { MockAnalysis } from '../../core/mock-intelligence.js'
 import type { JsSuitePlan } from '../../core/suite-planner.js'
 import type { RepoRenderTargetCandidate, ResolvedTaroPackageProfile } from '../../types/state.js'
+import { isTestIdQueryMethod } from '../../core/query-policy.js'
 
 const EMPTY_MARKER_COVERAGE: MarkerCoverageTotals = {
   detected: 0,
@@ -552,7 +553,7 @@ function emitScoreHints(
 ): void {
   if (scoreResult.dimensions.queryQuality < 60) {
     const testIdCount = queryResults.filter((queryResult) => {
-      return queryResult.method === 'getByTestId'
+      return isTestIdQueryMethod(queryResult.method)
     }).length
     console.log(
       pc.yellow(

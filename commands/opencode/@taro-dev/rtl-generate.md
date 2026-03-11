@@ -10,7 +10,7 @@ Generate a React Testing Library test from a Testing Library Recorder JS export.
 
 1. Confirm the recording file path and extension (`.js` only).
 2. Taro writes `{recording-name}.test.tsx` next to the recording. If that file already exists, stop and tell the user to rename or delete it before rerunning generation.
-3. Run `taro __generate <recording-file>`.
+3. Run `{{TARO_RUNTIME_COMMAND}} __generate <recording-file>`.
 4. Parse the score output and work through any required manual fixes.
 
 ## Scoring

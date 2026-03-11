@@ -13,7 +13,7 @@ Run Taro's maintenance entrypoint after `@taro-dev/rtl` is already installed.
 
 ## Workflow
 
-1. Run `taro __refresh`.
+1. Run `{{TARO_RUNTIME_COMMAND}} __refresh`.
 2. Report the command run and the important output or blocker.
 3. Use this for maintenance, resync, and owned-asset repair.
 4. If this is a fresh install or reinstall, tell the user to start with `$@taro-dev/rtl-init`.

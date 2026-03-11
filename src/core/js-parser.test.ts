@@ -7,11 +7,18 @@ describe('classifyQuery', () => {
   it('rates getByRole as excellent', () => {
     expect(classifyQuery('getByRole')).toBe('excellent')
   })
+  it('rates findByRole and getAllByRole using the same family quality', () => {
+    expect(classifyQuery('findByRole')).toBe('excellent')
+    expect(classifyQuery('getAllByRole')).toBe('excellent')
+  })
   it('rates getByLabelText as excellent', () => {
     expect(classifyQuery('getByLabelText')).toBe('excellent')
   })
   it('rates getByText as good', () => {
     expect(classifyQuery('getByText')).toBe('good')
+  })
+  it('rates queryByTitle as acceptable', () => {
+    expect(classifyQuery('queryByTitle')).toBe('acceptable')
   })
   it('rates getByPlaceholderText as acceptable', () => {
     expect(classifyQuery('getByPlaceholderText')).toBe('acceptable')
@@ -125,6 +132,34 @@ describe('parseJsRecording', () => {
       }),
     ])
     expect(recording.semanticMarkerCandidates).toEqual([])
+  })
+
+  it('parses supported RTL query variants without collapsing them to getBy-only assumptions', async () => {
+    const recording = await parseJsRecording(`
+      test('Recorder Flow', async () => {
+        await userEvent.click(screen.queryByText('Save'))
+        await userEvent.click(await screen.findByRole('button', {name: 'Continue'}))
+        screen.getAllByRole('listitem')
+      })
+    `)
+
+    expect(recording.queries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          method: 'queryByText',
+          target: 'Save',
+        }),
+        expect.objectContaining({
+          method: 'findByRole',
+          role: 'button',
+          name: 'Continue',
+        }),
+        expect.objectContaining({
+          method: 'getAllByRole',
+          role: 'listitem',
+        }),
+      ])
+    )
   })
 
   it('recovers the real sample recorder fixture without fake action targets', async () => {
