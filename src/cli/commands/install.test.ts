@@ -15,7 +15,7 @@ afterEach(async () => {
 })
 
 async function createSandbox(label: string) {
-  const root = await mkdtemp(join(tmpdir(), `tayo-cli-${label}-`))
+  const root = await mkdtemp(join(tmpdir(), `taro-cli-${label}-`))
   const cwd = join(root, 'project')
   const home = join(root, 'home')
 
@@ -58,28 +58,28 @@ describe('runInstallCommand', () => {
 
     expect(process.exitCode).toBeUndefined()
     expect(output).toContain('Install complete.')
-    expect(output).toContain('/@tayo-dev/rtl:help (verified at')
-    expect(output).toContain('/@tayo-dev/rtl-help (verified at')
-    expect(output).toContain('$@tayo-dev/rtl-help (verified at')
+    expect(output).toContain('/@taro-dev/rtl:help (verified at')
+    expect(output).toContain('/@taro-dev/rtl-help (verified at')
+    expect(output).toContain('$@taro-dev/rtl-help (verified at')
 
     await expect(
-      readFile(join(sandbox.home, '.codex', 'skills', '@tayo-dev', 'rtl-help', 'SKILL.md'), 'utf8')
-    ).resolves.toContain('$@tayo-dev/rtl-help')
+      readFile(join(sandbox.home, '.codex', 'skills', '@taro-dev', 'rtl-help', 'SKILL.md'), 'utf8')
+    ).resolves.toContain('$@taro-dev/rtl-help')
     await expect(
-      readFile(join(sandbox.home, '.claude', 'commands', '@tayo-dev', 'rtl', 'init.md'), 'utf8')
-    ).resolves.toContain('tayo __init')
+      readFile(join(sandbox.home, '.claude', 'commands', '@taro-dev', 'rtl', 'init.md'), 'utf8')
+    ).resolves.toContain('taro __init')
     await expect(
-      readFile(join(sandbox.home, '.claude', 'commands', '@tayo-dev', 'rtl', 'refresh.md'), 'utf8')
-    ).resolves.toContain('tayo __refresh')
+      readFile(join(sandbox.home, '.claude', 'commands', '@taro-dev', 'rtl', 'refresh.md'), 'utf8')
+    ).resolves.toContain('taro __refresh')
     await expect(
-      readFile(join(sandbox.home, '.codex', 'skills', '@tayo-dev', 'rtl-init', 'SKILL.md'), 'utf8')
-    ).resolves.toContain('$@tayo-dev/rtl-init')
+      readFile(join(sandbox.home, '.codex', 'skills', '@taro-dev', 'rtl-init', 'SKILL.md'), 'utf8')
+    ).resolves.toContain('$@taro-dev/rtl-init')
     await expect(
       readFile(
-        join(sandbox.home, '.codex', 'skills', '@tayo-dev', 'rtl-refresh', 'SKILL.md'),
+        join(sandbox.home, '.codex', 'skills', '@taro-dev', 'rtl-refresh', 'SKILL.md'),
         'utf8'
       )
-    ).resolves.toContain('$@tayo-dev/rtl-refresh')
+    ).resolves.toContain('$@taro-dev/rtl-refresh')
   })
 
   it('reports update results on rerun in non-interactive mode', async () => {
@@ -127,7 +127,7 @@ describe('runInstallCommand', () => {
       }
     )
 
-    await rm(join(sandbox.home, '.gemini', 'commands', '@tayo-dev', 'rtl', 'help.toml'), {
+    await rm(join(sandbox.home, '.gemini', 'commands', '@taro-dev', 'rtl', 'help.toml'), {
       force: true,
     })
     process.exitCode = undefined

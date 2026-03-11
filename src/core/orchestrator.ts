@@ -366,7 +366,7 @@ export function createCommand(): Command {
   const program = new Command();
 
   program
-    .name('tayo')
+    .name('taro')
     .description('Chrome Recorder to React Testing Library test generator')
     .version('0.1.0');
 

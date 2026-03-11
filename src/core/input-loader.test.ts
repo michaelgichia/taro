@@ -9,7 +9,7 @@ const envOptionsLine = ` * @jest-environment${'-options'} {"url":"http://localho
 const dashboardEnvOptionsLine = ` * @jest-environment${'-options'} {"url":"http://localhost:3000/dashboard"}`
 
 async function writeTempFile(name: string, content: string): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), 'tayo-input-loader-'))
+  const directory = await mkdtemp(join(tmpdir(), 'taro-input-loader-'))
   tempDirs.push(directory)
   const filePath = join(directory, name)
   await writeFile(filePath, content, 'utf-8')

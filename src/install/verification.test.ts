@@ -19,7 +19,7 @@ afterEach(async () => {
 })
 
 async function createSandbox(label: string) {
-  const root = await mkdtemp(join(tmpdir(), `tayo-verify-${label}-`))
+  const root = await mkdtemp(join(tmpdir(), `taro-verify-${label}-`))
   const cwd = join(root, 'project')
   const home = join(root, 'home')
 
@@ -57,10 +57,10 @@ describe('verifyInstalledRuntime', () => {
     const results = await Promise.all(plan.targets.map((target) => verifyInstalledRuntime(target)))
 
     expect(results.map((result) => result.verificationCommand)).toEqual([
-      '/@tayo-dev/rtl:help',
-      '/@tayo-dev/rtl-help',
-      '/@tayo-dev/rtl:help',
-      '$@tayo-dev/rtl-help',
+      '/@taro-dev/rtl:help',
+      '/@taro-dev/rtl-help',
+      '/@taro-dev/rtl:help',
+      '$@taro-dev/rtl-help',
     ])
     expect(results.every((result) => result.status === 'verified')).toBe(true)
   })
@@ -95,10 +95,10 @@ describe('package smoke proof', () => {
 
     expect(tarList.stdout).toContain('package/dist/index.js')
     expect(tarList.stdout).toContain('package/bin/install.js')
-    expect(tarList.stdout).toContain('package/commands/claude/@tayo-dev/rtl/help.md')
-    expect(tarList.stdout).toContain('package/commands/gemini/@tayo-dev/rtl/help.toml')
-    expect(tarList.stdout).toContain('package/commands/opencode/@tayo-dev/rtl-help.md')
-    expect(tarList.stdout).toContain('package/agents/tayo-help.md')
+    expect(tarList.stdout).toContain('package/commands/claude/@taro-dev/rtl/help.md')
+    expect(tarList.stdout).toContain('package/commands/gemini/@taro-dev/rtl/help.toml')
+    expect(tarList.stdout).toContain('package/commands/opencode/@taro-dev/rtl-help.md')
+    expect(tarList.stdout).toContain('package/agents/taro-help.md')
     expect(tarList.stdout).toContain('package/taro/references/quality-scoring.md')
     expect(tarList.stdout).toContain('package/docs/USER-GUIDE.md')
     expect(tarList.stdout).toContain('package/README.md')

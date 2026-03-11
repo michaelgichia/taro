@@ -210,7 +210,7 @@ When present, Taro reads and migrates these legacy files into `state.json`:
 
 - `.taro/conventions.json`
 - `.taro/history.json`
-- `.tayo/conventions.json`
-- `.tayo/history.json`
+- `.taro/conventions.json`
+- `.taro/history.json`
 
 After migration, `state.json` is the primary persisted store.

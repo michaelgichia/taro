@@ -283,7 +283,7 @@ function defaultResolveSelector(
 }
 
 async function createSandbox(label: string) {
-  const root = await mkdtemp(join(tmpdir(), `tayo-generate-${label}-`))
+  const root = await mkdtemp(join(tmpdir(), `taro-generate-${label}-`))
   sandboxes.push(root)
   await mkdir(join(root, 'project'), { recursive: true })
   return { outputDir: join(root, 'project'), root }

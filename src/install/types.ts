@@ -92,7 +92,7 @@ export interface RuntimeVerificationResult {
 }
 
 export interface InstallOwnershipManifest {
-  packageName: '@tayo-dev/rtl'
+  packageName: '@taro-dev/rtl'
   runtime: RuntimeTarget
   location: InstallLocation
   manifestVersion: 1
@@ -112,8 +112,8 @@ export interface InstallAssetConflict {
 }
 
 export interface InstallPlan {
-  packageName: '@tayo-dev/rtl'
-  commandName: 'tayo'
+  packageName: '@taro-dev/rtl'
+  commandName: 'taro'
   stage: 'prewrite-preview' | 'ready-to-write'
   source: InstallSelectionSource
   mode: 'interactive' | 'non-interactive'
@@ -134,7 +134,7 @@ export interface RuntimeInstallResult {
 }
 
 export interface InstallExecutionResult {
-  packageName: '@tayo-dev/rtl'
+  packageName: '@taro-dev/rtl'
   status: 'installed' | 'partial' | 'blocked'
   targets: RuntimeInstallResult[]
 }

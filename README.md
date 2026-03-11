@@ -7,7 +7,7 @@ Taro ships as an installer-first package. The package entrypoint bootstraps runt
 ## Getting Started
 
 ```bash
-npx @tayo-dev/rtl@latest
+npx @taro-dev/rtl@latest
 ```
 
 The installer prompts you to choose:
@@ -17,36 +17,36 @@ The installer prompts you to choose:
 
 After installation or reinstall, run the runtime-native `init` entrypoint:
 
-- Claude Code: `/@tayo-dev/rtl:init`
-- Gemini CLI: `/@tayo-dev/rtl:init`
-- OpenCode: `/@tayo-dev/rtl-init`
-- Codex: `$@tayo-dev/rtl-init`
+- Claude Code: `/@taro-dev/rtl:init`
+- Gemini CLI: `/@taro-dev/rtl:init`
+- OpenCode: `/@taro-dev/rtl-init`
+- Codex: `$@taro-dev/rtl-init`
 
-Check the installed package version with `tayo version` or `tayo --version`.
+Check the installed package version with `taro version` or `taro --version`.
 
 Use the runtime-native help entrypoint when you want routing guidance:
 
-- Claude Code: `/@tayo-dev/rtl:help`
-- Gemini CLI: `/@tayo-dev/rtl:help`
-- OpenCode: `/@tayo-dev/rtl-help`
-- Codex: `$@tayo-dev/rtl-help`
+- Claude Code: `/@taro-dev/rtl:help`
+- Gemini CLI: `/@taro-dev/rtl:help`
+- OpenCode: `/@taro-dev/rtl-help`
+- Codex: `$@taro-dev/rtl-help`
 
 > [!NOTE]
-> Codex installation uses skills under `skills/@tayo-dev/rtl-*/SKILL.md`, not prompt files.
+> Codex installation uses skills under `skills/@taro-dev/rtl-*/SKILL.md`, not prompt files.
 
 ## Staying Updated
 
 Use the runtime-native `refresh` entrypoint for maintenance after Taro is already installed:
 
-- Claude Code: `/@tayo-dev/rtl:refresh`
-- Gemini CLI: `/@tayo-dev/rtl:refresh`
-- OpenCode: `/@tayo-dev/rtl-refresh`
-- Codex: `$@tayo-dev/rtl-refresh`
+- Claude Code: `/@taro-dev/rtl:refresh`
+- Gemini CLI: `/@taro-dev/rtl:refresh`
+- OpenCode: `/@taro-dev/rtl-refresh`
+- Codex: `$@taro-dev/rtl-refresh`
 
 If you need a newer package version first, rerun the installer package:
 
 ```bash
-npx @tayo-dev/rtl@latest
+npx @taro-dev/rtl@latest
 ```
 
 After updating the package, run the runtime-native `refresh` entrypoint. Refresh is the maintenance path for owned assets: it restores missing owned files and protects manual edits instead of overwriting them silently.
@@ -57,24 +57,24 @@ Use runtime flags plus exactly one location flag to skip prompts:
 
 ```bash
 # Claude Code
-npx @tayo-dev/rtl@latest --claude --global
-npx @tayo-dev/rtl@latest --claude --local
+npx @taro-dev/rtl@latest --claude --global
+npx @taro-dev/rtl@latest --claude --local
 
 # OpenCode
-npx @tayo-dev/rtl@latest --opencode --global
-npx @tayo-dev/rtl@latest --opencode --local
+npx @taro-dev/rtl@latest --opencode --global
+npx @taro-dev/rtl@latest --opencode --local
 
 # Gemini CLI
-npx @tayo-dev/rtl@latest --gemini --global
-npx @tayo-dev/rtl@latest --gemini --local
+npx @taro-dev/rtl@latest --gemini --global
+npx @taro-dev/rtl@latest --gemini --local
 
 # Codex
-npx @tayo-dev/rtl@latest --codex --global
-npx @tayo-dev/rtl@latest --codex --local
+npx @taro-dev/rtl@latest --codex --global
+npx @taro-dev/rtl@latest --codex --local
 
 # All runtimes
-npx @tayo-dev/rtl@latest --all --global
-npx @tayo-dev/rtl@latest --all --local
+npx @taro-dev/rtl@latest --all --global
+npx @taro-dev/rtl@latest --all --local
 ```
 
 Local installs write to hidden runtime directories in the current project:
@@ -102,8 +102,8 @@ npm run build:codex
 node dist/index.js --all --local
 
 # Or verify the publish boundary with a tarball
-env NPM_CONFIG_CACHE=/tmp/tayo-npm-cache npm pack --pack-destination /tmp/tayo-pack
-npx /tmp/tayo-pack/tayo-dev-rtl-1.0.0.tgz --codex --local
+env NPM_CONFIG_CACHE=/tmp/taro-npm-cache npm pack --pack-destination /tmp/taro-pack
+npx /tmp/taro-pack/taro-dev-rtl-1.0.0.tgz --codex --local
 ```
 
 The tarball flow is the closest match to what end users get from npm.
@@ -112,23 +112,23 @@ The tarball flow is the closest match to what end users get from npm.
 
 1. builds the package
 2. installs Claude commands into this repo's `./.claude/`
-3. deletes the existing global Taro Claude command directory at `~/.claude/commands/@tayo-dev/rtl` and reinstalls it cleanly
+3. deletes the existing global Taro Claude command directory at `~/.claude/commands/@taro-dev/rtl` and reinstalls it cleanly
 
 `npm run build:codex` performs the Codex equivalent:
 
 1. builds the package
 2. installs Codex skills into this repo's `./.codex/`
-3. deletes the existing global Taro Codex skill directories plus `~/.codex/@tayo-dev-rtl-manifest.json`
+3. deletes the existing global Taro Codex skill directories plus `~/.codex/@taro-dev-rtl-manifest.json`
 4. reinstalls the global Codex surface cleanly
 
 ## Generate RTL Tests
 
 After installation and a first `init` run, use the runtime-native installed generate command or skill for your agent:
 
-- Claude Code: `/@tayo-dev/rtl:generate`
-- Gemini CLI: `/@tayo-dev/rtl:generate`
-- OpenCode: `/@tayo-dev/rtl-generate`
-- Codex: `$@tayo-dev/rtl-generate`
+- Claude Code: `/@taro-dev/rtl:generate`
+- Gemini CLI: `/@taro-dev/rtl:generate`
+- OpenCode: `/@taro-dev/rtl-generate`
+- Codex: `$@taro-dev/rtl-generate`
 
 ### Prerequisites
 

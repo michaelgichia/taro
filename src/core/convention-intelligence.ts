@@ -14,7 +14,6 @@ const SKIP_DIRS = new Set([
   '.git',
   'dist',
   '.taro',
-  '.tayo',
   'coverage',
   '.next',
   '.nuxt',

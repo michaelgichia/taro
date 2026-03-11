@@ -218,10 +218,10 @@ describe('loadOrBootstrapTaroState', () => {
     expect(result.state.packages).toEqual({})
   })
 
-  it('migrates legacy .tayo convention and history files into .taro/state.json', async () => {
-    await mkdir(join(projectRoot, '.tayo'), { recursive: true })
+  it('migrates compatibility .taro convention and history files into .taro/state.json', async () => {
+    await mkdir(join(projectRoot, '.taro'), { recursive: true })
     await writeFile(
-      join(projectRoot, '.tayo', 'conventions.json'),
+      join(projectRoot, '.taro', 'conventions.json'),
       JSON.stringify(
         {
           scannedAt: new Date(0).toISOString(),
@@ -246,7 +246,7 @@ describe('loadOrBootstrapTaroState', () => {
       'utf-8'
     )
     await writeFile(
-      join(projectRoot, '.tayo', 'history.json'),
+      join(projectRoot, '.taro', 'history.json'),
       JSON.stringify(
         [
           {

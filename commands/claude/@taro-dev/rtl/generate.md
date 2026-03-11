@@ -1,5 +1,5 @@
 ---
-name: "@tayo-dev/rtl:generate"
+name: "@taro-dev/rtl:generate"
 description: Generate deterministic, project-aware React Testing Library tests from Testing Library Recorder exports with Taro.
 argument-hint: "<path/to/recording.js>"
 allowed-tools:
@@ -13,7 +13,7 @@ allowed-tools:
   - browser_take_screenshot
 argument-instructions: |
   Accept exactly one argument: the path to a Testing Library Recorder `.js` export.
-  Example: /@tayo-dev/rtl:generate path/to/recording.js
+  Example: /@taro-dev/rtl:generate path/to/recording.js
   Stop if the input is missing or does not end in `.js`.
 ---
 <objective>
@@ -80,7 +80,7 @@ Execute the Taro generation workflow end-to-end.
      - environment/browser gaps
      - explicit local child modules when isolation clearly requires them
    - If the mock plan would violate this policy, stop and call out the violation instead of writing a misleading result.
-9. Run `tayo __generate <recording-file>`.
+9. Run `taro __generate <recording-file>`.
 10. Read and apply:
     - `references/quality-scoring.md`
     - `references/verification-gate.md`

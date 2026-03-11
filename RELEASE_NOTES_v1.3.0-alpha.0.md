@@ -2,7 +2,7 @@
 
 ## Summary
 
-`v1.3.0-alpha.0` is the first prerelease for the JS-baseline milestone. It makes Testing Library Recorder `.js` exports first-class inputs in the shared `tayo generate` flow, preserves baseline query/assertion evidence recovered from recorder JS, and adds regression proof that the legacy JSON path still works while the JS path improves.
+`v1.3.0-alpha.0` is the first prerelease for the JS-baseline milestone. It makes Testing Library Recorder `.js` exports first-class inputs in the shared `taro generate` flow, preserves baseline query/assertion evidence recovered from recorder JS, and adds regression proof that the legacy JSON path still works while the JS path improves.
 
 This is an alpha release. The wider `v1.3` roadmap is not complete yet, so selector strengthening, structured suite planning, and final scoring/docs parity are still scheduled follow-up work.
 
@@ -19,7 +19,7 @@ This is an alpha release. The wider `v1.3` roadmap is not complete yet, so selec
 - `npm run build`
 - `npm run test:run -- src/cli/commands/generate.test.ts src/core/input-loader.test.ts src/core/recording-intelligence.test.ts src/core/js-parser.test.ts src/core/parser.test.ts`
 - `node dist/index.js --version`
-- `env NPM_CONFIG_CACHE=/tmp/tayo-npm-cache npm pack --json --dry-run`
+- `env NPM_CONFIG_CACHE=/tmp/taro-npm-cache npm pack --json --dry-run`
 
 ## GitHub Release Title
 
@@ -28,7 +28,7 @@ This is an alpha release. The wider `v1.3` roadmap is not complete yet, so selec
 ## NPM Publish Command
 
 ```bash
-env NPM_CONFIG_CACHE=/tmp/tayo-npm-cache npm publish --tag alpha --access public
+env NPM_CONFIG_CACHE=/tmp/taro-npm-cache npm publish --tag alpha --access public
 ```
 
 ## Git Commands

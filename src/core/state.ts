@@ -62,7 +62,6 @@ const SKIP_DIRS = new Set([
   '.git',
   'dist',
   '.taro',
-  '.tayo',
   'coverage',
   '.next',
   '.nuxt',
@@ -1818,7 +1817,7 @@ export function formatStateSummary(summary: TaroStateSummary, action: 'init' | '
   ]
 
   if (summary.migratedLegacyState) {
-    lines.push(`${pc.dim('[taro]')} migrated legacy .taro/.tayo convention history into state.json`)
+    lines.push(`${pc.dim('[taro]')} consolidated compatibility .taro convention history into state.json`)
   }
   if (summary.overridePackageCount > 0) {
     lines.push(`${pc.dim('[taro]')} overrides applied from .taro/overrides.json for ${summary.overridePackageCount} package(s)`)

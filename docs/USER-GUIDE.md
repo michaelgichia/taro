@@ -5,24 +5,24 @@ Taro installs runtime-native commands or skills into Claude Code, Gemini CLI, Op
 ## Install
 
 ```bash
-npx @tayo-dev/rtl@latest
+npx @taro-dev/rtl@latest
 ```
 
 Use runtime flags plus one location flag to skip prompts:
 
 ```bash
-npx @tayo-dev/rtl@latest --codex --local
-npx @tayo-dev/rtl@latest --all --global
+npx @taro-dev/rtl@latest --codex --local
+npx @taro-dev/rtl@latest --all --global
 ```
 
 After install or reinstall, run the runtime-native `init` entrypoint:
 
-- Claude Code: `/@tayo-dev/rtl:init`
-- Gemini CLI: `/@tayo-dev/rtl:init`
-- OpenCode: `/@tayo-dev/rtl-init`
-- Codex: `$@tayo-dev/rtl-init`
+- Claude Code: `/@taro-dev/rtl:init`
+- Gemini CLI: `/@taro-dev/rtl:init`
+- OpenCode: `/@taro-dev/rtl-init`
+- Codex: `$@taro-dev/rtl-init`
 
-Check the installed package version with `tayo version` or `tayo --version`.
+Check the installed package version with `taro version` or `taro --version`.
 
 For Claude Code local testing from this repo, run:
 
@@ -42,21 +42,21 @@ That command builds Taro, installs the Codex skill surface into this repo's `./.
 
 ## Runtime Entrypoints
 
-- Claude Code: `/@tayo-dev/rtl:help`, `/@tayo-dev/rtl:init`, `/@tayo-dev/rtl:refresh`, `/@tayo-dev/rtl:generate`
-- Gemini CLI: `/@tayo-dev/rtl:help`, `/@tayo-dev/rtl:init`, `/@tayo-dev/rtl:refresh`, `/@tayo-dev/rtl:generate`
-- OpenCode: `/@tayo-dev/rtl-help`, `/@tayo-dev/rtl-init`, `/@tayo-dev/rtl-refresh`, `/@tayo-dev/rtl-generate`
-- Codex: `$@tayo-dev/rtl-help`, `$@tayo-dev/rtl-init`, `$@tayo-dev/rtl-refresh`, `$@tayo-dev/rtl-generate`
+- Claude Code: `/@taro-dev/rtl:help`, `/@taro-dev/rtl:init`, `/@taro-dev/rtl:refresh`, `/@taro-dev/rtl:generate`
+- Gemini CLI: `/@taro-dev/rtl:help`, `/@taro-dev/rtl:init`, `/@taro-dev/rtl:refresh`, `/@taro-dev/rtl:generate`
+- OpenCode: `/@taro-dev/rtl-help`, `/@taro-dev/rtl-init`, `/@taro-dev/rtl-refresh`, `/@taro-dev/rtl-generate`
+- Codex: `$@taro-dev/rtl-help`, `$@taro-dev/rtl-init`, `$@taro-dev/rtl-refresh`, `$@taro-dev/rtl-generate`
 
 ## Refresh Maintenance
 
 Use the runtime-native `refresh` entrypoint when Taro is already installed and you want to refresh owned assets or repair missing ones:
 
-- Claude Code: `/@tayo-dev/rtl:refresh`
-- Gemini CLI: `/@tayo-dev/rtl:refresh`
-- OpenCode: `/@tayo-dev/rtl-refresh`
-- Codex: `$@tayo-dev/rtl-refresh`
+- Claude Code: `/@taro-dev/rtl:refresh`
+- Gemini CLI: `/@taro-dev/rtl:refresh`
+- OpenCode: `/@taro-dev/rtl-refresh`
+- Codex: `$@taro-dev/rtl-refresh`
 
-If you need a newer package version first, rerun `npx @tayo-dev/rtl@latest` and then run the runtime-native `refresh` entrypoint.
+If you need a newer package version first, rerun `npx @taro-dev/rtl@latest` and then run the runtime-native `refresh` entrypoint.
 
 ## Generation Rules
 

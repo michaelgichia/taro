@@ -14,7 +14,7 @@ import { scanConventions } from './scanner.js'
 let testDir: string
 
 beforeEach(async () => {
-  testDir = join(tmpdir(), `tayo-mock-intel-${Date.now()}`)
+  testDir = join(tmpdir(), `taro-mock-intel-${Date.now()}`)
   await mkdir(testDir, { recursive: true })
 })
 

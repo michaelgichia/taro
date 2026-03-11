@@ -750,7 +750,7 @@ describe('captureVisualState', () => {
   it('returns structured visual state with screenshot metadata', async () => {
     const result = await captureVisualState('http://localhost:3000', {
       reason: 'dialog-detected',
-      screenshotDir: '/tmp/tayo-visual',
+      screenshotDir: '/tmp/taro-visual',
       selector: '#save',
     })
 
@@ -766,13 +766,13 @@ describe('captureVisualState', () => {
         }),
         pageTitle: 'Checkout Dialog',
         reason: 'dialog-detected',
-        screenshotPath: '/tmp/tayo-visual/Checkout-Dialog.png',
+        screenshotPath: '/tmp/taro-visual/Checkout-Dialog.png',
         selector: '#save',
         url: 'http://localhost:3000',
       })
     )
     expect(screenshotMock).toHaveBeenCalledWith({
-      path: '/tmp/tayo-visual/Checkout-Dialog.png',
+      path: '/tmp/taro-visual/Checkout-Dialog.png',
       fullPage: true,
     })
   })

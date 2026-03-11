@@ -1,11 +1,11 @@
 ---
-name: "@tayo-dev/rtl-generate"
+name: "@taro-dev/rtl-generate"
 description: "Generate deterministic, repository-aware React Testing Library tests from Testing Library Recorder JS exports with Taro. Use when a user provides a Recorder `.js` file, asks to turn a recorded flow into an RTL test, needs render-boundary or mock strategy guidance, or needs score and verification output interpreted precisely."
 ---
 
 # Taro Generate
 
-Invoke this skill with `$@tayo-dev/rtl-generate`.
+Invoke this skill with `$@taro-dev/rtl-generate`.
 
 ## Purpose
 
@@ -60,7 +60,7 @@ When you do repo inspection beyond Taro's own console output, report:
 1. Validate the input recording and confirm it is the intended flow.
 2. Recover semantic intent from the recording before discussing code changes.
 3. Resolve render boundary and mock plan with entry-path fidelity in mind.
-4. Run `tayo __generate <recording-file>`.
+4. Run `taro __generate <recording-file>`.
 5. Interpret score, blockers, marker coverage, and verification output before calling the result complete.
 
 ## Intent Recovery Rules
