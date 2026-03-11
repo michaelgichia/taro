@@ -30,6 +30,7 @@ import {
   appendGeneratedTestRecord,
   detectPackageProfileStaleness,
   loadOrBootstrapTaroState,
+  persistPlaywrightAuthProfile,
   readTaroOverrides,
   refreshTaroState,
   resolveTaroPackageProfile,
@@ -51,7 +52,11 @@ import type {
 import type { MarkerCoverageTotals, ScoreResult } from '../../types/score.js'
 import type { MockAnalysis } from '../../core/mock-intelligence.js'
 import type { JsSuitePlan } from '../../core/suite-planner.js'
-import type { RepoRenderTargetCandidate, ResolvedTaroPackageProfile } from '../../types/state.js'
+import type {
+  RepoRenderTargetCandidate,
+  ResolvedTaroPackageProfile,
+  TaroPlaywrightAuthProfile,
+} from '../../types/state.js'
 import { isTestIdQueryMethod } from '../../core/query-policy.js'
 
 const EMPTY_MARKER_COVERAGE: MarkerCoverageTotals = {
@@ -114,6 +119,101 @@ function deriveOutputPath(inputPath: string): string {
   const dir = dirname(inputPath)
   const name = basename(inputPath).replace(/\.[cm]?[jt]sx?$/, '')
   return join(dir, `${name}.test.tsx`)
+}
+
+function isTestFilePath(filePath: string): boolean {
+  return /\.(test|spec)\.[cm]?[jt]sx?$/u.test(filePath)
+}
+
+function isRelativeImportPath(importPath: string): boolean {
+  return importPath.startsWith('./') || importPath.startsWith('../')
+}
+
+async function pathExists(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath)
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function resolveImportedFilePath(params: {
+  projectRoot: string
+  sourceFile: string
+  importPath: string
+}): Promise<string | null> {
+  const { projectRoot, sourceFile, importPath } = params
+  if (!isRelativeImportPath(importPath)) {
+    return null
+  }
+
+  const sourceDir = dirname(resolve(projectRoot, sourceFile))
+  const rawTargetPath = resolve(sourceDir, importPath)
+  const candidates = [
+    rawTargetPath,
+    `${rawTargetPath}.ts`,
+    `${rawTargetPath}.tsx`,
+    `${rawTargetPath}.js`,
+    `${rawTargetPath}.jsx`,
+    join(rawTargetPath, 'index.ts'),
+    join(rawTargetPath, 'index.tsx'),
+    join(rawTargetPath, 'index.js'),
+    join(rawTargetPath, 'index.jsx'),
+  ]
+
+  for (const candidate of candidates) {
+    if (await pathExists(candidate)) {
+      return candidate
+    }
+  }
+
+  return rawTargetPath
+}
+
+async function resolveRenderTargetFile(params: {
+  projectRoot: string
+  renderTarget: RepoRenderTargetCandidate | null
+}): Promise<string | null> {
+  const { projectRoot, renderTarget } = params
+  if (!renderTarget) {
+    return null
+  }
+
+  if (!isTestFilePath(renderTarget.sourceTestFile)) {
+    return resolve(projectRoot, renderTarget.sourceTestFile)
+  }
+
+  return resolveImportedFilePath({
+    projectRoot,
+    sourceFile: renderTarget.sourceTestFile,
+    importPath: renderTarget.importPath,
+  })
+}
+
+function rebaseRenderHelperImportPath(params: {
+  projectRoot: string
+  outputPath: string
+  renderHelper: ResolvedTaroPackageProfile['effectiveRenderHelper']
+}): ResolvedTaroPackageProfile['effectiveRenderHelper'] {
+  const { projectRoot, outputPath, renderHelper } = params
+  if (
+    !renderHelper ||
+    !isRelativeImportPath(renderHelper.importPath) ||
+    !isTestFilePath(renderHelper.sourceTestFile)
+  ) {
+    return renderHelper
+  }
+
+  const absoluteImportPath = resolve(
+    dirname(resolve(projectRoot, renderHelper.sourceTestFile)),
+    renderHelper.importPath
+  )
+
+  return {
+    ...renderHelper,
+    importPath: toImportPath(dirname(outputPath), absoluteImportPath),
+  }
 }
 
 interface RepoContextMatch {
@@ -875,8 +975,158 @@ function getPrimarySelector(recording: NormalizedRecording): string | undefined 
   return recording.baseline?.selectors[0]?.selector
 }
 
+function normalizeLandmarkCandidate(value?: string): string | null {
+  const normalized = value?.replace(/\s+/g, ' ').trim()
+  if (!normalized) {
+    return null
+  }
+
+  if (
+    normalized.length < 3 ||
+    /^https?:\/\//i.test(normalized) ||
+    /^(document|location)\./i.test(normalized) ||
+    /(?:[#.]|>|:|=|nth-(?:child|of-type)|querySelector)/i.test(normalized)
+  ) {
+    return null
+  }
+
+  return normalized
+}
+
+function findExpectedPageTitle(recording: NormalizedRecording): string | undefined {
+  const titleAssertion = recording.steps.find(
+    (step) => step.action === 'assert' && step.target === 'document.title' && typeof step.value === 'string'
+  )
+  return typeof titleAssertion?.value === 'string' ? titleAssertion.value : undefined
+}
+
+function collectExpectedLandmarks(recording: NormalizedRecording): string[] {
+  const values = new Set<string>()
+  const register = (candidate?: string) => {
+    const normalized = normalizeLandmarkCandidate(candidate)
+    if (normalized) {
+      values.add(normalized)
+    }
+  }
+
+  for (const query of recording.baseline?.queries ?? []) {
+    register(query.name)
+    register(query.target)
+  }
+
+  for (const step of recording.steps) {
+    if (step.action !== 'click' && step.action !== 'assert' && step.action !== 'fill') {
+      continue
+    }
+
+    register(step.target)
+    if (typeof step.value === 'string') {
+      register(step.value)
+    }
+  }
+
+  return [...values].slice(0, 5)
+}
+
+function toProjectRelativePath(projectRoot: string, filePath: string): string {
+  const absoluteFilePath = resolve(filePath)
+  const normalized = relative(projectRoot, absoluteFilePath).replace(/\\/g, '/')
+  if (normalized && !normalized.startsWith('..')) {
+    return normalized
+  }
+
+  const authLikeSuffix = absoluteFilePath
+    .replace(/\\/g, '/')
+    .match(/(?:^|\/)(playwright\/\.auth\/.+|\.auth\/.+|e2e\/\.auth\/.+|tests\/e2e\/\.auth\/.+)$/)
+  if (authLikeSuffix?.[1]) {
+    return authLikeSuffix[1]
+  }
+
+  return normalized.length === 0 ? '.' : normalized
+}
+
+async function resolveOptionalFilePath(
+  projectRoot: string,
+  inputPath: string | undefined
+): Promise<{
+  absolutePath: string
+  relativePath: string
+} | null> {
+  if (!inputPath) {
+    return null
+  }
+
+  const absolutePath = resolve(projectRoot, inputPath)
+  try {
+    await access(absolutePath)
+    return {
+      absolutePath,
+      relativePath: toProjectRelativePath(projectRoot, absolutePath),
+    }
+  } catch {
+    console.warn(pc.yellow(`[taro] Visual auth: file not found ${absolutePath}; continuing without it.`))
+    return null
+  }
+}
+
+function summarizePlaywrightAuth(
+  packageProfile: ResolvedTaroPackageProfile | null
+): void {
+  if (!packageProfile?.playwrightAuth) {
+    return
+  }
+
+  console.log(
+    pc.dim('[taro]') +
+      ` Visual auth: ${packageProfile.playwrightAuth.strategy}=${packageProfile.playwrightAuth.path} (${packageProfile.playwrightAuth.source})`
+  )
+}
+
 function summarizeVisualState(visualState: VisualState | null): void {
   if (!visualState) {
+    return
+  }
+
+  if (visualState.status === 'auth-interrupted') {
+    const interrupt = visualState.interrupt
+    console.warn(
+      pc.yellow('[taro] Visual context unavailable: authentication required before reaching the target UI.')
+    )
+    if (interrupt) {
+      console.warn(
+        pc.yellow('[taro]') +
+          ` Reached: ${interrupt.reachedUrl}${interrupt.actualTitle ? ` (${interrupt.actualTitle})` : ''}`
+      )
+      if (interrupt.expectedUrl) {
+        console.warn(pc.yellow('[taro]') + ` Expected: ${interrupt.expectedUrl}`)
+      }
+      if (interrupt.expectedTitle) {
+        console.warn(pc.yellow('[taro]') + ` Expected title: ${interrupt.expectedTitle}`)
+      }
+      console.warn(pc.yellow('[taro]') + ` Signals: ${interrupt.signals.join(', ')}`)
+      if (interrupt.strategy === 'storageState' && interrupt.path) {
+        console.warn(
+          pc.yellow('[taro]') +
+            ` Reuse or replace the saved storage state with --auth ${interrupt.path}.`
+        )
+      } else if (interrupt.strategy === 'instructions' && interrupt.path) {
+        console.warn(
+          pc.yellow('[taro]') +
+            ` Review the saved auth instructions at ${interrupt.path}, or provide --auth for automatic session injection.`
+        )
+      } else {
+        console.warn(
+          pc.yellow('[taro]') +
+            ' Options: --auth <storageState.json>, --instructions <auth.md>, or --no-screenshots.'
+        )
+      }
+    }
+    console.warn(
+      pc.yellow('[taro]') + ' Proceeding without visual context; generation will fall back to code context only.'
+    )
+    if (visualState.screenshotPath) {
+      console.log(pc.dim('[taro]') + ` Auth checkpoint screenshot: ${visualState.screenshotPath}`)
+    }
     return
   }
 
@@ -1192,11 +1442,18 @@ function summarizeSelectorWarnings(warnings: string[]): void {
 
 async function maybeCaptureVisualState(params: {
   analyzedRecording: AnalyzedRecording
+  auth?: TaroPlaywrightAuthProfile | null
+  disabled?: boolean
   projectRoot: string
+  recording: NormalizedRecording
   selector?: string
   url?: string
 }): Promise<VisualState | null> {
-  const { analyzedRecording, projectRoot, selector, url } = params
+  const { analyzedRecording, auth, disabled = false, projectRoot, recording, selector, url } = params
+  if (disabled) {
+    return null
+  }
+
   if (!url) {
     return null
   }
@@ -1204,10 +1461,23 @@ async function maybeCaptureVisualState(params: {
   const candidates = findVisualCaptureCandidates(analyzedRecording)
   const stateDir = await ensureProjectStateDir(projectRoot)
   const visualDir = join(stateDir, 'visual')
+  const expected = {
+    landmarks: collectExpectedLandmarks(recording),
+    title: findExpectedPageTitle(recording),
+    url,
+  }
+  const authOptions = auth
+    ? {
+        path: resolve(projectRoot, auth.path),
+        strategy: auth.strategy,
+      }
+    : null
 
   if (candidates.length > 0) {
     await mkdir(visualDir, { recursive: true })
     return captureVisualState(url, {
+      auth: authOptions,
+      expected,
       reason: candidates[0]!.reason,
       screenshotDir: visualDir,
       selector: candidates[0]!.selector,
@@ -1217,6 +1487,8 @@ async function maybeCaptureVisualState(params: {
   if (selector) {
     await mkdir(visualDir, { recursive: true })
     return captureVisualState(url, {
+      auth: authOptions,
+      expected,
       reason: 'ambiguous-ui',
       screenshotDir: visualDir,
       selector,
@@ -1280,9 +1552,18 @@ export function createGenerateCommand(): Command {
   generate
     .description('Internal runtime-only generator for Testing Library Recorder JS exports')
     .argument('<file>', 'Path to the recorder export file (.js)')
+    .option('--auth <file>', 'Path to a Playwright storageState JSON file for optional visual capture')
+    .option('--instructions <file>', 'Path to a non-secret auth instructions file for optional visual capture')
+    .option('--no-screenshots', 'Skip optional Playwright screenshots and visual inspection')
     .action(async (file: string) => {
       const filePath = resolve(file)
       const projectRoot = cwd()
+      const commandOptions = generate.opts<{
+        auth?: string
+        instructions?: string
+        screenshots?: boolean
+      }>()
+      const screenshotsEnabled = commandOptions.screenshots !== false
 
       // 1. Verify file is accessible
       try {
@@ -1378,13 +1659,61 @@ export function createGenerateCommand(): Command {
           testFiles: [],
           folderPattern: 'unknown',
           fileExtension: 'ts',
-        }
+      }
       const contextRenderTargets = deriveContextRenderTargets({
         projectRoot,
         outputPath: defaultOutputPath,
         matches: contextMatches,
       })
       const repoRenderTargets = [...contextRenderTargets, ...(packageProfile?.renderTargets ?? [])]
+      const explicitAuthPath = await resolveOptionalFilePath(projectRoot, commandOptions.auth)
+      const explicitInstructionsPath = await resolveOptionalFilePath(
+        projectRoot,
+        commandOptions.instructions
+      )
+      if (explicitAuthPath && explicitInstructionsPath) {
+        console.warn(
+          pc.yellow('[taro] Visual auth: both --auth and --instructions were provided; preferring --auth for this run.')
+        )
+      }
+      let visualAuth: TaroPlaywrightAuthProfile | null =
+        explicitAuthPath
+          ? {
+              strategy: 'storageState',
+              path: explicitAuthPath.relativePath,
+              detectedAt: 'generate',
+              source: 'manual',
+            }
+          : explicitInstructionsPath
+            ? {
+                strategy: 'instructions',
+                path: explicitInstructionsPath.relativePath,
+                detectedAt: 'generate',
+                source: 'manual',
+              }
+            : packageProfile?.playwrightAuth ?? null
+
+      if ((explicitAuthPath || explicitInstructionsPath) && packageProfile && visualAuth) {
+        const persisted = await persistPlaywrightAuthProfile(
+          projectRoot,
+          packageProfile.packagePath,
+          visualAuth
+        )
+        if (persisted) {
+          console.log(
+            pc.dim('[taro]') +
+              ` Persisted visual auth for package ${packageProfile.packagePath}: ${visualAuth.strategy}=${visualAuth.path}`
+          )
+        } else {
+          console.warn(
+            pc.yellow('[taro] Visual auth: resolved the auth path for this run but could not persist it in state.')
+          )
+        }
+      } else if ((explicitAuthPath || explicitInstructionsPath) && !packageProfile && visualAuth) {
+        console.warn(
+          pc.yellow('[taro] Visual auth: using the explicit auth path for this run, but no package profile was available to persist it.')
+        )
+      }
 
       if (!hadState) {
         console.log(pc.dim('[taro]') + ' Bootstrapped .taro/state.json from current repo tests.')
@@ -1408,6 +1737,7 @@ export function createGenerateCommand(): Command {
         )
       }
       summarizeResolvedPackageProfile(packageProfile)
+      summarizePlaywrightAuth(packageProfile)
 
       console.log(
         pc.green('Parsed:') +
@@ -1418,9 +1748,15 @@ export function createGenerateCommand(): Command {
       const analyzedRecording = analyzeRecording(normalizedRecording)
       const markerAwareRecording = mergeAnalyzedStepState(normalizedRecording, analyzedRecording)
       summarizeCleanup(analyzedRecording)
+      if (!screenshotsEnabled) {
+        console.log(pc.dim('[taro]') + ' Visual capture skipped (--no-screenshots).')
+      }
       const visualState = await maybeCaptureVisualState({
         analyzedRecording,
+        auth: visualAuth,
+        disabled: !screenshotsEnabled,
         projectRoot,
+        recording: normalizedRecording,
         selector: getPrimarySelector(normalizedRecording),
         url: findRecordingUrl(analyzedRecording),
       })
@@ -1440,7 +1776,25 @@ export function createGenerateCommand(): Command {
         mockAnalysis,
         suitePlan: rawJsSuitePlan,
       })
-      const outputPath = defaultOutputPath
+      const resolvedRenderTargetFile = await resolveRenderTargetFile({
+        projectRoot,
+        renderTarget: repoRenderTarget,
+      })
+      const outputPath = resolvedRenderTargetFile
+        ? deriveOutputPath(resolvedRenderTargetFile)
+        : defaultOutputPath
+      const generationRenderTarget =
+        repoRenderTarget && resolvedRenderTargetFile
+          ? {
+              ...repoRenderTarget,
+              importPath: toImportPath(dirname(outputPath), resolvedRenderTargetFile),
+            }
+          : repoRenderTarget
+      const generationRenderHelper = rebaseRenderHelperImportPath({
+        projectRoot,
+        outputPath,
+        renderHelper: packageProfile?.effectiveRenderHelper ?? null,
+      })
 
       const jsSuitePlan = rawJsSuitePlan
         ? applyRepoRenderTarget(rawJsSuitePlan, repoRenderTarget)
@@ -1485,8 +1839,8 @@ export function createGenerateCommand(): Command {
         queryResults: resolvedJsGeneration?.queryResults ?? [],
         helpers: generationHelpers,
         scenarios: generationScenarios,
-        renderTarget: repoRenderTarget,
-        renderHelper: packageProfile?.effectiveRenderHelper ?? null,
+        renderTarget: generationRenderTarget,
+        renderHelper: generationRenderHelper,
       })
       const markerCoverage = buildMarkerCoverageSummary({
         analyzedRecording,

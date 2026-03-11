@@ -45,7 +45,7 @@ When repo evidence is ambiguous, `.taro/overrides.json` can pin package-level po
 - **Wrong runner import** — set `packages.<path>.runner` in `.taro/overrides.json` when Vitest/Jest evidence is mixed.
 - **Wrong file placement** — move one generated test to the correct location and re-run; Taro picks up placement from the nearest examples.
 - **Missing render wrapper** — if the project uses a custom `renderWithProviders` helper, add one test that uses it, then refresh; or pin it in `.taro/overrides.json`.
-- **Before re-running generation** — make sure the sibling `{recording-name}.test.tsx` path is free, because Taro writes next to the recording and will not overwrite an existing file.
+- **Before re-running generation** — make sure the inferred-component output path is free. Taro must write next to the inferred component when it resolves one; unresolved boundary drafts fall back next to the recording, and existing files are never overwritten.
 
 ## Guardrails
 

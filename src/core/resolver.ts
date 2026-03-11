@@ -1,4 +1,4 @@
-import { chromium, type Browser, type Page } from 'playwright'
+import { chromium, type Browser, type BrowserContext, type Page } from 'playwright'
 import pc from 'picocolors'
 import type {
   DialogState,
@@ -18,6 +18,7 @@ import type {
   UnresolvedSemanticMarker,
   VisualState,
 } from '../types/recording.js'
+import type { TaroPlaywrightAuthStrategy } from '../types/state.js'
 import {
   getUnsupportedSelectorReason,
   isDisplayValueQueryMethod,
@@ -53,6 +54,10 @@ const GENERIC_FIELD_CONTEXT_PATTERN =
 
 const FIELD_LABEL_HINT_PATTERN =
   /\b(name|email|phone|pin|quantity|amount|reference|description|notes?|comment|code|search|address|date|time|password|customer|type|number)\b/i
+const AUTH_PATH_PATTERN =
+  /\b(login|log-?in|sign-?in|auth|oauth|sso|verify|verification|mfa|two[- ]factor|checkpoint|challenge)\b/i
+const AUTH_COPY_PATTERN =
+  /\b(sign in|log in|continue with|single sign-on|sso|password|verification code|one-time code|two-factor|2fa|multi-factor|mfa|confirm it'?s you)\b/i
 
 /**
  * Escapes single quotes in strings for use in generated query code.
@@ -103,13 +108,31 @@ async function readElementInfo(page: Page, selector: string): Promise<ElementInf
   const locator = page.locator(selector).first()
   const elementInfo = await locator.evaluate((el: Element) => {
     const htmlEl = el as HTMLElement
+    type LabelableElement =
+      | HTMLButtonElement
+      | HTMLInputElement
+      | HTMLMeterElement
+      | HTMLOutputElement
+      | HTMLProgressElement
+      | HTMLSelectElement
+      | HTMLTextAreaElement
     const normalizeText = (value?: string | null) => {
       const normalized = value?.replace(/\s+/g, ' ').trim()
       return normalized ? normalized : null
     }
+    const labelableEl: LabelableElement | null =
+      el instanceof HTMLButtonElement ||
+      el instanceof HTMLInputElement ||
+      el instanceof HTMLMeterElement ||
+      el instanceof HTMLOutputElement ||
+      el instanceof HTMLProgressElement ||
+      el instanceof HTMLSelectElement ||
+      el instanceof HTMLTextAreaElement
+        ? el
+        : null
     const associatedLabelText =
-      'labels' in htmlEl && htmlEl.labels
-        ? Array.from(htmlEl.labels)
+      labelableEl?.labels
+        ? Array.from(labelableEl.labels)
             .map((label) => normalizeText(label.textContent))
             .filter((value): value is string => Boolean(value))
             .join(' ')
@@ -684,7 +707,185 @@ export async function extractDialogState(page: Page): Promise<DialogState | null
   }
 }
 
+function normalizeComparableText(value?: string | null): string {
+  return value?.replace(/\s+/g, ' ').trim().toLowerCase() ?? ''
+}
+
+function urlsMateriallyDiffer(expectedUrl?: string, actualUrl?: string): boolean {
+  if (!expectedUrl || !actualUrl) {
+    return false
+  }
+
+  try {
+    const expected = new URL(expectedUrl)
+    const actual = new URL(actualUrl)
+    const expectedValue = `${expected.pathname.replace(/\/+$/, '') || '/'}${expected.search}`.toLowerCase()
+    const actualValue = `${actual.pathname.replace(/\/+$/, '') || '/'}${actual.search}`.toLowerCase()
+    return expectedValue !== actualValue
+  } catch {
+    return normalizeComparableText(expectedUrl) !== normalizeComparableText(actualUrl)
+  }
+}
+
+function titlesMateriallyDiffer(expectedTitle?: string, actualTitle?: string): boolean {
+  if (!expectedTitle || !actualTitle) {
+    return false
+  }
+
+  const expected = normalizeComparableText(expectedTitle)
+  const actual = normalizeComparableText(actualTitle)
+  if (!expected || !actual) {
+    return false
+  }
+
+  return !actual.includes(expected) && !expected.includes(actual)
+}
+
+async function readOptionalElementInfo(
+  page: Page,
+  selector?: string
+): Promise<ElementInfo | null> {
+  if (!selector) {
+    return null
+  }
+
+  try {
+    return await readElementInfo(page, selector)
+  } catch {
+    return null
+  }
+}
+
+interface AuthCheckpointDetection {
+  authSignals: string[]
+  interrupt: boolean
+  matchedLandmarks: string[]
+  missingExpectedSelector: boolean
+  missingLandmarks: string[]
+  pageTitleMismatch: boolean
+  routeMismatch: boolean
+  reachedUrl: string
+}
+
+async function detectAuthCheckpoint(
+  page: Page,
+  options: {
+    actualTitle: string
+    element: ElementInfo | null
+    expectedLandmarks?: string[]
+    expectedTitle?: string
+    expectedUrl?: string
+    selector?: string
+  }
+): Promise<AuthCheckpointDetection> {
+  const reachedUrl = page.url()
+  const expectedLandmarks = options.expectedLandmarks ?? []
+  const bodyAnalysis = await page
+    .locator('body')
+    .first()
+    .evaluate((body: Element, landmarks: string[]) => {
+      const root = body as HTMLElement
+      const normalizedText = root.innerText.replace(/\s+/g, ' ').trim().toLowerCase()
+      const buttons = Array.from(root.querySelectorAll('button, [role="button"], a'))
+        .map((node) => (node as HTMLElement).innerText?.replace(/\s+/g, ' ').trim().toLowerCase())
+        .filter((value): value is string => Boolean(value))
+      const headings = Array.from(root.querySelectorAll('h1, h2, h3, [role="heading"]'))
+        .map((node) => (node as HTMLElement).innerText?.replace(/\s+/g, ' ').trim().toLowerCase())
+        .filter((value): value is string => Boolean(value))
+      const matchedLandmarks = landmarks.filter((landmark) =>
+        normalizedText.includes(landmark.toLowerCase())
+      )
+      const authSignals: string[] = []
+
+      if (root.querySelector('input[type="password"], input[autocomplete="current-password"]')) {
+        authSignals.push('password-input')
+      }
+      if (
+        root.querySelector(
+          'input[autocomplete="one-time-code"], input[name*="otp" i], input[name*="verification" i]'
+        )
+      ) {
+        authSignals.push('verification-input')
+      }
+      if (root.querySelector('form[action*="login" i], form[action*="auth" i], form[action*="sso" i]')) {
+        authSignals.push('auth-form')
+      }
+      const combinedCopy = [...buttons, ...headings, normalizedText].join(' ')
+      if (/\b(sign in|log in|continue with|single sign-on|sso|password|verification code|2fa|mfa|checkpoint|challenge)\b/i.test(combinedCopy)) {
+        authSignals.push('auth-copy')
+      }
+
+      return {
+        authSignals,
+        matchedLandmarks,
+      }
+    }, expectedLandmarks)
+    .catch(() => ({
+      authSignals: [] as string[],
+      matchedLandmarks: [] as string[],
+    }))
+
+  const authSignals = new Set<string>(bodyAnalysis.authSignals)
+  if (AUTH_PATH_PATTERN.test(reachedUrl)) {
+    authSignals.add('auth-route')
+  }
+  if (AUTH_COPY_PATTERN.test(options.actualTitle)) {
+    authSignals.add('auth-title')
+  }
+
+  const routeMismatch = urlsMateriallyDiffer(options.expectedUrl, reachedUrl)
+  const pageTitleMismatch = titlesMateriallyDiffer(options.expectedTitle, options.actualTitle)
+  const missingExpectedSelector = Boolean(options.selector) && options.element === null
+  const missingLandmarks = expectedLandmarks.filter(
+    (landmark) => !bodyAnalysis.matchedLandmarks.includes(landmark)
+  )
+  const interrupt =
+    authSignals.size > 0 &&
+    (routeMismatch ||
+      pageTitleMismatch ||
+      missingExpectedSelector ||
+      (expectedLandmarks.length > 0 && bodyAnalysis.matchedLandmarks.length === 0))
+
+  return {
+    authSignals: [...authSignals],
+    interrupt,
+    matchedLandmarks: bodyAnalysis.matchedLandmarks,
+    missingExpectedSelector,
+    missingLandmarks,
+    pageTitleMismatch,
+    routeMismatch,
+    reachedUrl,
+  }
+}
+
+async function capturePageScreenshot(
+  page: Page,
+  screenshotDir: string | undefined,
+  nameHint: string
+): Promise<string | undefined> {
+  if (!screenshotDir) {
+    return undefined
+  }
+
+  const screenshotPath = `${screenshotDir}/${sanitizeCaptureSegment(nameHint)}.png`
+  await page.screenshot({ path: screenshotPath, fullPage: true })
+  return screenshotPath
+}
+
+export interface CaptureVisualStateAuthOptions {
+  path: string
+  strategy: TaroPlaywrightAuthStrategy
+}
+
+export interface CaptureVisualStateExpectations {
+  landmarks?: string[]
+  title?: string
+  url?: string
+}
+
 export interface CaptureVisualStateOptions {
+  auth?: CaptureVisualStateAuthOptions | null
+  expected?: CaptureVisualStateExpectations
   reason: string
   screenshotDir?: string
   selector?: string
@@ -698,12 +899,16 @@ export async function captureVisualState(
   url: string,
   options: CaptureVisualStateOptions
 ): Promise<VisualState | null> {
-  const { reason, screenshotDir, selector, timeoutMs = 5000 } = options
+  const { auth, expected, reason, screenshotDir, selector, timeoutMs = 5000 } = options
   let browser: Browser | null = null
+  let context: BrowserContext | null = null
 
   try {
     browser = await chromium.launch({ headless: true })
-    const page = await browser.newPage()
+    if (auth?.strategy === 'storageState') {
+      context = await browser.newContext({ storageState: auth.path })
+    }
+    const page = context ? await context.newPage() : await browser.newPage()
 
     await page.goto(url, {
       timeout: timeoutMs,
@@ -711,24 +916,77 @@ export async function captureVisualState(
     })
 
     const pageTitle = await page.title()
+    const element = await readOptionalElementInfo(page, selector)
+    const authCheckpoint = await detectAuthCheckpoint(page, {
+      actualTitle: pageTitle,
+      element,
+      expectedLandmarks: expected?.landmarks,
+      expectedTitle: expected?.title,
+      expectedUrl: expected?.url,
+      selector,
+    })
     const dialog = await extractDialogState(page)
-    const element = selector ? await readElementInfo(page, selector) : null
 
-    let screenshotPath: string | undefined
-    if (screenshotDir) {
-      screenshotPath = `${screenshotDir}/${sanitizeCaptureSegment(pageTitle || reason)}.png`
-      await page.screenshot({ path: screenshotPath, fullPage: true })
+    const screenshotPath = await capturePageScreenshot(
+      page,
+      screenshotDir,
+      pageTitle || (authCheckpoint.interrupt ? 'auth-interrupt' : reason)
+    )
+
+    if (authCheckpoint.interrupt) {
+      const signals = [...authCheckpoint.authSignals]
+      if (authCheckpoint.routeMismatch) {
+        signals.push('route-mismatch')
+      }
+      if (authCheckpoint.pageTitleMismatch) {
+        signals.push('title-mismatch')
+      }
+      if (authCheckpoint.missingExpectedSelector && selector) {
+        signals.push('expected-selector-missing')
+      }
+      if (expected?.landmarks?.length && authCheckpoint.missingLandmarks.length > 0) {
+        signals.push('expected-landmarks-missing')
+      }
+
+      return {
+        capturedAt: new Date().toISOString(),
+        dialog,
+        element,
+        finalUrl: authCheckpoint.reachedUrl,
+        interrupt: {
+          kind: 'auth-required',
+          actualTitle: pageTitle,
+          expectedTitle: expected?.title,
+          expectedUrl: expected?.url,
+          path: auth?.path,
+          reachedUrl: authCheckpoint.reachedUrl,
+          signals,
+          strategy: auth?.strategy,
+        },
+        pageTitle,
+        reason,
+        screenshotPath,
+        selector,
+        status: 'auth-interrupted',
+        url,
+        warnings: [
+          `Authentication required before visual capture could reach ${expected?.url ?? url}.`,
+        ],
+      }
     }
 
     return {
       capturedAt: new Date().toISOString(),
       dialog,
       element,
+      finalUrl: authCheckpoint.reachedUrl,
       pageTitle,
       reason,
       screenshotPath,
       selector,
+      status: 'captured',
       url,
+      warnings: [],
     }
   } catch (error) {
     console.warn(
@@ -738,6 +996,9 @@ export async function captureVisualState(
     )
     return null
   } finally {
+    if (context) {
+      await context.close().catch(() => undefined)
+    }
     if (browser) {
       await browser.close()
     }

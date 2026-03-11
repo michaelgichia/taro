@@ -51,9 +51,10 @@ When you do repo inspection beyond Taro's own console output, report:
 ## Preflight
 
 1. Accept only Testing Library Recorder `.js` exports.
-2. Taro writes `{recording-name}.test.tsx` next to the recording.
-3. If that sibling output file already exists, stop and tell the user to rename or delete it before rerunning generation.
-4. If the user is asking for convention diagnosis or mock review instead of generation, route them to the more specific Taro skill when that is the better fit.
+2. Taro must write the generated test next to the inferred component when it can resolve the owning render target.
+3. If the render target stays unresolved, keep the fallback boundary-draft output next to the recording.
+4. If that intended output file already exists, stop and tell the user to rename or delete it before rerunning generation.
+5. If the user is asking for convention diagnosis or mock review instead of generation, route them to the more specific Taro skill when that is the better fit.
 
 ## Generation Workflow
 

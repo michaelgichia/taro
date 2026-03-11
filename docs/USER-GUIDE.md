@@ -62,8 +62,8 @@ If you need a newer package version first, rerun `npx @taro-dev/rtl@latest` and 
 
 1. Provide a Testing Library Recorder `.js` export.
 2. Run the runtime-native `init` entrypoint first when Taro has just been installed or reinstalled.
-3. Taro writes `{recording-name}.test.tsx` next to the recording.
-4. Existing generated siblings are never overwritten.
+3. When Taro infers the owning render target, it must write the generated test next to the inferred component.
+4. If no render target can be inferred, the fallback boundary draft is written next to the recording. Existing generated outputs are never overwritten.
 5. Draft-quality output is reported explicitly through score, blockers, and boundary warnings.
 
 ## Learned Context

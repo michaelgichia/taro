@@ -70,6 +70,7 @@ const { taroStateControl } = vi.hoisted(() => ({
       mockRecommendations: [],
       fixtureRoots: [],
       exemplars: [],
+      playwrightAuth: null,
       warnings: [],
       effectiveRunner: 'unknown' as const,
       effectiveRenderHelper: null,
@@ -118,6 +119,7 @@ vi.mock('../../core/state.js', async (importOriginal) => {
       reason: taroStateControl.staleReason,
       latestEvidencePath: taroStateControl.staleReason ? 'src/example.test.tsx' : null,
     })),
+    persistPlaywrightAuthProfile: vi.fn(async () => true),
     readTaroOverrides: vi.fn(async () => ({})),
     refreshTaroState: vi.fn(async () => ({
       state: {
@@ -379,6 +381,7 @@ beforeEach(() => {
   taroStateControl.profile.effectiveRunner = 'unknown'
   taroStateControl.profile.effectiveRenderHelper = null
   taroStateControl.profile.appliedOverrides = []
+  taroStateControl.profile.playwrightAuth = null
   planJsSuiteMock.mockClear()
   resolveSelectorMock.mockReset()
   resolveSelectorMock.mockImplementation(defaultResolveSelector)
@@ -392,7 +395,7 @@ afterEach(async () => {
 describe('createGenerateCommand', () => {
   it('writes JS output with repo-aware recovery and explicit unresolved-selector warnings', async () => {
     const fixture = await createRecordingFixture('write-sample')
-    const outputPath = deriveOutputPath(fixture.recordingPath)
+    const outputPath = join(fixture.outputDir, 'sample', 'FeatureFlow.test.tsx')
 
     taroStateControl.profile.renderTargets = [
       {
@@ -413,7 +416,8 @@ describe('createGenerateCommand', () => {
     expect(result.logs).toContain('State profile: package=.')
     expect(result.logs).toContain('[taro] ✓ post-write verified')
     expect(result.logs).toContain('Updated .taro/state.json for package .')
-    expect(result.logs).toContain(`Created: ${outputPath}`)
+    expect(result.logs).toContain('Created:')
+    expect(result.logs).toContain('sample/FeatureFlow.test.tsx')
     expect(written).toContain("import FeatureFlow from './FeatureFlow'")
     expect(written).toContain('render(<FeatureFlow />)')
     expect(written).toContain('const planSubmitContinue = async')
@@ -453,7 +457,6 @@ test('Example flow', async () => {
   await userEvent.click(screen.getByRole('heading', { name: 'Review Example Flow' }))
 })`
     )
-    const outputPath = deriveOutputPath(fixture.recordingPath)
     const featureFlowPath = join(
       fixture.outputDir,
       'packages',
@@ -462,6 +465,7 @@ test('Example flow', async () => {
       'features',
       'FeatureFlow.tsx'
     )
+    const outputPath = join(dirname(featureFlowPath), 'FeatureFlow.test.tsx')
     await mkdir(dirname(featureFlowPath), { recursive: true })
     await writeFile(
       featureFlowPath,
@@ -516,8 +520,9 @@ test('Example flow', async () => {
       'Context-selected package profile packages/example-app: packages/example-app/src/features/FeatureFlow.tsx matched recording text evidence.'
     )
     expect(result.logs).toContain('State profile: package=packages/example-app')
-    expect(result.logs).toContain(`Created: ${outputPath}`)
-    expect(written).toContain("import FeatureFlow from '../packages/example-app/src/features/FeatureFlow'")
+    expect(result.logs).toContain('Created:')
+    expect(result.logs).toContain('packages/example-app/src/features/FeatureFlow.test.tsx')
+    expect(written).toContain("import FeatureFlow from './FeatureFlow'")
     expect(written).toContain('render(<FeatureFlow />)')
   })
 
@@ -628,6 +633,93 @@ test('Semantic marker flow', async () => {
     expect(result.warnings).toContain(
       'packages/example-app/src/feature-flow.test.tsx changed after the package profile was scanned.'
     )
+  })
+
+  it('skips optional screenshots when --no-screenshots is provided', async () => {
+    const fixture = await createRecordingFixture('skip-visuals')
+
+    const result = await runGenerate(['--no-screenshots', fixture.recordingPath], fixture.outputDir)
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.logs).toContain('Visual capture skipped (--no-screenshots).')
+    expect(captureVisualStateMock).not.toHaveBeenCalled()
+  })
+
+  it('persists explicit storageState auth and forwards it to visual capture', async () => {
+    const fixture = await createRecordingFixture('persist-visual-auth')
+    const authDir = join(fixture.outputDir, 'playwright', '.auth')
+    const authPath = join(authDir, 'user.json')
+    await mkdir(authDir, { recursive: true })
+    await writeFile(authPath, '{"cookies":[],"origins":[]}', 'utf-8')
+
+    const result = await runGenerate(['--auth', authPath, fixture.recordingPath], fixture.outputDir)
+    const stateModule = await import('../../core/state.js')
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.logs).toContain('Persisted visual auth for package .: storageState=playwright/.auth/user.json')
+    expect(vi.mocked(stateModule.persistPlaywrightAuthProfile)).toHaveBeenCalledWith(
+      expect.stringMatching(/persist-visual-auth-.*\/project$/),
+      '.',
+      expect.objectContaining({
+        detectedAt: 'generate',
+        path: 'playwright/.auth/user.json',
+        source: 'manual',
+        strategy: 'storageState',
+      })
+    )
+    expect(captureVisualStateMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        auth: {
+          path: expect.stringMatching(/playwright\/\.auth\/user\.json$/),
+          strategy: 'storageState',
+        },
+      })
+    )
+  })
+
+  it('warns and degrades gracefully when visual capture reports an auth interrupt', async () => {
+    const fixture = await createRecordingFixture('auth-interrupt')
+    taroStateControl.profile.playwrightAuth = {
+      strategy: 'storageState',
+      path: 'playwright/.auth/user.json',
+      detectedAt: 'init',
+      source: 'detected',
+    }
+    captureVisualStateMock.mockResolvedValue({
+      capturedAt: new Date().toISOString(),
+      dialog: null,
+      element: null,
+      finalUrl: 'http://localhost:3001/login',
+      interrupt: {
+        kind: 'auth-required',
+        actualTitle: 'Sign In',
+        expectedTitle: 'DigiTax',
+        expectedUrl: 'http://localhost:3001/dashboard',
+        path: '/tmp/playwright/.auth/user.json',
+        reachedUrl: 'http://localhost:3001/login',
+        signals: ['auth-route', 'route-mismatch', 'expected-selector-missing'],
+        strategy: 'storageState',
+      },
+      pageTitle: 'Sign In',
+      reason: 'dialog-state',
+      screenshotPath: '/tmp/taro-login.png',
+      selector: '#save',
+      status: 'auth-interrupted',
+      url: 'http://localhost:3001/dashboard',
+      warnings: ['Authentication required before visual capture could reach http://localhost:3001/dashboard.'],
+    })
+
+    const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.logs).toContain('Visual auth: storageState=playwright/.auth/user.json (detected)')
+    expect(result.logs).toContain('Auth checkpoint screenshot: /tmp/taro-login.png')
+    expect(result.warnings).toContain(
+      'Visual context unavailable: authentication required before reaching the target UI.'
+    )
+    expect(result.warnings).toContain('Proceeding without visual context; generation will fall back to code context only.')
+    expect(result.warnings).toContain('Reuse or replace the saved storage state with --auth /tmp/playwright/.auth/user.json.')
   })
 
   it('fails with exit code 1 when QUAL-02 gate fails after writing output', async () => {

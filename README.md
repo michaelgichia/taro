@@ -148,7 +148,7 @@ Taro supports one export path:
 
 ### Generate the test
 
-Run your runtime-native generate entrypoint against `recording.js`. Taro writes `recording.test.tsx` next to the recording and refuses to overwrite an existing file, so rename or delete the previous generated file before rerunning.
+Run your runtime-native generate entrypoint against `recording.js`. When Taro infers the owning render target, it must write the generated test next to the inferred component and refuses to overwrite an existing file. If it cannot infer a render target, the fallback boundary-draft output is written next to the recording instead.
 
 Expected output:
 
@@ -248,7 +248,7 @@ After installation, each runtime gets a namespaced help entrypoint plus `init`, 
 
 ### Tips
 
-- Taro writes the generated test next to the recording file using the same basename
+- When Taro infers the owning render target, it writes the generated test next to that component using the same basename
 - If you re-record a flow, rename or delete the old generated test before running Taro again
 - If you record multiple flows, run Taro on each to build up package state in `.taro/state.json` — later runs benefit from earlier ones
 - Commit `.taro/state.json` when you want learned package profiles to persist across teammates and CI

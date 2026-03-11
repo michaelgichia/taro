@@ -128,6 +128,7 @@ export async function persistConventions(
     mockRecommendations: [],
     fixtureRoots: [],
     exemplars: [],
+    playwrightAuth: null,
     warnings: ['Persisted from compatibility conventions interface'],
   }
   state.meta.updatedAt = new Date().toISOString()

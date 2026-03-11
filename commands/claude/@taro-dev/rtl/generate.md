@@ -28,7 +28,7 @@ Taro must:
 - avoid UI-library component reimplementation in mocks
 - interpret scoring and verification output honestly instead of overstating confidence
 
-Output: a generated `{recording-name}.test.tsx` file written next to the recording, plus a report containing the command run, generated test path, score and grade, whether manual review is required, top blockers, and the smallest concrete next fixes ordered by impact.
+Output: a generated test file written next to the inferred component when Taro resolves the owning render target, or a boundary-draft fallback written next to the recording when it does not, plus a report containing the command run, generated test path, score and grade, whether manual review is required, top blockers, and the smallest concrete next fixes ordered by impact.
 </objective>
 
 <execution_context>
@@ -57,7 +57,7 @@ Execute the Taro generation workflow end-to-end.
 
 1. Accept only Testing Library Recorder `.js` exports.
 2. Confirm the recording path and stop if the input is missing or not `.js`.
-3. Write `{recording-name}.test.tsx` next to the recording and do not overwrite an existing sibling output.
+3. Write the generated test next to the inferred component when the owning render target is resolved. If it is not resolved, write the boundary-draft fallback next to the recording. Do not overwrite an existing intended output.
 4. Keep repository exploration intentionally small:
    - inspect at most 5 repo files for discovery before generation
    - `references/*` reads do not count toward the 5-file cap

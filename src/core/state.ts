@@ -30,6 +30,8 @@ import type {
 import type { ScoreResult } from '../types/score.js'
 import type {
   RepoRenderTargetCandidate,
+  TaroPlaywrightAuthDetectedAt,
+  TaroPlaywrightAuthProfile,
   ResolvedTaroPackageProfile,
   TaroExemplarProfile,
   TaroFileExtension,
@@ -75,6 +77,21 @@ const TEST_SCOPED_MOCK_REGEX = /(?:vi|jest)\.mock\(/i
 const MOCK_RESET_REGEX = /(?:vi|jest)\.(?:clearAllMocks|resetAllMocks|restoreAllMocks)\(/g
 const MOCK_CONFIGURATION_REGEX =
   /\.mock(?:ResolvedValue|RejectedValue|Implementation|ReturnValue)(?:Once)?\(/g
+const PLAYWRIGHT_CONFIG_FILES = [
+  'playwright.config.ts',
+  'playwright.config.mts',
+  'playwright.config.cts',
+  'playwright.config.js',
+  'playwright.config.mjs',
+  'playwright.config.cjs',
+] as const
+const PLAYWRIGHT_STORAGE_STATE_REGEX = /storageState\s*:\s*['"`]([^'"`]+)['"`]/g
+const PLAYWRIGHT_AUTH_DIRS = [
+  'playwright/.auth',
+  '.auth',
+  'e2e/.auth',
+  'tests/e2e/.auth',
+] as const
 const STAGE_PATTERNS: Record<MutationLifecycleStage, RegExp[]> = {
   loading: [/\bisLoading\b/i, /\bloading\b/i, /\bpending\b/i, /\bsubmitting\b/i, /toBeDisabled\(/],
   success: [
@@ -178,6 +195,12 @@ const mockRecommendationSchema = z.object({
   files: z.array(z.string()),
   count: z.number(),
 })
+const playwrightAuthProfileSchema = z.object({
+  strategy: z.enum(['storageState', 'instructions']),
+  path: z.string(),
+  detectedAt: z.enum(['init', 'refresh', 'generate']),
+  source: z.enum(['detected', 'manual']),
+})
 const scoreDimensionsSchema = z.object({
   queryQuality: z.number(),
   assertionSpecificity: z.number(),
@@ -229,6 +252,7 @@ const packageProfileSchema = z.object({
   mockRecommendations: z.array(mockRecommendationSchema),
   fixtureRoots: z.array(fixtureRootProfileSchema),
   exemplars: z.array(exemplarProfileSchema),
+  playwrightAuth: playwrightAuthProfileSchema.nullable().default(null),
   warnings: z.array(z.string()),
 })
 const generatedTestRecordSchema = z.object({
@@ -298,6 +322,7 @@ interface TestFileContent {
 }
 
 interface ScanStateOptions {
+  detectedAt?: TaroPlaywrightAuthDetectedAt
   preserveGeneratedTests?: boolean
   existingState?: TaroState | null
 }
@@ -336,6 +361,148 @@ function toConfidence(value: number): TaroStateConfidence {
 function normalizePackageKey(projectRoot: string, packageRoot: string): string {
   const relativePath = relative(projectRoot, packageRoot).replace(/\\/g, '/')
   return relativePath.length === 0 ? '.' : relativePath
+}
+
+function toStateRelativePath(projectRoot: string, filePath: string): string {
+  const normalized = relative(projectRoot, filePath).replace(/\\/g, '/')
+  return normalized.length === 0 ? '.' : normalized
+}
+
+async function isReadableFile(filePath: string): Promise<boolean> {
+  try {
+    const info = await stat(filePath)
+    return info.isFile()
+  } catch {
+    return false
+  }
+}
+
+function createPlaywrightAuthProfile(
+  projectRoot: string,
+  filePath: string,
+  options: {
+    detectedAt: TaroPlaywrightAuthDetectedAt
+    source: TaroPlaywrightAuthProfile['source']
+    strategy?: TaroPlaywrightAuthProfile['strategy']
+  }
+): TaroPlaywrightAuthProfile {
+  return {
+    strategy: options.strategy ?? 'storageState',
+    path: toStateRelativePath(projectRoot, filePath),
+    detectedAt: options.detectedAt,
+    source: options.source,
+  }
+}
+
+async function findStorageStateFromConfig(
+  projectRoot: string,
+  configPath: string,
+  detectedAt: TaroPlaywrightAuthDetectedAt
+): Promise<TaroPlaywrightAuthProfile | null> {
+  let content: string
+  try {
+    content = await readFile(configPath, 'utf-8')
+  } catch {
+    return null
+  }
+
+  const matches = [...content.matchAll(PLAYWRIGHT_STORAGE_STATE_REGEX)]
+  for (const match of matches) {
+    const candidate = match[1]?.trim()
+    if (!candidate) {
+      continue
+    }
+
+    const resolvedPath = resolve(dirname(configPath), candidate)
+    if (await isReadableFile(resolvedPath)) {
+      return createPlaywrightAuthProfile(projectRoot, resolvedPath, {
+        detectedAt,
+        source: 'detected',
+      })
+    }
+  }
+
+  return null
+}
+
+async function findStorageStateInDirectory(
+  projectRoot: string,
+  dirPath: string,
+  detectedAt: TaroPlaywrightAuthDetectedAt
+): Promise<TaroPlaywrightAuthProfile | null> {
+  let entries
+  try {
+    entries = await readdir(dirPath, { withFileTypes: true })
+  } catch {
+    return null
+  }
+
+  const files = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
+    .map((entry) => join(dirPath, entry.name))
+    .sort((left, right) => left.localeCompare(right))
+
+  if (files.length === 0) {
+    return null
+  }
+
+  return createPlaywrightAuthProfile(projectRoot, files[0]!, {
+    detectedAt,
+    source: 'detected',
+  })
+}
+
+async function detectPlaywrightAuthForPackage(
+  projectRoot: string,
+  descriptor: PackageDescriptor,
+  detectedAt: TaroPlaywrightAuthDetectedAt
+): Promise<TaroPlaywrightAuthProfile | null> {
+  const roots = descriptor.key === '.' ? [descriptor.root] : [descriptor.root, projectRoot]
+  const seenConfigs = new Set<string>()
+  const seenDirs = new Set<string>()
+
+  for (const root of roots) {
+    for (const fileName of PLAYWRIGHT_CONFIG_FILES) {
+      const configPath = join(root, fileName)
+      if (seenConfigs.has(configPath)) {
+        continue
+      }
+      seenConfigs.add(configPath)
+
+      const configProfile = await findStorageStateFromConfig(projectRoot, configPath, detectedAt)
+      if (configProfile) {
+        return configProfile
+      }
+    }
+  }
+
+  for (const root of roots) {
+    for (const dirName of PLAYWRIGHT_AUTH_DIRS) {
+      const authDir = join(root, dirName)
+      if (seenDirs.has(authDir)) {
+        continue
+      }
+      seenDirs.add(authDir)
+
+      const dirProfile = await findStorageStateInDirectory(projectRoot, authDir, detectedAt)
+      if (dirProfile) {
+        return dirProfile
+      }
+    }
+  }
+
+  return null
+}
+
+async function canUsePersistedPlaywrightAuth(
+  projectRoot: string,
+  auth: TaroPlaywrightAuthProfile | null | undefined
+): Promise<boolean> {
+  if (!auth) {
+    return false
+  }
+
+  return isReadableFile(resolve(projectRoot, auth.path))
 }
 
 function sortByCountThenName<T extends { count: number; target?: string; name?: string }>(
@@ -1011,7 +1178,8 @@ async function buildPackageProfile(
   projectRoot: string,
   descriptor: PackageDescriptor,
   files: TestFileContent[],
-  existingState: TaroState | null
+  existingState: TaroState | null,
+  detectedAt: TaroPlaywrightAuthDetectedAt
 ): Promise<TaroPackageProfile> {
   const scannedAt = new Date().toISOString()
   const analyzedFiles = await Promise.all(files.map((file) => analyzeTestFile(file.path)))
@@ -1060,6 +1228,17 @@ async function buildPackageProfile(
   const mutationLifecycles = analyzeMutationLifecycleInFiles(projectRoot, files)
   const instabilityWarnings = detectMockInstabilityInFiles(projectRoot, files)
   const existingProfile = resolveExistingPackageProfile(existingState, descriptor.key)
+  const detectedPlaywrightAuth = await detectPlaywrightAuthForPackage(
+    projectRoot,
+    descriptor,
+    detectedAt
+  )
+  const preservedManualAuth =
+    existingProfile?.playwrightAuth?.source === 'manual' &&
+    (await canUsePersistedPlaywrightAuth(projectRoot, existingProfile.playwrightAuth))
+      ? existingProfile.playwrightAuth
+      : null
+  const playwrightAuth = preservedManualAuth ?? detectedPlaywrightAuth
 
   return {
     packagePath: descriptor.key,
@@ -1086,6 +1265,7 @@ async function buildPackageProfile(
     mockRecommendations,
     fixtureRoots,
     exemplars: collectExemplars(projectRoot, files, renderHelpers),
+    playwrightAuth,
     warnings: [
       ...warnings,
       ...(existingProfile?.warnings ?? []).filter((warning) => warning.startsWith('override:')),
@@ -1249,6 +1429,7 @@ function deriveLegacyPackageProfile(
       file: file.path,
       tags: [],
     })),
+    playwrightAuth: null,
     warnings: ['Migrated from legacy conventions.json'],
   }
 }
@@ -1466,6 +1647,7 @@ export async function scanProjectState(
   projectRoot: string,
   options: ScanStateOptions = {}
 ): Promise<ScanStateResult> {
+  const detectedAt = options.detectedAt ?? 'refresh'
   const loadedLegacy = options.existingState
     ? { state: options.existingState, migratedLegacyState: false, warnings: [] }
     : await loadLegacyState(projectRoot)
@@ -1487,7 +1669,7 @@ export async function scanProjectState(
       .sort(([left], [right]) => left.localeCompare(right))
       .map(async ([packageKey, files]) => {
         const descriptor = packageDescriptors.find((candidate) => candidate.key === packageKey)!
-        return buildPackageProfile(projectRoot, descriptor, files, loadedLegacy.state)
+        return buildPackageProfile(projectRoot, descriptor, files, loadedLegacy.state, detectedAt)
       })
   )
 
@@ -1548,13 +1730,13 @@ export async function scanProjectState(
 }
 
 export async function initTaroState(projectRoot: string): Promise<ScanStateResult> {
-  const result = await scanProjectState(projectRoot)
+  const result = await scanProjectState(projectRoot, { detectedAt: 'init' })
   await writeTaroState(projectRoot, result.state)
   return result
 }
 
 export async function refreshTaroState(projectRoot: string): Promise<ScanStateResult> {
-  const result = await scanProjectState(projectRoot)
+  const result = await scanProjectState(projectRoot, { detectedAt: 'refresh' })
   await writeTaroState(projectRoot, result.state)
   return result
 }
@@ -1595,12 +1777,15 @@ export async function loadOrBootstrapTaroState(projectRoot: string): Promise<Sca
 
   const loadedLegacy = await loadLegacyState(projectRoot)
   if (loadedLegacy.state) {
-    const result = await scanProjectState(projectRoot, { existingState: loadedLegacy.state })
+    const result = await scanProjectState(projectRoot, {
+      existingState: loadedLegacy.state,
+      detectedAt: 'refresh',
+    })
     await writeTaroState(projectRoot, result.state)
     return result
   }
 
-  const result = await scanProjectState(projectRoot)
+  const result = await scanProjectState(projectRoot, { detectedAt: 'init' })
   await writeTaroState(projectRoot, result.state)
   return result
 }
@@ -1658,12 +1843,16 @@ async function getLatestPackageEvidence(projectRoot: string, profile: TaroPackag
   try {
     const entries = await readdir(packageRoot)
     for (const entry of entries) {
-      if (/^(vitest|jest)\.config\./.test(entry)) {
+      if (/^(vitest|jest)\.config\./.test(entry) || PLAYWRIGHT_CONFIG_FILES.includes(entry as typeof PLAYWRIGHT_CONFIG_FILES[number])) {
         candidates.add(join(packageRoot, entry))
       }
     }
   } catch {
     // Best-effort only.
+  }
+
+  if (profile.playwrightAuth?.path) {
+    candidates.add(resolve(projectRoot, profile.playwrightAuth.path))
   }
 
   let latestMtimeMs = 0
@@ -1770,6 +1959,38 @@ export function resolveTaroPackageProfile(
     forbidMocks: packageOverrides?.forbidMocks ?? [],
     preferredSharedMocks: packageOverrides?.preferredSharedMocks ?? {},
   }
+}
+
+export async function persistPlaywrightAuthProfile(
+  projectRoot: string,
+  packagePath: string,
+  playwrightAuth: TaroPlaywrightAuthProfile | null
+): Promise<boolean> {
+  const bootstrap = await loadOrBootstrapTaroState(projectRoot)
+  const profile = bootstrap.state.packages[packagePath]
+
+  if (!profile) {
+    return false
+  }
+
+  const nextState: TaroState = {
+    ...bootstrap.state,
+    meta: {
+      ...bootstrap.state.meta,
+      updatedAt: new Date().toISOString(),
+      taroVersion: TARO_VERSION,
+    },
+    packages: {
+      ...bootstrap.state.packages,
+      [packagePath]: {
+        ...profile,
+        playwrightAuth,
+      },
+    },
+  }
+
+  await writeTaroState(projectRoot, nextState)
+  return true
 }
 
 export async function appendGeneratedTestRecord(

@@ -6,19 +6,31 @@ Enable optional browser-based screenshot capture on authenticated routes.
 Important:
 Authentication must never block test generation.
 Secrets are never stored in state.
-Only environment variable NAMES are stored.
+Only non-secret identifiers such as relative file paths or environment variable NAMES are stored.
 
 Current v1 status:
-Persistent auth recipes are not implemented in `.taro/state.json` yet.
-Authentication handling is transient and manual when screenshot capture hits a protected route.
+Taro can persist non-secret Playwright auth metadata in `.taro/state.json`.
+Today this supports:
+
+- detected Playwright `storageState` files from common repo patterns and Playwright config
+- explicit `--auth <storageState.json>` paths provided during `generate`
+- explicit `--instructions <auth.md>` references for manual auth runbooks
+
+Stored metadata must stay non-secret:
+
+- strategy
+- relative file path
+- discovery source
+- discovery phase
 
 ---
 
 ## Current Behavior
 
 - If Taro can generate without browser auth, it continues normally.
-- If optional browser inspection lands on a login page, Taro should treat that as an inspection limitation, not a generation blocker.
-- If a manual auth checkpoint is needed, the user completes it in-browser for that session only.
+- If optional browser inspection lands on a login page, Taro classifies that as an auth interrupt rather than a generic timeout.
+- If a reusable `storageState` file is known, Taro injects it automatically for optional screenshot capture.
+- If auth still interrupts capture, Taro reports the reached route/title, explains the detected signals, and proceeds without screenshots.
 - Secrets must never be written to `.taro/state.json`, `.taro/overrides.json`, or generated tests.
 
 ## Future-Compatible Guidance

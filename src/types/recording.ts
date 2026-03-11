@@ -135,15 +135,30 @@ export interface DialogState {
   isOpen: boolean
 }
 
+export interface VisualInterrupt {
+  kind: 'auth-required'
+  actualTitle: string
+  expectedTitle?: string
+  expectedUrl?: string
+  path?: string
+  reachedUrl: string
+  signals: string[]
+  strategy?: 'storageState' | 'instructions'
+}
+
 export interface VisualState {
   capturedAt: string
   element: ElementInfo | null
+  finalUrl: string
+  interrupt?: VisualInterrupt
   pageTitle: string
   reason: string
   screenshotPath?: string
   selector?: string
+  status: 'captured' | 'auth-interrupted'
   url: string
   dialog: DialogState | null
+  warnings: string[]
 }
 
 export type QueryQuality = 'excellent' | 'good' | 'acceptable' | 'fragile'

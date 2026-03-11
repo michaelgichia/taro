@@ -32,7 +32,7 @@ Invoke this skill with `$@taro-dev/rtl-help`.
 3. Choose the matching packaged Taro skill.
 4. For first-time setup after install or reinstall, use `$@taro-dev/rtl-init`.
 5. For maintenance, resync, or repair, use `$@taro-dev/rtl-refresh`.
-6. For generation, use `$@taro-dev/rtl-generate`. Taro writes `{recording-name}.test.tsx` next to the `.js` recording and refuses to overwrite an existing file.
+6. For generation, use `$@taro-dev/rtl-generate`. Taro must write the generated test next to the inferred component when it can resolve the owning render target; unresolved boundary drafts fall back next to the `.js` recording. Existing outputs are never overwritten.
 7. Report the generated file path if generation ran, the score, and blockers that still require manual cleanup.
 
 ## Response contract

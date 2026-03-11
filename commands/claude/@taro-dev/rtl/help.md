@@ -13,6 +13,6 @@ Help the user install, initialize, refresh, and use @taro-dev/rtl from Claude Co
 3. After install or reinstall, recommend `/@taro-dev/rtl:init` as the first runtime-native step.
 4. For maintenance or owned-asset repair, use `/@taro-dev/rtl:refresh`.
 5. For test generation, use `/@taro-dev/rtl:generate` with a Testing Library Recorder `.js` export.
-6. Tell the user Taro writes `{recording-name}.test.tsx` next to the recording and will not overwrite an existing file.
+6. Tell the user Taro must write the generated test next to the inferred component when it resolves the owning render target; unresolved boundary drafts fall back next to the recording, and existing files are never overwritten.
 7. When generation runs, report the score and generated file path.
 </process>

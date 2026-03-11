@@ -131,6 +131,12 @@ Persist bounded, package-scoped test knowledge that Taro can reuse across `init`
           "tags": ["render-helper", "mutation"]
         }
       ],
+      "playwrightAuth": {
+        "strategy": "storageState | instructions",
+        "path": "playwright/.auth/user.json",
+        "detectedAt": "init | refresh | generate",
+        "source": "detected | manual"
+      },
       "warnings": []
     }
   },
@@ -151,7 +157,7 @@ Persist bounded, package-scoped test knowledge that Taro can reuse across `init`
       "createdAt": "ISO-8601",
       "packagePath": "packages/dashboard",
       "recordingFile": "/abs/path/recording.js",
-      "testFile": "/abs/path/recording.test.tsx",
+      "testFile": "/abs/path/packages/dashboard/src/features/FeatureFlow.test.tsx",
       "quality": {
         "overall": 82,
         "grade": "B",

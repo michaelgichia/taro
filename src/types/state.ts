@@ -18,6 +18,9 @@ export type TaroTestRunner = 'vitest' | 'jest' | 'unknown'
 export type TaroFolderPattern = 'colocated' | '__tests__' | 'mixed' | 'unknown'
 export type TaroFileExtension = 'ts' | 'tsx' | 'js' | 'jsx' | 'mixed'
 export type TaroFixtureRootKind = 'mock-store' | 'mocks' | 'fixtures' | 'factories'
+export type TaroPlaywrightAuthStrategy = 'storageState' | 'instructions'
+export type TaroPlaywrightAuthSource = 'detected' | 'manual'
+export type TaroPlaywrightAuthDetectedAt = 'init' | 'refresh' | 'generate'
 
 export interface TaroSignal<T> {
   value: T
@@ -67,6 +70,13 @@ export interface TaroExemplarProfile {
   tags: string[]
 }
 
+export interface TaroPlaywrightAuthProfile {
+  strategy: TaroPlaywrightAuthStrategy
+  path: string
+  detectedAt: TaroPlaywrightAuthDetectedAt
+  source: TaroPlaywrightAuthSource
+}
+
 export interface TaroPackageProfile {
   packagePath: string
   packageName: string | null
@@ -89,6 +99,7 @@ export interface TaroPackageProfile {
   mockRecommendations: MockRecommendation[]
   fixtureRoots: TaroFixtureRootProfile[]
   exemplars: TaroExemplarProfile[]
+  playwrightAuth: TaroPlaywrightAuthProfile | null
   warnings: string[]
 }
 

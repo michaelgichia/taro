@@ -203,6 +203,43 @@ describe('initTaroState', () => {
       })
     )
   })
+
+  it('detects Playwright storageState assets from config during init', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    const authDir = join(examplePackage, 'playwright', '.auth')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await mkdir(authDir, { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'playwright.config.ts'),
+      `export default {
+        use: {
+          storageState: './playwright/.auth/user.json',
+        },
+      }`,
+      'utf-8'
+    )
+    await writeFile(join(authDir, 'user.json'), '{"cookies":[],"origins":[]}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'example-app.test.tsx'),
+      "import { describe, expect, it } from 'vitest'\ndescribe('example-app', () => { it('works', () => expect(true).toBe(true)) })",
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+
+    expect(result.state.packages['packages/example-app']?.playwrightAuth).toEqual({
+      strategy: 'storageState',
+      path: 'packages/example-app/playwright/.auth/user.json',
+      detectedAt: 'init',
+      source: 'detected',
+    })
+  })
 })
 
 describe('loadOrBootstrapTaroState', () => {
