@@ -21,6 +21,31 @@ export type TaroFixtureRootKind = 'mock-store' | 'mocks' | 'fixtures' | 'factori
 export type TaroPlaywrightAuthStrategy = 'storageState' | 'instructions'
 export type TaroPlaywrightAuthSource = 'detected' | 'manual'
 export type TaroPlaywrightAuthDetectedAt = 'init' | 'refresh' | 'generate'
+export type TaroBoundaryKind =
+  | 'data-module'
+  | 'server-action'
+  | 'network-client'
+  | 'auth'
+  | 'router'
+  | 'feature-flag'
+  | 'env'
+  | 'local-child'
+  | 'unknown'
+export type TaroBoundaryStrategy =
+  | 'shared-module-factory'
+  | 'scaffolded-module-factory'
+  | 'provider-wrapper'
+  | 'inline-safe'
+  | 'forbid'
+  | 'real-runtime'
+export type TaroBoundaryPayloadSource =
+  | 'mock-store'
+  | 'fixtures'
+  | 'typed-defaults'
+  | 'exemplar-only'
+  | 'manual'
+  | 'unknown'
+export type TaroQueryHookPolicy = 'avoid' | 'allow-centralized' | 'allow-when-needed'
 
 export interface TaroSignal<T> {
   value: T
@@ -59,6 +84,29 @@ export interface TaroSharedMockFactoryProfile {
   count: number
 }
 
+export interface TaroBoundarySupportExports {
+  factoryExport: string | null
+  resetExport: string | null
+  overrideExports: string[]
+  spyExports: string[]
+  fixtureExports: string[]
+}
+
+export interface TaroBoundaryProfile {
+  target: string
+  kind: TaroBoundaryKind
+  strategy: TaroBoundaryStrategy
+  supportImportPath: string | null
+  supportPath: string | null
+  supportExports: TaroBoundarySupportExports
+  payloadSource: TaroBoundaryPayloadSource
+  confidence: TaroStateConfidence
+  files: string[]
+  evidence: string[]
+  conflictTargets: string[]
+  lowConfidenceScaffold: boolean
+}
+
 export interface TaroFixtureRootProfile {
   path: string
   kind: TaroFixtureRootKind
@@ -67,6 +115,18 @@ export interface TaroFixtureRootProfile {
 
 export interface TaroExemplarProfile {
   file: string
+  tags: string[]
+}
+
+export interface TaroBoundaryExemplarProfile {
+  file: string
+  renderBoundary: 'module' | 'component' | 'unknown'
+  boundaryTargets: string[]
+  boundaryKinds: TaroBoundaryKind[]
+  usesProviderWrapper: boolean
+  usesCentralBoundarySupport: boolean
+  hasMutationLifecycle: boolean
+  overrideStyle: 'stable-handles' | 'inline-reconfigure' | 'none'
   tags: string[]
 }
 
@@ -93,6 +153,8 @@ export interface TaroPackageProfile {
   renderTargets: RepoRenderTargetCandidate[]
   repeatedMockTargets: MockTargetUsage[]
   sharedMockFactories: TaroSharedMockFactoryProfile[]
+  boundaryProfiles: TaroBoundaryProfile[]
+  boundaryExemplars: TaroBoundaryExemplarProfile[]
   inlineSafeMockTargets: string[]
   mutationLifecycles: MutationLifecyclePattern[]
   instabilityWarnings: MockInstabilityWarning[]
@@ -149,6 +211,10 @@ export interface TaroPackageOverrides {
   }
   forbidMocks?: string[]
   preferredSharedMocks?: Record<string, string>
+  boundaryPolicies?: Record<string, TaroBoundaryStrategy>
+  preferredBoundaryImplementations?: Record<string, string>
+  forbidBoundaryTargets?: string[]
+  queryHookPolicy?: TaroQueryHookPolicy
 }
 
 export interface TaroOverrides {
@@ -161,6 +227,10 @@ export interface ResolvedTaroPackageProfile extends TaroPackageProfile {
   effectiveRenderHelper: TaroRenderHelperProfile | null
   forbidMocks: string[]
   preferredSharedMocks: Record<string, string>
+  boundaryPolicies: Record<string, TaroBoundaryStrategy>
+  preferredBoundaryImplementations: Record<string, string>
+  forbidBoundaryTargets: string[]
+  effectiveQueryHookPolicy: TaroQueryHookPolicy
 }
 
 export interface TaroStateSummaryPackage {
@@ -169,6 +239,8 @@ export interface TaroStateSummaryPackage {
   scannedAt: string
   renderHelperCount: number
   repeatedMockTargetCount: number
+  boundaryProfileCount: number
+  lowConfidenceBoundaryCount: number
   fixtureRootCount: number
   warnings: string[]
 }
@@ -177,6 +249,8 @@ export interface TaroStateSummary {
   packageCount: number
   renderHelperCount: number
   repeatedMockTargetCount: number
+  boundaryProfileCount: number
+  lowConfidenceBoundaryCount: number
   fixtureRootCount: number
   migratedLegacyState: boolean
   overridePackageCount: number

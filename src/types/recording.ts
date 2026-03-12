@@ -146,16 +146,35 @@ export interface VisualInterrupt {
   strategy?: 'storageState' | 'instructions'
 }
 
+export interface VisualAuthRecovery {
+  completedAt?: string
+  error?: string
+  instructionsPath?: string
+  persistedAuthPath?: string
+  startedAt: string
+  status: 'succeeded' | 'failed' | 'timed-out'
+  timeoutMs: number
+}
+
 export interface VisualState {
+  authRecovery?: VisualAuthRecovery
   capturedAt: string
   element: ElementInfo | null
   finalUrl: string
   interrupt?: VisualInterrupt
+  matchedLandmarks?: string[]
   pageTitle: string
   reason: string
   screenshotPath?: string
   selector?: string
-  status: 'captured' | 'auth-interrupted'
+  startingPointConfirmed?: boolean
+  status:
+    | 'captured'
+    | 'capture-failed'
+    | 'auth-interrupted'
+    | 'auth-recovered'
+    | 'auth-recovery-failed'
+    | 'auth-recovery-timed-out'
   url: string
   dialog: DialogState | null
   warnings: string[]
@@ -255,6 +274,7 @@ export interface SemanticMarkerCandidate {
   query?: QueryDescriptor
   selector?: SelectorDescriptor
   anchor?: SemanticMarkerAnchorLink
+  canonicalRecovery?: SemanticMarkerCanonicalRecovery
 }
 
 export interface UnresolvedSemanticMarker {
@@ -279,6 +299,12 @@ export type SemanticMarkerAssertionProofKind =
 
 export type SemanticMarkerAssertionExpectation = 'visibility'
 export type SemanticMarkerAssertionMatcher = 'toBeVisible'
+
+export interface SemanticMarkerCanonicalRecovery {
+  fromText: string
+  sourceFile: string
+  toText: string
+}
 
 export interface SemanticMarkerAssertion {
   markerStepId: StepId
@@ -307,11 +333,22 @@ export type PlannedMarkerAssertionPlacement =
       stepId: StepId
     }
 
+export interface PlannedMarkerAssertionPlacementCorrection {
+  fromScenarioName: string
+  toScenarioName: string
+}
+
+export interface PlannedMarkerAssertionDiagnostics {
+  canonicalRecovery?: SemanticMarkerCanonicalRecovery
+  placementCorrection?: PlannedMarkerAssertionPlacementCorrection
+}
+
 export interface PlannedMarkerAssertion {
   markerStepId: StepId
   anchorStepId: StepId
   placement: PlannedMarkerAssertionPlacement
   assertion: SemanticMarkerAssertion
+  diagnostics?: PlannedMarkerAssertionDiagnostics
 }
 
 export type SemanticMarkerAssertionUnresolvedReason =
@@ -325,6 +362,7 @@ export type SemanticMarkerAssertionUnresolvedReason =
   | 'css-only-evidence'
   | 'icon-only-target'
   | 'hidden-evidence'
+  | 'boundary-placement-conflict'
 
 export interface ResolvedSemanticMarkerAssertionResolution {
   status: 'resolved'
@@ -346,6 +384,7 @@ export interface UnresolvedSemanticMarkerAssertionResolution {
   sourceContext: SemanticMarkerSourceContext
   query?: QueryDescriptor
   selector?: SelectorDescriptor
+  conflictingScenarioNames?: string[]
 }
 
 export type SemanticMarkerAssertionResolution =

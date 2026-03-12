@@ -71,9 +71,13 @@ function createMockAnalysis(): MockAnalysis {
     ],
     instabilityWarnings: [],
     sharedMockFactories: [],
+    boundaryProfiles: [],
     inlineSafeMockTargets: [],
     preferredSharedMocks: {},
     forbidMocks: [],
+    preferredBoundaryImplementations: {},
+    forbidBoundaryTargets: [],
+    queryHookPolicy: 'avoid',
   }
 }
 
@@ -282,7 +286,7 @@ describe('planJsSuite', () => {
     })
   })
 
-  it('keeps only the strongest resolved marker proof per anchor while preserving scenario coverage', () => {
+  it('keeps distinct resolved marker proof on the same anchor while still tracking unresolved gaps', () => {
     const recording = createRecording([
       {
         id: 'js-step-1',
@@ -429,8 +433,21 @@ describe('planJsSuite', () => {
       'js-step-1',
       'js-step-4',
     ])
-    expect(plan.scenarios[0]?.markerAssertions).toHaveLength(1)
+    expect(plan.scenarios[0]?.markerAssertions).toHaveLength(2)
     expect(plan.scenarios[0]?.markerAssertions?.[0]).toMatchObject({
+      markerStepId: 'js-step-2',
+      anchorStepId: 'js-step-1',
+      placement: {
+        kind: 'after-helper',
+        helperName: 'planReviewExample',
+        stepId: 'js-step-1',
+      },
+      assertion: {
+        proofKind: 'visible-text',
+      },
+    })
+    expect(plan.scenarios[0]?.markerAssertions?.[0]?.assertion.query.method).toBe('findByText')
+    expect(plan.scenarios[0]?.markerAssertions?.[1]).toMatchObject({
       markerStepId: 'js-step-3',
       anchorStepId: 'js-step-1',
       placement: {
@@ -442,12 +459,85 @@ describe('planJsSuite', () => {
         proofKind: 'role-name',
       },
     })
-    expect(plan.scenarios[0]?.markerAssertions?.[0]?.assertion.query.method).toBe('findByRole')
+    expect(plan.scenarios[0]?.markerAssertions?.[1]?.assertion.query.method).toBe('findByRole')
     expect(plan.scenarios[0]?.unresolvedMarkerAssertions).toHaveLength(1)
     expect(plan.scenarios[0]?.unresolvedMarkerAssertions?.[0]).toMatchObject({
       markerStepId: 'js-step-5',
       reason: 'ambiguous-field-context',
     })
+  })
+
+  it('moves resolved marker assertions into the scenario that owns the anchor step', () => {
+    const recording = createRecording([
+      {
+        id: 'js-step-1',
+        action: 'click',
+        target: 'Open Example Dialog',
+        originalType: 'click',
+        source: 'js',
+      },
+      {
+        id: 'js-step-2',
+        action: 'click',
+        target: 'Review Example',
+        originalType: 'dblClick',
+        source: 'js',
+        semanticMarkerCandidate: {
+          stepId: 'js-step-2',
+          status: 'qualified',
+          originalGesture: 'dblClick',
+          proofSubject: 'heading',
+          proofText: 'Review Example',
+          target: 'Review Example',
+          sourceContext: {
+            originalType: 'dblClick',
+          },
+          query: {
+            stepId: 'js-step-2',
+            method: 'getByRole',
+            queryRoot: 'screen',
+            role: 'heading',
+            name: 'Review Example',
+            raw: "screen.getByRole('heading', { name: 'Review Example' })",
+            target: 'Review Example',
+          },
+          anchor: {
+            anchorStepId: 'js-step-1',
+            relation: 'precedes',
+          },
+        },
+      },
+      {
+        id: 'js-step-3',
+        action: 'click',
+        target: 'Submit',
+        originalType: 'click',
+        source: 'js',
+      },
+    ])
+
+    const plan = planJsSuite({
+      recording,
+      analyzedRecording: createAnalyzedRecording(recording, [
+        { name: 'open example dialog', steps: [recording.steps[0]!, recording.steps[2]!] },
+        { name: 'validation follow-up', steps: [recording.steps[1]!] },
+      ]),
+      mockAnalysis: null,
+      fallbackTitle: recording.title,
+    })
+
+    expect(plan.scenarios[0]?.markerAssertions).toHaveLength(1)
+    expect(plan.scenarios[0]?.markerAssertions?.[0]).toMatchObject({
+      markerStepId: 'js-step-2',
+      anchorStepId: 'js-step-1',
+      diagnostics: {
+        placementCorrection: {
+          fromScenarioName: 'validation follow-up',
+          toScenarioName: 'open example dialog',
+        },
+      },
+    })
+    expect(plan.scenarios[1]?.markerAssertions).toEqual([])
   })
 
   it('marks multi-step mutation-heavy flows as module-boundary drafts', () => {

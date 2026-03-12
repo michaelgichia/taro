@@ -15,57 +15,7 @@ import type {
   SelectorDescriptor,
 } from '../types/recording.js'
 
-const {
-  closeMock,
-  contextCloseMock,
-  contextNewPageMock,
-  bodyEvaluateMock,
-  evaluateMock,
-  gotoMock,
-  launchMock,
-  locatorFirstMock,
-  locatorMock,
-  newContextMock,
-  newPageMock,
-  pageEvaluateMock,
-  pageUrlMock,
-  screenshotMock,
-  titleMock,
-} = vi.hoisted(() => {
-  const evaluateMock = vi.fn().mockResolvedValue({
-    tagName: 'button',
-    role: 'button',
-    ariaLabel: 'Save',
-    ariaLabelledBy: null,
-    labelText: null,
-    innerText: 'Save',
-    altText: null,
-    title: null,
-    testId: null,
-    value: undefined,
-    type: undefined,
-    placeholder: null,
-    isPresent: true,
-  })
-  const bodyEvaluateMock = vi.fn().mockResolvedValue({
-    authSignals: [],
-    matchedLandmarks: ['Checkout Dialog'],
-  })
-  const locatorFirstMock = vi.fn()
-  const locatorMock = vi.fn((selector: string) => {
-    const evaluate = selector === 'body' ? bodyEvaluateMock : evaluateMock
-    const locator = {
-      first: locatorFirstMock,
-      evaluate,
-    }
-    locatorFirstMock.mockReturnValue({ evaluate })
-    return locator
-  })
-
-  const gotoMock = vi.fn().mockResolvedValue(undefined)
-  const pageUrlMock = vi.fn().mockReturnValue('http://localhost:3000')
-  const titleMock = vi.fn().mockResolvedValue('Checkout Dialog')
-  const screenshotMock = vi.fn().mockResolvedValue(undefined)
+const { chromiumLaunchMock, pageEvaluateMock } = vi.hoisted(() => {
   const pageEvaluateMock = vi.fn().mockResolvedValue({
     role: 'dialog',
     title: 'Checkout Dialog',
@@ -73,50 +23,13 @@ const {
     actions: ['Cancel', 'Confirm'],
     isOpen: true,
   })
-  const page = {
-    goto: gotoMock,
-    locator: locatorMock,
-    title: titleMock,
-    url: pageUrlMock,
-    screenshot: screenshotMock,
-    evaluate: pageEvaluateMock,
-  }
-  const newPageMock = vi.fn().mockResolvedValue(page)
-  const contextCloseMock = vi.fn().mockResolvedValue(undefined)
-  const contextNewPageMock = vi.fn().mockResolvedValue(page)
-  const newContextMock = vi.fn().mockResolvedValue({
-    close: contextCloseMock,
-    newPage: contextNewPageMock,
-  })
-  const closeMock = vi.fn().mockResolvedValue(undefined)
-  const launchMock = vi.fn().mockResolvedValue({
-    newContext: newContextMock,
-    newPage: newPageMock,
-    close: closeMock,
-  })
-
-  return {
-    closeMock,
-    contextCloseMock,
-    contextNewPageMock,
-    bodyEvaluateMock,
-    evaluateMock,
-    gotoMock,
-    launchMock,
-    locatorFirstMock,
-    locatorMock,
-    newContextMock,
-    newPageMock,
-    pageEvaluateMock,
-    pageUrlMock,
-    screenshotMock,
-    titleMock,
-  }
+  const chromiumLaunchMock = vi.fn()
+  return { chromiumLaunchMock, pageEvaluateMock }
 })
 
 vi.mock('playwright', () => ({
   chromium: {
-    launch: launchMock,
+    launch: chromiumLaunchMock,
   },
 }))
 
@@ -363,26 +276,74 @@ function failedInspection(error: string) {
   return { status: 'inspection-failed' as const, error }
 }
 
+interface MockVisualPageState {
+  authSignals?: string[]
+  dialog?: {
+    actions: string[]
+    description: string | null
+    isOpen: boolean
+    role: 'dialog' | 'alertdialog' | null
+    title: string | null
+  } | null
+  elements?: Record<string, ElementInfo | null>
+  matchedLandmarks?: string[]
+  title: string
+  url: string
+}
+
+function createPlaywrightSession(states: MockVisualPageState[]) {
+  let currentIndex = 0
+  const currentState = () => states[Math.min(currentIndex, states.length - 1)]!
+
+  const page = {
+    evaluate: vi.fn(async () => currentState().dialog ?? null),
+    goto: vi.fn(async () => undefined),
+    locator: vi.fn((selector: string) => ({
+      first: () => ({
+        evaluate: vi.fn(async () => {
+          if (selector === 'body') {
+            return {
+              authSignals: currentState().authSignals ?? [],
+              matchedLandmarks: currentState().matchedLandmarks ?? [],
+            }
+          }
+
+          const element = currentState().elements?.[selector]
+          if (!element) {
+            throw new Error(`selector not found: ${selector}`)
+          }
+
+          return element
+        }),
+      }),
+    })),
+    screenshot: vi.fn(async () => undefined),
+    title: vi.fn(async () => currentState().title),
+    url: vi.fn(() => currentState().url),
+    waitForTimeout: vi.fn(async () => {
+      if (currentIndex < states.length - 1) {
+        currentIndex += 1
+      }
+    }),
+  }
+
+  const context = {
+    newPage: vi.fn(async () => page),
+    storageState: vi.fn(async () => undefined),
+  }
+
+  const browser = {
+    close: vi.fn(async () => undefined),
+    newContext: vi.fn(async () => context),
+  }
+
+  chromiumLaunchMock.mockResolvedValue(browser)
+
+  return { browser, context, page }
+}
+
 beforeEach(() => {
-  evaluateMock.mockResolvedValue({
-    tagName: 'button',
-    role: 'button',
-    ariaLabel: 'Save',
-    ariaLabelledBy: null,
-    labelText: null,
-    innerText: 'Save',
-    altText: null,
-    title: null,
-    testId: null,
-    value: undefined,
-    type: undefined,
-    placeholder: null,
-    isPresent: true,
-  })
-  bodyEvaluateMock.mockResolvedValue({
-    authSignals: [],
-    matchedLandmarks: ['Checkout Dialog'],
-  })
+  chromiumLaunchMock.mockReset()
   pageEvaluateMock.mockResolvedValue({
     role: 'dialog',
     title: 'Checkout Dialog',
@@ -390,25 +351,7 @@ beforeEach(() => {
     actions: ['Cancel', 'Confirm'],
     isOpen: true,
   })
-  pageUrlMock.mockReturnValue('http://localhost:3000')
-  titleMock.mockResolvedValue('Checkout Dialog')
-  screenshotMock.mockResolvedValue(undefined)
-  gotoMock.mockResolvedValue(undefined)
-  launchMock.mockClear()
-  newContextMock.mockClear()
-  newPageMock.mockClear()
-  contextNewPageMock.mockClear()
-  locatorMock.mockClear()
-  locatorFirstMock.mockClear()
-  bodyEvaluateMock.mockClear()
-  evaluateMock.mockClear()
   pageEvaluateMock.mockClear()
-  pageUrlMock.mockClear()
-  titleMock.mockClear()
-  screenshotMock.mockClear()
-  gotoMock.mockClear()
-  contextCloseMock.mockClear()
-  closeMock.mockClear()
 })
 
 describe('deriveAccessibleQuery', () => {
@@ -856,7 +799,25 @@ describe('selectMatcher', () => {
 })
 
 describe('captureVisualState', () => {
-  it('returns structured visual state with screenshot metadata', async () => {
+  it('captures visual state with a runtime-owned Playwright browser', async () => {
+    const session = createPlaywrightSession([
+      {
+        dialog: {
+          role: 'dialog',
+          title: 'Checkout Dialog',
+          description: 'Confirm the purchase',
+          actions: ['Cancel', 'Confirm'],
+          isOpen: true,
+        },
+        elements: {
+          '#save': accessibleButton,
+        },
+        matchedLandmarks: ['Checkout Dialog'],
+        title: 'Checkout Dialog',
+        url: 'http://localhost:3000',
+      },
+    ])
+
     const result = await captureVisualState('http://localhost:3000', {
       expected: {
         landmarks: ['Checkout Dialog'],
@@ -870,43 +831,128 @@ describe('captureVisualState', () => {
 
     expect(result).toEqual(
       expect.objectContaining({
-        dialog: expect.objectContaining({
-          role: 'dialog',
-          title: 'Checkout Dialog',
-        }),
-        element: expect.objectContaining({
-          role: 'button',
-          innerText: 'Save',
-        }),
         finalUrl: 'http://localhost:3000',
         pageTitle: 'Checkout Dialog',
         reason: 'dialog-detected',
-        screenshotPath: '/tmp/taro-visual/Checkout-Dialog.png',
         selector: '#save',
+        startingPointConfirmed: true,
         status: 'captured',
         url: 'http://localhost:3000',
         warnings: [],
       })
     )
-    expect(screenshotMock).toHaveBeenCalledWith({
-      path: '/tmp/taro-visual/Checkout-Dialog.png',
-      fullPage: true,
+    expect(result?.dialog).toEqual(
+      expect.objectContaining({
+        title: 'Checkout Dialog',
+      })
+    )
+    expect(result?.element).toEqual(accessibleButton)
+    expect(result?.screenshotPath).toBe('/tmp/taro-visual/starting-point.png')
+    expect(chromiumLaunchMock).toHaveBeenCalledWith({ headless: true })
+    expect(session.context.newPage).toHaveBeenCalledTimes(1)
+    expect(session.page.goto).toHaveBeenCalledWith('http://localhost:3000', {
+      timeout: 5000,
+      waitUntil: 'domcontentloaded',
     })
+    expect(session.page.screenshot).toHaveBeenCalledWith({
+      fullPage: true,
+      path: '/tmp/taro-visual/starting-point.png',
+    })
+    expect(session.browser.close).toHaveBeenCalledTimes(1)
   })
 
-  it('classifies login walls as auth interrupts and still returns a structured result', async () => {
-    pageUrlMock.mockReturnValue('http://localhost:3000/login')
-    titleMock.mockResolvedValue('Sign In')
-    bodyEvaluateMock.mockResolvedValue({
-      authSignals: ['password-input', 'auth-copy'],
-      matchedLandmarks: [],
+  it('waits for the recorded page state before capturing the starting screenshot', async () => {
+    const session = createPlaywrightSession([
+      {
+        dialog: null,
+        elements: {
+          '#save': null,
+        },
+        matchedLandmarks: [],
+        title: 'Loading',
+        url: 'http://localhost:3000/loading',
+      },
+      {
+        dialog: {
+          role: 'dialog',
+          title: 'Add Sale (Invoice)',
+          description: 'Create a Kenya sale',
+          actions: ['Continue', 'Save'],
+          isOpen: true,
+        },
+        elements: {
+          '#save': accessibleButton,
+        },
+        matchedLandmarks: ['Add Sale (Invoice)'],
+        title: 'DigiTax',
+        url: 'http://localhost:3000/dashboard?tab=sales',
+      },
+    ])
+
+    const result = await captureVisualState('http://localhost:3000/dashboard?tab=sales', {
+      expected: {
+        landmarks: ['Add Sale (Invoice)'],
+        title: 'DigiTax',
+        url: 'http://localhost:3000/dashboard?tab=sales',
+      },
+      reason: 'page-context',
+      screenshotDir: '/tmp/taro-visual',
+      selector: '#save',
+      timeoutMs: 1000,
     })
-    evaluateMock.mockRejectedValueOnce(new Error('missing selector'))
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        finalUrl: 'http://localhost:3000/dashboard?tab=sales',
+        pageTitle: 'DigiTax',
+        screenshotPath: '/tmp/taro-visual/starting-point.png',
+        startingPointConfirmed: true,
+        status: 'captured',
+        warnings: [],
+      })
+    )
+    expect(session.page.waitForTimeout).toHaveBeenCalled()
+  })
+
+  it('recovers auth in interactive runs and persists storage state', async () => {
+    const session = createPlaywrightSession([
+      {
+        authSignals: ['auth-route'],
+        dialog: null,
+        elements: {
+          '#save': null,
+        },
+        matchedLandmarks: [],
+        title: 'Sign In',
+        url: 'http://localhost:3000/login',
+      },
+      {
+        dialog: {
+          role: 'dialog',
+          title: 'Checkout Dialog',
+          description: 'Confirm the purchase',
+          actions: ['Cancel', 'Confirm'],
+          isOpen: true,
+        },
+        elements: {
+          '#save': accessibleButton,
+        },
+        matchedLandmarks: ['Checkout Dialog'],
+        title: 'Checkout Dialog',
+        url: 'http://localhost:3000/dashboard',
+      },
+    ])
 
     const result = await captureVisualState('http://localhost:3000/dashboard', {
       auth: {
         path: '/tmp/playwright/.auth/user.json',
-        strategy: 'instructions',
+        strategy: 'storageState',
+      },
+      authRecovery: {
+        enabled: true,
+        persistedAuthPath: '.taro/playwright/.auth/user.json',
+        saveStorageStatePath: '/tmp/playwright/.auth/user.json',
+        timeoutMs: 2000,
       },
       expected: {
         landmarks: ['Checkout Dialog'],
@@ -918,103 +964,52 @@ describe('captureVisualState', () => {
       selector: '#save',
     })
 
-    expect(result).toEqual(
+    expect(result?.status).toBe('auth-recovered')
+    expect(result?.startingPointConfirmed).toBe(true)
+    expect(result?.authRecovery).toEqual(
       expect.objectContaining({
-        finalUrl: 'http://localhost:3000/login',
-        interrupt: expect.objectContaining({
-          expectedTitle: 'Checkout Dialog',
-          expectedUrl: 'http://localhost:3000/dashboard',
-          reachedUrl: 'http://localhost:3000/login',
-          strategy: 'instructions',
-        }),
-        pageTitle: 'Sign In',
-        screenshotPath: '/tmp/taro-visual/Sign-In.png',
-        status: 'auth-interrupted',
+        persistedAuthPath: '.taro/playwright/.auth/user.json',
+        status: 'succeeded',
       })
     )
-    expect(result?.warnings).toContain(
-      'Authentication required before visual capture could reach http://localhost:3000/dashboard.'
-    )
-  })
-
-  it('injects storageState through a new browser context when auth is configured', async () => {
-    await captureVisualState('http://localhost:3000', {
-      auth: {
-        path: '/tmp/playwright/.auth/user.json',
-        strategy: 'storageState',
-      },
-      expected: {
-        landmarks: ['Checkout Dialog'],
-        title: 'Checkout Dialog',
-        url: 'http://localhost:3000',
-      },
-      reason: 'dialog-detected',
-      selector: '#save',
-    })
-
-    expect(newContextMock).toHaveBeenCalledWith({
+    expect(result?.screenshotPath).toBe('/tmp/taro-visual/starting-point.png')
+    expect(chromiumLaunchMock).toHaveBeenCalledWith({ headless: false })
+    expect(session.browser.newContext).toHaveBeenCalledWith({
       storageState: '/tmp/playwright/.auth/user.json',
     })
-    expect(contextNewPageMock).toHaveBeenCalled()
-    expect(contextCloseMock).toHaveBeenCalled()
-  })
-
-  it('returns null when capture fails', async () => {
-    gotoMock.mockRejectedValueOnce(new Error('boom'))
-
-    const result = await captureVisualState('http://localhost:3000', {
-      reason: 'dialog-detected',
-      selector: '#save',
+    expect(session.page.waitForTimeout).toHaveBeenCalled()
+    expect(session.context.storageState).toHaveBeenCalledWith({
+      path: '/tmp/playwright/.auth/user.json',
     })
-
-    expect(result).toBeNull()
-    expect(closeMock).toHaveBeenCalled()
   })
 })
 
 describe('inspectElements', () => {
-  it('returns null for individual selectors that cannot be inspected and continues', async () => {
-    locatorMock.mockImplementation((selector: string) => ({
-      first: () => ({
-        evaluate:
-          selector === '#missing'
-            ? vi.fn().mockRejectedValue(new Error('missing selector'))
-            : evaluateMock,
-      }),
-    }))
-
-    const result = await inspectElements('http://localhost:3000', ['#save', '#missing'])
-
-    expect(result.get('#save')).toEqual(accessibleButton)
-    expect(result.get('#missing')).toBeNull()
-    expect(gotoMock).toHaveBeenCalledWith('http://localhost:3000', {
-      timeout: 5000,
-      waitUntil: 'domcontentloaded',
-    })
-    expect(closeMock).toHaveBeenCalled()
-  })
-
-  it('returns null for all selectors when page inspection fails', async () => {
-    gotoMock.mockRejectedValueOnce(new Error('browser blocked'))
-
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+  it('uses a single Playwright session to inspect multiple selectors', async () => {
+    const session = createPlaywrightSession([
+      {
+        elements: {
+          '#confirm': inputElement,
+          '#save': accessibleButton,
+        },
+        title: 'Checkout Dialog',
+        url: 'http://localhost:3000',
+      },
+    ])
 
     const result = await inspectElements('http://localhost:3000', ['#save', '#confirm'])
 
-    expect(result.get('#save')).toBeNull()
-    expect(result.get('#confirm')).toBeNull()
-    expect(warnSpy).toHaveBeenCalledWith(
-      '[taro] QRY-02: Failed to inspect elements on http://localhost:3000: browser blocked'
-    )
-    expect(closeMock).toHaveBeenCalled()
-
-    warnSpy.mockRestore()
+    expect(result.get('#save')).toEqual(accessibleButton)
+    expect(result.get('#confirm')).toEqual(inputElement)
+    expect(chromiumLaunchMock).toHaveBeenCalledWith({ headless: true })
+    expect(session.context.newPage).toHaveBeenCalledTimes(1)
+    expect(session.browser.close).toHaveBeenCalledTimes(1)
   })
 })
 
 describe('extractDialogState', () => {
   it('returns dialog information from the page', async () => {
-    const page = await newPageMock()
+    const page = { evaluate: pageEvaluateMock }
     const state = await extractDialogState(page as any)
 
     expect(state).toEqual({
@@ -1028,7 +1023,7 @@ describe('extractDialogState', () => {
 
   it('returns null when page evaluation fails', async () => {
     pageEvaluateMock.mockRejectedValueOnce(new Error('not available'))
-    const page = await newPageMock()
+    const page = { evaluate: pageEvaluateMock }
 
     const state = await extractDialogState(page as any)
 

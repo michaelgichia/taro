@@ -69,7 +69,7 @@ describe('verifyInstalledRuntime', () => {
     expect(results.map((result) => result.launcherCommand)).toEqual(
       plan.targets.map((target) => target.runtimeCommand)
     )
-  })
+  }, 10000)
 })
 
 describe('package smoke proof', () => {

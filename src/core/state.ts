@@ -10,6 +10,11 @@ import {
   readTestFiles,
 } from './convention-intelligence.js'
 import {
+  classifyBoundaryKind,
+  collectBoundaryLearning,
+  summarizeBoundaryProfiles,
+} from './boundary-learning.js'
+import {
   findReadableProjectStatePath,
   getProjectStatePath,
   ensureProjectStateDir,
@@ -30,8 +35,14 @@ import type {
 import type { ScoreResult } from '../types/score.js'
 import type {
   RepoRenderTargetCandidate,
+  TaroBoundaryExemplarProfile,
+  TaroBoundaryKind,
+  TaroBoundaryPayloadSource,
+  TaroBoundaryProfile,
+  TaroBoundaryStrategy,
   TaroPlaywrightAuthDetectedAt,
   TaroPlaywrightAuthProfile,
+  TaroQueryHookPolicy,
   ResolvedTaroPackageProfile,
   TaroExemplarProfile,
   TaroFileExtension,
@@ -114,6 +125,34 @@ const mockPatternSchema = z.enum(['vi.mock', 'jest.mock', 'none'])
 const folderPatternSchema = z.enum(['colocated', '__tests__', 'mixed', 'unknown'])
 const fileExtensionSchema = z.enum(['ts', 'tsx', 'js', 'jsx', 'mixed'])
 const fixtureRootKindSchema = z.enum(['mock-store', 'mocks', 'fixtures', 'factories'])
+const boundaryKindSchema = z.enum([
+  'data-module',
+  'server-action',
+  'network-client',
+  'auth',
+  'router',
+  'feature-flag',
+  'env',
+  'local-child',
+  'unknown',
+])
+const boundaryStrategySchema = z.enum([
+  'shared-module-factory',
+  'scaffolded-module-factory',
+  'provider-wrapper',
+  'inline-safe',
+  'forbid',
+  'real-runtime',
+])
+const boundaryPayloadSourceSchema = z.enum([
+  'mock-store',
+  'fixtures',
+  'typed-defaults',
+  'exemplar-only',
+  'manual',
+  'unknown',
+])
+const queryHookPolicySchema = z.enum(['avoid', 'allow-centralized', 'allow-when-needed'])
 const conventionFileSchema = z.object({
   path: z.string(),
   importStyle: importStyleSchema,
@@ -163,6 +202,27 @@ const sharedMockFactoryProfileSchema = z.object({
   files: z.array(z.string()),
   count: z.number(),
 })
+const boundarySupportExportsSchema = z.object({
+  factoryExport: z.string().nullable(),
+  resetExport: z.string().nullable(),
+  overrideExports: z.array(z.string()),
+  spyExports: z.array(z.string()),
+  fixtureExports: z.array(z.string()),
+})
+const boundaryProfileSchema = z.object({
+  target: z.string(),
+  kind: boundaryKindSchema,
+  strategy: boundaryStrategySchema,
+  supportImportPath: z.string().nullable(),
+  supportPath: z.string().nullable(),
+  supportExports: boundarySupportExportsSchema,
+  payloadSource: boundaryPayloadSourceSchema,
+  confidence: confidenceSchema,
+  files: z.array(z.string()),
+  evidence: z.array(z.string()),
+  conflictTargets: z.array(z.string()),
+  lowConfidenceScaffold: z.boolean(),
+})
 const fixtureRootProfileSchema = z.object({
   path: z.string(),
   kind: fixtureRootKindSchema,
@@ -170,6 +230,17 @@ const fixtureRootProfileSchema = z.object({
 })
 const exemplarProfileSchema = z.object({
   file: z.string(),
+  tags: z.array(z.string()),
+})
+const boundaryExemplarProfileSchema = z.object({
+  file: z.string(),
+  renderBoundary: z.enum(['module', 'component', 'unknown']),
+  boundaryTargets: z.array(z.string()),
+  boundaryKinds: z.array(boundaryKindSchema),
+  usesProviderWrapper: z.boolean(),
+  usesCentralBoundarySupport: z.boolean(),
+  hasMutationLifecycle: z.boolean(),
+  overrideStyle: z.enum(['stable-handles', 'inline-reconfigure', 'none']),
   tags: z.array(z.string()),
 })
 const mockTargetUsageSchema = z.object({
@@ -246,6 +317,8 @@ const packageProfileSchema = z.object({
   renderTargets: z.array(renderTargetCandidateSchema),
   repeatedMockTargets: z.array(mockTargetUsageSchema),
   sharedMockFactories: z.array(sharedMockFactoryProfileSchema),
+  boundaryProfiles: z.array(boundaryProfileSchema).default([]),
+  boundaryExemplars: z.array(boundaryExemplarProfileSchema).default([]),
   inlineSafeMockTargets: z.array(z.string()),
   mutationLifecycles: z.array(mutationLifecyclePatternSchema),
   instabilityWarnings: z.array(mockInstabilityWarningSchema),
@@ -305,6 +378,10 @@ const taroOverridesSchema = z.object({
           .optional(),
         forbidMocks: z.array(z.string()).optional(),
         preferredSharedMocks: z.record(z.string(), z.string()).optional(),
+        boundaryPolicies: z.record(z.string(), boundaryStrategySchema).optional(),
+        preferredBoundaryImplementations: z.record(z.string(), z.string()).optional(),
+        forbidBoundaryTargets: z.array(z.string()).optional(),
+        queryHookPolicy: queryHookPolicySchema.optional(),
       })
     )
     .optional(),
@@ -1190,6 +1267,7 @@ async function buildPackageProfile(
   const repeatedMockTargets = scanMockTargetsInFiles(projectRoot, files)
   const mockRecommendations = deriveMockRecommendations(repeatedMockTargets)
   const renderHelpers = collectRenderHelpers(projectRoot, files)
+  const providerWrappers = collectProviderWrappers(projectRoot, files)
   const fixtureRoots = [
     ...collectFixtureRootsFromImports(files),
     ...(await collectFixtureDirs(descriptor.root)).map((root) => ({
@@ -1227,6 +1305,13 @@ async function buildPackageProfile(
     })
   const mutationLifecycles = analyzeMutationLifecycleInFiles(projectRoot, files)
   const instabilityWarnings = detectMockInstabilityInFiles(projectRoot, files)
+  const boundaryLearning = await collectBoundaryLearning({
+    projectRoot,
+    testFiles: files,
+    renderTargets,
+    providerWrappers,
+    mutationLifecycles,
+  })
   const existingProfile = resolveExistingPackageProfile(existingState, descriptor.key)
   const detectedPlaywrightAuth = await detectPlaywrightAuthForPackage(
     projectRoot,
@@ -1252,10 +1337,12 @@ async function buildPackageProfile(
     folderPattern: inferFolderPattern(conventions),
     fileExtension: inferFileExtension(conventions),
     renderHelpers,
-    providerWrappers: collectProviderWrappers(projectRoot, files),
+    providerWrappers,
     renderTargets,
     repeatedMockTargets: repeatedMockTargets.filter((target) => target.count > 1),
     sharedMockFactories: collectSharedMockFactories(projectRoot, files),
+    boundaryProfiles: boundaryLearning.profiles,
+    boundaryExemplars: boundaryLearning.exemplars,
     inlineSafeMockTargets: mockRecommendations
       .filter((recommendation) => recommendation.kind === 'inline')
       .map((recommendation) => recommendation.target)
@@ -1420,6 +1507,8 @@ function deriveLegacyPackageProfile(
     renderTargets: [],
     repeatedMockTargets: [],
     sharedMockFactories: [],
+    boundaryProfiles: [],
+    boundaryExemplars: [],
     inlineSafeMockTargets: [],
     mutationLifecycles: [],
     instabilityWarnings: [],
@@ -1641,6 +1730,134 @@ export async function writeTaroState(projectRoot: string, state: TaroState): Pro
   const tempPath = `${statePath}.${process.pid}.${Date.now()}.tmp`
   await writeFile(tempPath, serialized, 'utf-8')
   await rename(tempPath, statePath)
+  await writeTaroSummary(projectRoot, result.data)
+}
+
+function summarizeRenderBoundaryPreference(
+  profile: TaroPackageProfile
+): 'module' | 'component' | 'mixed' | 'unknown' {
+  const counts = new Map<'module' | 'component', number>()
+
+  for (const exemplar of profile.boundaryExemplars) {
+    if (exemplar.renderBoundary === 'module' || exemplar.renderBoundary === 'component') {
+      counts.set(exemplar.renderBoundary, (counts.get(exemplar.renderBoundary) ?? 0) + 1)
+    }
+  }
+
+  if (counts.size === 0) {
+    return 'unknown'
+  }
+
+  const moduleCount = counts.get('module') ?? 0
+  const componentCount = counts.get('component') ?? 0
+
+  if (moduleCount > 0 && componentCount > 0) {
+    return 'mixed'
+  }
+
+  return moduleCount > componentCount ? 'module' : 'component'
+}
+
+function summarizeCollaboratorKinds(profile: TaroPackageProfile): string {
+  if (profile.boundaryProfiles.length === 0) {
+    return 'none'
+  }
+
+  const counts = new Map<TaroBoundaryKind, number>()
+  for (const boundaryProfile of profile.boundaryProfiles) {
+    counts.set(boundaryProfile.kind, (counts.get(boundaryProfile.kind) ?? 0) + 1)
+  }
+
+  return [...counts.entries()]
+    .sort((left, right) => left[0].localeCompare(right[0]))
+    .map(([kind, count]) => `${kind}=${count}`)
+    .join(', ')
+}
+
+function summarizeCanonicalBoundarySupport(profile: TaroPackageProfile): string {
+  const supportImports = [...new Set(
+    profile.boundaryProfiles
+      .map((boundaryProfile) => boundaryProfile.supportImportPath)
+      .filter((entry): entry is string => Boolean(entry))
+  )].sort((left, right) => left.localeCompare(right))
+
+  if (supportImports.length === 0) {
+    return 'none'
+  }
+
+  return supportImports.map((entry) => `\`${entry}\``).join(', ')
+}
+
+function buildStateSummaryMarkdown(state: TaroState): string {
+  const lines = [
+    '# Taro Boundary Summary',
+    '',
+    `Updated: ${state.meta.updatedAt}`,
+    '',
+  ]
+
+  const profiles = Object.values(state.packages).sort((left, right) =>
+    left.packagePath.localeCompare(right.packagePath)
+  )
+
+  if (profiles.length === 0) {
+    lines.push('No package-scoped test knowledge has been learned yet.')
+    return lines.join('\n')
+  }
+
+  for (const profile of profiles) {
+    lines.push(`## ${profile.packagePath}`)
+    lines.push('')
+    lines.push(`- Runner: \`${profile.runner.value}\``)
+    lines.push(
+      `- Preferred render boundary: \`${summarizeRenderBoundaryPreference(profile)}\``
+    )
+    lines.push(`- Render boundary candidates: ${profile.renderTargets.length}`)
+    lines.push(`- Collaborator categories: ${summarizeCollaboratorKinds(profile)}`)
+    lines.push(`- Canonical boundary support: ${summarizeCanonicalBoundarySupport(profile)}`)
+    lines.push(`- Learned boundary profiles: ${profile.boundaryProfiles.length}`)
+    lines.push(
+      `- Low-confidence scaffolds awaiting corroboration: ${profile.boundaryProfiles.filter((entry) => entry.lowConfidenceScaffold).length}`
+    )
+    lines.push(`- Query hook policy: \`avoid\` by default (overrides can refine this at generation time)`)
+    lines.push('')
+    lines.push('### Boundaries')
+    lines.push(
+      ...summarizeBoundaryProfiles(profile.boundaryProfiles, {
+        renderHelpers: profile.renderHelpers,
+        playwrightAuth: profile.playwrightAuth,
+      })
+    )
+    lines.push('')
+    lines.push('### Exemplars')
+    if (profile.boundaryExemplars.length === 0) {
+      lines.push('- No boundary exemplars recorded yet.')
+    } else {
+      for (const exemplar of profile.boundaryExemplars) {
+        lines.push(
+          `- \`${exemplar.file}\`: render=${exemplar.renderBoundary}, overrides=${exemplar.overrideStyle}, boundaries=${exemplar.boundaryTargets.join(', ') || 'none'}`
+        )
+      }
+    }
+    if (profile.warnings.length > 0) {
+      lines.push('')
+      lines.push('### Warnings')
+      for (const warning of profile.warnings) {
+        lines.push(`- ${warning}`)
+      }
+    }
+    lines.push('')
+  }
+
+  return lines.join('\n')
+}
+
+async function writeTaroSummary(projectRoot: string, state: TaroState): Promise<void> {
+  const summaryPath = getProjectStatePath(projectRoot, 'summary.md')
+  const content = buildStateSummaryMarkdown(state)
+  const tempPath = `${summaryPath}.${process.pid}.${Date.now()}.tmp`
+  await writeFile(tempPath, content, 'utf-8')
+  await rename(tempPath, summaryPath)
 }
 
 export async function scanProjectState(
@@ -1700,6 +1917,10 @@ export async function scanProjectState(
       scannedAt: profile.scannedAt,
       renderHelperCount: profile.renderHelpers.length,
       repeatedMockTargetCount: profile.repeatedMockTargets.length,
+      boundaryProfileCount: profile.boundaryProfiles.length,
+      lowConfidenceBoundaryCount: profile.boundaryProfiles.filter(
+        (entry) => entry.lowConfidenceScaffold
+      ).length,
       fixtureRootCount: profile.fixtureRoots.length,
       warnings: profile.warnings,
     }))
@@ -1712,6 +1933,14 @@ export async function scanProjectState(
       renderHelperCount: summaryPackages.reduce((sum, item) => sum + item.renderHelperCount, 0),
       repeatedMockTargetCount: summaryPackages.reduce(
         (sum, item) => sum + item.repeatedMockTargetCount,
+        0
+      ),
+      boundaryProfileCount: summaryPackages.reduce(
+        (sum, item) => sum + item.boundaryProfileCount,
+        0
+      ),
+      lowConfidenceBoundaryCount: summaryPackages.reduce(
+        (sum, item) => sum + item.lowConfidenceBoundaryCount,
         0
       ),
       fixtureRootCount: summaryPackages.reduce((sum, item) => sum + item.fixtureRootCount, 0),
@@ -1753,6 +1982,10 @@ export async function loadOrBootstrapTaroState(projectRoot: string): Promise<Sca
         scannedAt: profile.scannedAt,
         renderHelperCount: profile.renderHelpers.length,
         repeatedMockTargetCount: profile.repeatedMockTargets.length,
+        boundaryProfileCount: profile.boundaryProfiles.length,
+        lowConfidenceBoundaryCount: profile.boundaryProfiles.filter(
+          (entry) => entry.lowConfidenceScaffold
+        ).length,
         fixtureRootCount: profile.fixtureRoots.length,
         warnings: profile.warnings,
       })
@@ -1764,6 +1997,14 @@ export async function loadOrBootstrapTaroState(projectRoot: string): Promise<Sca
         renderHelperCount: summaryPackages.reduce((sum, item) => sum + item.renderHelperCount, 0),
         repeatedMockTargetCount: summaryPackages.reduce(
           (sum, item) => sum + item.repeatedMockTargetCount,
+          0
+        ),
+        boundaryProfileCount: summaryPackages.reduce(
+          (sum, item) => sum + item.boundaryProfileCount,
+          0
+        ),
+        lowConfidenceBoundaryCount: summaryPackages.reduce(
+          (sum, item) => sum + item.lowConfidenceBoundaryCount,
           0
         ),
         fixtureRootCount: summaryPackages.reduce((sum, item) => sum + item.fixtureRootCount, 0),
@@ -1930,6 +2171,18 @@ export function resolveTaroPackageProfile(
   const packageOverrides: TaroPackageOverrides | undefined = overrides.packages?.[profile.packagePath]
   const appliedOverrides: string[] = []
   let effectiveRenderHelper = profile.renderHelpers[0] ?? null
+  const preferredBoundaryImplementations = {
+    ...(packageOverrides?.preferredSharedMocks ?? {}),
+    ...(packageOverrides?.preferredBoundaryImplementations ?? {}),
+  }
+  const forbidBoundaryTargets = [
+    ...new Set([
+      ...(packageOverrides?.forbidMocks ?? []),
+      ...(packageOverrides?.forbidBoundaryTargets ?? []),
+    ]),
+  ]
+  const boundaryPolicies = { ...(packageOverrides?.boundaryPolicies ?? {}) }
+
   if (packageOverrides?.runner) {
     appliedOverrides.push(`runner:${packageOverrides.runner}`)
   }
@@ -1950,14 +2203,92 @@ export function resolveTaroPackageProfile(
   if (packageOverrides?.preferredSharedMocks && Object.keys(packageOverrides.preferredSharedMocks).length > 0) {
     appliedOverrides.push('preferredSharedMocks')
   }
+  if (
+    packageOverrides?.preferredBoundaryImplementations &&
+    Object.keys(packageOverrides.preferredBoundaryImplementations).length > 0
+  ) {
+    appliedOverrides.push('preferredBoundaryImplementations')
+  }
+  if (
+    packageOverrides?.boundaryPolicies &&
+    Object.keys(packageOverrides.boundaryPolicies).length > 0
+  ) {
+    appliedOverrides.push('boundaryPolicies')
+  }
+  if (packageOverrides?.forbidBoundaryTargets?.length) {
+    appliedOverrides.push('forbidBoundaryTargets')
+  }
+  if (packageOverrides?.queryHookPolicy) {
+    appliedOverrides.push(`queryHookPolicy:${packageOverrides.queryHookPolicy}`)
+  }
+
+  const boundaryProfilesByTarget = new Map(
+    profile.boundaryProfiles.map((boundaryProfile) => [boundaryProfile.target, boundaryProfile])
+  )
+
+  for (const [target, supportImportPath] of Object.entries(preferredBoundaryImplementations)) {
+    if (!boundaryProfilesByTarget.has(target)) {
+      boundaryProfilesByTarget.set(target, {
+        target,
+        kind: classifyBoundaryKind(target),
+        strategy: 'shared-module-factory',
+        supportImportPath,
+        supportPath: null,
+        supportExports: {
+          factoryExport: null,
+          resetExport: null,
+          overrideExports: [],
+          spyExports: [],
+          fixtureExports: [],
+        },
+        payloadSource: /mock-store/i.test(supportImportPath)
+          ? 'mock-store'
+          : /fixture/i.test(supportImportPath)
+            ? 'fixtures'
+            : /mock/i.test(supportImportPath)
+              ? 'typed-defaults'
+              : 'manual',
+        confidence: 'high',
+        files: [],
+        evidence: [`Override: ${target} -> ${supportImportPath}`],
+        conflictTargets: [],
+        lowConfidenceScaffold: false,
+      })
+    }
+  }
+
+  const resolvedBoundaryProfiles = [...boundaryProfilesByTarget.values()]
+    .map((boundaryProfile) => {
+      const forcedSupportImportPath =
+        preferredBoundaryImplementations[boundaryProfile.target] ?? boundaryProfile.supportImportPath
+      const forcedStrategy =
+        forbidBoundaryTargets.includes(boundaryProfile.target)
+          ? 'forbid'
+          : boundaryPolicies[boundaryProfile.target] ??
+            (preferredBoundaryImplementations[boundaryProfile.target]
+              ? 'shared-module-factory'
+              : boundaryProfile.strategy)
+
+      return {
+        ...boundaryProfile,
+        strategy: forcedStrategy,
+        supportImportPath: forcedSupportImportPath,
+      }
+    })
+    .sort((left, right) => left.target.localeCompare(right.target))
 
   return {
     ...profile,
+    boundaryProfiles: resolvedBoundaryProfiles,
     appliedOverrides,
     effectiveRunner: packageOverrides?.runner ?? profile.runner.value,
     effectiveRenderHelper,
     forbidMocks: packageOverrides?.forbidMocks ?? [],
     preferredSharedMocks: packageOverrides?.preferredSharedMocks ?? {},
+    boundaryPolicies,
+    preferredBoundaryImplementations,
+    forbidBoundaryTargets,
+    effectiveQueryHookPolicy: packageOverrides?.queryHookPolicy ?? 'avoid',
   }
 }
 
@@ -2035,7 +2366,7 @@ export async function appendGeneratedTestRecord(
 export function formatStateSummary(summary: TaroStateSummary, action: 'init' | 'refresh'): string[] {
   const lines = [
     `${pc.dim('[taro]')} ${action === 'init' ? 'Initialized' : 'Refreshed'} project state`,
-    `${pc.dim('[taro]')} packages=${summary.packageCount}, renderHelpers=${summary.renderHelperCount}, repeatedMockTargets=${summary.repeatedMockTargetCount}, fixtureRoots=${summary.fixtureRootCount}`,
+    `${pc.dim('[taro]')} packages=${summary.packageCount}, renderHelpers=${summary.renderHelperCount}, repeatedMockTargets=${summary.repeatedMockTargetCount}, boundaryProfiles=${summary.boundaryProfileCount}, lowConfidenceBoundaries=${summary.lowConfidenceBoundaryCount}, fixtureRoots=${summary.fixtureRootCount}`,
   ]
 
   if (summary.migratedLegacyState) {
@@ -2047,7 +2378,7 @@ export function formatStateSummary(summary: TaroStateSummary, action: 'init' | '
 
   for (const pkg of summary.packages) {
     lines.push(
-      `${pc.dim('[taro]')} ${pkg.packagePath}: runner=${pkg.runner}, scannedAt=${pkg.scannedAt}, renderHelpers=${pkg.renderHelperCount}, repeatedMocks=${pkg.repeatedMockTargetCount}, fixtureRoots=${pkg.fixtureRootCount}`
+      `${pc.dim('[taro]')} ${pkg.packagePath}: runner=${pkg.runner}, scannedAt=${pkg.scannedAt}, renderHelpers=${pkg.renderHelperCount}, repeatedMocks=${pkg.repeatedMockTargetCount}, boundaryProfiles=${pkg.boundaryProfileCount}, lowConfidenceBoundaries=${pkg.lowConfidenceBoundaryCount}, fixtureRoots=${pkg.fixtureRootCount}`
     )
   }
   for (const warning of summary.warnings) {

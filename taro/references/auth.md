@@ -30,7 +30,12 @@ Stored metadata must stay non-secret:
 - If Taro can generate without browser auth, it continues normally.
 - If optional browser inspection lands on a login page, Taro classifies that as an auth interrupt rather than a generic timeout.
 - If a reusable `storageState` file is known, Taro injects it automatically for optional screenshot capture.
-- If auth still interrupts capture, Taro reports the reached route/title, explains the detected signals, and proceeds without screenshots.
+- In interactive runs, Taro launches a local Playwright browser for optional screenshot capture and auth checkpoints.
+- Completion is automatic: Taro resumes only after expected route/title checks pass and the target selector or expected landmarks appear.
+- On successful manual auth, Taro saves `storageState`, persists the chosen non-secret path in `.taro/state.json`, and reuses it later.
+- If Playwright launch or navigation fails, screenshot capture is skipped with explicit guidance and core generation continues.
+- In non-interactive runs, Taro does not attempt interactive auth recovery and should report remediation guidance instead of silently degrading.
+- If manual auth times out, screenshot capture stops with a clear auth error, but optional browser work must not be mistaken for a generation failure.
 - Secrets must never be written to `.taro/state.json`, `.taro/overrides.json`, or generated tests.
 
 ## Future-Compatible Guidance

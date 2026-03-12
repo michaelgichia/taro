@@ -7,9 +7,7 @@ import { Command } from 'commander';
 import { resolve } from 'path';
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { parseRecording } from './parser.js';
-import { launchBrowser, navigateToUrl, inspectElement, captureScreenshot, getAccessibilityTree, type ElementInfo } from '../analyzer/visual/inspector.js';
-import type { Browser, Page } from 'playwright';
-import { analyzeElementProperties, type AccessibilityProperties, analyzePageElements, recommendQueryMethod } from '../analyzer/visual/element-analyzer.js';
+import type { AccessibilityProperties } from '../analyzer/visual/element-analyzer.js';
 import type { NormalizedRecording } from '../types/recording.js';
 import { detectApiCalls, filterMockableCalls, groupApiCallsByDomain, type ApiCallInfo } from '../analyzer/mocks/detector.js';
 import { analyzeMockTargets, type MockTarget } from '../analyzer/mocks/target-analyzer.js';
@@ -22,8 +20,6 @@ import { learnConventions, getConventions } from '../learner/index.js';
  */
 export interface VisualInspectionContext {
   enabled: boolean;
-  browser?: Browser;
-  page?: Page;
   url?: string;
   elements?: Map<string, AccessibilityProperties>;
   screenshots?: string[];
@@ -174,11 +170,6 @@ export async function run(options: OrchestratorOptions): Promise<void> {
     }
   }
 
-  // Cleanup
-  if (visualContext.browser) {
-    await visualContext.browser.close();
-  }
-
   console.log('\n✅ Complete!\n');
 }
 
@@ -189,7 +180,11 @@ async function runVisualInspection(
   recording: NormalizedRecording,
   urlFromCli?: string
 ): Promise<VisualInspectionContext> {
-  const visualContext: VisualInspectionContext = { enabled: true };
+  const visualContext: VisualInspectionContext = {
+    enabled: true,
+    elements: new Map(),
+    screenshots: [],
+  };
 
   // Determine URL to inspect
   const url = urlFromCli || recording.url;
@@ -198,75 +193,11 @@ async function runVisualInspection(
     return visualContext;
   }
 
-  // Create screenshots directory
-  const screenshotsDir = resolve('.taro/visual');
-  if (!existsSync(screenshotsDir)) {
-    mkdirSync(screenshotsDir, { recursive: true });
-  }
-
-  // Launch browser
-  let browser: Browser | undefined;
-  let page: Page | undefined;
-
-  try {
-    console.log(`   🌐 Launching browser to: ${url}`);
-    browser = await launchBrowser();
-    const context = await browser.newContext();
-    page = await context.newPage();
-
-    // Navigate to URL
-    const success = await navigateToUrl(page, url);
-    if (!success) {
-      console.log(`   ⚠ Failed to navigate to URL`);
-      return visualContext;
-    }
-
-    // Store in context
-    visualContext.browser = browser;
-    visualContext.page = page;
-    visualContext.url = url;
-    visualContext.screenshots = [];
-
-    // Capture initial screenshot
-    const initialScreenshot = resolve(screenshotsDir, 'initial.png');
-    await captureScreenshot(page, initialScreenshot);
-    visualContext.screenshots!.push(initialScreenshot);
-    console.log(`   📸 Saved screenshot: ${initialScreenshot}`);
-
-    // Get accessibility tree
-    const a11yTree = await getAccessibilityTree(page);
-    console.log(`   ♿ Accessibility tree captured (${a11yTree.length} chars)`);
-
-    // Analyze page elements
-    console.log(`   🔍 Analyzing interactive elements...`);
-    const elements = await analyzePageElements(page);
-
-    // Build element map by selector
-    const elementMap = new Map<string, AccessibilityProperties>();
-    for (const { selector, properties } of elements) {
-      elementMap.set(selector, properties);
-    }
-
-    visualContext.elements = elementMap;
-    console.log(`   ✓ Found ${elements.length} interactive elements`);
-
-    // For each step in the recording, inspect the target element
-    for (const step of recording.steps.slice(0, 5)) { // Limit to first 5 for performance
-      if (step.selector) {
-        const elementInfo = await inspectElement(page, step.selector);
-        if (elementInfo) {
-          const a11yProps = await analyzeElementProperties(page, step.selector);
-          if (a11yProps) {
-            const queryHint = recommendQueryMethod(a11yProps);
-            console.log(`   💡 Step ${step.id}: ${step.action} → ${queryHint}`);
-          }
-        }
-      }
-    }
-
-  } catch (error) {
-    console.error(`   ⚠ Visual inspection error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
+  console.log(`   🌐 Visual inspection requested for: ${url}`);
+  console.log(
+    '   ℹ Visual inspection will launch a local Playwright browser when screenshot capture is enabled.'
+  );
+  visualContext.url = url;
 
   return visualContext;
 }

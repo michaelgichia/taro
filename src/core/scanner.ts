@@ -122,6 +122,8 @@ export async function persistConventions(
     renderTargets: [],
     repeatedMockTargets: [],
     sharedMockFactories: [],
+    boundaryProfiles: [],
+    boundaryExemplars: [],
     inlineSafeMockTargets: [],
     mutationLifecycles: [],
     instabilityWarnings: [],

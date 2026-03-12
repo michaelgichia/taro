@@ -376,52 +376,31 @@ function buildHelperStepLines(
   })
 }
 
-function getMarkerAssertionProofRank(markerAssertion: PlannedMarkerAssertion): number {
-  switch (markerAssertion.assertion.proofKind) {
-    case 'role-name':
-      return 0
-    case 'visible-text':
-    case 'visible-value':
-      return 1
-    case 'label-text':
-      return 2
-    case 'placeholder-text':
-      return 3
-  }
-}
-
-function selectStrongestMarkerAssertions(
+function dedupeMarkerAssertions(
   markerAssertions: PlannedMarkerAssertion[]
 ): PlannedMarkerAssertion[] {
-  const strongestByAnchor = new Map<
-    string,
-    {
-      markerAssertion: PlannedMarkerAssertion
-      proofRank: number
-      sourceOrder: number
-    }
-  >()
+  const seen = new Set<string>()
+  const deduped: PlannedMarkerAssertion[] = []
 
-  for (const [sourceOrder, markerAssertion] of markerAssertions.entries()) {
-    const proofRank = getMarkerAssertionProofRank(markerAssertion)
-    const existing = strongestByAnchor.get(markerAssertion.anchorStepId)
-
-    if (
-      !existing ||
-      proofRank < existing.proofRank ||
-      (proofRank === existing.proofRank && sourceOrder < existing.sourceOrder)
-    ) {
-      strongestByAnchor.set(markerAssertion.anchorStepId, {
-        markerAssertion,
-        proofRank,
-        sourceOrder,
-      })
+  for (const markerAssertion of markerAssertions) {
+    const placementKey =
+      markerAssertion.placement.kind === 'after-helper'
+        ? `after-helper:${markerAssertion.placement.helperName}:${markerAssertion.placement.stepId}`
+        : `after-step:${markerAssertion.placement.stepId}`
+    const key = [
+      placementKey,
+      markerAssertion.assertion.queryExpression.replace(/\s+/g, ' ').trim(),
+      markerAssertion.assertion.matcher,
+    ].join('|')
+    if (seen.has(key)) {
+      continue
     }
+
+    seen.add(key)
+    deduped.push(markerAssertion)
   }
 
-  return [...strongestByAnchor.values()]
-    .sort((left, right) => left.sourceOrder - right.sourceOrder)
-    .map((entry) => entry.markerAssertion)
+  return deduped
 }
 
 function renderMarkerAssertion(markerAssertion: PlannedMarkerAssertion): string {
@@ -508,7 +487,7 @@ export function generateTestFromGroups(
           .map((step) => [step.id, helperName] as const)
       )
     )
-    const markerAssertions = selectStrongestMarkerAssertions(scenario.markerAssertions ?? [])
+    const markerAssertions = dedupeMarkerAssertions([...(scenario.markerAssertions ?? [])])
     const markerAssertionsAfterStep = new Map<string, string[]>()
     const markerAssertionsAfterHelper = new Map<string, string[]>()
 

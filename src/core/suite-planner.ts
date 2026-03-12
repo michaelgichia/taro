@@ -5,11 +5,12 @@ import type {
   ItGroup,
   JsHelperPlan,
   PlannedMarkerAssertion,
+  PlannedMarkerAssertionDiagnostics,
   JsScenarioPlan,
   JsStateSafetyAssessment,
   NormalizedRecording,
   NormalizedStep,
-  SemanticMarkerAssertionProofKind,
+  SemanticMarkerCandidate,
   StepId,
   UnresolvedSemanticMarker,
   UnresolvedSemanticMarkerAssertionResolution,
@@ -103,7 +104,9 @@ function buildFallbackGroups(
   ]
 }
 
-function getSemanticMarkerCandidate(step: NormalizedStep) {
+function getSemanticMarkerCandidate(
+  step: NormalizedStep
+): SemanticMarkerCandidate | undefined {
   const metadataCandidate = step.metadata?.semanticMarkerCandidate
 
   if (
@@ -112,7 +115,7 @@ function getSemanticMarkerCandidate(step: NormalizedStep) {
     'stepId' in metadataCandidate &&
     typeof metadataCandidate.stepId === 'string'
   ) {
-    return metadataCandidate
+    return metadataCandidate as SemanticMarkerCandidate
   }
 
   return step.semanticMarkerCandidate
@@ -180,85 +183,95 @@ function getHelperPlacement(params: {
   return null
 }
 
-function collectScenarioMarkerState(params: {
-  group: ItGroup
-  helperRefs: string[]
-  helperStepsByName: Map<string, Set<string>>
-}) {
-  const { group, helperRefs, helperStepsByName } = params
-  const strongestMarkerAssertionsByAnchor = new Map<
-    StepId,
-    {
-      markerAssertion: PlannedMarkerAssertion
-      proofRank: number
-      sourceOrder: number
-    }
-  >()
-  const unresolvedMarkerAssertions: UnresolvedSemanticMarkerAssertionResolution[] = []
+function normalizeMarkerAssertionKey(markerAssertion: PlannedMarkerAssertion): string {
+  const placementKey =
+    markerAssertion.placement.kind === 'after-helper'
+      ? `after-helper:${markerAssertion.placement.helperName}:${markerAssertion.placement.stepId}`
+      : `after-step:${markerAssertion.placement.stepId}`
 
-  for (const [sourceOrder, step] of group.steps.entries()) {
-    if (!isManagedSemanticMarkerStep(step)) {
-      continue
-    }
+  return [
+    placementKey,
+    markerAssertion.assertion.queryExpression.replace(/\s+/g, ' ').trim(),
+    markerAssertion.assertion.matcher,
+  ].join('|')
+}
 
-    const resolution = resolveSemanticMarkerAssertion(step)
-    if (resolution.status === 'unresolved') {
-      unresolvedMarkerAssertions.push(resolution)
-      continue
-    }
+function dedupeMarkerAssertions(
+  markerAssertions: Array<{
+    markerAssertion: PlannedMarkerAssertion
+    sourceOrder: number
+  }>
+): PlannedMarkerAssertion[] {
+  const seen = new Set<string>()
 
-    const placement =
-      getHelperPlacement({
-        anchorStepId: resolution.anchorStepId,
-        helperRefs,
-        helperStepsByName,
-      }) ?? {
-        kind: 'after-step' as const,
-        stepId: resolution.anchorStepId,
+  return markerAssertions
+    .sort((left, right) => left.sourceOrder - right.sourceOrder)
+    .flatMap(({ markerAssertion }) => {
+      const key = normalizeMarkerAssertionKey(markerAssertion)
+      if (seen.has(key)) {
+        return []
       }
 
-    const markerAssertion = {
-      markerStepId: resolution.markerStepId,
-      anchorStepId: resolution.anchorStepId,
-      placement,
-      assertion: resolution.assertion,
-    }
-    const proofRank = getSemanticMarkerProofRank(resolution.assertion.proofKind)
-    const existing = strongestMarkerAssertionsByAnchor.get(resolution.anchorStepId)
+      seen.add(key)
+      return [markerAssertion]
+    })
+}
 
-    if (
-      !existing ||
-      proofRank < existing.proofRank ||
-      (proofRank === existing.proofRank && sourceOrder < existing.sourceOrder)
-    ) {
-      strongestMarkerAssertionsByAnchor.set(resolution.anchorStepId, {
-        markerAssertion,
-        proofRank,
-        sourceOrder,
-      })
+function toBoundaryPlacementConflict(params: {
+  conflictingScenarioNames: string[]
+  resolution:
+    | ReturnType<typeof resolveSemanticMarkerAssertion>
+    | UnresolvedSemanticMarkerAssertionResolution
+  step: NormalizedStep
+}): UnresolvedSemanticMarkerAssertionResolution {
+  const { conflictingScenarioNames, resolution, step } = params
+  if (resolution.status === 'unresolved') {
+    return {
+      ...resolution,
+      reason: 'boundary-placement-conflict',
+      conflictingScenarioNames,
     }
   }
 
   return {
-    markerAssertions: [...strongestMarkerAssertionsByAnchor.values()]
-      .sort((left, right) => left.sourceOrder - right.sourceOrder)
-      .map((entry) => entry.markerAssertion),
-    unresolvedMarkerAssertions,
+    status: 'unresolved',
+    markerStepId: resolution.markerStepId,
+    anchorStepId: resolution.anchorStepId,
+    relation: resolution.assertion.relation,
+    reason: 'boundary-placement-conflict',
+    proofSubject: resolution.assertion.proofSubject,
+    target: resolution.assertion.target ?? step.target,
+    proofText: resolution.assertion.proofText,
+    line: resolution.assertion.line ?? step.line,
+    sourceContext: resolution.assertion.sourceContext,
+    query: resolution.assertion.query,
+    conflictingScenarioNames,
   }
 }
 
-function getSemanticMarkerProofRank(proofKind: SemanticMarkerAssertionProofKind): number {
-  switch (proofKind) {
-    case 'role-name':
-      return 0
-    case 'visible-text':
-    case 'visible-value':
-      return 1
-    case 'label-text':
-      return 2
-    case 'placeholder-text':
-      return 3
+function collectPlannedMarkerDiagnostics(
+  params: {
+    fromScenarioName: string
+    step: NormalizedStep
+    toScenarioName: string
   }
+): PlannedMarkerAssertionDiagnostics | undefined {
+  const { fromScenarioName, step, toScenarioName } = params
+  const candidate = getSemanticMarkerCandidate(step)
+  const diagnostics: PlannedMarkerAssertionDiagnostics = {}
+
+  if (candidate?.canonicalRecovery) {
+    diagnostics.canonicalRecovery = candidate.canonicalRecovery
+  }
+
+  if (fromScenarioName !== toScenarioName) {
+    diagnostics.placementCorrection = {
+      fromScenarioName,
+      toScenarioName,
+    }
+  }
+
+  return Object.keys(diagnostics).length > 0 ? diagnostics : undefined
 }
 
 function sanitizeIdentifierPart(value: string): string {
@@ -301,14 +314,27 @@ function hasMutationSignals(mockAnalysis: MockAnalysis | null): boolean {
     return false
   }
 
+  const boundaryProfiles = mockAnalysis.boundaryProfiles ?? []
+
   return (
     mockAnalysis.mutationLifecycles.length > 0 ||
-    mockAnalysis.repeatedTargets.length > 0
+    mockAnalysis.repeatedTargets.length > 0 ||
+    boundaryProfiles.some((profile) =>
+      ['shared-module-factory', 'provider-wrapper', 'scaffolded-module-factory'].includes(
+        profile.strategy
+      )
+    )
   )
 }
 
 function findRepeatedMockTarget(mockAnalysis: MockAnalysis | null): string | null {
-  return mockAnalysis?.recommendations[0]?.target ?? null
+  return (
+    mockAnalysis?.boundaryProfiles?.find((profile) =>
+      ['shared-module-factory', 'scaffolded-module-factory'].includes(profile.strategy)
+    )?.target ??
+    mockAnalysis?.recommendations[0]?.target ??
+    null
+  )
 }
 
 function isWizardFlow(recording: NormalizedRecording): boolean {
@@ -388,6 +414,9 @@ export function assessRenderBoundary(params: {
   if (mockAnalysis?.repeatedTargets.length) {
     signals.push('repo already shares repeated mock targets')
   }
+  if ((mockAnalysis?.boundaryProfiles?.length ?? 0) > 0) {
+    signals.push('repo already documents boundary support patterns')
+  }
 
   if (wizardFlow && mutationSignals) {
     return {
@@ -452,7 +481,7 @@ export function planJsSuite(params: {
   const repeatedTarget = findRepeatedMockTarget(mockAnalysis)
   if (repeatedTarget) {
     warnings.push(
-      `Reuse shared mocks for repeated targets such as "${repeatedTarget}" instead of re-mocking internal query hooks inline.`
+      `Reuse learned boundary support for collaborators such as "${repeatedTarget}" instead of re-mocking internal query hooks inline.`
     )
   }
 
@@ -487,18 +516,13 @@ export function planJsSuite(params: {
     ])
   )
 
-  const scenarios = baseGroups.map((group, index) => {
+  const scenarios = baseGroups.map((group) => {
     const helperRefs =
       stateSafety.status === 'safe-multi-it'
         ? helpers
             .filter((helper) => sharesAnyStep(group.steps, helper.steps))
             .map((helper) => helper.name)
         : []
-    const markerState = collectScenarioMarkerState({
-      group,
-      helperRefs,
-      helperStepsByName,
-    })
 
     return {
       name: group.name,
@@ -506,10 +530,110 @@ export function planJsSuite(params: {
       steps: filterManagedSemanticMarkerSteps(group.steps),
       helperRefs,
       requiresFreshRender: true,
-      markerAssertions: markerState.markerAssertions,
-      unresolvedMarkerAssertions: markerState.unresolvedMarkerAssertions,
+      markerAssertions: [] as PlannedMarkerAssertion[],
+      unresolvedMarkerAssertions: [] as UnresolvedSemanticMarkerAssertionResolution[],
     }
   })
+
+  const scenarioOwnersByStepId = new Map<StepId, number[]>()
+  for (const [scenarioIndex, group] of baseGroups.entries()) {
+    for (const step of group.steps) {
+      if (!step.id) {
+        continue
+      }
+
+      const owners = scenarioOwnersByStepId.get(step.id) ?? []
+      owners.push(scenarioIndex)
+      scenarioOwnersByStepId.set(step.id, owners)
+    }
+  }
+
+  const markerAssertionsByScenario = scenarios.map(
+    () => [] as Array<{ markerAssertion: PlannedMarkerAssertion; sourceOrder: number }>
+  )
+  const unresolvedMarkersByScenario = scenarios.map(
+    () => [] as Array<{ markerAssertion: UnresolvedSemanticMarkerAssertionResolution; sourceOrder: number }>
+  )
+  let markerSourceOrder = 0
+
+  for (const [groupIndex, group] of baseGroups.entries()) {
+    for (const step of group.steps) {
+      if (!isManagedSemanticMarkerStep(step)) {
+        continue
+      }
+
+      const resolution = resolveSemanticMarkerAssertion(step)
+      const sourceOrder = markerSourceOrder++
+      const anchorOwners =
+        resolution.anchorStepId ? (scenarioOwnersByStepId.get(resolution.anchorStepId) ?? []) : []
+
+      if (resolution.status === 'unresolved') {
+        const targetScenarioIndex = anchorOwners.length === 1 ? anchorOwners[0]! : groupIndex
+        const markerAssertion =
+          resolution.anchorStepId && anchorOwners.length !== 1
+            ? toBoundaryPlacementConflict({
+                conflictingScenarioNames: anchorOwners.map((index) => scenarios[index]!.name),
+                resolution,
+                step,
+              })
+            : resolution
+        unresolvedMarkersByScenario[targetScenarioIndex]!.push({
+          markerAssertion,
+          sourceOrder,
+        })
+        continue
+      }
+
+      if (anchorOwners.length !== 1) {
+        unresolvedMarkersByScenario[groupIndex]!.push({
+          markerAssertion: toBoundaryPlacementConflict({
+            conflictingScenarioNames: anchorOwners.map((index) => scenarios[index]!.name),
+            resolution,
+            step,
+          }),
+          sourceOrder,
+        })
+        continue
+      }
+
+      const targetScenarioIndex = anchorOwners[0]!
+      const targetScenario = scenarios[targetScenarioIndex]!
+      const placement =
+        getHelperPlacement({
+          anchorStepId: resolution.anchorStepId,
+          helperRefs: targetScenario.helperRefs,
+          helperStepsByName,
+        }) ?? {
+          kind: 'after-step' as const,
+          stepId: resolution.anchorStepId,
+        }
+      const diagnostics = collectPlannedMarkerDiagnostics({
+        fromScenarioName: scenarios[groupIndex]!.name,
+        step,
+        toScenarioName: targetScenario.name,
+      })
+
+      markerAssertionsByScenario[targetScenarioIndex]!.push({
+        markerAssertion: {
+          markerStepId: resolution.markerStepId,
+          anchorStepId: resolution.anchorStepId,
+          placement,
+          assertion: resolution.assertion,
+          ...(diagnostics ? { diagnostics } : {}),
+        },
+        sourceOrder,
+      })
+    }
+  }
+
+  for (const [scenarioIndex, scenario] of scenarios.entries()) {
+    scenario.markerAssertions = dedupeMarkerAssertions(
+      markerAssertionsByScenario[scenarioIndex] ?? []
+    )
+    scenario.unresolvedMarkerAssertions = (unresolvedMarkersByScenario[scenarioIndex] ?? [])
+      .sort((left, right) => left.sourceOrder - right.sourceOrder)
+      .map((entry) => entry.markerAssertion)
+  }
 
   if (stateSafety.status !== 'safe-multi-it' && baseGroups.length > 1) {
     warnings.push(

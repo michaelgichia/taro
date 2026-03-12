@@ -2,6 +2,7 @@ import { analyzeBoundaryIsolation, calculateBoundaryIsolationScore } from './bou
 import type { QueryResult } from '../types/recording.js'
 import type {
   MarkerCoverageTotals,
+  MarkerReviewDiagnostics,
   MarkerQualityGateState,
   ScoreDimensions,
   ScoreReason,
@@ -147,7 +148,8 @@ function collectReasons(
   dimensions: ScoreDimensions,
   signals: ScoreSignals,
   boundaryMessages: string[],
-  markerQualityGate: MarkerQualityGateState
+  markerQualityGate: MarkerQualityGateState,
+  markerDiagnostics: MarkerReviewDiagnostics
 ): ScoreReason[] {
   const reasons: ScoreReason[] = []
 
@@ -280,10 +282,10 @@ function collectReasons(
         'assertionSpecificity',
         'negative',
         45,
-        `QUAL-02 failed: ${markerQualityGate.message}`
+        `QUAL-02 warning: ${markerQualityGate.message}`
       )
     )
-  } else if (markerQualityGate.reason === 'markers-converted') {
+  } else if (markerQualityGate.reason === 'markers-fully-converted') {
     reasons.push(
       createReason(
         'marker-quality-gate-pass',
@@ -301,6 +303,30 @@ function collectReasons(
         'positive',
         4,
         `QUAL-02 passed: ${markerQualityGate.message}`
+      )
+    )
+  }
+
+  if (markerDiagnostics.placementCorrections > 0) {
+    reasons.push(
+      createReason(
+        'marker-placement-corrections',
+        'boundaryIsolation',
+        'negative',
+        14,
+        `${markerDiagnostics.placementCorrections} marker assertion placement correction(s) were needed to align checkpoints with the anchored scenario.`
+      )
+    )
+  }
+
+  if (markerDiagnostics.placementConflicts > 0) {
+    reasons.push(
+      createReason(
+        'marker-placement-conflicts',
+        'boundaryIsolation',
+        'negative',
+        18,
+        `${markerDiagnostics.placementConflicts} semantic marker(s) could not be assigned to a single safe scenario.`
       )
     )
   }
@@ -348,6 +374,7 @@ export function calculateAggregateScore(
 export interface ScoreGeneratedTestOptions {
   queryResults?: QueryResult[]
   markerCoverage?: Partial<MarkerCoverageTotals>
+  markerDiagnostics?: Partial<MarkerReviewDiagnostics>
 }
 
 function resolveMarkerCoverage(
@@ -357,6 +384,16 @@ function resolveMarkerCoverage(
     detected: normalizeCount(markerCoverage?.detected),
     emitted: normalizeCount(markerCoverage?.emitted),
     unresolved: normalizeCount(markerCoverage?.unresolved),
+  }
+}
+
+function resolveMarkerDiagnostics(
+  markerDiagnostics?: Partial<MarkerReviewDiagnostics>
+): MarkerReviewDiagnostics {
+  return {
+    canonicalRecoveries: normalizeCount(markerDiagnostics?.canonicalRecoveries),
+    placementConflicts: normalizeCount(markerDiagnostics?.placementConflicts),
+    placementCorrections: normalizeCount(markerDiagnostics?.placementCorrections),
   }
 }
 
@@ -374,18 +411,27 @@ function deriveMarkerQualityGate(
 
   if (markerCoverage.emitted === 0) {
     return {
-      status: 'fail',
+      status: 'warn',
       reason: 'zero-marker-conversion',
       failing: true,
       message: 'Semantic markers were detected, but no marker-derived assertions were emitted.',
     }
   }
 
+  if (markerCoverage.unresolved > 0) {
+    return {
+      status: 'warn',
+      reason: 'markers-partially-converted',
+      failing: true,
+      message: 'Marker-derived assertions were emitted, but unresolved semantic markers remain.',
+    }
+  }
+
   return {
     status: 'pass',
-    reason: 'markers-converted',
+    reason: 'markers-fully-converted',
     failing: false,
-    message: 'Marker-derived assertions were emitted for this run.',
+    message: 'All detected semantic markers were converted into marker-derived assertions.',
   }
 }
 
@@ -394,11 +440,13 @@ function resolveScoreGeneratedTestOptions(
 ): {
   queryResults: QueryResult[]
   markerCoverage: MarkerCoverageTotals
+  markerDiagnostics: MarkerReviewDiagnostics
 } {
   if (Array.isArray(input)) {
     return {
       queryResults: input,
       markerCoverage: resolveMarkerCoverage(),
+      markerDiagnostics: resolveMarkerDiagnostics(),
     }
   }
 
@@ -406,12 +454,14 @@ function resolveScoreGeneratedTestOptions(
     return {
       queryResults: input.queryResults ?? [],
       markerCoverage: resolveMarkerCoverage(input.markerCoverage),
+      markerDiagnostics: resolveMarkerDiagnostics(input.markerDiagnostics),
     }
   }
 
   return {
     queryResults: [],
     markerCoverage: resolveMarkerCoverage(),
+    markerDiagnostics: resolveMarkerDiagnostics(),
   }
 }
 
@@ -419,7 +469,8 @@ export function scoreGeneratedTest(
   code: string,
   input: QueryResult[] | ScoreGeneratedTestOptions = []
 ): ScoreResult {
-  const { queryResults, markerCoverage } = resolveScoreGeneratedTestOptions(input)
+  const { queryResults, markerCoverage, markerDiagnostics } =
+    resolveScoreGeneratedTestOptions(input)
   const markerQualityGate = deriveMarkerQualityGate(markerCoverage)
   const boundaryIssues = analyzeBoundaryIsolation(code)
   const boundaryIsolation = calculateBoundaryIsolationScore(code)
@@ -436,7 +487,8 @@ export function scoreGeneratedTest(
     dimensions,
     signals,
     boundaryIssues.map((issue) => issue.message),
-    markerQualityGate
+    markerQualityGate,
+    markerDiagnostics
   )
   const blockers = deriveBlockers(reasons)
   const aggregate = calculateAggregateScore(dimensions)
@@ -447,8 +499,13 @@ export function scoreGeneratedTest(
     signals,
     reasons,
     blockers,
-    requiresReview: aggregate.total < 80 || markerQualityGate.failing,
+    requiresReview:
+      aggregate.total < 80 ||
+      markerQualityGate.failing ||
+      markerDiagnostics.placementCorrections > 0 ||
+      markerDiagnostics.placementConflicts > 0,
     markerCoverage,
+    markerDiagnostics,
     markerQualityGate,
   }
 }

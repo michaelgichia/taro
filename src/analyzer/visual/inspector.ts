@@ -1,4 +1,4 @@
-import { Browser, Page, chromium } from 'playwright';
+import { chromium, type Browser, type Page } from 'playwright';
 
 /**
  * Element information extracted from the DOM
@@ -16,21 +16,10 @@ export interface ElementInfo {
 }
 
 /**
- * Launches a headless Chromium browser
- * @returns Promise<Browser> - The launched browser instance
- * @throws Error if Playwright is not installed
+ * Launches a local Playwright browser for runtime visual inspection.
  */
 export async function launchBrowser(): Promise<Browser> {
-  try {
-    const browser = await chromium.launch({
-      headless: true,
-    });
-    return browser;
-  } catch (error) {
-    throw new Error(
-      'Playwright browser not available. Install with: npx playwright install chromium'
-    );
-  }
+  return chromium.launch({ headless: true });
 }
 
 /**

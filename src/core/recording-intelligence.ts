@@ -146,12 +146,12 @@ function getSemanticMarkerCandidate(
   return step.semanticMarkerCandidate
 }
 
-function isJsSemanticMarkerGesture(step: NormalizedStep): boolean {
+function isSemanticMarkerGesture(step: NormalizedStep): boolean {
+  const candidate = getSemanticMarkerCandidate(step)
   return (
-    step.source === 'js' &&
     step.action === 'click' &&
     isDoubleClickVariant(step) &&
-    getSemanticMarkerCandidate(step) !== undefined
+    candidate?.originalGesture === 'dblClick'
   )
 }
 
@@ -203,7 +203,7 @@ function isMajorTransitionStep(step: NormalizedStep): boolean {
     return false
   }
 
-  if (isJsSemanticMarkerGesture(step)) {
+  if (isSemanticMarkerGesture(step)) {
     return false
   }
 
@@ -395,7 +395,7 @@ function isResolvableFieldContextCandidate(
 
 function annotateSemanticMarkers(steps: NormalizedStep[]): NormalizedStep[] {
   return steps.map((step, index) => {
-    if (!isJsSemanticMarkerGesture(step)) {
+    if (!isSemanticMarkerGesture(step)) {
       return step
     }
 
@@ -649,7 +649,7 @@ export function filterNoiseSteps(steps: NormalizedStep[]): NoiseFilterResult {
       index = nextIndex
     }
 
-    const markerGestures = cluster.filter((candidate) => isJsSemanticMarkerGesture(candidate))
+    const markerGestures = cluster.filter((candidate) => isSemanticMarkerGesture(candidate))
     const preservedMarkers = cluster.filter((candidate) =>
       isPreservedSemanticMarkerStep(candidate)
     )
@@ -675,7 +675,7 @@ export function filterNoiseSteps(steps: NormalizedStep[]): NoiseFilterResult {
           continue
         }
 
-        if (isJsSemanticMarkerGesture(candidate)) {
+        if (isSemanticMarkerGesture(candidate)) {
           seenMarkerGesture = true
           removedDoubleClickNoise += 1
           continue

@@ -4,6 +4,8 @@ Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex, run the runtime-n
 
 Taro ships as an installer-first package. The package entrypoint bootstraps runtime-native commands or skills into your agent environment, and those runtime entrypoints run Taro's internal JS-only init, refresh, and generation flows.
 
+For the current strict-order runtime generation path, see [docs/PIPELINE.md](./docs/PIPELINE.md).
+
 ## Getting Started
 
 ```bash
@@ -160,6 +162,8 @@ Created: src/components/MyComponent.test.tsx
 ```
 
 On subsequent runs in the same project, Taro reads `.taro/state.json` package profiles to match your test style automatically. If `.taro/state.json` is missing, `generate` performs a light bootstrap, but `init` remains the recommended first step for brownfield repos.
+
+For the exact module execution order behind `__generate`, see [docs/PIPELINE.md](./docs/PIPELINE.md).
 
 ### Draft-quality output is explicit
 

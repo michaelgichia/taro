@@ -4,6 +4,8 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   detectPackageProfileStaleness,
+  persistPlaywrightAuthProfile,
+  refreshTaroState,
   initTaroState,
   loadOrBootstrapTaroState,
   readTaroState,
@@ -204,6 +206,113 @@ describe('initTaroState', () => {
     )
   })
 
+  it('learns boundary profiles and writes a human-readable boundary summary', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src', 'tests', 'mocks'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'tests', 'mocks', 'digitax-data-layer.ts'),
+      `
+        export function createDataLayerMock() {
+          return {}
+        }
+
+        export function resetDataLayerMock() {}
+
+        export const useKraCreateSaleMutationMock = {
+          mockImplementationOnce() {},
+        }
+      `,
+      'utf-8'
+    )
+    await writeFile(
+      join(examplePackage, 'src', 'sales-module.test.tsx'),
+      `
+        import { beforeEach, describe, expect, it, vi } from 'vitest'
+        import { render } from '@testing-library/react'
+        import { renderWithProviders, QueryClientProvider } from '@/tests/renderWithProviders'
+        import {
+          createDataLayerMock,
+          resetDataLayerMock,
+          useKraCreateSaleMutationMock,
+        } from '@/tests/mocks/digitax-data-layer'
+        import SalesModule from './SalesModule'
+
+        vi.mock('@digitax/data-layer', async (importOriginal) => {
+          const actual = await importOriginal<typeof import('@digitax/data-layer')>()
+          return { ...actual, ...createDataLayerMock() }
+        })
+
+        beforeEach(resetDataLayerMock)
+
+        describe('sales module', () => {
+          it('reuses learned boundary support', () => {
+            useKraCreateSaleMutationMock.mockImplementationOnce(() => ({
+              mutate: vi.fn(),
+              isPending: true,
+            }))
+
+            render(<SalesModule />)
+            renderWithProviders(<SalesModule />, { wrapper: QueryClientProvider })
+            expect(true).toBe(true)
+          })
+        })
+      `,
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const exampleProfile = result.state.packages['packages/example-app']
+    const summary = await readFile(join(projectRoot, '.taro', 'summary.md'), 'utf-8')
+
+    expect(exampleProfile?.boundaryProfiles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          target: '@digitax/data-layer',
+          kind: 'data-module',
+          strategy: 'shared-module-factory',
+          supportImportPath: '@/tests/mocks/digitax-data-layer',
+          supportExports: expect.objectContaining({
+            factoryExport: 'createDataLayerMock',
+            resetExport: 'resetDataLayerMock',
+            overrideExports: ['useKraCreateSaleMutationMock'],
+          }),
+        }),
+        expect.objectContaining({
+          target: '@/tests/renderWithProviders',
+          kind: 'local-child',
+          strategy: 'provider-wrapper',
+          supportImportPath: '@/tests/renderWithProviders',
+        }),
+      ])
+    )
+    expect(exampleProfile?.boundaryExemplars).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          file: 'packages/example-app/src/sales-module.test.tsx',
+          usesCentralBoundarySupport: true,
+          usesProviderWrapper: true,
+          overrideStyle: 'stable-handles',
+        }),
+      ])
+    )
+    expect(summary).toContain('# Taro Boundary Summary')
+    expect(summary).toContain('## packages/example-app')
+    expect(summary).toContain('- Preferred render boundary: `module`')
+    expect(summary).toContain('- Collaborator categories: data-module=1, local-child=1')
+    expect(summary).toContain(
+      '- Canonical boundary support: `@/tests/mocks/digitax-data-layer`, `@/tests/renderWithProviders`'
+    )
+    expect(summary).toContain(
+      '- `@digitax/data-layer`: data-module, shared-module-factory, confidence=high, support=@/tests/mocks/digitax-data-layer'
+    )
+  })
+
   it('detects Playwright storageState assets from config during init', async () => {
     const examplePackage = join(projectRoot, 'packages', 'example-app')
     const authDir = join(examplePackage, 'playwright', '.auth')
@@ -364,5 +473,61 @@ describe('state hardening', () => {
 
     const after = await readFile(join(projectRoot, '.taro', 'state.json'), 'utf-8')
     expect(after).toBe(before)
+  })
+
+  it('preserves manually persisted playwright auth across refresh', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await mkdir(join(projectRoot, '.taro', 'playwright', '.auth'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'playwright.config.ts'),
+      `export default { use: { storageState: './playwright/.auth/user.json' } }`,
+      'utf-8'
+    )
+    await mkdir(join(examplePackage, 'playwright', '.auth'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'playwright', '.auth', 'user.json'),
+      '{"cookies":[],"origins":[]}',
+      'utf-8'
+    )
+    await writeFile(
+      join(projectRoot, '.taro', 'playwright', '.auth', 'user.json'),
+      '{"cookies":[],"origins":[]}',
+      'utf-8'
+    )
+    await writeFile(
+      join(examplePackage, 'src', 'example-app.test.tsx'),
+      "import { describe, expect, it } from 'vitest'\ndescribe('example-app', () => { it('works', () => expect(true).toBe(true)) })",
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    await persistPlaywrightAuthProfile(projectRoot, 'packages/example-app', {
+      strategy: 'storageState',
+      path: '.taro/playwright/.auth/user.json',
+      detectedAt: 'generate',
+      source: 'manual',
+    })
+
+    const refreshed = await refreshTaroState(projectRoot)
+
+    expect(result.state.packages['packages/example-app']?.playwrightAuth).toEqual({
+      strategy: 'storageState',
+      path: 'packages/example-app/playwright/.auth/user.json',
+      detectedAt: 'init',
+      source: 'detected',
+    })
+    expect(refreshed.state.packages['packages/example-app']?.playwrightAuth).toEqual({
+      strategy: 'storageState',
+      path: '.taro/playwright/.auth/user.json',
+      detectedAt: 'generate',
+      source: 'manual',
+    })
   })
 })

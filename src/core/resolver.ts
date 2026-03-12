@@ -1,20 +1,22 @@
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright'
+import { mkdir } from 'node:fs/promises'
+import { dirname } from 'node:path'
 import pc from 'picocolors'
+import { chromium, type Browser, type BrowserContext, type Page } from 'playwright'
 import type {
   DialogState,
   ElementInfo,
   NormalizedStep,
   QueryDescriptor,
-  QueryResult,
   QueryQuality,
+  QueryResult,
+  SelectorDescriptor,
+  SelectorResolutionResult,
   SemanticMarkerAssertion,
   SemanticMarkerAssertionProofKind,
   SemanticMarkerAssertionResolution,
   SemanticMarkerAssertionUnresolvedReason,
   SemanticMarkerCandidate,
   SemanticMarkerLink,
-  SelectorDescriptor,
-  SelectorResolutionResult,
   UnresolvedSemanticMarker,
   VisualState,
 } from '../types/recording.js'
@@ -24,10 +26,9 @@ import {
   isDisplayValueQueryMethod,
   isLabelTextQueryMethod,
   isPlaceholderTextQueryMethod,
-  isRoleQueryMethod,
   isTestIdQueryMethod,
   isTextQueryMethod,
-  toSingularAsyncQueryMethod,
+  toSingularAsyncQueryMethod
 } from './query-policy.js'
 
 /**
@@ -59,6 +60,11 @@ const AUTH_PATH_PATTERN =
 const AUTH_COPY_PATTERN =
   /\b(sign in|log in|continue with|single sign-on|sso|password|verification code|one-time code|two-factor|2fa|multi-factor|mfa|confirm it'?s you)\b/i
 
+const PLAYWRIGHT_CAPTURE_FAILURE_PREFIX = 'Playwright visual capture failed.'
+const PLAYWRIGHT_SELECTOR_INSPECTION_ERROR_PREFIX = 'Playwright selector inspection failed.'
+const PLAYWRIGHT_AUTH_RECOVERY_POLL_MS = 1000
+const PLAYWRIGHT_PAGE_CONFIRMATION_POLL_MS = 250
+
 /**
  * Escapes single quotes in strings for use in generated query code.
  */
@@ -72,6 +78,10 @@ function escapeSingleQuote(str: string): string {
  */
 function sanitizeSelectorForTestId(selector: string): string {
   return selector.replace(/[^a-zA-Z0-9-]/g, '-').replace(/^-+|-+$/g, '')
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Unknown error'
 }
 
 export interface FoundSelectorInspectionResult {
@@ -867,9 +877,17 @@ async function capturePageScreenshot(
     return undefined
   }
 
+  await mkdir(screenshotDir, { recursive: true })
   const screenshotPath = `${screenshotDir}/${sanitizeCaptureSegment(nameHint)}.png`
   await page.screenshot({ path: screenshotPath, fullPage: true })
   return screenshotPath
+}
+
+interface VisualPageSnapshot {
+  authCheckpoint: AuthCheckpointDetection
+  dialog: DialogState | null
+  element: ElementInfo | null
+  pageTitle: string
 }
 
 export interface CaptureVisualStateAuthOptions {
@@ -883,13 +901,443 @@ export interface CaptureVisualStateExpectations {
   url?: string
 }
 
+export interface CaptureVisualStateRecoveryOptions {
+  enabled: boolean
+  instructionsPath?: string
+  persistedAuthPath?: string
+  saveStorageStatePath?: string
+  timeoutMs: number
+}
+
 export interface CaptureVisualStateOptions {
   auth?: CaptureVisualStateAuthOptions | null
+  authRecovery?: CaptureVisualStateRecoveryOptions
   expected?: CaptureVisualStateExpectations
   reason: string
   screenshotDir?: string
   selector?: string
   timeoutMs?: number
+}
+
+async function openCaptureContext(
+  browser: Browser,
+  auth?: CaptureVisualStateAuthOptions | null
+): Promise<BrowserContext> {
+  if (auth?.strategy === 'storageState') {
+    return browser.newContext({ storageState: auth.path })
+  }
+
+  return browser.newContext()
+}
+
+async function openCapturePage(params: {
+  auth?: CaptureVisualStateAuthOptions | null
+  headless: boolean
+  timeoutMs: number
+  url: string
+}): Promise<{
+  browser: Browser
+  context: BrowserContext
+  page: Page
+}> {
+  const { auth, headless, timeoutMs, url } = params
+  const browser = await chromium.launch({ headless })
+  const context = await openCaptureContext(browser, auth)
+  const page = await context.newPage()
+
+  await page.goto(url, { timeout: timeoutMs, waitUntil: 'domcontentloaded' })
+
+  return { browser, context, page }
+}
+
+async function inspectVisualPage(
+  page: Page,
+  options: {
+    expected?: CaptureVisualStateExpectations
+    selector?: string
+  }
+): Promise<VisualPageSnapshot> {
+  const pageTitle = await page.title()
+  const element = await readOptionalElementInfo(page, options.selector)
+  const authCheckpoint = await detectAuthCheckpoint(page, {
+    actualTitle: pageTitle,
+    element,
+    expectedLandmarks: options.expected?.landmarks,
+    expectedTitle: options.expected?.title,
+    expectedUrl: options.expected?.url,
+    selector: options.selector,
+  })
+  const dialog = await extractDialogState(page)
+
+  return {
+    authCheckpoint,
+    dialog,
+    element,
+    pageTitle,
+  }
+}
+
+function buildAuthInterruptSignals(params: {
+  authCheckpoint: AuthCheckpointDetection
+  expected?: CaptureVisualStateExpectations
+  selector?: string
+}): string[] {
+  const { authCheckpoint, expected, selector } = params
+  const signals = [...authCheckpoint.authSignals]
+
+  if (authCheckpoint.routeMismatch) {
+    signals.push('route-mismatch')
+  }
+  if (authCheckpoint.pageTitleMismatch) {
+    signals.push('title-mismatch')
+  }
+  if (authCheckpoint.missingExpectedSelector && selector) {
+    signals.push('expected-selector-missing')
+  }
+  if (expected?.landmarks?.length && authCheckpoint.missingLandmarks.length > 0) {
+    signals.push('expected-landmarks-missing')
+  }
+
+  return signals
+}
+
+function toAuthInterruptedVisualState(params: {
+  auth?: CaptureVisualStateAuthOptions | null
+  expected?: CaptureVisualStateExpectations
+  reason: string
+  screenshotPath?: string
+  selector?: string
+  snapshot: VisualPageSnapshot
+  url: string
+}): VisualState {
+  const { auth, expected, reason, screenshotPath, selector, snapshot, url } = params
+
+  return {
+    capturedAt: new Date().toISOString(),
+    dialog: snapshot.dialog,
+    element: snapshot.element,
+    finalUrl: snapshot.authCheckpoint.reachedUrl,
+    interrupt: {
+      kind: 'auth-required',
+      actualTitle: snapshot.pageTitle,
+      expectedTitle: expected?.title,
+      expectedUrl: expected?.url,
+      path: auth?.path,
+      reachedUrl: snapshot.authCheckpoint.reachedUrl,
+      signals: buildAuthInterruptSignals({
+        authCheckpoint: snapshot.authCheckpoint,
+        expected,
+        selector,
+      }),
+      strategy: auth?.strategy,
+    },
+    matchedLandmarks: snapshot.authCheckpoint.matchedLandmarks,
+    pageTitle: snapshot.pageTitle,
+    reason,
+    screenshotPath,
+    selector,
+    startingPointConfirmed: false,
+    status: 'auth-interrupted',
+    url,
+    warnings: [
+      `Authentication required before visual capture could reach ${expected?.url ?? url}.`,
+    ],
+  }
+}
+
+function toCapturedVisualState(params: {
+  reason: string
+  screenshotPath?: string
+  selector?: string
+  snapshot: VisualPageSnapshot
+  startingPointConfirmed?: boolean
+  url: string
+  warnings?: string[]
+}): VisualState {
+  const {
+    reason,
+    screenshotPath,
+    selector,
+    snapshot,
+    startingPointConfirmed,
+    url,
+    warnings = [],
+  } = params
+
+  return {
+    capturedAt: new Date().toISOString(),
+    dialog: snapshot.dialog,
+    element: snapshot.element,
+    finalUrl: snapshot.authCheckpoint.reachedUrl,
+    matchedLandmarks: snapshot.authCheckpoint.matchedLandmarks,
+    pageTitle: snapshot.pageTitle,
+    reason,
+    screenshotPath,
+    selector,
+    startingPointConfirmed,
+    status: 'captured',
+    url,
+    warnings,
+  }
+}
+
+function toCaptureFailedVisualState(params: {
+  reason: string
+  selector?: string
+  url: string
+  error: unknown
+}): VisualState {
+  const { reason, selector, url, error } = params
+  const message = `${PLAYWRIGHT_CAPTURE_FAILURE_PREFIX} ${getErrorMessage(error)}`
+
+  return {
+    capturedAt: new Date().toISOString(),
+    dialog: null,
+    element: null,
+    finalUrl: url,
+    matchedLandmarks: [],
+    pageTitle: '',
+    reason,
+    selector,
+    status: 'capture-failed',
+    url,
+    warnings: [message],
+  }
+}
+
+function isStartingPointConfirmed(params: {
+  expected?: CaptureVisualStateExpectations
+  selector?: string
+  snapshot: VisualPageSnapshot
+}): boolean {
+  const { expected, selector, snapshot } = params
+  if (snapshot.authCheckpoint.interrupt) {
+    return false
+  }
+  if (snapshot.authCheckpoint.routeMismatch || snapshot.authCheckpoint.pageTitleMismatch) {
+    return false
+  }
+
+  const landmarkSatisfied =
+    (expected?.landmarks?.length ?? 0) === 0
+      ? true
+      : snapshot.authCheckpoint.matchedLandmarks.length > 0
+  const selectorSatisfied = selector ? snapshot.element !== null : true
+
+  return selectorSatisfied && landmarkSatisfied
+}
+
+function buildStartingPointWarnings(params: {
+  expected?: CaptureVisualStateExpectations
+  selector?: string
+  snapshot: VisualPageSnapshot
+}): string[] {
+  const { expected, selector, snapshot } = params
+  const warnings: string[] = []
+
+  if (snapshot.authCheckpoint.routeMismatch && expected?.url) {
+    warnings.push(
+      `Playwright did not reach the recorded URL before visual capture finished. Expected ${expected.url}, reached ${snapshot.authCheckpoint.reachedUrl}.`
+    )
+  }
+
+  if (snapshot.authCheckpoint.pageTitleMismatch && expected?.title) {
+    warnings.push(
+      `Playwright did not confirm the recorded page title before visual capture finished. Expected ${expected.title}, reached ${snapshot.pageTitle || '(empty title)'}.`
+    )
+  }
+
+  if (selector && snapshot.element === null) {
+    warnings.push(
+      `Playwright could not confirm the starting selector ${selector} before visual capture finished.`
+    )
+  }
+
+  if ((expected?.landmarks?.length ?? 0) > 0 && snapshot.authCheckpoint.matchedLandmarks.length === 0) {
+    warnings.push(
+      'Playwright did not confirm any expected starting landmarks before visual capture finished.'
+    )
+  }
+
+  return warnings
+}
+
+async function waitForStartingPoint(params: {
+  expected?: CaptureVisualStateExpectations
+  page: Page
+  selector?: string
+  timeoutMs: number
+}): Promise<{
+  snapshot: VisualPageSnapshot
+  startingPointConfirmed: boolean
+}> {
+  const deadline = Date.now() + params.timeoutMs
+  let snapshot = await inspectVisualPage(params.page, {
+    expected: params.expected,
+    selector: params.selector,
+  })
+
+  while (Date.now() <= deadline) {
+    const startingPointConfirmed = isStartingPointConfirmed({
+      expected: params.expected,
+      selector: params.selector,
+      snapshot,
+    })
+
+    if (snapshot.authCheckpoint.interrupt || startingPointConfirmed) {
+      return {
+        snapshot,
+        startingPointConfirmed,
+      }
+    }
+
+    const remainingMs = deadline - Date.now()
+    if (remainingMs <= 0) {
+      break
+    }
+
+    await params.page.waitForTimeout(
+      Math.min(PLAYWRIGHT_PAGE_CONFIRMATION_POLL_MS, remainingMs)
+    )
+    snapshot = await inspectVisualPage(params.page, {
+      expected: params.expected,
+      selector: params.selector,
+    })
+  }
+
+  return {
+    snapshot,
+    startingPointConfirmed: isStartingPointConfirmed({
+      expected: params.expected,
+      selector: params.selector,
+      snapshot,
+    }),
+  }
+}
+
+async function attemptAuthRecovery(params: {
+  auth?: CaptureVisualStateAuthOptions | null
+  context: BrowserContext
+  initialInterrupt: VisualState
+  page: Page
+  reason: string
+  recovery: CaptureVisualStateRecoveryOptions
+  screenshotDir?: string
+  selector?: string
+  url: string
+  expected?: CaptureVisualStateExpectations
+}): Promise<VisualState> {
+  const { context, expected, initialInterrupt, page, reason, recovery, selector, url } = params
+  const startedAt = new Date().toISOString()
+  const deadline = Date.now() + recovery.timeoutMs
+
+  try {
+    while (Date.now() <= deadline) {
+      const snapshot = await inspectVisualPage(page, { expected, selector })
+      if (
+        isStartingPointConfirmed({
+          expected,
+          selector,
+          snapshot,
+        })
+      ) {
+        if (recovery.saveStorageStatePath) {
+          await mkdir(dirname(recovery.saveStorageStatePath), { recursive: true })
+          await context.storageState({ path: recovery.saveStorageStatePath })
+        }
+        const screenshotPath = await capturePageScreenshot(
+          page,
+          params.screenshotDir,
+          'starting-point'
+        )
+
+        return {
+          authRecovery: {
+            completedAt: new Date().toISOString(),
+            instructionsPath: recovery.instructionsPath,
+            persistedAuthPath: recovery.persistedAuthPath,
+            startedAt,
+            status: 'succeeded',
+            timeoutMs: recovery.timeoutMs,
+          },
+          capturedAt: new Date().toISOString(),
+          dialog: snapshot.dialog,
+          element: snapshot.element,
+          finalUrl: snapshot.authCheckpoint.reachedUrl,
+          interrupt: initialInterrupt.interrupt,
+          matchedLandmarks: snapshot.authCheckpoint.matchedLandmarks,
+          pageTitle: snapshot.pageTitle,
+          reason,
+          screenshotPath,
+          selector,
+          startingPointConfirmed: true,
+          status: 'auth-recovered',
+          url,
+          warnings: [],
+        }
+      }
+
+      const remainingMs = deadline - Date.now()
+      if (remainingMs <= 0) {
+        break
+      }
+
+      await page.waitForTimeout(Math.min(PLAYWRIGHT_AUTH_RECOVERY_POLL_MS, remainingMs))
+    }
+
+    return {
+      authRecovery: {
+        completedAt: new Date().toISOString(),
+        instructionsPath: recovery.instructionsPath,
+        persistedAuthPath: recovery.persistedAuthPath,
+        startedAt,
+        status: 'timed-out',
+        timeoutMs: recovery.timeoutMs,
+      },
+      capturedAt: new Date().toISOString(),
+      dialog: initialInterrupt.dialog,
+      element: initialInterrupt.element,
+      finalUrl: initialInterrupt.finalUrl,
+      interrupt: initialInterrupt.interrupt,
+      matchedLandmarks: initialInterrupt.matchedLandmarks,
+      pageTitle: initialInterrupt.pageTitle,
+      reason,
+      screenshotPath: initialInterrupt.screenshotPath,
+      selector,
+      status: 'auth-recovery-timed-out',
+      url,
+      warnings: [
+        `Timed out waiting ${Math.round(recovery.timeoutMs / 1000)}s for manual authentication.`,
+      ],
+    }
+  } catch (error) {
+    const message = getErrorMessage(error)
+
+    return {
+      authRecovery: {
+        completedAt: new Date().toISOString(),
+        error: message,
+        instructionsPath: recovery.instructionsPath,
+        persistedAuthPath: recovery.persistedAuthPath,
+        startedAt,
+        status: 'failed',
+        timeoutMs: recovery.timeoutMs,
+      },
+      capturedAt: new Date().toISOString(),
+      dialog: initialInterrupt.dialog,
+      element: initialInterrupt.element,
+      finalUrl: initialInterrupt.finalUrl,
+      interrupt: initialInterrupt.interrupt,
+      matchedLandmarks: initialInterrupt.matchedLandmarks,
+      pageTitle: initialInterrupt.pageTitle,
+      reason,
+      screenshotPath: initialInterrupt.screenshotPath,
+      selector,
+      status: 'auth-recovery-failed',
+      url,
+      warnings: [`Playwright authentication could not be completed: ${message}`],
+    }
+  }
 }
 
 /**
@@ -899,109 +1347,88 @@ export async function captureVisualState(
   url: string,
   options: CaptureVisualStateOptions
 ): Promise<VisualState | null> {
-  const { auth, expected, reason, screenshotDir, selector, timeoutMs = 5000 } = options
+  const timeoutMs = options.timeoutMs ?? 5000
+  const headless = !(options.authRecovery?.enabled ?? false)
   let browser: Browser | null = null
-  let context: BrowserContext | null = null
 
   try {
-    browser = await chromium.launch({ headless: true })
-    if (auth?.strategy === 'storageState') {
-      context = await browser.newContext({ storageState: auth.path })
-    }
-    const page = context ? await context.newPage() : await browser.newPage()
-
-    await page.goto(url, {
-      timeout: timeoutMs,
-      waitUntil: 'domcontentloaded',
-    })
-
-    const pageTitle = await page.title()
-    const element = await readOptionalElementInfo(page, selector)
-    const authCheckpoint = await detectAuthCheckpoint(page, {
-      actualTitle: pageTitle,
-      element,
-      expectedLandmarks: expected?.landmarks,
-      expectedTitle: expected?.title,
-      expectedUrl: expected?.url,
-      selector,
-    })
-    const dialog = await extractDialogState(page)
-
-    const screenshotPath = await capturePageScreenshot(
-      page,
-      screenshotDir,
-      pageTitle || (authCheckpoint.interrupt ? 'auth-interrupt' : reason)
-    )
-
-    if (authCheckpoint.interrupt) {
-      const signals = [...authCheckpoint.authSignals]
-      if (authCheckpoint.routeMismatch) {
-        signals.push('route-mismatch')
-      }
-      if (authCheckpoint.pageTitleMismatch) {
-        signals.push('title-mismatch')
-      }
-      if (authCheckpoint.missingExpectedSelector && selector) {
-        signals.push('expected-selector-missing')
-      }
-      if (expected?.landmarks?.length && authCheckpoint.missingLandmarks.length > 0) {
-        signals.push('expected-landmarks-missing')
-      }
-
-      return {
-        capturedAt: new Date().toISOString(),
-        dialog,
-        element,
-        finalUrl: authCheckpoint.reachedUrl,
-        interrupt: {
-          kind: 'auth-required',
-          actualTitle: pageTitle,
-          expectedTitle: expected?.title,
-          expectedUrl: expected?.url,
-          path: auth?.path,
-          reachedUrl: authCheckpoint.reachedUrl,
-          signals,
-          strategy: auth?.strategy,
-        },
-        pageTitle,
-        reason,
-        screenshotPath,
-        selector,
-        status: 'auth-interrupted',
-        url,
-        warnings: [
-          `Authentication required before visual capture could reach ${expected?.url ?? url}.`,
-        ],
-      }
-    }
-
-    return {
-      capturedAt: new Date().toISOString(),
-      dialog,
-      element,
-      finalUrl: authCheckpoint.reachedUrl,
-      pageTitle,
-      reason,
-      screenshotPath,
-      selector,
-      status: 'captured',
+    const captureSession = await openCapturePage({
+      auth: options.auth,
+      headless,
+      timeoutMs,
       url,
-      warnings: [],
-    }
-  } catch (error) {
-    console.warn(
-      pc.yellow('[taro]') +
-        pc.dim(' VIS-01:') +
-        ` Failed to capture visual state for ${url}: ${error instanceof Error ? error.message : 'Unknown error'}`
+    })
+    browser = captureSession.browser
+
+    const { snapshot, startingPointConfirmed } = await waitForStartingPoint({
+      expected: options.expected,
+      page: captureSession.page,
+      selector: options.selector,
+      timeoutMs,
+    })
+    const screenshotPath = await capturePageScreenshot(
+      captureSession.page,
+      options.screenshotDir,
+      snapshot.authCheckpoint.interrupt
+        ? 'auth-checkpoint'
+        : startingPointConfirmed
+          ? 'starting-point'
+          : options.reason
     )
-    return null
+
+    if (snapshot.authCheckpoint.interrupt) {
+      const interruptedState = toAuthInterruptedVisualState({
+        auth: options.auth,
+        expected: options.expected,
+        reason: options.reason,
+        screenshotPath,
+        selector: options.selector,
+        snapshot,
+        url,
+      })
+
+      if (options.authRecovery?.enabled) {
+        return await attemptAuthRecovery({
+          auth: options.auth,
+          context: captureSession.context,
+          expected: options.expected,
+          initialInterrupt: interruptedState,
+          page: captureSession.page,
+          reason: options.reason,
+          recovery: options.authRecovery,
+          screenshotDir: options.screenshotDir,
+          selector: options.selector,
+          url,
+        })
+      }
+
+      return interruptedState
+    }
+
+    return toCapturedVisualState({
+      reason: options.reason,
+      screenshotPath,
+      selector: options.selector,
+      snapshot,
+      startingPointConfirmed,
+      url,
+      warnings: startingPointConfirmed
+        ? []
+        : buildStartingPointWarnings({
+            expected: options.expected,
+            selector: options.selector,
+            snapshot,
+          }),
+    })
+  } catch (error) {
+    return toCaptureFailedVisualState({
+      error,
+      reason: options.reason,
+      selector: options.selector,
+      url,
+    })
   } finally {
-    if (context) {
-      await context.close().catch(() => undefined)
-    }
-    if (browser) {
-      await browser.close()
-    }
+    await browser?.close().catch(() => undefined)
   }
 }
 
@@ -1121,32 +1548,31 @@ export async function inspectSelector(
   let browser: Browser | null = null
 
   try {
-    browser = await chromium.launch({ headless: true })
-    const page = await browser.newPage()
-
-    await page.goto(url, {
-      timeout: timeoutMs,
-      waitUntil: 'domcontentloaded',
+    const inspectionSession = await openCapturePage({
+      headless: true,
+      timeoutMs,
+      url,
     })
+    browser = inspectionSession.browser
 
-    const count = await page.locator(cssSelector).count()
-    if (count === 0) {
-      return { status: 'selector-not-found' }
+    const element = await readOptionalElementInfo(inspectionSession.page, cssSelector)
+    if (!element) {
+      return {
+        status: 'selector-not-found',
+      }
     }
 
     return {
       status: 'found',
-      element: await readElementInfo(page, cssSelector),
+      element,
     }
   } catch (error) {
     return {
       status: 'inspection-failed',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: `${PLAYWRIGHT_SELECTOR_INSPECTION_ERROR_PREFIX} ${getErrorMessage(error)}`,
     }
   } finally {
-    if (browser) {
-      await browser.close()
-    }
+    await browser?.close().catch(() => undefined)
   }
 }
 
@@ -1278,8 +1704,7 @@ export function selectMatcher(info: ElementInfo, action: string): string {
 }
 
 /**
- * Inspects a single element on a page using Playwright.
- * Launches headless Chromium, navigates to URL, evaluates element.
+ * Inspects a single element on a page using a runtime-owned Playwright browser.
  *
  * @param url - URL to navigate to
  * @param cssSelector - CSS selector to locate element
@@ -1325,36 +1750,28 @@ export async function inspectElements(
   let browser: Browser | null = null
 
   try {
-    browser = await chromium.launch({ headless: true })
-    const page = await browser.newPage()
-
-    await page.goto(url, {
-      timeout: timeoutMs,
-      waitUntil: 'domcontentloaded',
+    const inspectionSession = await openCapturePage({
+      headless: true,
+      timeoutMs,
+      url,
     })
+    browser = inspectionSession.browser
 
     for (const selector of selectors) {
-      try {
-        result.set(selector, await readElementInfo(page, selector))
-      } catch {
-        // On individual selector failure, set to null and continue
-        result.set(selector, null)
-      }
+      result.set(selector, await readOptionalElementInfo(inspectionSession.page, selector))
     }
   } catch (error) {
-    // On browser/page error, set all selectors to null
+    const message = `${PLAYWRIGHT_SELECTOR_INSPECTION_ERROR_PREFIX} ${getErrorMessage(error)}`
     console.warn(
       pc.yellow('[taro]') +
         pc.dim(' QRY-02:') +
-        ` Failed to inspect elements on ${url}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        ` Failed to inspect elements on ${url}: ${message}`
     )
     for (const selector of selectors) {
       result.set(selector, null)
     }
   } finally {
-    if (browser) {
-      await browser.close()
-    }
+    await browser?.close().catch(() => undefined)
   }
 
   return result

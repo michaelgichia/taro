@@ -62,6 +62,11 @@ describe('example flow', () => {
       failing: false,
       message: 'No semantic markers were detected in this run.',
     })
+    expect(score.markerDiagnostics).toEqual({
+      canonicalRecoveries: 0,
+      placementConflicts: 0,
+      placementCorrections: 0,
+    })
     expect(score.reasons).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -137,6 +142,11 @@ describe('example flow', () => {
       failing: false,
       message: 'No semantic markers were detected in this run.',
     })
+    expect(score.markerDiagnostics).toEqual({
+      canonicalRecoveries: 0,
+      placementConflicts: 0,
+      placementCorrections: 0,
+    })
   })
 
   it('returns normalized marker coverage and deterministic marker gate metadata when context is provided', () => {
@@ -154,17 +164,21 @@ describe('example flow', () => {
       unresolved: 2,
     })
     expect(withCoverage.markerQualityGate).toEqual({
-      status: 'pass',
-      reason: 'markers-converted',
-      failing: false,
-      message: 'Marker-derived assertions were emitted for this run.',
+      status: 'warn',
+      reason: 'markers-partially-converted',
+      failing: true,
+      message: 'Marker-derived assertions were emitted, but unresolved semantic markers remain.',
     })
+    expect(withCoverage.requiresReview).toBe(true)
 
     const zeroConversion = scoreGeneratedTest("test('flow', () => expect(true).toBe(true))", {
       markerCoverage: {
         detected: 3,
         emitted: 0,
         unresolved: 1,
+      },
+      markerDiagnostics: {
+        placementCorrections: 1,
       },
     })
 
@@ -174,10 +188,15 @@ describe('example flow', () => {
       unresolved: 1,
     })
     expect(zeroConversion.markerQualityGate).toEqual({
-      status: 'fail',
+      status: 'warn',
       reason: 'zero-marker-conversion',
       failing: true,
       message: 'Semantic markers were detected, but no marker-derived assertions were emitted.',
+    })
+    expect(zeroConversion.markerDiagnostics).toEqual({
+      canonicalRecoveries: 0,
+      placementConflicts: 0,
+      placementCorrections: 1,
     })
     expect(zeroConversion.reasons).toEqual(
       expect.arrayContaining([
@@ -185,10 +204,14 @@ describe('example flow', () => {
           code: 'marker-quality-gate-fail',
           impact: 'negative',
         }),
+        expect.objectContaining({
+          code: 'marker-placement-corrections',
+          impact: 'negative',
+        }),
       ])
     )
     expect(zeroConversion.blockers).toContain(
-      'QUAL-02 failed: Semantic markers were detected, but no marker-derived assertions were emitted.'
+      'QUAL-02 warning: Semantic markers were detected, but no marker-derived assertions were emitted.'
     )
     expect(zeroConversion.requiresReview).toBe(true)
   })

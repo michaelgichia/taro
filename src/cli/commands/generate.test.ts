@@ -64,6 +64,8 @@ const { taroStateControl } = vi.hoisted(() => ({
       }>,
       repeatedMockTargets: [],
       sharedMockFactories: [],
+      boundaryProfiles: [],
+      boundaryExemplars: [],
       inlineSafeMockTargets: [],
       mutationLifecycles: [],
       instabilityWarnings: [],
@@ -77,6 +79,10 @@ const { taroStateControl } = vi.hoisted(() => ({
       appliedOverrides: [] as string[],
       forbidMocks: [] as string[],
       preferredSharedMocks: {},
+      boundaryPolicies: {},
+      preferredBoundaryImplementations: {},
+      forbidBoundaryTargets: [] as string[],
+      effectiveQueryHookPolicy: 'avoid' as const,
     },
   },
 }))
@@ -107,6 +113,8 @@ vi.mock('../../core/state.js', async (importOriginal) => {
         packageCount: 1,
         renderHelperCount: 0,
         repeatedMockTargetCount: 0,
+        boundaryProfileCount: 0,
+        lowConfidenceBoundaryCount: 0,
         fixtureRootCount: 0,
         migratedLegacyState: false,
         overridePackageCount: 0,
@@ -141,6 +149,8 @@ vi.mock('../../core/state.js', async (importOriginal) => {
         packageCount: 1,
         renderHelperCount: 0,
         repeatedMockTargetCount: 0,
+        boundaryProfileCount: 0,
+        lowConfidenceBoundaryCount: 0,
         fixtureRootCount: 0,
         migratedLegacyState: false,
         overridePackageCount: 0,
@@ -338,8 +348,12 @@ async function createInlineJsFixture(label: string, source: string) {
   return { ...sandbox, recordingPath }
 }
 
-async function runGenerate(args: string[], cwdPath: string) {
-  const command = createGenerateCommand()
+async function runGenerate(
+  args: string[],
+  cwdPath: string,
+  context?: Parameters<typeof createGenerateCommand>[0]
+) {
+  const command = createGenerateCommand(context)
   const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
   const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
   const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
@@ -382,6 +396,12 @@ beforeEach(() => {
   taroStateControl.profile.effectiveRenderHelper = null
   taroStateControl.profile.appliedOverrides = []
   taroStateControl.profile.playwrightAuth = null
+  taroStateControl.profile.boundaryProfiles = []
+  taroStateControl.profile.boundaryExemplars = []
+  taroStateControl.profile.boundaryPolicies = {}
+  taroStateControl.profile.preferredBoundaryImplementations = {}
+  taroStateControl.profile.forbidBoundaryTargets = []
+  taroStateControl.profile.effectiveQueryHookPolicy = 'avoid'
   planJsSuiteMock.mockClear()
   resolveSelectorMock.mockReset()
   resolveSelectorMock.mockImplementation(defaultResolveSelector)
@@ -526,6 +546,304 @@ test('Example flow', async () => {
     expect(written).toContain('render(<FeatureFlow />)')
   })
 
+  it('runs Playwright page confirmation before suite planning and uses confirmed landmarks to steer context matching', async () => {
+    const fixture = await createProjectInlineJsFixture(
+      'preflight-page-confirmation',
+      `/**
+ * ${environmentUrlMarker}
+ * ${environmentOptionsMarker} { "url": "http://localhost:3001/example" }
+ */
+const {screen} = require('@testing-library/dom')
+const {default: userEvent} = require('@testing-library/user-event')
+require('@testing-library/jest-dom')
+
+test('Example flow', async () => {
+  expect(location.href).toBe('http://localhost:3001/example')
+  await userEvent.click(screen.getByRole('button', { name: 'Open Example Flow' }))
+  await userEvent.click(screen.getByText('General Invoice details (optional)'))
+  await userEvent.click(screen.getByText('Customer PIN'))
+})`
+    )
+    const featureFlowPath = join(
+      fixture.outputDir,
+      'packages',
+      'example-app',
+      'src',
+      'features',
+      'FeatureFlow.tsx'
+    )
+    const reverseInvoicePath = join(
+      fixture.outputDir,
+      'src',
+      'reverse-invoice',
+      'ReverseInvoice.tsx'
+    )
+    const outputPath = join(dirname(featureFlowPath), 'FeatureFlow.test.tsx')
+    await mkdir(dirname(featureFlowPath), { recursive: true })
+    await mkdir(dirname(reverseInvoicePath), { recursive: true })
+    await writeFile(
+      featureFlowPath,
+      `
+        export default function FeatureFlow() {
+          return (
+            <>
+              <button>Open Example Flow</button>
+              <h1>Review Example Flow</h1>
+            </>
+          )
+        }
+      `,
+      'utf-8'
+    )
+    await writeFile(
+      reverseInvoicePath,
+      `
+        export default function ReverseInvoice() {
+          return (
+            <>
+              <h1>General Invoice details (optional)</h1>
+              <p>Customer PIN</p>
+            </>
+          )
+        }
+      `,
+      'utf-8'
+    )
+    captureVisualStateMock.mockResolvedValue({
+      capturedAt: new Date().toISOString(),
+      dialog: null,
+      element: null,
+      finalUrl: 'http://localhost:3001/example',
+      matchedLandmarks: ['Open Example Flow'],
+      pageTitle: 'DigiTax',
+      reason: 'landmark-confirmation',
+      status: 'captured',
+      url: 'http://localhost:3001/example',
+      warnings: [],
+    })
+
+    const exampleProfile = {
+      ...structuredClone(taroStateControl.profile),
+      packagePath: 'packages/example-app',
+      packageName: '@repo/example-app',
+      renderTargets: [],
+      effectiveRunner: 'vitest' as const,
+    }
+
+    taroStateControl.statePackages = {
+      '.': taroStateControl.profile,
+      'packages/example-app': exampleProfile,
+    }
+
+    const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
+    const createdPath = result.logs.match(/Created: (.+\.test\.tsx)/)?.[1]
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.logs).toContain('Page-confirmed context: Open Example Flow')
+    expect(result.logs).toContain('packages/example-app/src/features/FeatureFlow.tsx')
+    expect(result.logs).toContain(
+      'Context-selected package profile packages/example-app: packages/example-app/src/features/FeatureFlow.tsx matched recording text evidence.'
+    )
+    expect(createdPath?.replace(/^\/private(?=\/var\/)/, '')).toBe(
+      outputPath.replace(/^\/private(?=\/var\/)/, '')
+    )
+    expect(captureVisualStateMock.mock.invocationCallOrder[0]).toBeLessThan(
+      planJsSuiteMock.mock.invocationCallOrder[0]
+    )
+    const written = await readFile(createdPath!, 'utf-8')
+    expect(written).toContain("import FeatureFlow from './FeatureFlow'")
+  })
+
+  it('reuses learned central boundary support for imported collaborator modules', async () => {
+    const fixture = await createProjectInlineJsFixture(
+      'boundary-support-reuse',
+      `/**
+ * ${environmentUrlMarker}
+ * ${environmentOptionsMarker} { "url": "http://localhost:3001/example" }
+ */
+const {screen} = require('@testing-library/dom')
+const {default: userEvent} = require('@testing-library/user-event')
+require('@testing-library/jest-dom')
+
+test('Example flow', async () => {
+  expect(location.href).toBe('http://localhost:3001/example')
+  await userEvent.click(screen.getByRole('button', { name: 'Open Example Flow' }))
+  await userEvent.click(screen.getByRole('heading', { name: 'Review Example Flow' }))
+})`
+    )
+    const featureFlowPath = join(
+      fixture.outputDir,
+      'packages',
+      'example-app',
+      'src',
+      'features',
+      'FeatureFlow.tsx'
+    )
+    const outputPath = join(dirname(featureFlowPath), 'FeatureFlow.test.tsx')
+    await mkdir(dirname(featureFlowPath), { recursive: true })
+    await writeFile(
+      featureFlowPath,
+      `
+        import { useKraCreateSaleMutation, useKraItemsQuery } from '@digitax/data-layer'
+
+        export default function FeatureFlow() {
+          useKraItemsQuery()
+          useKraCreateSaleMutation()
+
+          return (
+            <>
+              <button>Open Example Flow</button>
+              <h1>Review Example Flow</h1>
+            </>
+          )
+        }
+      `,
+      'utf-8'
+    )
+
+    const exampleProfile = {
+      ...structuredClone(taroStateControl.profile),
+      packagePath: 'packages/example-app',
+      packageName: '@repo/example-app',
+      effectiveRunner: 'vitest' as const,
+      boundaryProfiles: [
+        {
+          target: '@digitax/data-layer',
+          kind: 'data-module' as const,
+          strategy: 'shared-module-factory' as const,
+          supportImportPath: '@/tests/mocks/digitax-data-layer',
+          supportPath: 'packages/example-app/src/tests/mocks/digitax-data-layer.ts',
+          supportExports: {
+            factoryExport: 'createDataLayerMock',
+            resetExport: 'resetDataLayerMock',
+            overrideExports: ['useKraCreateSaleMutationMock'],
+            spyExports: [],
+            fixtureExports: [],
+          },
+          payloadSource: 'fixtures' as const,
+          confidence: 'high' as const,
+          files: ['packages/example-app/src/features/feature-flow.test.tsx'],
+          evidence: ['packages/example-app/src/features/feature-flow.test.tsx: mock target @digitax/data-layer'],
+          conflictTargets: [],
+          lowConfidenceScaffold: false,
+        },
+      ],
+    }
+
+    taroStateControl.statePackages = {
+      '.': taroStateControl.profile,
+      'packages/example-app': exampleProfile,
+    }
+
+    const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
+    const written = await readFile(outputPath, 'utf-8')
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.warnings).not.toContain('Scaffolded central boundary support')
+    expect(written).toContain(
+      "import { createDataLayerMock, resetDataLayerMock } from '@/tests/mocks/digitax-data-layer'"
+    )
+    expect(written).toContain("vi.mock('@digitax/data-layer', async (importOriginal) => {")
+    expect(written).toContain("return { ...actual, ...createDataLayerMock() }")
+    expect(written).toContain('beforeEach(() => {')
+    expect(written).toContain('resetDataLayerMock()')
+    expect(written).not.toContain('createDigitaxDataLayerMock')
+  })
+
+  it('scaffolds central boundary support when no learned collaborator profile exists', async () => {
+    const fixture = await createProjectInlineJsFixture(
+      'boundary-support-scaffold',
+      `/**
+ * ${environmentUrlMarker}
+ * ${environmentOptionsMarker} { "url": "http://localhost:3001/example" }
+ */
+const {screen} = require('@testing-library/dom')
+const {default: userEvent} = require('@testing-library/user-event')
+require('@testing-library/jest-dom')
+
+test('Example flow', async () => {
+  expect(location.href).toBe('http://localhost:3001/example')
+  await userEvent.click(screen.getByRole('button', { name: 'Open Example Flow' }))
+  await userEvent.click(screen.getByRole('heading', { name: 'Review Example Flow' }))
+})`
+    )
+    const featureFlowPath = join(
+      fixture.outputDir,
+      'packages',
+      'example-app',
+      'src',
+      'features',
+      'FeatureFlow.tsx'
+    )
+    const outputPath = join(dirname(featureFlowPath), 'FeatureFlow.test.tsx')
+    const supportPath = join(
+      fixture.outputDir,
+      'packages',
+      'example-app',
+      'src',
+      'tests',
+      'mocks',
+      'digitax-data-layer.mock.ts'
+    )
+    await mkdir(dirname(featureFlowPath), { recursive: true })
+    await writeFile(
+      featureFlowPath,
+      `
+        import { useKraCreateSaleMutation, useKraItemsQuery } from '@digitax/data-layer'
+
+        export default function FeatureFlow() {
+          useKraItemsQuery()
+          useKraCreateSaleMutation()
+
+          return (
+            <>
+              <button>Open Example Flow</button>
+              <h1>Review Example Flow</h1>
+            </>
+          )
+        }
+      `,
+      'utf-8'
+    )
+
+    const exampleProfile = {
+      ...structuredClone(taroStateControl.profile),
+      packagePath: 'packages/example-app',
+      packageName: '@repo/example-app',
+      effectiveRunner: 'vitest' as const,
+      fixtureRoots: [
+        {
+          path: 'packages/example-app/src/tests/mocks',
+          kind: 'mocks' as const,
+          source: 'directory' as const,
+        },
+      ],
+    }
+
+    taroStateControl.statePackages = {
+      '.': taroStateControl.profile,
+      'packages/example-app': exampleProfile,
+    }
+
+    const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
+    const written = await readFile(outputPath, 'utf-8')
+    const scaffold = await readFile(supportPath, 'utf-8')
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.warnings).toContain('Scaffolded central boundary support for @digitax/data-layer')
+    expect(result.warnings).toContain('Manual review required')
+    expect(written).toContain(
+      "import { createDigitaxDataLayerMock, resetDigitaxDataLayerMock } from '../tests/mocks/digitax-data-layer.mock'"
+    )
+    expect(written).toContain("vi.mock('@digitax/data-layer', async (importOriginal) => {")
+    expect(written).toContain('return { ...actual, ...createDigitaxDataLayerMock() }')
+    expect(written).not.toContain('useKraItemsQuery:')
+    expect(scaffold).toContain('export const useKraCreateSaleMutationMock = vi.fn')
+    expect(scaffold).toContain('export const useKraItemsQueryMock = vi.fn')
+    expect(scaffold).toContain('export function createDigitaxDataLayerMock()')
+    expect(scaffold).toContain('export function resetDigitaxDataLayerMock()')
+  })
+
   it('keeps selector degradation explicit when recorder JS has no URL evidence', async () => {
     const fixture = await createRecordingFixture('no-url', (source) =>
       source
@@ -584,7 +902,10 @@ test('Semantic marker flow', async () => {
     )
     expect(result.logs).toContain('markers: detected=2, emitted=1, unresolved=1')
     expect(result.logs).toContain('[taro] Marker coverage:')
-    expect(result.logs).toContain('QUAL-02 gate: PASS (markers-converted)')
+    expect(result.logs).toContain('QUAL-02 gate: WARN (markers-partially-converted)')
+    expect(result.warnings).toContain(
+      'Manual review required — this generated test is still a draft'
+    )
     expect(countOccurrences(result.warnings, 'MKR-03 unresolved-marker')).toBe(1)
     expect(result.warnings).toMatch(
       /MKR-03 unresolved-marker marker=js-step-\d+ line: \d+ reason=[a-z-]+ detail="[^"]+" hint="[^"]+"/
@@ -635,14 +956,43 @@ test('Semantic marker flow', async () => {
     )
   })
 
-  it('skips optional screenshots when --no-screenshots is provided', async () => {
+  it('skips screenshot artifacts but still runs Playwright page confirmation when --no-screenshots is provided', async () => {
     const fixture = await createRecordingFixture('skip-visuals')
 
     const result = await runGenerate(['--no-screenshots', fixture.recordingPath], fixture.outputDir)
 
     expect(result.thrown).toBeUndefined()
-    expect(result.logs).toContain('Visual capture skipped (--no-screenshots).')
-    expect(captureVisualStateMock).not.toHaveBeenCalled()
+    expect(result.logs).toContain(
+      'Screenshot artifacts skipped (--no-screenshots); Playwright page confirmation still ran.'
+    )
+    expect(captureVisualStateMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        screenshotDir: undefined,
+      })
+    )
+  })
+
+  it('reports Playwright visual capture failures and continues generation', async () => {
+    const fixture = await createRecordingFixture('mcp-visuals')
+    captureVisualStateMock.mockResolvedValue({
+      capturedAt: new Date().toISOString(),
+      dialog: null,
+      element: null,
+      finalUrl: 'http://localhost:3001/dashboard',
+      pageTitle: '',
+      reason: 'dialog-state',
+      selector: '#save',
+      status: 'capture-failed',
+      url: 'http://localhost:3001/dashboard',
+      warnings: ['Playwright visual capture failed. browser executable is missing.'],
+    })
+
+    const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.warnings).toContain('Playwright visual capture failed. browser executable is missing.')
+    expect(result.exitCode).toBeUndefined()
   })
 
   it('persists explicit storageState auth and forwards it to visual capture', async () => {
@@ -678,7 +1028,7 @@ test('Semantic marker flow', async () => {
     )
   })
 
-  it('warns and degrades gracefully when visual capture reports an auth interrupt', async () => {
+  it('fails fast in non-interactive runs when visual capture reports an auth interrupt', async () => {
     const fixture = await createRecordingFixture('auth-interrupt')
     taroStateControl.profile.playwrightAuth = {
       strategy: 'storageState',
@@ -718,11 +1068,123 @@ test('Semantic marker flow', async () => {
     expect(result.warnings).toContain(
       'Visual context unavailable: authentication required before reaching the target UI.'
     )
-    expect(result.warnings).toContain('Proceeding without visual context; generation will fall back to code context only.')
     expect(result.warnings).toContain('Reuse or replace the saved storage state with --auth /tmp/playwright/.auth/user.json.')
+    expect(result.errors).toBe('')
+    expect(result.exitCode).toBeUndefined()
   })
 
-  it('fails with exit code 1 when QUAL-02 gate fails after writing output', async () => {
+  it('persists recovered MCP auth in interactive runs and continues generation', async () => {
+    const fixture = await createRecordingFixture('auth-recovered')
+    captureVisualStateMock.mockResolvedValue({
+      authRecovery: {
+        completedAt: new Date().toISOString(),
+        persistedAuthPath: '.taro/playwright/.auth/user.json',
+        startedAt: new Date().toISOString(),
+        status: 'succeeded',
+        timeoutMs: 300000,
+      },
+      capturedAt: new Date().toISOString(),
+      dialog: null,
+      element: null,
+      finalUrl: 'http://localhost:3001/dashboard',
+      interrupt: {
+        kind: 'auth-required',
+        actualTitle: 'Sign In',
+        expectedTitle: 'DigiTax',
+        expectedUrl: 'http://localhost:3001/dashboard',
+        reachedUrl: 'http://localhost:3001/login',
+        signals: ['auth-route', 'route-mismatch'],
+        strategy: 'instructions',
+      },
+      pageTitle: 'DigiTax',
+      reason: 'dialog-state',
+      screenshotPath: '/tmp/taro-dashboard.png',
+      selector: '#save',
+      status: 'auth-recovered',
+      url: 'http://localhost:3001/dashboard',
+      warnings: [],
+    })
+
+    const result = await runGenerate(
+      [fixture.recordingPath],
+      fixture.outputDir,
+      {
+        input: { isTTY: true },
+        output: { isTTY: true },
+      }
+    )
+    const stateModule = await import('../../core/state.js')
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.errors).toBe('')
+    expect(result.logs).toContain('Visual auth recovered via Playwright runtime.')
+    expect(result.logs).toContain('Saved Playwright storageState: .taro/playwright/.auth/user.json')
+    expect(result.logs).toContain(
+      'Persisted visual auth for package .: storageState=.taro/playwright/.auth/user.json'
+    )
+    expect(vi.mocked(stateModule.persistPlaywrightAuthProfile)).toHaveBeenCalledWith(
+      expect.any(String),
+      '.',
+      expect.objectContaining({
+        strategy: 'storageState',
+        path: '.taro/playwright/.auth/user.json',
+        detectedAt: 'generate',
+        source: 'manual',
+      })
+    )
+  })
+
+  it('prints auth instructions when MCP recovery times out and stops generation', async () => {
+    const fixture = await createRecordingFixture('auth-timeout')
+    captureVisualStateMock.mockResolvedValue({
+      authRecovery: {
+        completedAt: new Date().toISOString(),
+        instructionsPath: 'instructions/auth.md',
+        persistedAuthPath: '.taro/playwright/.auth/user.json',
+        startedAt: new Date().toISOString(),
+        status: 'timed-out',
+        timeoutMs: 300000,
+      },
+      capturedAt: new Date().toISOString(),
+      dialog: null,
+      element: null,
+      finalUrl: 'http://localhost:3001/login',
+      interrupt: {
+        kind: 'auth-required',
+        actualTitle: 'Sign In',
+        expectedTitle: 'DigiTax',
+        expectedUrl: 'http://localhost:3001/dashboard',
+        reachedUrl: 'http://localhost:3001/login',
+        signals: ['auth-route', 'route-mismatch'],
+        strategy: 'instructions',
+      },
+      pageTitle: 'Sign In',
+      reason: 'dialog-state',
+      screenshotPath: '/tmp/taro-login-timeout.png',
+      selector: '#save',
+      status: 'auth-recovery-timed-out',
+      url: 'http://localhost:3001/dashboard',
+      warnings: ['Timed out waiting 300s for manual authentication.'],
+    })
+
+    const result = await runGenerate(
+      [fixture.recordingPath],
+      fixture.outputDir,
+      {
+        input: { isTTY: true },
+        output: { isTTY: true },
+      }
+    )
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.warnings).toContain('Playwright authentication timed out.')
+    expect(result.warnings).toContain('Visual auth instructions: instructions/auth.md')
+    expect(result.warnings).toContain('Timed out waiting 300s for manual authentication.')
+    expect(result.errors).toBe('')
+    expect(result.exitCode).toBeUndefined()
+  })
+
+  it('keeps zero marker conversion warning-only after writing output', async () => {
     const fixture = await createInlineJsFixture(
       'qual-gate-write-fail',
       `/**
@@ -747,12 +1209,14 @@ test('Marker gate fail in write mode', async () => {
     expect(result.thrown).toBeUndefined()
     expect(result.logs).toContain('[taro] ✓ post-write verified')
     expect(result.logs).toContain(`Created: ${outputPath}`)
-    expect(result.logs).toContain('QUAL-02 gate: FAIL (zero-marker-conversion)')
-    expect(result.errors).toContain('QUAL-02 FAIL:')
-    expect(result.errors).toContain(
-      'Exiting with code 1: QUAL-02 gate failed after generation.'
+    expect(result.logs).toContain('QUAL-02 gate: WARN (zero-marker-conversion)')
+    expect(result.warnings).toContain(
+      'QUAL-02 WARN: Semantic markers were detected, but no marker-derived assertions were emitted.'
     )
-    expect(result.exitCode).toBe(1)
+    expect(result.warnings).toContain(
+      'Manual review required — this generated test is still a draft'
+    )
+    expect(result.exitCode).toBeUndefined()
     expect(written).toContain('it(')
   })
 })

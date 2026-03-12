@@ -2,6 +2,7 @@
 
 Stored at:
 - `.taro/state.json`
+- `.taro/summary.md`
 
 Optional companion file:
 - `.taro/overrides.json`
@@ -114,6 +115,41 @@ Persist bounded, package-scoped test knowledge that Taro can reuse across `init`
           "count": 1
         }
       ],
+      "boundaryProfiles": [
+        {
+          "target": "@digitax/data-layer",
+          "kind": "data-module | server-action | network-client | auth | router | feature-flag | env | local-child | unknown",
+          "strategy": "shared-module-factory | scaffolded-module-factory | provider-wrapper | inline-safe | forbid | real-runtime",
+          "supportImportPath": "@/tests/mocks/digitax-data-layer | null",
+          "supportPath": "packages/dashboard/src/tests/mocks/digitax-data-layer.mock.ts | null",
+          "supportExports": {
+            "factoryExport": "createDataLayerMock | null",
+            "resetExport": "resetDataLayerMock | null",
+            "overrideExports": ["useKraCreateSaleMutationMock"],
+            "spyExports": ["createSaleMutate"],
+            "fixtureExports": ["mockKraSaleItem"]
+          },
+          "payloadSource": "mock-store | fixtures | typed-defaults | exemplar-only | manual | unknown",
+          "confidence": "high | medium | low",
+          "files": ["packages/dashboard/src/features/sales-module.test.tsx"],
+          "evidence": ["packages/dashboard/src/features/sales-module.test.tsx: mock target @digitax/data-layer"],
+          "conflictTargets": ["inline-safe"],
+          "lowConfidenceScaffold": false
+        }
+      ],
+      "boundaryExemplars": [
+        {
+          "file": "packages/dashboard/src/features/sales-module.test.tsx",
+          "renderBoundary": "module | component | unknown",
+          "boundaryTargets": ["@digitax/data-layer", "@/tests/renderWithProviders"],
+          "boundaryKinds": ["data-module", "local-child"],
+          "usesProviderWrapper": true,
+          "usesCentralBoundarySupport": true,
+          "hasMutationLifecycle": true,
+          "overrideStyle": "stable-handles | inline-reconfigure | none",
+          "tags": ["provider-wrapper", "central-boundary-support", "mutation-lifecycle"]
+        }
+      ],
       "inlineSafeMockTargets": ["next/navigation"],
       "mutationLifecycles": [],
       "instabilityWarnings": [],
@@ -204,11 +240,30 @@ Implemented shape:
       "forbidMocks": ["@digitax/components"],
       "preferredSharedMocks": {
         "@digitax/data-layer": "@/tests/mocks/digitax-data-layer"
-      }
+      },
+      "boundaryPolicies": {
+        "@digitax/data-layer": "shared-module-factory",
+        "@/tests/renderWithProviders": "provider-wrapper"
+      },
+      "preferredBoundaryImplementations": {
+        "@digitax/data-layer": "@/tests/mocks/digitax-data-layer"
+      },
+      "forbidBoundaryTargets": ["@digitax/components"],
+      "queryHookPolicy": "avoid | allow-centralized | allow-when-needed"
     }
   }
 }
 ```
+
+## Human-Readable Summary
+
+`.taro/summary.md` is regenerated whenever state is written. It documents:
+
+- preferred render boundary tendency per package
+- collaborator categories and canonical support modules
+- learned boundary profiles with confidence and conflicts
+- exemplar tests Taro can derive future structure from
+- low-confidence scaffolds that still need corroboration
 
 ## Legacy Migration
 

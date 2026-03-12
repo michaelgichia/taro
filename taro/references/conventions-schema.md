@@ -5,7 +5,7 @@ Stored in:
 - optional `.taro/overrides.json`
 
 Purpose:
-Describe how Taro currently learns and applies test conventions in v1.
+Describe how Taro learns package-scoped test conventions and boundary strategy in v1.
 
 ## Source of Truth
 
@@ -58,6 +58,8 @@ Each package profile stores:
   "renderTargets": [],
   "repeatedMockTargets": [],
   "sharedMockFactories": [],
+  "boundaryProfiles": [],
+  "boundaryExemplars": [],
   "inlineSafeMockTargets": [],
   "fixtureRoots": [],
   "exemplars": [],
@@ -88,17 +90,34 @@ Overrides support:
       "forbidMocks": ["@digitax/components"],
       "preferredSharedMocks": {
         "@digitax/data-layer": "@/tests/mocks/digitax-data-layer"
-      }
+      },
+      "boundaryPolicies": {
+        "@digitax/data-layer": "shared-module-factory"
+      },
+      "preferredBoundaryImplementations": {
+        "@digitax/data-layer": "@/tests/mocks/digitax-data-layer"
+      },
+      "forbidBoundaryTargets": ["@digitax/components"],
+      "queryHookPolicy": "avoid"
     }
   }
 }
 ```
 
+## Boundary Signals Per Package
+
+Beyond runner and file placement, Taro now learns:
+
+- `boundaryProfiles[]` for collaborators abstracted away from the render boundary
+- `boundaryExemplars[]` for real tests that show how those collaborators are composed
+- whether the repo prefers shared module factories, provider wrappers, inline-safe mocks, or real runtime boundaries
+- which support modules expose stable reset/override handles for per-test mutation-state coverage
+
 ## How Conventions Change
 
 - `init` performs the first bounded repo scan and writes `.taro/state.json`.
 - `refresh` rescans package profiles and rewrites state from fresh evidence.
-- `generate` bootstraps state when missing, then refreshes state again after a successful write.
+- `generate` bootstraps state when missing, derives from learned boundary exemplars, writes `.taro/summary.md`, and refreshes state again after a successful write.
 
 ## Practical Interpretation
 
@@ -106,4 +125,5 @@ When generated output drifts:
 
 - missing or weak package profiles usually mean `init` was not run, or the package has too few local examples
 - wrong runner or render helper should be fixed with package-local examples first, then overrides if the repo is mixed
+- boundary drift should be fixed by strengthening local collaborator examples or overrides, not by teaching Taro to inline more repo-specific implementations
 - repo fallback is acceptable, but it is weaker than a package-specific profile and should be described that way

@@ -53,6 +53,7 @@ function createJsMarkerStep(options: {
   method?: string
   role?: string
   line?: number
+  source?: 'js' | 'json'
 }): NormalizedStep {
   const {
     id,
@@ -61,6 +62,7 @@ function createJsMarkerStep(options: {
     method = 'getByText',
     role,
     line = 1,
+    source = 'js',
   } = options
 
   const semanticMarkerCandidate = {
@@ -91,7 +93,7 @@ function createJsMarkerStep(options: {
     action: 'click',
     target,
     originalType: 'dblClick',
-    source: 'js',
+    source,
     line,
     semanticMarkerCandidate,
     metadata: {
@@ -257,6 +259,38 @@ describe('filterNoiseSteps', () => {
       removedDoubleClickNoise: 0,
       removedRedundantClicks: 1,
     })
+  })
+
+  it('treats normalized dblClick marker metadata as semantic checkpoints even outside JS-sourced steps', () => {
+    const result = filterNoiseSteps([
+      {
+        id: 'json-step-1',
+        action: 'click',
+        target: 'Open Example Dialog',
+        originalType: 'click',
+        source: 'json',
+      },
+      createJsMarkerStep({
+        id: 'json-step-2',
+        target: 'Review Example',
+        proofSubject: 'heading',
+        method: 'getByRole',
+        role: 'heading',
+        source: 'json',
+      }),
+      {
+        id: 'json-step-3',
+        action: 'click',
+        target: 'Review Example',
+        originalType: 'click',
+        source: 'json',
+      },
+    ])
+
+    expect(result.steps.map((step) => step.id)).toEqual(['json-step-1', 'json-step-2'])
+    expect(result.steps[1]?.semanticMarkerCandidate?.originalGesture).toBe('dblClick')
+    expect(result.diagnostics.preservedSemanticMarkers).toBe(1)
+    expect(result.diagnostics.removedRedundantClicks).toBe(1)
   })
 
   it('keeps trailing clicks for interactive same-target marker pairs', () => {

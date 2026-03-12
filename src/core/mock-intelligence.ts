@@ -9,7 +9,12 @@ import type {
   MutationLifecyclePattern,
   MutationLifecycleStage,
 } from '../types/conventions.js'
-import type { ResolvedTaroPackageProfile, TaroSharedMockFactoryProfile } from '../types/state.js'
+import type {
+  ResolvedTaroPackageProfile,
+  TaroBoundaryProfile,
+  TaroQueryHookPolicy,
+  TaroSharedMockFactoryProfile,
+} from '../types/state.js'
 import type { TestFileContent } from './scanner.js'
 
 export interface MockAnalysis {
@@ -21,9 +26,13 @@ export interface MockAnalysis {
   mutationLifecycles: MutationLifecyclePattern[]
   instabilityWarnings: MockInstabilityWarning[]
   sharedMockFactories: TaroSharedMockFactoryProfile[]
+  boundaryProfiles: TaroBoundaryProfile[]
   inlineSafeMockTargets: string[]
   preferredSharedMocks: Record<string, string>
   forbidMocks: string[]
+  preferredBoundaryImplementations: Record<string, string>
+  forbidBoundaryTargets: string[]
+  queryHookPolicy: TaroQueryHookPolicy
 }
 
 const MOCK_TARGET_REGEX = /(?:vi|jest)\.mock\(\s*['"`]([^'"`]+)['"`]/g
@@ -230,9 +239,13 @@ export async function analyzeMocks(
       mutationLifecycles: packageProfile.mutationLifecycles,
       instabilityWarnings: packageProfile.instabilityWarnings,
       sharedMockFactories: packageProfile.sharedMockFactories,
+      boundaryProfiles: packageProfile.boundaryProfiles,
       inlineSafeMockTargets: packageProfile.inlineSafeMockTargets,
       preferredSharedMocks: packageProfile.preferredSharedMocks,
       forbidMocks: packageProfile.forbidMocks,
+      preferredBoundaryImplementations: packageProfile.preferredBoundaryImplementations,
+      forbidBoundaryTargets: packageProfile.forbidBoundaryTargets,
+      queryHookPolicy: packageProfile.effectiveQueryHookPolicy,
     }
   }
 
@@ -251,8 +264,12 @@ export async function analyzeMocks(
     mutationLifecycles,
     instabilityWarnings,
     sharedMockFactories: [],
+    boundaryProfiles: [],
     inlineSafeMockTargets: [],
     preferredSharedMocks: {},
     forbidMocks: [],
+    preferredBoundaryImplementations: {},
+    forbidBoundaryTargets: [],
+    queryHookPolicy: 'avoid',
   }
 }

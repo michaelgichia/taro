@@ -2,6 +2,8 @@
 
 Taro installs runtime-native commands or skills into Claude Code, Gemini CLI, OpenCode, and Codex. The recommended first step after install is the runtime-native `init` entrypoint, and `refresh` is the maintenance path for owned assets after that. Taro then turns Testing Library Recorder `.js` exports into repository-aware React Testing Library tests.
 
+For the current strict-order runtime pipeline, see [PIPELINE.md](./PIPELINE.md).
+
 ## Install
 
 ```bash
@@ -65,6 +67,8 @@ If you need a newer package version first, rerun `npx @taro-dev/rtl@latest` and 
 3. When Taro infers the owning render target, it must write the generated test next to the inferred component.
 4. If no render target can be inferred, the fallback boundary draft is written next to the recording. Existing generated outputs are never overwritten.
 5. Draft-quality output is reported explicitly through score, blockers, and boundary warnings.
+
+The exact module execution order for generation is documented in [PIPELINE.md](./PIPELINE.md).
 
 ## Learned Context
 

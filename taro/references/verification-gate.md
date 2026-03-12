@@ -2,7 +2,7 @@
 
 Goal:
 Prevent Taro from claiming success unless the generated test is demonstrably runnable
-and compliant with mock-boundary policy.
+and compliant with boundary policy.
 
 Rules:
 
@@ -12,7 +12,7 @@ Rules:
 
 ---
 
-## Static Mock Audit (Required)
+## Static Boundary Audit (Required)
 
 Run an AST/text audit on the generated test before typecheck/test/lint.
 
@@ -20,8 +20,10 @@ Detect:
 
 - `vi.mock(...)` / `jest.mock(...)` blocks that replace UI-library modules
   (for example design-system packages such as `@digitax/components`).
-- Broad object-return replacement patterns that provide custom component
-  implementations for UI libraries.
+- broad object-return replacement patterns that provide custom component
+  implementations for UI libraries
+- inline collaborator implementations when a learned shared/scaffolded boundary support module exists
+- generated tests that bypass a learned provider-wrapper boundary and fall back to raw `render(...)`
 
 Allowed:
 
@@ -43,7 +45,7 @@ If forbidden replacement is detected:
 
 ## Preferred Checks (in order)
 
-1. Static mock audit (required)
+1. Static boundary audit (required)
 2. Typecheck (if tsconfig exists and command discoverable)
 3. Run test for the generated file (framework-aware)
 4. Lint the generated file (eslint if available)
@@ -76,6 +78,7 @@ If verification fails:
   - add missing await for userEvent
   - fix obvious import alias mismatch based on conventions signals
   - add lightweight env polyfill for browser gaps (for example `ResizeObserver`)
+- if a low-confidence collaborator scaffold was generated, surface the draft warning but do not inline repo-local query-hook bodies as a repair
 - rerun verification once
 
 Never loop indefinitely.

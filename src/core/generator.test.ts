@@ -287,7 +287,7 @@ describe('generateTestFromGroups', () => {
     expect(verifySyntax(generated.code, '/tmp/generated.test.tsx')).toEqual({ valid: true })
   })
 
-  it('moves helper-owned marker proof into the scenario body and keeps only the strongest proof per anchor', () => {
+  it('moves helper-owned marker proof into the scenario body, keeps distinct checkpoints, and dedupes exact repeats', () => {
     const openDialogStep = {
       id: 'js-step-1',
       action: 'click' as const,
@@ -358,6 +358,17 @@ describe('generateTestFromGroups', () => {
                 queryExpression: "screen.findByRole('heading', { name: 'Review Example' })",
                 proofText: 'Review Example',
               }),
+              createMarkerAssertion({
+                markerStepId: 'js-marker-3',
+                anchorStepId: 'js-step-2',
+                placement: {
+                  kind: 'after-step',
+                  stepId: 'js-step-2',
+                },
+                proofKind: 'role-name',
+                queryExpression: "screen.findByRole('heading', { name: 'Review Example' })",
+                proofText: 'Review Example',
+              }),
             ],
             unresolvedMarkerAssertions: [],
           },
@@ -369,16 +380,22 @@ describe('generateTestFromGroups', () => {
     expect(generated.code).toContain(
       "expect(await screen.findByRole('heading', { name: 'Review Example' })).toBeVisible()"
     )
-    expect(generated.code).not.toContain("expect(await screen.findByText('Review Example')).toBeVisible()")
+    expect(generated.code).toContain(
+      "expect(await screen.findByText('Review Example')).toBeVisible()"
+    )
     expect(generated.code.indexOf('await planOpenExampleDialog(user)')).toBeLessThan(
-      generated.code.indexOf(
-        "expect(await screen.findByRole('heading', { name: 'Review Example' })).toBeVisible()"
-      )
+      generated.code.indexOf("expect(await screen.findByText('Review Example')).toBeVisible()")
     )
     expect(
       countOccurrences(
         generated.code,
         "expect(await screen.findByRole('heading', { name: 'Review Example' })).toBeVisible()"
+      )
+    ).toBe(1)
+    expect(
+      countOccurrences(
+        generated.code,
+        "expect(await screen.findByText('Review Example')).toBeVisible()"
       )
     ).toBe(1)
     expect(verifySyntax(generated.code, '/tmp/generated.test.tsx')).toEqual({ valid: true })

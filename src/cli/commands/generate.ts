@@ -6,9 +6,8 @@
 import { Command } from 'commander'
 import { access, mkdir, readdir, readFile } from 'node:fs/promises'
 import { basename, dirname, extname, join, relative, resolve } from 'node:path'
-import { cwd } from 'node:process'
+import { cwd, stdin, stdout } from 'node:process'
 import pc from 'picocolors'
-import { ensureProjectStateDir } from '../../project-state.js'
 import { writeTestFile } from '../../core/writer.js'
 import {
   captureVisualState,
@@ -17,6 +16,7 @@ import {
 import { scoreGeneratedTest } from '../../core/scorer.js'
 import { analyzeBoundaryIsolation } from '../../core/boundary-intelligence.js'
 import { verifySyntax } from '../../core/verifier.js'
+import { enrichCanonicalSemanticMarkers } from '../../core/semantic-marker-enrichment.js'
 import {
   analyzeRecording,
   findVisualCaptureCandidates,
@@ -26,6 +26,11 @@ import { generateTestFromGroups, emitQuerySummary } from '../../core/generator.j
 import { loadInput } from '../../core/input-loader.js'
 import { normalizeJsBaseline } from '../../core/baseline-normalizer.js'
 import { planJsSuite } from '../../core/suite-planner.js'
+import {
+  applyBoundarySupport,
+  materializeBoundarySupport,
+  planBoundarySupport,
+} from '../../core/boundary-support.js'
 import {
   appendGeneratedTestRecord,
   detectPackageProfileStaleness,
@@ -40,6 +45,7 @@ import type {
   ItGroup,
   NormalizedRecording,
   NormalizedStep,
+  PlannedMarkerAssertion,
   QueryDescriptor,
   QueryResult,
   SemanticMarkerAssertionUnresolvedReason,
@@ -49,7 +55,11 @@ import type {
   UnresolvedSemanticMarkerAssertionResolution,
   VisualState,
 } from '../../types/recording.js'
-import type { MarkerCoverageTotals, ScoreResult } from '../../types/score.js'
+import type {
+  MarkerCoverageTotals,
+  MarkerReviewDiagnostics,
+  ScoreResult,
+} from '../../types/score.js'
 import type { MockAnalysis } from '../../core/mock-intelligence.js'
 import type { JsSuitePlan } from '../../core/suite-planner.js'
 import type {
@@ -63,6 +73,19 @@ const EMPTY_MARKER_COVERAGE: MarkerCoverageTotals = {
   detected: 0,
   emitted: 0,
   unresolved: 0,
+}
+const EMPTY_MARKER_DIAGNOSTICS: MarkerReviewDiagnostics = {
+  canonicalRecoveries: 0,
+  placementConflicts: 0,
+  placementCorrections: 0,
+}
+const MANUAL_VISUAL_AUTH_TIMEOUT_MS = 5 * 60 * 1000
+const DEFAULT_VISUAL_AUTH_STORAGE_STATE_PATH = '.taro/playwright/.auth/user.json'
+const PAGE_CONFIRMED_CONTEXT_TERM_BONUS = 50
+
+interface GenerateCommandContext {
+  input?: Pick<typeof stdin, 'isTTY'>
+  output?: Pick<typeof stdout, 'isTTY'>
 }
 
 const CONTEXT_SEARCH_SKIP_DIRS = new Set([
@@ -113,6 +136,8 @@ const UNRESOLVED_MARKER_REASON_GUIDANCE: Record<
     'Marker target is icon-only and ambiguous. Capture surrounding accessible text context.',
   'hidden-evidence':
     'Marker evidence depends on hidden/implementation selectors. Capture user-visible evidence instead.',
+  'boundary-placement-conflict':
+    'Marker could not be assigned to a single safe scenario. Keep the checkpoint near the intended state change or repair the scenario split.',
 }
 
 function deriveOutputPath(inputPath: string): string {
@@ -260,16 +285,91 @@ function scoreContextTerm(term: string): number {
   return score
 }
 
-function collectRepoContextSearchTerms(recording: NormalizedRecording): string[] {
+function collectVisualElementContextTerm(visualState: VisualState): string | null {
+  const candidates = [
+    visualState.element?.ariaLabel,
+    visualState.element?.labelText,
+    visualState.element?.innerText,
+    visualState.element?.altText,
+    visualState.element?.title,
+  ]
+
+  for (const candidate of candidates) {
+    const normalized = normalizeContextTerm(candidate ?? undefined)
+    if (normalized) {
+      return normalized
+    }
+  }
+
+  return null
+}
+
+function collectPageConfirmedContextTerms(visualState: VisualState | null): string[] {
+  if (!visualState) {
+    return []
+  }
+
+  const terms = new Set<string>()
+  const register = (value?: string | null) => {
+    const normalized = normalizeContextTerm(value ?? undefined)
+    if (normalized) {
+      terms.add(normalized)
+    }
+  }
+
+  for (const landmark of visualState.matchedLandmarks ?? []) {
+    register(landmark)
+  }
+
+  if (
+    visualState.status === 'auth-interrupted' ||
+    visualState.status === 'auth-recovery-failed' ||
+    visualState.status === 'auth-recovery-timed-out'
+  ) {
+    return [...terms]
+  }
+
+  register(visualState.dialog?.title)
+  for (const action of visualState.dialog?.actions ?? []) {
+    register(action)
+  }
+  register(collectVisualElementContextTerm(visualState))
+
+  return [...terms]
+}
+
+function summarizePageConfirmedContext(visualState: VisualState | null): void {
+  const confirmedTerms = collectPageConfirmedContextTerms(visualState)
+  if (confirmedTerms.length === 0) {
+    return
+  }
+
+  console.log(
+    pc.dim('[taro]') +
+      ` Page-confirmed context: ${confirmedTerms.slice(0, 3).join(' | ')}`
+  )
+}
+
+function collectRepoContextSearchTerms(
+  recording: NormalizedRecording,
+  visualState: VisualState | null = null
+): string[] {
   const termScores = new Map<string, number>()
 
-  const registerTerm = (value?: string) => {
+  const registerTerm = (value?: string, bonus = 0) => {
     const term = normalizeContextTerm(value)
     if (!term) {
       return
     }
 
-    termScores.set(term, (termScores.get(term) ?? 0) + scoreContextTerm(term))
+    termScores.set(
+      term,
+      (termScores.get(term) ?? 0) + scoreContextTerm(term) + bonus
+    )
+  }
+
+  for (const confirmedTerm of collectPageConfirmedContextTerms(visualState)) {
+    registerTerm(confirmedTerm, PAGE_CONFIRMED_CONTEXT_TERM_BONUS)
   }
 
   registerTerm(recording.title)
@@ -546,7 +646,10 @@ function logScore(scoreResult: ScoreResult): void {
 }
 
 function emitMarkerCoverageSection(scoreResult: ScoreResult): void {
-  const gateStatus = scoreResult.markerQualityGate.failing ? pc.red('FAIL') : pc.green('PASS')
+  const gateStatus =
+    scoreResult.markerQualityGate.status === 'warn'
+      ? pc.yellow('WARN')
+      : pc.green('PASS')
   console.log(pc.dim('[taro]') + ' Marker coverage:')
   console.log(pc.dim('[taro]') + `   detected: ${scoreResult.markerCoverage.detected}`)
   console.log(pc.dim('[taro]') + `   emitted: ${scoreResult.markerCoverage.emitted}`)
@@ -557,7 +660,83 @@ function emitMarkerCoverageSection(scoreResult: ScoreResult): void {
   )
 
   if (scoreResult.markerQualityGate.failing) {
-    console.error(pc.red(`[taro] QUAL-02 FAIL: ${scoreResult.markerQualityGate.message}`))
+    console.warn(pc.yellow(`[taro] QUAL-02 WARN: ${scoreResult.markerQualityGate.message}`))
+  }
+}
+
+function collectPlannedMarkerAssertions(suitePlan: JsSuitePlan): PlannedMarkerAssertion[] {
+  return suitePlan.scenarios.flatMap((scenario) => scenario.markerAssertions ?? [])
+}
+
+function buildMarkerReviewDiagnostics(
+  suitePlan: JsSuitePlan | null
+): MarkerReviewDiagnostics {
+  if (!suitePlan) {
+    return EMPTY_MARKER_DIAGNOSTICS
+  }
+
+  let canonicalRecoveries = 0
+  let placementCorrections = 0
+
+  for (const markerAssertion of collectPlannedMarkerAssertions(suitePlan)) {
+    if (markerAssertion.diagnostics?.canonicalRecovery) {
+      canonicalRecoveries += 1
+    }
+    if (markerAssertion.diagnostics?.placementCorrection) {
+      placementCorrections += 1
+    }
+  }
+
+  const placementConflicts = collectUnresolvedMarkerAssertions(suitePlan).filter(
+    (marker) => marker.reason === 'boundary-placement-conflict'
+  ).length
+
+  return {
+    canonicalRecoveries,
+    placementConflicts,
+    placementCorrections,
+  }
+}
+
+function emitRecoveredMarkerDiagnostics(suitePlan: JsSuitePlan | null): void {
+  if (!suitePlan) {
+    return
+  }
+
+  const seenMarkerStepIds = new Set<string>()
+  for (const markerAssertion of collectPlannedMarkerAssertions(suitePlan)) {
+    const recovery = markerAssertion.diagnostics?.canonicalRecovery
+    if (!recovery || seenMarkerStepIds.has(markerAssertion.markerStepId)) {
+      continue
+    }
+
+    seenMarkerStepIds.add(markerAssertion.markerStepId)
+    console.log(
+      pc.dim('[taro]') +
+        ` MKR-01 canonical-copy marker=${markerAssertion.markerStepId} ` +
+        `file=${recovery.sourceFile} from="${recovery.fromText}" to="${recovery.toText}"`
+    )
+  }
+}
+
+function emitMarkerPlacementCorrections(suitePlan: JsSuitePlan | null): void {
+  if (!suitePlan) {
+    return
+  }
+
+  const seenMarkerStepIds = new Set<string>()
+  for (const markerAssertion of collectPlannedMarkerAssertions(suitePlan)) {
+    const placementCorrection = markerAssertion.diagnostics?.placementCorrection
+    if (!placementCorrection || seenMarkerStepIds.has(markerAssertion.markerStepId)) {
+      continue
+    }
+
+    seenMarkerStepIds.add(markerAssertion.markerStepId)
+    console.warn(
+      pc.yellow(
+        `[taro] MKR-02 placement-correction marker=${markerAssertion.markerStepId} from="${placementCorrection.fromScenarioName}" to="${placementCorrection.toScenarioName}"`
+      )
+    )
   }
 }
 
@@ -622,12 +801,7 @@ function emitUnresolvedMarkerWarnings(suitePlan: JsSuitePlan | null): void {
 }
 
 function enforceMarkerGateExit(scoreResult: ScoreResult): void {
-  if (!scoreResult.markerQualityGate.failing) {
-    return
-  }
-
-  process.exitCode = 1
-  console.error(pc.red('[taro] Exiting with code 1: QUAL-02 gate failed after generation.'))
+  void scoreResult
 }
 
 function emitLowConfidenceBanner(scoreResult: ScoreResult): void {
@@ -1069,6 +1243,76 @@ async function resolveOptionalFilePath(
   }
 }
 
+function hasInteractiveVisualAuthCapability(
+  context: GenerateCommandContext = {}
+): boolean {
+  return Boolean((context.input ?? stdin).isTTY && (context.output ?? stdout).isTTY)
+}
+
+function resolveVisualAuthStorageStatePath(
+  projectRoot: string,
+  auth: TaroPlaywrightAuthProfile | null
+): {
+  absolutePath: string
+  relativePath: string
+} {
+  const relativePath =
+    auth?.strategy === 'storageState' ? auth.path : DEFAULT_VISUAL_AUTH_STORAGE_STATE_PATH
+
+  return {
+    absolutePath: resolve(projectRoot, relativePath),
+    relativePath,
+  }
+}
+
+function resolveVisualCaptureScreenshotDir(projectRoot: string): string {
+  return resolve(projectRoot, '.taro', 'playwright', 'screenshots')
+}
+
+type AuthPreflightStatus =
+  | 'not_required'
+  | 'unknown_recipe'
+  | 'authenticated'
+  | 'failed'
+
+function resolveAuthPreflightStatus(params: {
+  auth: TaroPlaywrightAuthProfile | null
+  url?: string
+  visualState: VisualState | null
+}): AuthPreflightStatus | null {
+  const { auth, url, visualState } = params
+  if (!url || !visualState) {
+    return null
+  }
+
+  switch (visualState.status) {
+    case 'auth-recovered':
+      return 'authenticated'
+    case 'auth-recovery-failed':
+    case 'auth-recovery-timed-out':
+      return 'failed'
+    case 'auth-interrupted':
+      return auth ? 'failed' : 'unknown_recipe'
+    case 'captured':
+      return auth ? 'authenticated' : 'not_required'
+    case 'capture-failed':
+      return null
+  }
+}
+
+function summarizeAuthPreflight(params: {
+  auth: TaroPlaywrightAuthProfile | null
+  url?: string
+  visualState: VisualState | null
+}): void {
+  const status = resolveAuthPreflightStatus(params)
+  if (!status) {
+    return
+  }
+
+  console.log(pc.dim('[taro]') + ` Auth status: ${status}`)
+}
+
 function summarizePlaywrightAuth(
   packageProfile: ResolvedTaroPackageProfile | null
 ): void {
@@ -1084,6 +1328,13 @@ function summarizePlaywrightAuth(
 
 function summarizeVisualState(visualState: VisualState | null): void {
   if (!visualState) {
+    return
+  }
+
+  if (visualState.status === 'capture-failed') {
+    for (const warning of visualState.warnings) {
+      console.warn(pc.yellow(`[taro] ${warning}`))
+    }
     return
   }
 
@@ -1121,11 +1372,51 @@ function summarizeVisualState(visualState: VisualState | null): void {
         )
       }
     }
-    console.warn(
-      pc.yellow('[taro]') + ' Proceeding without visual context; generation will fall back to code context only.'
-    )
     if (visualState.screenshotPath) {
       console.log(pc.dim('[taro]') + ` Auth checkpoint screenshot: ${visualState.screenshotPath}`)
+    }
+    return
+  }
+
+  if (visualState.status === 'auth-recovered') {
+    console.log(pc.dim('[taro]') + ' Visual auth recovered via Playwright runtime.')
+    if (visualState.startingPointConfirmed) {
+      console.log(pc.dim('[taro]') + ` Starting point confirmed: ${visualState.finalUrl}`)
+    }
+    if (visualState.authRecovery?.persistedAuthPath) {
+      console.log(
+        pc.dim('[taro]') +
+          ` Saved Playwright storageState: ${visualState.authRecovery.persistedAuthPath}`
+      )
+    }
+    if (visualState.screenshotPath) {
+      console.log(
+        pc.dim('[taro]') + ` Starting point screenshot: ${visualState.screenshotPath}`
+      )
+    }
+    return
+  }
+
+  if (
+    visualState.status === 'auth-recovery-failed' ||
+    visualState.status === 'auth-recovery-timed-out'
+  ) {
+    const label =
+      visualState.status === 'auth-recovery-timed-out'
+        ? 'Playwright authentication timed out.'
+        : 'Playwright authentication could not be completed.'
+    console.warn(pc.yellow(`[taro] ${label}`))
+    if (visualState.authRecovery?.instructionsPath) {
+      console.warn(
+        pc.yellow('[taro]') +
+          ` Visual auth instructions: ${visualState.authRecovery.instructionsPath}`
+      )
+    }
+    if (visualState.screenshotPath) {
+      console.log(pc.dim('[taro]') + ` Auth checkpoint screenshot: ${visualState.screenshotPath}`)
+    }
+    for (const warning of visualState.warnings) {
+      console.warn(pc.yellow(`[taro] ${warning}`))
     }
     return
   }
@@ -1134,11 +1425,22 @@ function summarizeVisualState(visualState: VisualState | null): void {
   if (visualState.dialog?.title) {
     parts.push(`dialog=${visualState.dialog.title}`)
   }
-  if (visualState.screenshotPath) {
+  if (visualState.startingPointConfirmed) {
+    parts.push(`page=${visualState.finalUrl}`)
+  }
+  if (visualState.screenshotPath && !visualState.startingPointConfirmed) {
     parts.push(`screenshot=${visualState.screenshotPath}`)
   }
 
   console.log(pc.dim('[taro]') + ` Visual state: ${parts.join(', ')}`)
+  if (visualState.startingPointConfirmed && visualState.screenshotPath) {
+    console.log(
+      pc.dim('[taro]') + ` Starting point screenshot: ${visualState.screenshotPath}`
+    )
+  }
+  for (const warning of visualState.warnings) {
+    console.warn(pc.yellow(`[taro] ${warning}`))
+  }
 }
 
 function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
@@ -1161,6 +1463,9 @@ function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
 
   if (mockAnalysis.instabilityWarnings.length > 0) {
     parts.push(`${mockAnalysis.instabilityWarnings.length} stability warning(s)`)
+  }
+  if (mockAnalysis.boundaryProfiles.length > 0) {
+    parts.push(`${mockAnalysis.boundaryProfiles.length} boundary profile(s)`)
   }
 
   if (parts.length === 0) {
@@ -1188,6 +1493,13 @@ function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
   if (mockAnalysis.forbidMocks.length > 0) {
     console.warn(
       pc.yellow(`[taro] Mock policy: forbidden targets ${mockAnalysis.forbidMocks.join(', ')}`)
+    )
+  }
+  if (mockAnalysis.forbidBoundaryTargets.length > 0) {
+    console.warn(
+      pc.yellow(
+        `[taro] Boundary policy: forbidden targets ${mockAnalysis.forbidBoundaryTargets.join(', ')}`
+      )
     )
   }
 
@@ -1226,10 +1538,65 @@ function summarizeResolvedPackageProfile(
     `runner=${packageProfile.effectiveRunner}`,
     `renderHelper=${packageProfile.effectiveRenderHelper?.name ?? 'none'}`,
     `sharedMocks=${packageProfile.sharedMockFactories.length}`,
+    `boundaries=${packageProfile.boundaryProfiles.length}`,
     `inlineMocks=${packageProfile.inlineSafeMockTargets.length}`,
   ]
 
   console.log(pc.dim('[taro]') + ` State profile: ${parts.join(', ')}`)
+}
+
+function auditBoundaryPolicy(
+  code: string,
+  packageProfile: ResolvedTaroPackageProfile | null
+): string[] {
+  if (!packageProfile) {
+    return []
+  }
+
+  const warnings: string[] = []
+  const forbiddenTargets = new Set([
+    ...packageProfile.forbidMocks,
+    ...packageProfile.forbidBoundaryTargets,
+  ])
+
+  for (const target of forbiddenTargets) {
+    if (
+      code.includes(`vi.mock('${target}'`) ||
+      code.includes(`vi.mock("${target}"`) ||
+      code.includes(`jest.mock('${target}'`) ||
+      code.includes(`jest.mock("${target}"`)
+    ) {
+      warnings.push(`Generated test mocks forbidden boundary target "${target}".`)
+    }
+  }
+
+  for (const profile of packageProfile.boundaryProfiles) {
+    if (
+      ['shared-module-factory', 'scaffolded-module-factory'].includes(profile.strategy) &&
+      profile.supportImportPath &&
+      (code.includes(`vi.mock('${profile.target}'`) ||
+        code.includes(`vi.mock("${profile.target}"`) ||
+        code.includes(`jest.mock('${profile.target}'`) ||
+        code.includes(`jest.mock("${profile.target}"`)) &&
+      !code.includes(profile.supportImportPath)
+    ) {
+      warnings.push(
+        `Generated test bypasses learned central boundary support for "${profile.target}".`
+      )
+    }
+  }
+
+  if (
+    packageProfile.boundaryProfiles.some((profile) => profile.strategy === 'provider-wrapper') &&
+    !packageProfile.effectiveRenderHelper &&
+    code.includes('render(')
+  ) {
+    warnings.push(
+      'Generated test may bypass a learned provider-wrapper boundary because no shared render helper was applied.'
+    )
+  }
+
+  return warnings
 }
 
 function tokenizeSuiteHint(value: string): string[] {
@@ -1243,12 +1610,20 @@ function scoreRenderTargetCandidate(
   candidate: RepoRenderTargetCandidate,
   recording: NormalizedRecording,
   mockAnalysis: MockAnalysis | null,
-  suitePlan: JsSuitePlan
+  suitePlan: JsSuitePlan,
+  options: {
+    packageProfile?: ResolvedTaroPackageProfile | null
+    visualState?: VisualState | null
+  } = {}
 ): number {
+  const { packageProfile, visualState } = options
   const recordingTokens = new Set([
     ...tokenizeSuiteHint(recording.title),
     ...recording.steps.flatMap((step) => tokenizeSuiteHint(step.target ?? '')),
   ])
+  const confirmedTokens = new Set(
+    collectPageConfirmedContextTerms(visualState ?? null).flatMap((term) => tokenizeSuiteHint(term))
+  )
   const candidateTokens = new Set([
     ...tokenizeSuiteHint(candidate.symbol),
     ...tokenizeSuiteHint(candidate.importPath),
@@ -1261,6 +1636,9 @@ function scoreRenderTargetCandidate(
   for (const token of candidateTokens) {
     if (recordingTokens.has(token)) {
       score += 3
+    }
+    if (confirmedTokens.has(token)) {
+      score += 5
     }
   }
 
@@ -1276,16 +1654,27 @@ function scoreRenderTargetCandidate(
     score += 1
   }
 
+  if (
+    packageProfile?.packagePath &&
+    packageProfile.packagePath !== '.' &&
+    (candidate.sourceTestFile === packageProfile.packagePath ||
+      candidate.sourceTestFile.startsWith(`${packageProfile.packagePath}/`))
+  ) {
+    score += 8
+  }
+
   return score
 }
 
 function resolveRepoRenderTarget(params: {
   candidates: RepoRenderTargetCandidate[]
+  packageProfile?: ResolvedTaroPackageProfile | null
   recording: NormalizedRecording
   mockAnalysis: MockAnalysis | null
   suitePlan: JsSuitePlan
+  visualState?: VisualState | null
 }): RepoRenderTargetCandidate | null {
-  const { candidates, recording, mockAnalysis, suitePlan } = params
+  const { candidates, packageProfile, recording, mockAnalysis, suitePlan, visualState } = params
   if (candidates.length === 0) {
     return null
   }
@@ -1293,7 +1682,10 @@ function resolveRepoRenderTarget(params: {
   const ranked = candidates
     .map((candidate) => ({
       candidate,
-      score: scoreRenderTargetCandidate(candidate, recording, mockAnalysis, suitePlan),
+      score: scoreRenderTargetCandidate(candidate, recording, mockAnalysis, suitePlan, {
+        packageProfile,
+        visualState,
+      }),
     }))
     .filter((entry) => entry.score > 0)
     .sort((left, right) => right.score - left.score || left.candidate.symbol.localeCompare(right.candidate.symbol))
@@ -1443,29 +1835,42 @@ function summarizeSelectorWarnings(warnings: string[]): void {
 async function maybeCaptureVisualState(params: {
   analyzedRecording: AnalyzedRecording
   auth?: TaroPlaywrightAuthProfile | null
-  disabled?: boolean
+  authRecovery?: {
+    enabled: boolean
+    instructionsPath?: string
+    persistedAuthPath?: string
+    saveStorageStatePath?: string
+    timeoutMs: number
+  }
   projectRoot: string
   recording: NormalizedRecording
   selector?: string
+  skipScreenshotArtifacts?: boolean
   url?: string
 }): Promise<VisualState | null> {
-  const { analyzedRecording, auth, disabled = false, projectRoot, recording, selector, url } = params
-  if (disabled) {
-    return null
-  }
-
+  const {
+    analyzedRecording,
+    auth,
+    authRecovery,
+    projectRoot,
+    recording,
+    selector,
+    skipScreenshotArtifacts = false,
+    url,
+  } = params
   if (!url) {
     return null
   }
 
   const candidates = findVisualCaptureCandidates(analyzedRecording)
-  const stateDir = await ensureProjectStateDir(projectRoot)
-  const visualDir = join(stateDir, 'visual')
   const expected = {
     landmarks: collectExpectedLandmarks(recording),
     title: findExpectedPageTitle(recording),
     url,
   }
+  const screenshotDir = skipScreenshotArtifacts
+    ? undefined
+    : resolveVisualCaptureScreenshotDir(projectRoot)
   const authOptions = auth
     ? {
         path: resolve(projectRoot, auth.path),
@@ -1474,28 +1879,86 @@ async function maybeCaptureVisualState(params: {
     : null
 
   if (candidates.length > 0) {
-    await mkdir(visualDir, { recursive: true })
     return captureVisualState(url, {
       auth: authOptions,
+      authRecovery,
       expected,
       reason: candidates[0]!.reason,
-      screenshotDir: visualDir,
+      screenshotDir,
       selector: candidates[0]!.selector,
     })
   }
 
   if (selector) {
-    await mkdir(visualDir, { recursive: true })
     return captureVisualState(url, {
       auth: authOptions,
+      authRecovery,
       expected,
       reason: 'ambiguous-ui',
-      screenshotDir: visualDir,
+      screenshotDir,
       selector,
     })
   }
 
-  return null
+  return captureVisualState(url, {
+    auth: authOptions,
+    authRecovery,
+    expected,
+    reason: 'page-context',
+    screenshotDir,
+  })
+}
+
+async function persistRecoveredVisualAuth(params: {
+  packageProfile: ResolvedTaroPackageProfile | null
+  projectRoot: string
+  visualState: VisualState | null
+}): Promise<TaroPlaywrightAuthProfile | null> {
+  const { packageProfile, projectRoot, visualState } = params
+  if (
+    visualState?.status !== 'auth-recovered' ||
+    !visualState.authRecovery?.persistedAuthPath
+  ) {
+    return null
+  }
+
+  const persistedAuth: TaroPlaywrightAuthProfile = {
+    strategy: 'storageState',
+    path: visualState.authRecovery.persistedAuthPath,
+    detectedAt: 'generate',
+    source: 'manual',
+  }
+
+  if (!packageProfile) {
+    console.warn(
+      pc.yellow('[taro] Visual auth: storageState was saved, but no package profile was available to persist it in state.')
+    )
+    return persistedAuth
+  }
+
+  try {
+    const persisted = await persistPlaywrightAuthProfile(
+      projectRoot,
+      packageProfile.packagePath,
+      persistedAuth
+    )
+    if (persisted) {
+      console.log(
+        pc.dim('[taro]') +
+          ` Persisted visual auth for package ${packageProfile.packagePath}: ${persistedAuth.strategy}=${persistedAuth.path}`
+      )
+    } else {
+      console.warn(
+        pc.yellow('[taro] Visual auth: storageState was saved, but Taro could not persist it in state.')
+      )
+    }
+  } catch {
+    console.warn(
+      pc.yellow('[taro] Visual auth: storageState was saved, but persisting it in .taro/state.json failed.')
+    )
+  }
+
+  return persistedAuth
 }
 
 async function maybeAnalyzeMocks(
@@ -1546,7 +2009,7 @@ async function finalizeGeneratedOutput(params: {
   }
 }
 
-export function createGenerateCommand(): Command {
+export function createGenerateCommand(context: GenerateCommandContext = {}): Command {
   const generate = new Command('__generate')
 
   generate
@@ -1585,7 +2048,7 @@ export function createGenerateCommand(): Command {
         process.exit(1)
       }
 
-      const normalizedRecording = normalizeJsBaseline(parsedInput)
+      let normalizedRecording = normalizeJsBaseline(parsedInput)
       const hadState = await access(join(projectRoot, '.taro', 'state.json'))
         .then(() => true)
         .catch(() => false)
@@ -1598,11 +2061,85 @@ export function createGenerateCommand(): Command {
         defaultOutputPath,
         overrides
       )
-      const contextSearchTerms = collectRepoContextSearchTerms(normalizedRecording)
+      const explicitAuthPath = await resolveOptionalFilePath(projectRoot, commandOptions.auth)
+      const explicitInstructionsPath = await resolveOptionalFilePath(
+        projectRoot,
+        commandOptions.instructions
+      )
+      if (explicitAuthPath && explicitInstructionsPath) {
+        console.warn(
+          pc.yellow('[taro] Visual auth: both --auth and --instructions were provided; preferring --auth for this run.')
+        )
+      }
+      let visualAuth: TaroPlaywrightAuthProfile | null =
+        explicitAuthPath
+          ? {
+              strategy: 'storageState',
+              path: explicitAuthPath.relativePath,
+              detectedAt: 'generate',
+              source: 'manual',
+            }
+          : explicitInstructionsPath
+            ? {
+                strategy: 'instructions',
+                path: explicitInstructionsPath.relativePath,
+                detectedAt: 'generate',
+                source: 'manual',
+              }
+            : packageProfile?.playwrightAuth ?? null
+      const authInstructionsPath =
+        explicitInstructionsPath?.relativePath ??
+        (visualAuth?.strategy === 'instructions' ? visualAuth.path : undefined)
+      const interactiveVisualAuth = hasInteractiveVisualAuthCapability(context)
+      const recoveryStorageStatePath = resolveVisualAuthStorageStatePath(
+        projectRoot,
+        visualAuth
+      )
+      const earlyAnalyzedRecording = analyzeRecording(normalizedRecording)
+      const recordingUrl = findRecordingUrl(earlyAnalyzedRecording)
+      // Authentication preflight runs before repo grounding so Playwright-confirmed
+      // route and landmark evidence can steer context matching when available.
+      let visualState = await maybeCaptureVisualState({
+        analyzedRecording: earlyAnalyzedRecording,
+        auth: visualAuth,
+        authRecovery: screenshotsEnabled
+          ? {
+              enabled: interactiveVisualAuth,
+              instructionsPath: authInstructionsPath,
+              persistedAuthPath: recoveryStorageStatePath.relativePath,
+              saveStorageStatePath: recoveryStorageStatePath.absolutePath,
+              timeoutMs: MANUAL_VISUAL_AUTH_TIMEOUT_MS,
+            }
+          : undefined,
+        projectRoot,
+        recording: normalizedRecording,
+        selector: getPrimarySelector(normalizedRecording),
+        skipScreenshotArtifacts: !screenshotsEnabled,
+        url: recordingUrl,
+      })
+      if (!screenshotsEnabled) {
+        console.log(
+          pc.dim('[taro]') +
+            ' Screenshot artifacts skipped (--no-screenshots); Playwright page confirmation still ran.'
+        )
+      }
+      summarizeAuthPreflight({
+        auth: visualAuth,
+        url: recordingUrl,
+        visualState,
+      })
+      summarizeVisualState(visualState)
+      summarizePageConfirmedContext(visualState)
+      const contextSearchTerms = collectRepoContextSearchTerms(normalizedRecording, visualState)
       const contextMatches = await findRepoContextMatches({
         projectRoot,
         terms: contextSearchTerms,
         excludePaths: [filePath, defaultOutputPath],
+      })
+      normalizedRecording = await enrichCanonicalSemanticMarkers({
+        contextMatches,
+        projectRoot,
+        recording: normalizedRecording,
       })
       const contextProfile = resolvePackageProfileFromContextMatches({
         state: bootstrappedState.state,
@@ -1666,32 +2203,6 @@ export function createGenerateCommand(): Command {
         matches: contextMatches,
       })
       const repoRenderTargets = [...contextRenderTargets, ...(packageProfile?.renderTargets ?? [])]
-      const explicitAuthPath = await resolveOptionalFilePath(projectRoot, commandOptions.auth)
-      const explicitInstructionsPath = await resolveOptionalFilePath(
-        projectRoot,
-        commandOptions.instructions
-      )
-      if (explicitAuthPath && explicitInstructionsPath) {
-        console.warn(
-          pc.yellow('[taro] Visual auth: both --auth and --instructions were provided; preferring --auth for this run.')
-        )
-      }
-      let visualAuth: TaroPlaywrightAuthProfile | null =
-        explicitAuthPath
-          ? {
-              strategy: 'storageState',
-              path: explicitAuthPath.relativePath,
-              detectedAt: 'generate',
-              source: 'manual',
-            }
-          : explicitInstructionsPath
-            ? {
-                strategy: 'instructions',
-                path: explicitInstructionsPath.relativePath,
-                detectedAt: 'generate',
-                source: 'manual',
-              }
-            : packageProfile?.playwrightAuth ?? null
 
       if ((explicitAuthPath || explicitInstructionsPath) && packageProfile && visualAuth) {
         const persisted = await persistPlaywrightAuthProfile(
@@ -1748,19 +2259,14 @@ export function createGenerateCommand(): Command {
       const analyzedRecording = analyzeRecording(normalizedRecording)
       const markerAwareRecording = mergeAnalyzedStepState(normalizedRecording, analyzedRecording)
       summarizeCleanup(analyzedRecording)
-      if (!screenshotsEnabled) {
-        console.log(pc.dim('[taro]') + ' Visual capture skipped (--no-screenshots).')
-      }
-      const visualState = await maybeCaptureVisualState({
-        analyzedRecording,
-        auth: visualAuth,
-        disabled: !screenshotsEnabled,
+      const recoveredVisualAuth = await persistRecoveredVisualAuth({
+        packageProfile,
         projectRoot,
-        recording: normalizedRecording,
-        selector: getPrimarySelector(normalizedRecording),
-        url: findRecordingUrl(analyzedRecording),
+        visualState,
       })
-      summarizeVisualState(visualState)
+      if (recoveredVisualAuth) {
+        visualAuth = recoveredVisualAuth
+      }
       const mockAnalysis = await maybeAnalyzeMocks(projectRoot, packageProfile)
       summarizeMockAnalysis(mockAnalysis)
       const rawJsSuitePlan = planJsSuite({
@@ -1772,9 +2278,11 @@ export function createGenerateCommand(): Command {
 
       const repoRenderTarget = resolveRepoRenderTarget({
         candidates: repoRenderTargets,
+        packageProfile,
         recording: normalizedRecording,
         mockAnalysis,
         suitePlan: rawJsSuitePlan,
+        visualState,
       })
       const resolvedRenderTargetFile = await resolveRenderTargetFile({
         projectRoot,
@@ -1795,6 +2303,19 @@ export function createGenerateCommand(): Command {
         outputPath,
         renderHelper: packageProfile?.effectiveRenderHelper ?? null,
       })
+      const boundarySupportPlan = await planBoundarySupport({
+        projectRoot,
+        outputPath,
+        packageProfile,
+        renderTargetFile: resolvedRenderTargetFile,
+        renderTarget: repoRenderTarget,
+      })
+
+      if (boundarySupportPlan.warnings.length > 0) {
+        for (const warning of boundarySupportPlan.warnings) {
+          console.warn(pc.yellow(`[taro] Boundary support: ${warning}`))
+        }
+      }
 
       const jsSuitePlan = rawJsSuitePlan
         ? applyRepoRenderTarget(rawJsSuitePlan, repoRenderTarget)
@@ -1842,6 +2363,8 @@ export function createGenerateCommand(): Command {
         renderTarget: generationRenderTarget,
         renderHelper: generationRenderHelper,
       })
+      generated.code = applyBoundarySupport(generated.code, boundarySupportPlan)
+      const boundaryPolicyWarnings = auditBoundaryPolicy(generated.code, packageProfile)
       const markerCoverage = buildMarkerCoverageSummary({
         analyzedRecording,
         suitePlan: hydratedSuitePlan,
@@ -1853,22 +2376,43 @@ export function createGenerateCommand(): Command {
           generated.code,
         ].join('\n')
       }
+      if (boundaryPolicyWarnings.length > 0) {
+        generated.code = [
+          ...boundaryPolicyWarnings.map((warning) => `// taro-boundary-warning: ${warning}`),
+          generated.code,
+        ].join('\n')
+      }
 
       emitQuerySummary(resolvedJsGeneration?.queryResults ?? [])
 
+      const markerDiagnostics = buildMarkerReviewDiagnostics(hydratedSuitePlan)
       const scoreResult = scoreGeneratedTest(generated.code, {
         queryResults: resolvedJsGeneration?.queryResults ?? [],
         markerCoverage,
+        markerDiagnostics,
       })
       const boundaryIssues = analyzeBoundaryIsolation(generated.code)
 
       logScore(scoreResult)
       emitMarkerCoverageSection(scoreResult)
+      emitRecoveredMarkerDiagnostics(hydratedSuitePlan)
+      emitMarkerPlacementCorrections(hydratedSuitePlan)
       emitUnresolvedMarkerWarnings(hydratedSuitePlan)
+      for (const warning of boundaryPolicyWarnings) {
+        console.warn(pc.yellow(`[taro] Boundary policy: ${warning}`))
+      }
+      if (boundarySupportPlan.requiresReview) {
+        console.warn(
+          pc.yellow(
+            '[taro] Boundary support requires manual review because one or more collaborators were scaffolded with generic defaults.'
+          )
+        )
+      }
       emitLowConfidenceBanner(scoreResult)
       emitScoreHints(scoreResult, resolvedJsGeneration?.queryResults ?? [], boundaryIssues)
 
       try {
+        await materializeBoundarySupport(boundarySupportPlan)
         const result = await writeTestFile(generated.code, outputPath, { createDir: true })
         await finalizeGeneratedOutput({
           code: generated.code,

@@ -10,12 +10,13 @@ Generate a React Testing Library test from a Testing Library Recorder JS export.
 
 1. Confirm the recording file path and extension (`.js` only).
 2. Taro must write the generated test next to the inferred component when it resolves the owning render target. If the render target stays unresolved, the fallback boundary draft is written next to the recording. If that intended output file already exists, stop and tell the user to rename or delete it before rerunning generation.
-3. Run `{{TARO_RUNTIME_COMMAND}} __generate <recording-file>`.
-4. Parse the score output and work through any required manual fixes.
+3. If live URL inspection or screenshots are relevant, let `{{TARO_RUNTIME_COMMAND}} __generate` own Playwright directly. Do not run a separate browser-tool pass for this flow. If Playwright cannot launch or the page cannot be reached, report screenshots skipped and continue.
+4. Run `{{TARO_RUNTIME_COMMAND}} __generate <recording-file>`.
+5. Parse the score output and work through any required manual fixes.
 
 ## Scoring
 
-Taro scores on four weighted dimensions. Grade: A ≥ 90, B ≥ 80, C ≥ 70, D ≥ 60, F < 60. Score below 80 or QUAL-02 failure → "Manual review required".
+Taro scores on four weighted dimensions. Grade: A ≥ 90, B ≥ 80, C ≥ 70, D ≥ 60, F < 60. Score below 80, unresolved semantic markers, or QUAL-02 warnings → "Manual review required".
 
 **Query (30%):** `getByRole` = best, `getByLabelText` = good, `getByText` = fine, `getByPlaceholderText` = fallback, `getByTestId` = last resort. Each `taro-query-checkpoint:` comment deducts 3pts.
 
@@ -34,4 +35,4 @@ Taro scores on four weighted dimensions. Grade: A ≥ 90, B ≥ 80, C ≥ 70, D 
 
 ## Response
 
-Report: command run, generated file path, score + grade, manual review status, top blockers, and which checklist steps apply.
+Report: command run, generated file path, score + grade, manual review status, top blockers, which checklist steps apply, and whether screenshots were captured or skipped.

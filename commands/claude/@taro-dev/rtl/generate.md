@@ -7,10 +7,6 @@ allowed-tools:
   - Write
   - Glob
   - Bash
-  - browser_navigate
-  - browser_click
-  - browser_wait_for
-  - browser_take_screenshot
 argument-instructions: |
   Accept exactly one argument: the path to a Testing Library Recorder `.js` export.
   Example: /@taro-dev/rtl:generate path/to/recording.js
@@ -26,6 +22,7 @@ Taro must:
 - preserve entry-path fidelity when the recording opens UI through a parent trigger
 - prefer evidence-based conventions from repo context, `.taro/state.json`, and `.taro/overrides.json`
 - avoid UI-library component reimplementation in mocks
+- let the Taro runtime own local Playwright inspection and screenshot capture
 - interpret scoring and verification output honestly instead of overstating confidence
 
 Output: a generated test file written next to the inferred component when Taro resolves the owning render target, or a boundary-draft fallback written next to the recording when it does not, plus a report containing the command run, generated test path, score and grade, whether manual review is required, top blockers, and the smallest concrete next fixes ordered by impact.
@@ -84,14 +81,25 @@ Execute the Taro generation workflow end-to-end.
 10. Read and apply:
     - `references/quality-scoring.md`
     - `references/verification-gate.md`
-11. Interpret score, blockers, marker coverage, and verification output before calling the result complete.
-12. Minimum report after generation:
+11. If live URL inspection or screenshots are relevant, let `{{TARO_RUNTIME_COMMAND}} __generate` own Playwright directly:
+   - do not run a separate browser-tool pass for this command flow
+   - do not substitute a second manual Playwright CLI/browser routine alongside Taro
+12. Screenshot workflow when a recording URL is known:
+   - output `Taro runtime will attempt Playwright visual capture during generation.`
+   - if Playwright cannot launch, output `Warning: Playwright visual capture could not start. Screenshot capture skipped. Parsed steps are still valid for Phase 8.`
+   - if navigation fails, output `Warning: Could not reach {url}. Ensure the development server is running.`
+   - in either failure case, mark screenshots as skipped and continue generation without blocking on browser work
+   - when generation succeeds, report any screenshot artifacts or auth checkpoints emitted by Taro
+   - report working notes containing `recording_url`, parsed step count, screenshot status, and any saved screenshot paths
+   - close the visual pass with `Phase 7 complete. {N} interaction steps parsed. Visual capture status recorded. Ready for component discovery.`
+13. Interpret score, blockers, marker coverage, and verification output before calling the result complete.
+14. Minimum report after generation:
     - command run
     - generated file path
     - score and grade
     - whether manual review is required
     - top blockers
     - whether marker coverage or boundary fidelity remains incomplete
-13. If Taro reports draft-quality output, QUAL-02 failure, unresolved markers, or boundary warnings, state plainly that the result is not production-ready yet.
-14. When repo context was limited, say so explicitly instead of inventing certainty.
+15. If Taro reports draft-quality output, QUAL-02 warnings, unresolved markers, or boundary warnings, state plainly that the result is not production-ready yet.
+16. When repo context was limited, say so explicitly instead of inventing certainty.
 </process>

@@ -18,6 +18,7 @@ Non-negotiable expectations:
 - treat semantic `dblClick` checkpoints as assertion evidence, not as UI actions to replay
 - preserve the real entry path when the recording opens UI through a parent trigger or route flow
 - never solve a generation problem by reimplementing design-system or shared UI-library components in mocks
+- let the Taro runtime own local Playwright inspection and screenshot capture
 - keep low-confidence gaps explicit instead of pretending the output is finished
 
 ## Reference Map
@@ -115,17 +116,67 @@ Minimum reporting standard after generation:
 - top blockers
 - whether marker coverage or boundary fidelity is still incomplete
 
-If Taro reports draft-quality output, QUAL-02 failure, or unresolved marker/boundary gaps, state plainly that the result is not production-ready yet.
+If Taro reports draft-quality output, QUAL-02 warnings, or unresolved marker/boundary gaps, state plainly that the result is not production-ready yet.
 
-## Auth and Screenshots
+## Authentication Preflight (Self-Documenting)
 
 Only read `references/auth.md` when live URL inspection or screenshot capture is relevant.
 
+Purpose:
+
+Enable screenshot capture and page confirmation when the recording URL requires authentication.
+
 Rules:
 
-- auth is optional support for debugging, not a prerequisite for generation
-- never block basic generation on unavailable auth
+- never assume a specific auth provider
+- never store credentials
 - never ask the user for secrets in plain text
+- never block core test generation when auth is unknown or unavailable
+- if auth is required and unknown, self-document a template recipe instead of inventing hidden steps
+
+Behavior:
+
+- load `.taro/auth.json` if present and scope-matching
+- otherwise detect auth-required states from observable navigation signals such as redirects, login copy, password inputs, or route mismatch
+- if auth appears required and no recipe exists:
+  - write or recommend a template `.taro/auth.json` without guessing provider-specific selectors
+  - start a manual OAuth checkpoint when browser tooling is available
+  - navigate to the target URL
+  - prompt the user to complete sign-in in the opened browser context
+  - poll auth-completion checks until timeout
+  - mark auth status `authenticated` on success, otherwise `unknown_recipe`
+- if a recipe exists:
+  - for `ui_oauth_manual`, wait for user-driven login completion and poll until auth is confirmed or times out
+  - for non-manual strategies such as `ui_email_password`, `cookie`, or `header`, apply the recipe using environment-variable names only
+  - mark auth status `authenticated` or `failed`
+
+Output:
+
+- `Auth status: not_required | unknown_recipe | authenticated | failed`
+
+Full recipe schema and rules:
+
+- `references/auth.md`
+
+## Screenshots
+
+Rules:
+
+- auth is optional support for visual confirmation, not a prerequisite for generation
+- let `__generate` own local Playwright screenshot capture for this flow
+- if Playwright launch or navigation fails, mark screenshots skipped and continue
+- do not run a separate manual browser pass unless you are debugging Taro itself
+
+Suggested screenshot flow when a recording URL is known:
+
+1. Output `Taro runtime will attempt Playwright visual capture during generation.`
+2. Run `{{TARO_RUNTIME_COMMAND}} __generate <recording-file>`.
+3. If Playwright cannot launch, output `Warning: Playwright visual capture could not start. Screenshot capture skipped. Parsed steps are still valid for Phase 8.`
+4. If navigation fails, output `Warning: Could not reach {url}. Ensure the development server is running.`
+5. If auth is required, report the auth status and any emitted auth checkpoint or starting-point screenshot paths.
+6. When generation succeeds, report any screenshot artifacts emitted by Taro.
+7. Report working notes with `recording_url`, parsed step count, auth status, screenshot status, and any saved screenshot paths.
+8. Close with `Phase 7 complete. {N} interaction steps parsed. Visual capture status recorded. Ready for component discovery.`
 
 ## Response Contract
 

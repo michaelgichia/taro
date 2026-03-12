@@ -106,8 +106,8 @@ Key principle:
 - `click` → intent.type = "click"
 - `change` (or typing-like step) → intent.type = "type", intent.value = step.value
 - If step indicates option selection (if detectable) → intent.type = "select"
-- Copy keyboard chord marker (`Meta+C` or `Control+C`) after text selection/focusable target
-  may emit intent.type = "assertExists" when marker rules match.
+- Semantic `dblClick` marker on a visible proof target may emit
+  `intent.type = "assertExists"` when marker rules match.
 
 If the step type is unknown:
 
@@ -120,24 +120,28 @@ If the step type is unknown:
 
 Preferred marker pattern:
 
-- user highlights visible text on the page
-- user presses copy (`Meta+C` on macOS, `Control+C` on Windows/Linux)
+- user triggers a state change
+- user double-clicks the visible target that proves the expected result
 
 Deterministic interpretation rules:
 
-1. Detect keyboard copy chord steps.
-2. Look back up to 5 prior non-navigation steps for the focused/selected target.
+1. Detect semantic `dblClick` steps that preserve marker metadata.
+2. Look back to the nearest relevant state-changing anchor step.
 3. If a semantic selector (`aria/` or `text/`) exists on that target, create:
    - `intent.type = "assertExists"`
    - query hint derived from that semantic selector
-4. If no semantic selector exists, do not invent one:
+4. If the recorder only captured partial visible text, Taro may recover the
+   canonical user-visible copy from nearby app source when the match is unique
+   and confidence is high.
+5. If no semantic selector exists, do not invent one:
    - fallback to conservative text query only when the recording includes visible text evidence
    - otherwise skip marker conversion and log low-confidence evidence
 
 Notes:
 
 - Marker conversion is additive and never blocks normal intent extraction.
-- Highlight-only without copy is best-effort and lower confidence.
+- Marker gaps stay warning-only, but unresolved markers keep the result in
+  draft/manual-review state.
 
 ---
 
