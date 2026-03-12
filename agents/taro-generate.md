@@ -31,7 +31,9 @@ These rules override generic generation habits for this repo:
 - helpers are setup only; never place `expect(...)` calls inside shared interaction utilities
 - never wrap RTL query results in `.toBeDefined()`; the query itself is the assertion unless `.toBeInTheDocument()` or another matcher is explicitly needed
 - if a test typed or selected a value, assert that payload field exactly; avoid `expect.any(...)` and `expect.anything()` for known values
-- configure mock behavior per test; do not mutate shared mock-control objects in `beforeEach`
+- configure mock behavior per test; never use mutable shared mock-control objects
+- hoist plain `vi.fn()` mocks with no scenario logic attached
+- keep `vi.mock(...)` factories shape-only; set the happy-path `mockImplementation` in `beforeEach`, then override inside the owning test with a complete scenario implementation
 - keep related async mock assertions in the same `waitFor` callback when timing is shared
 - do not generate explicit teardown that combines RTL `cleanup()` with manual `document.body` repairs; fix root-level leaks at the component or portal boundary
 - choose one mock reset boundary per suite: one complete utility reset or explicit individual resets, never a mixed partial-reset pattern

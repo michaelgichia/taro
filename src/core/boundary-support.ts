@@ -61,6 +61,10 @@ function deriveSupportExportNames(target: string) {
   }
 }
 
+function toUpperCamelHead(value: string): string {
+  return value.length === 0 ? value : `${value[0]!.toUpperCase()}${value.slice(1)}`
+}
+
 function isScaffoldableBoundaryKind(kind: TaroBoundaryKind): boolean {
   return ['data-module', 'server-action', 'network-client', 'auth'].includes(kind)
 }
@@ -176,22 +180,22 @@ function buildScaffoldFile(params: {
     overrideExports.push(exportName)
 
     if (/^use[A-Z].*Mutation/u.test(name) || /Action$/u.test(name)) {
-      const defaultImpl = `default${name}Impl`
+      const defaultImpl = `default${toUpperCamelHead(name)}Impl`
       defaultImplBlocks.push(
         `const ${defaultImpl} = () => ({ mutate: vi.fn(), isPending: false })`
       )
-      exportBlocks.push(`export const ${exportName} = vi.fn(${defaultImpl})`)
+      exportBlocks.push(`export const ${exportName} = vi.fn()`)
       resetLines.push(`${exportName}.mockReset()`)
       resetLines.push(`${exportName}.mockImplementation(${defaultImpl})`)
       continue
     }
 
     if (/^use[A-Z].*Query/u.test(name)) {
-      const defaultImpl = `default${name}Impl`
+      const defaultImpl = `default${toUpperCamelHead(name)}Impl`
       defaultImplBlocks.push(
         `const ${defaultImpl} = () => ({ data: undefined, isLoading: false, isFetching: false })`
       )
-      exportBlocks.push(`export const ${exportName} = vi.fn(${defaultImpl})`)
+      exportBlocks.push(`export const ${exportName} = vi.fn()`)
       resetLines.push(`${exportName}.mockReset()`)
       resetLines.push(`${exportName}.mockImplementation(${defaultImpl})`)
       lowConfidence = true

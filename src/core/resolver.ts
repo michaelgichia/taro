@@ -5,6 +5,7 @@ import { chromium, type Browser, type BrowserContext, type Page } from 'playwrig
 import type {
   DialogState,
   ElementInfo,
+  NormalizedAction,
   NormalizedStep,
   QueryDescriptor,
   QueryQuality,
@@ -930,7 +931,7 @@ async function openCaptureContext(
   return browser.newContext()
 }
 
-async function openCapturePage(params: {
+export async function openCapturePage(params: {
   auth?: CaptureVisualStateAuthOptions | null
   headless: boolean
   timeoutMs: number
@@ -1775,6 +1776,175 @@ export async function inspectElements(
   }
 
   return result
+}
+
+/**
+ * Maps a QueryDescriptor (RTL query) to a Playwright Locator on the given page.
+ * Returns null if the query method is unsupported.
+ */
+function queryToPlaywrightLocator(
+  page: Page,
+  query: { method: string; target?: string; role?: string; name?: string }
+): import('playwright').Locator | null {
+  const target = query.target ?? ''
+  const method = query.method
+
+  if (method === 'getByRole' && query.role) {
+    const options = query.name ? { name: query.name } : undefined
+    return page.getByRole(query.role as Parameters<Page['getByRole']>[0], options)
+  }
+  if (method === 'getByText') {
+    return page.getByText(target)
+  }
+  if (method === 'getByLabelText') {
+    return page.getByLabel(target)
+  }
+  if (method === 'getByPlaceholderText') {
+    return page.getByPlaceholder(target)
+  }
+  if (method === 'getByTestId') {
+    return page.getByTestId(target)
+  }
+  if (method === 'getByTitle') {
+    return page.getByTitle(target)
+  }
+  if (method === 'getByAltText') {
+    return page.getByAltText(target)
+  }
+  if (method === 'getByDisplayValue') {
+    return page.locator(`[value="${target}"]`)
+  }
+  return null
+}
+
+/**
+ * Resolves a Playwright Locator for a given step, trying metadata.selector,
+ * metadata.query, and step.target as fallbacks.
+ */
+function resolveStepLocator(
+  page: Page,
+  step: NormalizedStep
+): import('playwright').Locator | null {
+  const selectorMeta = step.metadata?.selector as { selector?: string } | undefined
+  if (selectorMeta?.selector) {
+    return page.locator(selectorMeta.selector).first()
+  }
+
+  const queryMeta = step.metadata?.query as
+    | { method: string; target?: string; role?: string; name?: string }
+    | undefined
+  if (queryMeta?.method) {
+    return queryToPlaywrightLocator(page, queryMeta)
+  }
+
+  if (step.target) {
+    try {
+      return page.locator(step.target).first()
+    } catch {
+      return null
+    }
+  }
+
+  return null
+}
+
+/**
+ * Replays a single recording step on a live Playwright page.
+ * Best-effort: on failure, returns a warning instead of throwing.
+ *
+ * @param page - The persistent Playwright page
+ * @param step - The normalized recording step to replay
+ * @param timeoutMs - Maximum time per interaction (default 3000ms)
+ */
+export async function replayStep(
+  page: Page,
+  step: NormalizedStep,
+  timeoutMs = 3000
+): Promise<{ replayed: boolean; warning?: string }> {
+  const action = step.action
+  const noopActions: NormalizedAction[] = ['assert', 'unknown', 'waitForSelector', 'scroll', 'doubleClick']
+  if (noopActions.includes(action)) {
+    return { replayed: true }
+  }
+
+  try {
+    if (action === 'navigate' && step.target) {
+      await page.goto(step.target, { timeout: timeoutMs, waitUntil: 'domcontentloaded' })
+      return { replayed: true }
+    }
+
+    if (action === 'keyDown' && step.key) {
+      await page.keyboard.press(step.key)
+      return { replayed: true }
+    }
+
+    const locator = resolveStepLocator(page, step)
+    if (!locator) {
+      return { replayed: false, warning: `No locator for ${action} on ${step.target ?? '(unknown)'}` }
+    }
+
+    switch (action) {
+      case 'click':
+        await locator.click({ timeout: timeoutMs })
+        break
+      case 'doubleClick':
+        await locator.dblclick({ timeout: timeoutMs })
+        break
+      case 'fill':
+        if (step.value != null) {
+          // For fill actions, the recording target is often placeholder text.
+          // Try getByPlaceholder first, then fall back to clicking + filling the original locator.
+          const target = step.target ?? ''
+          const placeholderLocator = page.getByPlaceholder(target)
+          const placeholderCount = await placeholderLocator.count().catch(() => 0)
+          if (placeholderCount === 1) {
+            await placeholderLocator.click({ timeout: timeoutMs })
+            await placeholderLocator.fill(step.value, { timeout: timeoutMs })
+          } else {
+            await locator.click({ timeout: timeoutMs })
+            await locator.fill(step.value, { timeout: timeoutMs })
+          }
+        }
+        break
+      case 'select':
+        await locator.click({ timeout: timeoutMs })
+        break
+      default:
+        return { replayed: true }
+    }
+
+    return { replayed: true }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    const truncated = message.length > 120 ? message.slice(0, 120) + '...' : message
+    return { replayed: false, warning: `${action} on ${step.target ?? '(unknown)'} failed: ${truncated}` }
+  }
+}
+
+/**
+ * Creates an inspector function backed by an existing persistent Page.
+ * The returned function matches the `inspect` signature from ResolveSelectorOptions,
+ * allowing resolveSelector() to inspect the DOM without opening a new browser.
+ *
+ * @param page - A persistent Playwright page already at the correct DOM state
+ */
+export function createPageInspector(
+  page: Page
+): (url: string, cssSelector: string, timeoutMs?: number) => Promise<SelectorInspectionResult> {
+  return async (_url: string, cssSelector: string, _timeoutMs?: number): Promise<SelectorInspectionResult> => {
+    try {
+      const element = await readOptionalElementInfo(page, cssSelector)
+      if (!element) {
+        return { status: 'selector-not-found' }
+      }
+      return { status: 'found', element }
+    } catch (error) {
+      return {
+        status: 'inspection-failed',
+        error: `Page inspector failed for ${cssSelector}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      }
+    }
+  }
 }
 
 /**

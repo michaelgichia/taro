@@ -33,9 +33,13 @@ Detect:
   (hoisted state objects whose fields are mutated per-test to alter mock
   behavior — for example `vi.hoisted(() => ({ outcome: "success" }))` with
   `beforeEach` resetting fields and test bodies mutating them).
-  Correct pattern: hoist plain `vi.fn()` mocks, set a default happy-path
-  `mockImplementation` in `beforeEach`, override with a complete
-  `mockImplementation` inside each test that needs a different scenario.
+  Flag this because the behavior is split across multiple locations, the
+  reset logic can silently drift from the object shape, and the `vi.mock`
+  factory is no longer self-contained. Correct pattern: hoist plain
+  `vi.fn()` mocks, keep `vi.mock` factories shape-only, set a default
+  happy-path `mockImplementation` in `beforeEach`, and override with a
+  complete `mockImplementation` inside each test that needs a different
+  scenario.
 - manual DOM cleanup that clears `document.body.innerHTML`
 - `afterEach` teardown that combines `cleanup()` with manual `document.body` mutation repair
 - mixed reset boundaries that combine a reset helper with extra suite-local `.mockClear()` churn

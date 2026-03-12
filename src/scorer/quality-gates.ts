@@ -349,7 +349,8 @@ function evaluateNoFragility(code: string, ast: ParsedAST, issues: QualityIssue[
       type: 'fragility',
       severity: 'warning',
       message: 'Shared mutable state is controlling mock behavior',
-      suggestion: 'Hoist plain vi.fn() mocks, set a default mockImplementation in beforeEach, and override per-test with a complete mockImplementation'
+      suggestion:
+        'Hoist plain vi.fn() mocks, keep vi.mock factories shape-only, set a default mockImplementation in beforeEach, and override per-test with a complete mockImplementation'
     });
   }
 

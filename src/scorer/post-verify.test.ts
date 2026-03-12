@@ -69,7 +69,7 @@ describe('postWriteVerification', () => {
       'Avoid loose payload matchers for known user-driven values - assert exact mutation payload fields when the test set them explicitly.'
     )
     expect(result.warnings).toContain(
-      'Avoid mutable shared objects to control mock behavior - hoist plain vi.fn() mocks, set a default mockImplementation in beforeEach, and override per-test with a complete mockImplementation.'
+      'Avoid mutable shared objects to control mock behavior - hoist plain vi.fn() mocks, keep vi.mock factories shape-only, set the default mockImplementation in beforeEach, and override per-test with a complete mockImplementation.'
     )
     expect(result.warnings).toContain(
       'Keep async mock call count and payload assertions inside the same waitFor callback to avoid race conditions.'

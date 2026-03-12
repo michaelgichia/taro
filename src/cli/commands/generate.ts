@@ -11,8 +11,12 @@ import pc from 'picocolors'
 import { writeTestFile } from '../../core/writer.js'
 import {
   captureVisualState,
+  createPageInspector,
+  openCapturePage,
+  replayStep,
   resolveSelector,
 } from '../../core/resolver.js'
+import type { CaptureVisualStateAuthOptions } from '../../core/resolver.js'
 import { scoreGeneratedTest } from '../../core/scorer.js'
 import { analyzeBoundaryIsolation } from '../../core/boundary-intelligence.js'
 import { verifySyntax } from '../../core/verifier.js'
@@ -2019,7 +2023,10 @@ function findRecordingUrl(analyzedRecording: AnalyzedRecording): string | undefi
 
 async function resolveJsGeneration(
   recording: NormalizedRecording,
-  itGroups: ItGroup[]
+  itGroups: ItGroup[],
+  options?: {
+    auth?: CaptureVisualStateAuthOptions | null
+  }
 ): Promise<{
   itGroups: ItGroup[]
   queryResults: QueryResult[]
@@ -2046,61 +2053,158 @@ async function resolveJsGeneration(
   )
   const updatedSteps = new Map<StepId, NormalizedStep>()
 
-  if (selectorGroups.size > 0 && recording.url) {
+  const hasSelectorsToResolve = selectorGroups.size > 0
+  const hasUrl = Boolean(recording.url)
+
+  if (hasSelectorsToResolve && hasUrl) {
+    // REPLAY PATH: open one persistent browser and replay steps in order
+    console.log(
+      pc.dim('[taro]') +
+        ` Resolving ${baseline.selectors.length} selector(s) via Playwright with step replay...`
+    )
+
+    const selectorStepIds = new Set(selectorGroups.keys())
+    let browser: import('playwright').Browser | null = null
+
+    try {
+      const authOptions = options?.auth ?? undefined
+      const captureSession = await openCapturePage({
+        auth: authOptions,
+        headless: true,
+        timeoutMs: 10000,
+        url: recording.url!,
+      })
+      browser = captureSession.browser
+      const page = captureSession.page
+      const inspect = createPageInspector(page)
+
+      for (const step of recording.steps) {
+        const stepId = step.id
+
+        // Resolve selectors BEFORE replaying this step (DOM is in pre-step state)
+        if (stepId && selectorStepIds.has(stepId)) {
+          const selectors = selectorGroups.get(stepId)!
+          const currentStep = updatedSteps.get(stepId) ?? stepMap.get(stepId)
+          if (currentStep) {
+            const preservedQuery = getStepQueryDescriptor(currentStep)
+            const stepWarnings: string[] = []
+            let chosenResolution: SelectorResolutionResult | undefined
+
+            if (preservedQuery) {
+              chosenResolution = await resolveSelector(selectors[0]!, {
+                url: recording.url,
+                preservedQuery,
+              })
+            } else {
+              for (const selector of selectors) {
+                const resolution = await resolveSelector(selector, {
+                  url: recording.url,
+                  inspect,
+                })
+
+                if (resolution.status === 'resolved') {
+                  chosenResolution = resolution
+                  break
+                }
+
+                stepWarnings.push(...resolution.warnings)
+                chosenResolution ??= resolution
+              }
+            }
+
+            if (chosenResolution) {
+              const resolution = mergeSelectorResolutionWarnings(chosenResolution, stepWarnings)
+              updatedSteps.set(stepId, applySelectorResolution(currentStep, resolution))
+
+              if (resolution.status === 'resolved') {
+                if (resolution.outcome !== 'preserved-query') {
+                  queryResults.push(queryDescriptorToResult(resolution.query))
+                }
+              } else {
+                warnings.push(
+                  `QRY-03 [${stepId}] unresolved selector ${resolution.selector.selector}: ${resolution.reason}`
+                )
+              }
+            }
+          }
+        }
+
+        // Replay the step to advance DOM state for subsequent steps
+        const replayResult = await replayStep(page, step)
+        if (!replayResult.replayed && replayResult.warning) {
+          console.warn(
+            pc.yellow('[taro]') +
+              pc.dim(' Step replay: ') +
+              replayResult.warning
+          )
+        }
+      }
+    } catch (error) {
+      // Browser open failed — fall through, selectors remain unresolved
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      console.warn(
+        pc.yellow('[taro]') +
+          ` Step replay browser failed: ${message}. Selectors will remain unresolved.`
+      )
+    } finally {
+      await browser?.close().catch(() => undefined)
+    }
+  } else if (hasSelectorsToResolve) {
+    // FALLBACK PATH: no URL available, resolve without replay (original behavior)
     console.log(
       pc.dim('[taro]') +
         ` Resolving ${baseline.selectors.length} selector(s) via Playwright...`
     )
-  }
 
-  for (const [stepId, selectors] of selectorGroups) {
-    const step = updatedSteps.get(stepId) ?? stepMap.get(stepId)
-    if (!step) {
-      continue
-    }
+    for (const [stepId, selectors] of selectorGroups) {
+      const step = updatedSteps.get(stepId) ?? stepMap.get(stepId)
+      if (!step) {
+        continue
+      }
 
-    const preservedQuery = getStepQueryDescriptor(step)
-    const stepWarnings: string[] = []
-    let chosenResolution: SelectorResolutionResult | undefined
+      const preservedQuery = getStepQueryDescriptor(step)
+      const stepWarnings: string[] = []
+      let chosenResolution: SelectorResolutionResult | undefined
 
-    if (preservedQuery) {
-      chosenResolution = await resolveSelector(selectors[0]!, {
-        url: recording.url,
-        preservedQuery,
-      })
-    } else {
-      for (const selector of selectors) {
-        const resolution = await resolveSelector(selector, {
+      if (preservedQuery) {
+        chosenResolution = await resolveSelector(selectors[0]!, {
           url: recording.url,
+          preservedQuery,
         })
+      } else {
+        for (const selector of selectors) {
+          const resolution = await resolveSelector(selector, {
+            url: recording.url,
+          })
 
-        if (resolution.status === 'resolved') {
-          chosenResolution = resolution
-          break
+          if (resolution.status === 'resolved') {
+            chosenResolution = resolution
+            break
+          }
+
+          stepWarnings.push(...resolution.warnings)
+          chosenResolution ??= resolution
         }
-
-        stepWarnings.push(...resolution.warnings)
-        chosenResolution ??= resolution
       }
-    }
 
-    if (!chosenResolution) {
-      continue
-    }
-
-    const resolution = mergeSelectorResolutionWarnings(chosenResolution, stepWarnings)
-    updatedSteps.set(stepId, applySelectorResolution(step, resolution))
-
-    if (resolution.status === 'resolved') {
-      if (resolution.outcome !== 'preserved-query') {
-        queryResults.push(queryDescriptorToResult(resolution.query))
+      if (!chosenResolution) {
+        continue
       }
-      continue
-    }
 
-    warnings.push(
-      `QRY-03 [${stepId}] unresolved selector ${resolution.selector.selector}: ${resolution.reason}`
-    )
+      const resolution = mergeSelectorResolutionWarnings(chosenResolution, stepWarnings)
+      updatedSteps.set(stepId, applySelectorResolution(step, resolution))
+
+      if (resolution.status === 'resolved') {
+        if (resolution.outcome !== 'preserved-query') {
+          queryResults.push(queryDescriptorToResult(resolution.query))
+        }
+        continue
+      }
+
+      warnings.push(
+        `QRY-03 [${stepId}] unresolved selector ${resolution.selector.selector}: ${resolution.reason}`
+      )
+    }
   }
 
   const resolvedSteps = recording.steps.map((step) =>
@@ -2628,7 +2732,12 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
 
       const resolvedJsGeneration = await resolveJsGeneration(
         markerAwareRecording,
-        jsSuitePlan?.itGroups ?? toItGroups(analyzedRecording, normalizedRecording.title)
+        jsSuitePlan?.itGroups ?? toItGroups(analyzedRecording, normalizedRecording.title),
+        {
+          auth: visualAuth
+            ? { path: resolve(projectRoot, visualAuth.path), strategy: visualAuth.strategy }
+            : undefined,
+        }
       )
 
       if (resolvedJsGeneration) {
