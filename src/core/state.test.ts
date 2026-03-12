@@ -216,49 +216,49 @@ describe('initTaroState', () => {
     )
     await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
     await writeFile(
-      join(examplePackage, 'src', 'tests', 'mocks', 'digitax-data-layer.ts'),
+      join(examplePackage, 'src', 'tests', 'mocks', 'orders-api.ts'),
       `
-        export function createDataLayerMock() {
+        export function createOrdersApiMock() {
           return {}
         }
 
-        export function resetDataLayerMock() {}
+        export function resetOrdersApiMock() {}
 
-        export const useKraCreateSaleMutationMock = {
+        export const useCreateOrderMutationMock = {
           mockImplementationOnce() {},
         }
       `,
       'utf-8'
     )
     await writeFile(
-      join(examplePackage, 'src', 'sales-module.test.tsx'),
+      join(examplePackage, 'src', 'feature-module.test.tsx'),
       `
         import { beforeEach, describe, expect, it, vi } from 'vitest'
         import { render } from '@testing-library/react'
         import { renderWithProviders, QueryClientProvider } from '@/tests/renderWithProviders'
         import {
-          createDataLayerMock,
-          resetDataLayerMock,
-          useKraCreateSaleMutationMock,
-        } from '@/tests/mocks/digitax-data-layer'
-        import SalesModule from './SalesModule'
+          createOrdersApiMock,
+          resetOrdersApiMock,
+          useCreateOrderMutationMock,
+        } from '@/tests/mocks/orders-api'
+        import FeatureModule from './FeatureModule'
 
-        vi.mock('@digitax/data-layer', async (importOriginal) => {
-          const actual = await importOriginal<typeof import('@digitax/data-layer')>()
-          return { ...actual, ...createDataLayerMock() }
+        vi.mock('@/features/orders/api', async (importOriginal) => {
+          const actual = await importOriginal<typeof import('@/features/orders/api')>()
+          return { ...actual, ...createOrdersApiMock() }
         })
 
-        beforeEach(resetDataLayerMock)
+        beforeEach(resetOrdersApiMock)
 
-        describe('sales module', () => {
+        describe('feature module', () => {
           it('reuses learned boundary support', () => {
-            useKraCreateSaleMutationMock.mockImplementationOnce(() => ({
+            useCreateOrderMutationMock.mockImplementationOnce(() => ({
               mutate: vi.fn(),
               isPending: true,
             }))
 
-            render(<SalesModule />)
-            renderWithProviders(<SalesModule />, { wrapper: QueryClientProvider })
+            render(<FeatureModule />)
+            renderWithProviders(<FeatureModule />, { wrapper: QueryClientProvider })
             expect(true).toBe(true)
           })
         })
@@ -273,14 +273,14 @@ describe('initTaroState', () => {
     expect(exampleProfile?.boundaryProfiles).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          target: '@digitax/data-layer',
+          target: '@/features/orders/api',
           kind: 'data-module',
           strategy: 'shared-module-factory',
-          supportImportPath: '@/tests/mocks/digitax-data-layer',
+          supportImportPath: '@/tests/mocks/orders-api',
           supportExports: expect.objectContaining({
-            factoryExport: 'createDataLayerMock',
-            resetExport: 'resetDataLayerMock',
-            overrideExports: ['useKraCreateSaleMutationMock'],
+            factoryExport: 'createOrdersApiMock',
+            resetExport: 'resetOrdersApiMock',
+            overrideExports: ['useCreateOrderMutationMock'],
           }),
         }),
         expect.objectContaining({
@@ -294,7 +294,7 @@ describe('initTaroState', () => {
     expect(exampleProfile?.boundaryExemplars).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          file: 'packages/example-app/src/sales-module.test.tsx',
+          file: 'packages/example-app/src/feature-module.test.tsx',
           usesCentralBoundarySupport: true,
           usesProviderWrapper: true,
           overrideStyle: 'stable-handles',
@@ -306,10 +306,10 @@ describe('initTaroState', () => {
     expect(summary).toContain('- Preferred render boundary: `module`')
     expect(summary).toContain('- Collaborator categories: data-module=1, local-child=1')
     expect(summary).toContain(
-      '- Canonical boundary support: `@/tests/mocks/digitax-data-layer`, `@/tests/renderWithProviders`'
+      '- Canonical boundary support: `@/tests/mocks/orders-api`, `@/tests/renderWithProviders`'
     )
     expect(summary).toContain(
-      '- `@digitax/data-layer`: data-module, shared-module-factory, confidence=high, support=@/tests/mocks/digitax-data-layer'
+      '- `@/features/orders/api`: data-module, shared-module-factory, confidence=high, support=@/tests/mocks/orders-api'
     )
   })
 
@@ -332,7 +332,7 @@ describe('initTaroState', () => {
       'utf-8'
     )
     await writeFile(
-      join(examplePackage, 'src', 'sales-module.test.tsx'),
+      join(examplePackage, 'src', 'feature-module.test.tsx'),
       `
         import { describe, expect, it, vi } from 'vitest'
         import { createOrdersApiMock } from '@/tests/mocks/orders-api'
@@ -347,7 +347,7 @@ describe('initTaroState', () => {
           DialogContent: vi.fn(),
         }))
 
-        describe('sales module', () => {
+        describe('feature module', () => {
           it('records the guardrail', () => {
             expect(true).toBe(true)
           })

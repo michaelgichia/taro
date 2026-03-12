@@ -93,10 +93,10 @@ Persist bounded, package-scoped test knowledge that Taro can reuse across `init`
       ],
       "renderTargets": [
         {
-          "symbol": "SalesModule",
-          "importPath": "./SalesModule",
-          "sourceTestFile": "src/sales.test.tsx",
-          "helperNames": ["openSaleDialog"],
+          "symbol": "FeatureModule",
+          "importPath": "./FeatureModule",
+          "sourceTestFile": "src/feature.test.tsx",
+          "helperNames": ["openFeatureDialog"],
           "usesWithin": true
         }
       ],
@@ -117,31 +117,31 @@ Persist bounded, package-scoped test knowledge that Taro can reuse across `init`
       ],
       "boundaryProfiles": [
         {
-          "target": "@digitax/data-layer",
+          "target": "@/features/orders/api",
           "kind": "data-module | server-action | network-client | auth | router | feature-flag | env | local-child | unknown",
           "strategy": "shared-module-factory | scaffolded-module-factory | provider-wrapper | inline-safe | forbid | real-runtime",
-          "supportImportPath": "@/tests/mocks/digitax-data-layer | null",
-          "supportPath": "packages/dashboard/src/tests/mocks/digitax-data-layer.mock.ts | null",
+          "supportImportPath": "@/tests/mocks/orders-api | null",
+          "supportPath": "src/tests/mocks/orders-api.mock.ts | null",
           "supportExports": {
-            "factoryExport": "createDataLayerMock | null",
-            "resetExport": "resetDataLayerMock | null",
-            "overrideExports": ["useKraCreateSaleMutationMock"],
-            "spyExports": ["createSaleMutate"],
-            "fixtureExports": ["mockKraSaleItem"]
+            "factoryExport": "createOrdersApiMock | null",
+            "resetExport": "resetOrdersApiMock | null",
+            "overrideExports": ["useCreateOrderMutationMock"],
+            "spyExports": ["createOrderMutate"],
+            "fixtureExports": ["mockOrder"]
           },
           "payloadSource": "mock-store | fixtures | typed-defaults | exemplar-only | manual | unknown",
           "confidence": "high | medium | low",
-          "files": ["packages/dashboard/src/features/sales-module.test.tsx"],
-          "evidence": ["packages/dashboard/src/features/sales-module.test.tsx: mock target @digitax/data-layer"],
+          "files": ["src/feature-module.test.tsx"],
+          "evidence": ["src/feature-module.test.tsx: mock target @/features/orders/api"],
           "conflictTargets": ["inline-safe"],
           "lowConfidenceScaffold": false
         }
       ],
       "boundaryExemplars": [
         {
-          "file": "packages/dashboard/src/features/sales-module.test.tsx",
+          "file": "src/feature-module.test.tsx",
           "renderBoundary": "module | component | unknown",
-          "boundaryTargets": ["@digitax/data-layer", "@/tests/renderWithProviders"],
+          "boundaryTargets": ["@/features/orders/api", "@/tests/renderWithProviders"],
           "boundaryKinds": ["data-module", "local-child"],
           "usesProviderWrapper": true,
           "usesCentralBoundarySupport": true,
@@ -163,7 +163,7 @@ Persist bounded, package-scoped test knowledge that Taro can reuse across `init`
       ],
       "exemplars": [
         {
-          "file": "src/sales.test.tsx",
+          "file": "src/feature.test.tsx",
           "tags": ["render-helper", "mutation"]
         }
       ],
@@ -237,18 +237,18 @@ Implemented shape:
         "name": "renderDashboard",
         "importPath": "@/tests/renderDashboard"
       },
-      "forbidMocks": ["@digitax/components"],
+      "forbidMocks": ["@/components/ui-kit"],
       "preferredSharedMocks": {
-        "@digitax/data-layer": "@/tests/mocks/digitax-data-layer"
+        "@/features/orders/api": "@/tests/mocks/orders-api"
       },
       "boundaryPolicies": {
-        "@digitax/data-layer": "shared-module-factory",
+        "@/features/orders/api": "shared-module-factory",
         "@/tests/renderWithProviders": "provider-wrapper"
       },
       "preferredBoundaryImplementations": {
-        "@digitax/data-layer": "@/tests/mocks/digitax-data-layer"
+        "@/features/orders/api": "@/tests/mocks/orders-api"
       },
-      "forbidBoundaryTargets": ["@digitax/components"],
+      "forbidBoundaryTargets": ["@/components/ui-kit"],
       "queryHookPolicy": "avoid | allow-centralized | allow-when-needed"
     }
   }

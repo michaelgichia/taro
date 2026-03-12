@@ -549,8 +549,8 @@ require('@testing-library/jest-dom')
 test('Example flow', async () => {
   expect(location.href).toBe('http://localhost:3001/example')
   await userEvent.click(screen.getByRole('button', { name: 'Open Example Flow' }))
-  await userEvent.click(screen.getByText('General Invoice details (optional)'))
-  await userEvent.click(screen.getByText('Customer PIN'))
+  await userEvent.click(screen.getByText('General feature details'))
+  await userEvent.click(screen.getByText('Primary identifier'))
 })`
     )
     const featureFlowPath = join(
@@ -561,15 +561,15 @@ test('Example flow', async () => {
       'features',
       'FeatureFlow.tsx'
     )
-    const reverseInvoicePath = join(
+    const alternateFeaturePath = join(
       fixture.outputDir,
       'src',
-      'reverse-invoice',
-      'ReverseInvoice.tsx'
+      'alternate-feature',
+      'AlternateFeature.tsx'
     )
     const outputPath = join(dirname(featureFlowPath), 'FeatureFlow.test.tsx')
     await mkdir(dirname(featureFlowPath), { recursive: true })
-    await mkdir(dirname(reverseInvoicePath), { recursive: true })
+    await mkdir(dirname(alternateFeaturePath), { recursive: true })
     await writeFile(
       featureFlowPath,
       `
@@ -585,13 +585,13 @@ test('Example flow', async () => {
       'utf-8'
     )
     await writeFile(
-      reverseInvoicePath,
+      alternateFeaturePath,
       `
-        export default function ReverseInvoice() {
+        export default function AlternateFeature() {
           return (
             <>
-              <h1>General Invoice details (optional)</h1>
-              <p>Customer PIN</p>
+              <h1>General feature details</h1>
+              <p>Primary identifier</p>
             </>
           )
         }
@@ -672,11 +672,11 @@ test('Example flow', async () => {
     await writeFile(
       featureFlowPath,
       `
-        import { useKraCreateSaleMutation, useKraItemsQuery } from '@digitax/data-layer'
+        import { useCreateOrderMutation, useOrdersQuery } from '@/features/orders/api'
 
         export default function FeatureFlow() {
-          useKraItemsQuery()
-          useKraCreateSaleMutation()
+          useOrdersQuery()
+          useCreateOrderMutation()
 
           return (
             <>
@@ -696,23 +696,23 @@ test('Example flow', async () => {
       effectiveRunner: 'vitest' as const,
       boundaryProfiles: [
         {
-          target: '@digitax/data-layer',
+          target: '@/features/orders/api',
           kind: 'data-module' as const,
           strategy: 'shared-module-factory' as const,
           guardrailReason: null,
-          supportImportPath: '@/tests/mocks/digitax-data-layer',
-          supportPath: 'packages/example-app/src/tests/mocks/digitax-data-layer.ts',
+          supportImportPath: '@/tests/mocks/orders-api',
+          supportPath: 'packages/example-app/src/tests/mocks/orders-api.ts',
           supportExports: {
-            factoryExport: 'createDataLayerMock',
-            resetExport: 'resetDataLayerMock',
-            overrideExports: ['useKraCreateSaleMutationMock'],
+            factoryExport: 'createOrdersApiMock',
+            resetExport: 'resetOrdersApiMock',
+            overrideExports: ['useCreateOrderMutationMock'],
             spyExports: [],
             fixtureExports: [],
           },
           payloadSource: 'fixtures' as const,
           confidence: 'high' as const,
           files: ['packages/example-app/src/features/feature-flow.test.tsx'],
-          evidence: ['packages/example-app/src/features/feature-flow.test.tsx: mock target @digitax/data-layer'],
+          evidence: ['packages/example-app/src/features/feature-flow.test.tsx: mock target @/features/orders/api'],
           conflictTargets: [],
           lowConfidenceScaffold: false,
         },
@@ -729,13 +729,13 @@ test('Example flow', async () => {
     expect(result.thrown).toBeUndefined()
     expect(result.warnings).not.toContain('Scaffolded central boundary support')
     expect(written).toContain(
-      "import { createDataLayerMock, resetDataLayerMock } from '@/tests/mocks/digitax-data-layer'"
+      "import { createOrdersApiMock, resetOrdersApiMock } from '@/tests/mocks/orders-api'"
     )
-    expect(written).toContain("vi.mock('@digitax/data-layer', async (importOriginal) => {")
-    expect(written).toContain("return { ...actual, ...createDataLayerMock() }")
+    expect(written).toContain("vi.mock('@/features/orders/api', async (importOriginal) => {")
+    expect(written).toContain("return { ...actual, ...createOrdersApiMock() }")
     expect(written).toContain('beforeEach(() => {')
-    expect(written).toContain('resetDataLayerMock()')
-    expect(written).not.toContain('createDigitaxDataLayerMock')
+    expect(written).toContain('resetOrdersApiMock()')
+    expect(written).not.toContain('createOrdersApiMockMock')
   })
 
   it('keeps repo-owned UI wrappers real even when state tries to learn them as shared mocks', async () => {
@@ -892,17 +892,17 @@ test('Example flow', async () => {
       'src',
       'tests',
       'mocks',
-      'digitax-data-layer.mock.ts'
+      'features-orders-api.mock.ts'
     )
     await mkdir(dirname(featureFlowPath), { recursive: true })
     await writeFile(
       featureFlowPath,
       `
-        import { useKraCreateSaleMutation, useKraItemsQuery } from '@digitax/data-layer'
+        import { useCreateOrderMutation, useOrdersQuery } from '@/features/orders/api'
 
         export default function FeatureFlow() {
-          useKraItemsQuery()
-          useKraCreateSaleMutation()
+          useOrdersQuery()
+          useCreateOrderMutation()
 
           return (
             <>
@@ -938,18 +938,18 @@ test('Example flow', async () => {
     const scaffold = await readFile(supportPath, 'utf-8')
 
     expect(result.thrown).toBeUndefined()
-    expect(result.warnings).toContain('Scaffolded central boundary support for @digitax/data-layer')
+    expect(result.warnings).toContain('Scaffolded central boundary support for @/features/orders/api')
     expect(result.warnings).toContain('Manual review required')
     expect(written).toContain(
-      "import { createDigitaxDataLayerMock, resetDigitaxDataLayerMock } from '../tests/mocks/digitax-data-layer.mock'"
+      "import { createFeaturesOrdersApiMock, resetFeaturesOrdersApiMock } from '../tests/mocks/features-orders-api.mock'"
     )
-    expect(written).toContain("vi.mock('@digitax/data-layer', async (importOriginal) => {")
-    expect(written).toContain('return { ...actual, ...createDigitaxDataLayerMock() }')
-    expect(written).not.toContain('useKraItemsQuery:')
-    expect(scaffold).toContain('export const useKraCreateSaleMutationMock = vi.fn')
-    expect(scaffold).toContain('export const useKraItemsQueryMock = vi.fn')
-    expect(scaffold).toContain('export function createDigitaxDataLayerMock()')
-    expect(scaffold).toContain('export function resetDigitaxDataLayerMock()')
+    expect(written).toContain("vi.mock('@/features/orders/api', async (importOriginal) => {")
+    expect(written).toContain('return { ...actual, ...createFeaturesOrdersApiMock() }')
+    expect(written).not.toContain('useOrdersQuery:')
+    expect(scaffold).toContain('export const useCreateOrderMutationMock = vi.fn')
+    expect(scaffold).toContain('export const useOrdersQueryMock = vi.fn')
+    expect(scaffold).toContain('export function createFeaturesOrdersApiMock()')
+    expect(scaffold).toContain('export function resetFeaturesOrdersApiMock()')
   })
 
   it('keeps selector degradation explicit when recorder JS has no URL evidence', async () => {

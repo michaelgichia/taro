@@ -19,7 +19,7 @@ Run an AST/text audit on the generated test before typecheck/test/lint.
 Detect:
 
 - `vi.mock(...)` / `jest.mock(...)` blocks that replace UI-library modules
-  (for example design-system packages such as `@digitax/components`).
+  (for example design-system packages such as `@/components/ui-kit`).
 - broad object-return replacement patterns that provide custom component
   implementations for UI libraries
 - inline collaborator implementations when a learned shared/scaffolded boundary support module exists

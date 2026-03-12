@@ -87,17 +87,17 @@ Overrides support:
         "name": "renderDashboard",
         "importPath": "@/tests/renderDashboard"
       },
-      "forbidMocks": ["@digitax/components"],
+      "forbidMocks": ["@/components/ui-kit"],
       "preferredSharedMocks": {
-        "@digitax/data-layer": "@/tests/mocks/digitax-data-layer"
+        "@/features/orders/api": "@/tests/mocks/orders-api"
       },
       "boundaryPolicies": {
-        "@digitax/data-layer": "shared-module-factory"
+        "@/features/orders/api": "shared-module-factory"
       },
       "preferredBoundaryImplementations": {
-        "@digitax/data-layer": "@/tests/mocks/digitax-data-layer"
+        "@/features/orders/api": "@/tests/mocks/orders-api"
       },
-      "forbidBoundaryTargets": ["@digitax/components"],
+      "forbidBoundaryTargets": ["@/components/ui-kit"],
       "queryHookPolicy": "avoid"
     }
   }
