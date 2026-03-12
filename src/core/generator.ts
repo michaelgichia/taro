@@ -114,6 +114,10 @@ function isQueryExpression(target: string): boolean {
   return /^(screen|document)\./.test(target)
 }
 
+function escapeSingleQuote(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+}
+
 function looksLikeCssSelector(target: string): boolean {
   return (
     /^[#.[]/.test(target) ||
@@ -132,6 +136,44 @@ function getRecoveredQuery(step: NormalizedStep): string | undefined {
     query.raw.length > 0
   ) {
     return query.raw
+  }
+
+  return undefined
+}
+
+function buildExactQueryFromDescriptor(step: NormalizedStep): string | undefined {
+  const descriptor = step.metadata?.query
+  if (
+    !descriptor ||
+    typeof descriptor !== 'object' ||
+    !('method' in descriptor) ||
+    typeof descriptor.method !== 'string' ||
+    !('queryRoot' in descriptor) ||
+    descriptor.queryRoot !== 'screen' ||
+    !('target' in descriptor) ||
+    typeof descriptor.target !== 'string'
+  ) {
+    return undefined
+  }
+
+  const target = escapeSingleQuote(descriptor.target)
+  if (/ByRole$/u.test(descriptor.method)) {
+    const role = 'role' in descriptor && typeof descriptor.role === 'string' ? descriptor.role : undefined
+    if (!role) {
+      return undefined
+    }
+
+    if (descriptor.target === role) {
+      return `screen.${descriptor.method}('${escapeSingleQuote(role)}')`
+    }
+
+    return `screen.${descriptor.method}('${escapeSingleQuote(role)}', { name: '${target}' })`
+  }
+
+  if (
+    /By(?:Text|LabelText|PlaceholderText|DisplayValue|AltText|Title)$/u.test(descriptor.method)
+  ) {
+    return `screen.${descriptor.method}('${target}')`
   }
 
   return undefined
@@ -182,7 +224,8 @@ function reconstructQuery(
     return `within(screen.getByRole('dialog')).getByRole('button', { name: /^${target.toLowerCase()}$/i })`
   }
 
-  const recoveredQuery = getRecoveredQuery(step)
+  const recoveredQuery =
+    step.action === 'assert' ? buildExactQueryFromDescriptor(step) ?? getRecoveredQuery(step) : getRecoveredQuery(step)
   if (recoveredQuery) {
     return recoveredQuery
   }
@@ -410,6 +453,22 @@ function renderMarkerAssertion(markerAssertion: PlannedMarkerAssertion): string 
   })
 }
 
+function inferAssertionMatcher(step: NormalizedStep, query: string, matcher?: string): string | undefined {
+  if (matcher) {
+    return matcher
+  }
+
+  if (step.action !== 'assert') {
+    return undefined
+  }
+
+  if (/\.(?:get|find|query)(?:All)?By(?:Role|Text|LabelText|PlaceholderText|DisplayValue|AltText|Title)\s*\(/u.test(query)) {
+    return '.toBeVisible()'
+  }
+
+  return '.toBeInTheDocument()'
+}
+
 export function generateTestFromGroups(
   title: string,
   itGroups: ItGroup[],
@@ -534,7 +593,7 @@ export function generateTestFromGroups(
         }
       }
 
-      const matcher = step.action === 'assert' && query ? matcherMap.get(query) : undefined
+      const matcher = query ? inferAssertionMatcher(step, query, matcherMap.get(query)) : undefined
       const stepLines = [
         stepTemplate({
           action: step.action,

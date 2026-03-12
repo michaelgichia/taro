@@ -25,6 +25,13 @@ const CODEX_SKILL_ASSETS: RuntimeAssetDefinition[] = [
     entrypoint: '$@taro-dev/rtl-generate',
   },
   {
+    id: 'generate-i',
+    kind: 'skill',
+    sourceSegments: ['agents', 'taro-generate-i.md'],
+    destinationSegments: ['skills', '@taro-dev', 'rtl-generate-i', 'SKILL.md'],
+    entrypoint: '$@taro-dev/rtl-generate-i',
+  },
+  {
     id: 'refresh',
     kind: 'skill',
     sourceSegments: ['agents', 'taro-refresh.md'],
@@ -36,6 +43,12 @@ const CODEX_SKILL_ASSETS: RuntimeAssetDefinition[] = [
     kind: 'skill' as const,
     sourceSegments: ['taro', 'references', fileName],
     destinationSegments: ['skills', '@taro-dev', 'rtl-generate', 'references', fileName],
+  })),
+  ...TARO_REFERENCE_FILES.map((fileName) => ({
+    id: `generate-i-reference-${fileName.replace(/\.md$/, '')}`,
+    kind: 'skill' as const,
+    sourceSegments: ['taro', 'references', fileName],
+    destinationSegments: ['skills', '@taro-dev', 'rtl-generate-i', 'references', fileName],
   })),
   {
     id: 'conventions',

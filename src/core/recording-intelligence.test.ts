@@ -433,7 +433,7 @@ describe('analyzeRecording', () => {
       filteredStepCount: 2,
       intentGroupCount: 1,
     })
-    expect(result.intentGroups[0]?.name).toBe('submit #save')
+    expect(result.intentGroups[0]?.name).toBe('shows Saved')
   })
 
   it('links qualified markers to the nearest prior major transition step', () => {
@@ -643,7 +643,7 @@ describe('inferIntentGroups', () => {
     })
 
     expect(analyzed.intentGroups).toHaveLength(1)
-    expect(analyzed.intentGroups[0]?.name).toBe('confirm Open Example Flow')
+    expect(analyzed.intentGroups[0]?.name).toBe('shows Open Example Flow')
     expect(analyzed.intentGroups[0]?.steps).toHaveLength(2)
   })
 
@@ -700,8 +700,8 @@ describe('inferIntentGroups', () => {
     expect(groups).toHaveLength(3)
     expect(groups.map((group) => group.name)).toEqual([
       'navigate to http://localhost:3000/example',
-      'confirm Open Example Flow',
-      'submit Submit Example Flow',
+      'shows Open Example Flow',
+      'shows Example flow created',
     ])
     expect(groups[2]?.steps).toHaveLength(4)
   })
@@ -723,8 +723,8 @@ describe('inferIntentGroups', () => {
 
     expect(analyzed.diagnostics.intentGroupCount).toBe(2)
     expect(analyzed.intentGroups.map((group) => group.name)).toEqual([
-      'confirm Open',
-      'edit Name',
+      'shows Dialog',
+      'shows Saved',
     ])
   })
 
@@ -752,7 +752,7 @@ describe('inferIntentGroups', () => {
 
     expect(findVisualCaptureCandidates(analyzed)).toEqual([
       {
-        groupName: 'confirm Open Dialog',
+        groupName: 'shows Confirmation Dialog',
         reason: 'dialog-state',
         selector: 'Open Dialog',
       },
@@ -787,7 +787,7 @@ describe('inferIntentGroups', () => {
 
     expect(findVisualCaptureCandidates(analyzed)).toEqual([
       {
-        groupName: 'confirm .checkout-dialog',
+        groupName: 'shows Checkout Dialog',
         reason: 'dialog-state',
         selector: '.checkout-dialog',
       },
@@ -805,8 +805,8 @@ describe('inferIntentGroups', () => {
 
     expect(analyzedBasic.intentGroups.map((group) => group.name)).toEqual([
       'navigate to http://localhost:3000/sales',
-      'confirm Add Sale',
-      'submit Submit Sale',
+      'shows Add Sale',
+      'shows Sale created',
     ])
     expect(analyzedDialog.diagnostics).toMatchObject({
       removedDoubleClickNoise: 1,
@@ -814,12 +814,12 @@ describe('inferIntentGroups', () => {
       intentGroupCount: 2,
     })
     expect(analyzedDialog.intentGroups.map((group) => group.name)).toEqual([
-      'confirm Open Add Sale dialog',
-      'submit Save draft',
+      'shows Add Sale dialog',
+      'shows Draft saved',
     ])
     expect(findVisualCaptureCandidates(analyzedDialog)).toEqual([
       {
-        groupName: 'confirm Open Add Sale dialog',
+        groupName: 'shows Add Sale dialog',
         reason: 'dialog-state',
         selector: 'Open Add Sale dialog',
       },

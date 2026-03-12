@@ -440,8 +440,8 @@ describe('createGenerateCommand', () => {
     expect(result.logs).toContain('sample/FeatureFlow.test.tsx')
     expect(written).toContain("import FeatureFlow from './FeatureFlow'")
     expect(written).toContain('render(<FeatureFlow />)')
-    expect(written).toContain('const planSubmitContinue = async')
-    expect(written).toContain('await planSubmitContinue(user)')
+    expect(written).toContain('const planSupportsContinue = async')
+    expect(written).toContain('await planSupportsContinue(user)')
     expect(written).toContain('within(screen.getByRole(')
     expect(written).toContain("screen.getByRole('button', {name: '+ Add Item to Cart'})")
     expect(written).toContain("screen.getByRole('combobox', { name: 'Item selector' })")
@@ -1134,6 +1134,68 @@ test('Semantic marker flow', async () => {
     )
   })
 
+  it('treats --interactive-auth as an interactive run for auth recovery', async () => {
+    const fixture = await createRecordingFixture('forced-interactive-auth')
+    captureVisualStateMock.mockResolvedValue({
+      authRecovery: {
+        completedAt: new Date().toISOString(),
+        persistedAuthPath: '.taro/playwright/.auth/user.json',
+        startedAt: new Date().toISOString(),
+        status: 'succeeded',
+        timeoutMs: 300000,
+      },
+      capturedAt: new Date().toISOString(),
+      dialog: null,
+      element: null,
+      finalUrl: 'http://localhost:3001/dashboard',
+      interrupt: {
+        kind: 'auth-required',
+        actualTitle: 'Sign In',
+        expectedTitle: 'DigiTax',
+        expectedUrl: 'http://localhost:3001/dashboard',
+        reachedUrl: 'http://localhost:3001/login',
+        signals: ['auth-route', 'route-mismatch'],
+        strategy: 'instructions',
+      },
+      pageTitle: 'DigiTax',
+      reason: 'dialog-state',
+      screenshotPath: '/tmp/taro-dashboard.png',
+      selector: '#save',
+      status: 'auth-recovered',
+      url: 'http://localhost:3001/dashboard',
+      warnings: [],
+    })
+
+    const result = await runGenerate(
+      ['--interactive-auth', fixture.recordingPath],
+      fixture.outputDir
+    )
+    const stateModule = await import('../../core/state.js')
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.errors).toBe('')
+    expect(result.logs).toContain('Visual auth recovered via Playwright runtime.')
+    expect(result.logs).toContain('Saved Playwright storageState: .taro/playwright/.auth/user.json')
+    expect(vi.mocked(stateModule.persistPlaywrightAuthProfile)).toHaveBeenCalledWith(
+      expect.any(String),
+      '.',
+      expect.objectContaining({
+        strategy: 'storageState',
+        path: '.taro/playwright/.auth/user.json',
+        detectedAt: 'generate',
+        source: 'manual',
+      })
+    )
+    expect(captureVisualStateMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        authRecovery: expect.objectContaining({
+          enabled: true,
+        }),
+      })
+    )
+  })
+
   it('prints auth instructions when MCP recovery times out and stops generation', async () => {
     const fixture = await createRecordingFixture('auth-timeout')
     captureVisualStateMock.mockResolvedValue({
@@ -1218,5 +1280,96 @@ test('Marker gate fail in write mode', async () => {
     )
     expect(result.exitCode).toBeUndefined()
     expect(written).toContain('it(')
+  })
+
+  it('keeps an existing test when it already matches the recorder flow with better quality', async () => {
+    const fixture = await createInlineJsFixture(
+      'preserve-existing-output',
+      `/**
+ * ${environmentUrlMarker}
+ * ${environmentOptionsMarker} { "url": "http://localhost:3001/example" }
+ */
+const {screen} = require('@testing-library/dom')
+const {default: userEvent} = require('@testing-library/user-event')
+require('@testing-library/jest-dom')
+
+test('Example flow', async () => {
+  expect(location.href).toBe('http://localhost:3001/example')
+  await userEvent.click(screen.getByRole('button', { name: 'Open Example Flow' }))
+  await userEvent.type(screen.getByRole('textbox', { name: 'Customer Reference' }), 'ABC-123')
+  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await userEvent.dblClick(screen.getByRole('heading', { name: 'Review Example' }))
+})`
+    )
+    const outputPath = deriveOutputPath(fixture.recordingPath)
+    const existingTest = `
+describe('Example flow', () => {
+  it('covers the full example flow', async () => {
+    render(<FeatureFlow />)
+    await user.click(screen.getByRole('button', { name: 'Open Example Flow' }))
+    await user.type(screen.getByRole('textbox', { name: 'Customer Reference' }), 'ABC-123')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('heading', { name: 'Review Example' })).toBeVisible()
+  })
+})
+`
+    await writeFile(outputPath, existingTest, 'utf-8')
+
+    const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
+    const written = await readFile(outputPath, 'utf-8')
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.errors).toBe('')
+    expect(result.logs).toContain('Existing output detected:')
+    expect(result.logs).toContain('Keeping the existing test because it already matches or exceeds')
+    expect(result.logs).not.toContain(`Updated: ${outputPath}`)
+    expect(result.logs).not.toContain(`Created: ${outputPath}`)
+    expect(written).toBe(existingTest)
+  })
+
+  it('updates an existing test when generation improves recorder-flow coverage', async () => {
+    const fixture = await createInlineJsFixture(
+      'overwrite-existing-output',
+      `/**
+ * ${environmentUrlMarker}
+ * ${environmentOptionsMarker} { "url": "http://localhost:3001/example" }
+ */
+const {screen} = require('@testing-library/dom')
+const {default: userEvent} = require('@testing-library/user-event')
+require('@testing-library/jest-dom')
+
+test('Example flow', async () => {
+  expect(location.href).toBe('http://localhost:3001/example')
+  await userEvent.click(screen.getByRole('button', { name: 'Open Example Flow' }))
+  await userEvent.type(screen.getByRole('textbox', { name: 'Customer Reference' }), 'ABC-123')
+  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await userEvent.dblClick(screen.getByRole('heading', { name: 'Review Example' }))
+})`
+    )
+    const outputPath = deriveOutputPath(fixture.recordingPath)
+    await writeFile(
+      outputPath,
+      `
+describe('Example flow', () => {
+  it('is stale', async () => {
+    render(<App />)
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+  })
+})
+`,
+      'utf-8'
+    )
+
+    const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
+    const written = await readFile(outputPath, 'utf-8')
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.errors).toBe('')
+    expect(result.logs).toContain('Existing output will be updated because the new generation improves flow coverage or overall quality.')
+    expect(result.logs).toContain(`Updated: ${outputPath}`)
+    expect(written).not.toContain("it('is stale'")
+    expect(written).toContain('Open Example Flow')
+    expect(written).toContain('Customer Reference')
+    expect(written).toContain('Review Example')
   })
 })

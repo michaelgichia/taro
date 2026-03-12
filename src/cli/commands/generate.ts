@@ -24,6 +24,7 @@ import {
 import { analyzeMocks } from '../../core/mock-intelligence.js'
 import { generateTestFromGroups, emitQuerySummary } from '../../core/generator.js'
 import { loadInput } from '../../core/input-loader.js'
+import { parseJsRecording, type JsParseResult } from '../../core/js-parser.js'
 import { normalizeJsBaseline } from '../../core/baseline-normalizer.js'
 import { planJsSuite } from '../../core/suite-planner.js'
 import {
@@ -248,6 +249,18 @@ interface RepoContextMatch {
   score: number
 }
 
+interface FlowCoverageSummary {
+  totalSteps: number
+  coveredSteps: number
+  coveredStepIds: string[]
+  uncoveredStepIds: string[]
+}
+
+interface OutputAssessment {
+  flowCoverage: FlowCoverageSummary
+  scoreResult: ScoreResult
+}
+
 function looksLikeSelectorLikeString(value: string): boolean {
   return (
     /^[#.[]/.test(value) ||
@@ -268,6 +281,256 @@ function normalizeContextTerm(value?: string): string | null {
   }
 
   return normalized
+}
+
+function normalizeComparableText(value?: string | null): string | null {
+  const normalized = value?.replace(/\s+/g, ' ').trim().toLowerCase()
+  return normalized ? normalized : null
+}
+
+function isGenericCoverageToken(token: string): boolean {
+  return (
+    GENERIC_CONTEXT_TERMS.has(token) ||
+    [
+      'screen',
+      'within',
+      'document',
+      'location.href',
+      'document.title',
+      'button',
+      'textbox',
+      'heading',
+      'dialog',
+      'combobox',
+      'listitem',
+      'link',
+      'checkbox',
+      'radio',
+      'switch',
+      'option',
+      'getbyrole',
+      'findbyrole',
+      'querybyrole',
+      'getbytext',
+      'findbytext',
+      'querybytext',
+    ].includes(token)
+  )
+}
+
+function collectComparableTokens(value?: string | null): string[] {
+  if (!value) {
+    return []
+  }
+
+  const tokens = new Set<string>()
+  const normalized = normalizeComparableText(value)
+  const register = (candidate?: string | null) => {
+    const comparable = normalizeComparableText(candidate)
+    if (
+      !comparable ||
+      comparable.length < 2 ||
+      looksLikeSelectorLikeString(comparable) ||
+      isGenericCoverageToken(comparable)
+    ) {
+      return
+    }
+
+    tokens.add(comparable)
+  }
+
+  if (!/\bscreen\.|\bwithin\(|\bdocument\./i.test(value)) {
+    register(normalized)
+  }
+
+  const quotedMatches = value.matchAll(/['"`]([^'"`\n]{2,120})['"`]/g)
+  for (const match of quotedMatches) {
+    register(match[1])
+  }
+
+  return [...tokens]
+}
+
+function collectStepCoverageTokens(step: NormalizedStep): {
+  measurable: boolean
+  primary: string[]
+  secondary: string[]
+} {
+  if (step.action === 'navigate' || step.action === 'scroll' || step.action === 'waitForSelector') {
+    return {
+      measurable: false,
+      primary: [],
+      secondary: [],
+    }
+  }
+
+  if (
+    step.action === 'assert' &&
+    (step.target === 'location.href' || step.target === 'document.title')
+  ) {
+    return {
+      measurable: false,
+      primary: [],
+      secondary: [],
+    }
+  }
+
+  const primary = new Set<string>()
+  const secondary = new Set<string>()
+  const registerPrimary = (value?: string | null) => {
+    for (const token of collectComparableTokens(value)) {
+      primary.add(token)
+    }
+  }
+  const registerSecondary = (value?: string | null) => {
+    for (const token of collectComparableTokens(value)) {
+      secondary.add(token)
+    }
+  }
+
+  registerPrimary(step.target)
+  registerPrimary(step.semanticMarkerCandidate?.proofText)
+  registerPrimary(step.semanticMarkerCandidate?.target)
+  registerPrimary(step.semanticMarkerCandidate?.query?.target)
+  registerPrimary(step.semanticMarkerCandidate?.query?.name)
+  registerPrimary(step.unresolvedSemanticMarker?.proofText)
+  registerPrimary(step.unresolvedSemanticMarker?.target)
+  registerPrimary(step.unresolvedSemanticMarker?.query?.target)
+  registerPrimary(step.unresolvedSemanticMarker?.query?.name)
+
+  if (step.action === 'fill' || step.action === 'select' || step.action === 'assert') {
+    registerSecondary(step.value)
+  }
+
+  const hasEvidence = primary.size > 0 || secondary.size > 0
+  return {
+    measurable: hasEvidence,
+    primary: [...primary],
+    secondary: [...secondary],
+  }
+}
+
+function codeIncludesCoverageToken(normalizedCode: string, token: string): boolean {
+  return normalizedCode.includes(token)
+}
+
+function buildFlowCoverageSummary(
+  analyzedRecording: AnalyzedRecording,
+  code: string
+): FlowCoverageSummary {
+  const normalizedCode = normalizeComparableText(code) ?? ''
+  let totalSteps = 0
+  let coveredSteps = 0
+  const coveredStepIds: string[] = []
+  const uncoveredStepIds: string[] = []
+
+  for (const step of analyzedRecording.steps) {
+    const coverageTokens = collectStepCoverageTokens(step)
+    if (!coverageTokens.measurable) {
+      continue
+    }
+
+    totalSteps += 1
+    const hasPrimaryCoverage =
+      coverageTokens.primary.length === 0 ||
+      coverageTokens.primary.some((token) => codeIncludesCoverageToken(normalizedCode, token))
+    const hasSecondaryCoverage =
+      coverageTokens.secondary.length === 0 ||
+      coverageTokens.secondary.some((token) => codeIncludesCoverageToken(normalizedCode, token))
+    const matched = hasPrimaryCoverage && hasSecondaryCoverage
+
+    if (matched) {
+      coveredSteps += 1
+      coveredStepIds.push(step.id ?? `${step.action}-${totalSteps}`)
+    } else {
+      uncoveredStepIds.push(step.id ?? `${step.action}-${totalSteps}`)
+    }
+  }
+
+  return {
+    totalSteps,
+    coveredSteps,
+    coveredStepIds,
+    uncoveredStepIds,
+  }
+}
+
+function mapParsedQueriesToResults(parsed: JsParseResult): QueryResult[] {
+  return parsed.queries.map((query) => ({
+    method: query.method,
+    query: query.raw ?? query.target ?? query.name ?? query.role ?? query.method,
+    quality: query.quality ?? 'fragile',
+    line: query.line,
+  }))
+}
+
+async function assessOutputAgainstRecording(params: {
+  analyzedRecording: AnalyzedRecording
+  code: string
+}): Promise<OutputAssessment> {
+  const parsed = await parseJsRecording(params.code)
+  const flowCoverage = buildFlowCoverageSummary(params.analyzedRecording, params.code)
+  const scoreResult = scoreGeneratedTest(params.code, {
+    queryResults: mapParsedQueriesToResults(parsed),
+  })
+
+  return {
+    flowCoverage,
+    scoreResult,
+  }
+}
+
+function compareOutputAssessments(candidate: OutputAssessment, existing: OutputAssessment): number {
+  const coverageDelta = candidate.flowCoverage.coveredSteps - existing.flowCoverage.coveredSteps
+  if (coverageDelta !== 0) {
+    return coverageDelta
+  }
+
+  if (candidate.scoreResult.requiresReview !== existing.scoreResult.requiresReview) {
+    return candidate.scoreResult.requiresReview ? -1 : 1
+  }
+
+  const scoreDelta = candidate.scoreResult.total - existing.scoreResult.total
+  if (scoreDelta !== 0) {
+    return scoreDelta
+  }
+
+  return existing.scoreResult.blockers.length - candidate.scoreResult.blockers.length
+}
+
+function logExistingOutputDecision(params: {
+  outputPath: string
+  candidate: OutputAssessment
+  existing: OutputAssessment
+  overwrite: boolean
+}): void {
+  const { outputPath, candidate, existing, overwrite } = params
+  console.log(pc.dim('[taro]') + ` Existing output detected: ${outputPath}`)
+  console.log(
+    pc.dim('[taro]') +
+      ` Recorder flow coverage — existing ${existing.flowCoverage.coveredSteps}/${existing.flowCoverage.totalSteps}, ` +
+      `candidate ${candidate.flowCoverage.coveredSteps}/${candidate.flowCoverage.totalSteps}`
+  )
+  console.log(
+    pc.dim('[taro]') +
+      ` Quality — existing ${existing.scoreResult.total}/100 (${existing.scoreResult.grade}), ` +
+      `candidate ${candidate.scoreResult.total}/100 (${candidate.scoreResult.grade})`
+  )
+
+  if (overwrite) {
+    console.log(
+      pc.yellow(
+        `[taro] Existing output will be updated because the new generation improves flow coverage or overall quality.`
+      )
+    )
+    return
+  }
+
+  console.log(
+    pc.green(
+      `[taro] Keeping the existing test because it already matches or exceeds the new generation for Recorder flow coverage and quality.`
+    )
+  )
 }
 
 function scoreContextTerm(term: string): number {
@@ -1244,9 +1507,13 @@ async function resolveOptionalFilePath(
 }
 
 function hasInteractiveVisualAuthCapability(
-  context: GenerateCommandContext = {}
+  context: GenerateCommandContext = {},
+  forceInteractiveAuth = false
 ): boolean {
-  return Boolean((context.input ?? stdin).isTTY && (context.output ?? stdout).isTTY)
+  return (
+    forceInteractiveAuth ||
+    Boolean((context.input ?? stdin).isTTY && (context.output ?? stdout).isTTY)
+  )
 }
 
 function resolveVisualAuthStorageStatePath(
@@ -2015,6 +2282,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
   generate
     .description('Internal runtime-only generator for Testing Library Recorder JS exports')
     .argument('<file>', 'Path to the recorder export file (.js)')
+    .option('-i, --interactive-auth', 'Force interactive Playwright auth recovery even when stdio is not detected as TTY')
     .option('--auth <file>', 'Path to a Playwright storageState JSON file for optional visual capture')
     .option('--instructions <file>', 'Path to a non-secret auth instructions file for optional visual capture')
     .option('--no-screenshots', 'Skip optional Playwright screenshots and visual inspection')
@@ -2023,6 +2291,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
       const projectRoot = cwd()
       const commandOptions = generate.opts<{
         auth?: string
+        interactiveAuth?: boolean
         instructions?: string
         screenshots?: boolean
       }>()
@@ -2090,7 +2359,10 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
       const authInstructionsPath =
         explicitInstructionsPath?.relativePath ??
         (visualAuth?.strategy === 'instructions' ? visualAuth.path : undefined)
-      const interactiveVisualAuth = hasInteractiveVisualAuthCapability(context)
+      const interactiveVisualAuth = hasInteractiveVisualAuthCapability(
+        context,
+        commandOptions.interactiveAuth === true
+      )
       const recoveryStorageStatePath = resolveVisualAuthStorageStatePath(
         projectRoot,
         visualAuth
@@ -2386,12 +2658,48 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
       emitQuerySummary(resolvedJsGeneration?.queryResults ?? [])
 
       const markerDiagnostics = buildMarkerReviewDiagnostics(hydratedSuitePlan)
+      const candidateFlowCoverage = buildFlowCoverageSummary(analyzedRecording, generated.code)
       const scoreResult = scoreGeneratedTest(generated.code, {
         queryResults: resolvedJsGeneration?.queryResults ?? [],
         markerCoverage,
         markerDiagnostics,
       })
       const boundaryIssues = analyzeBoundaryIsolation(generated.code)
+      const candidateAssessment: OutputAssessment = {
+        flowCoverage: candidateFlowCoverage,
+        scoreResult,
+      }
+
+      let shouldOverwriteExistingOutput = false
+      if (await pathExists(outputPath)) {
+        try {
+          const existingCode = await readFile(outputPath, 'utf-8')
+          const existingAssessment = await assessOutputAgainstRecording({
+            analyzedRecording,
+            code: existingCode,
+          })
+          shouldOverwriteExistingOutput =
+            compareOutputAssessments(candidateAssessment, existingAssessment) > 0
+          logExistingOutputDecision({
+            outputPath,
+            candidate: candidateAssessment,
+            existing: existingAssessment,
+            overwrite: shouldOverwriteExistingOutput,
+          })
+
+          if (!shouldOverwriteExistingOutput) {
+            return
+          }
+        } catch (error) {
+          console.warn(
+            pc.yellow(
+              `[taro] Existing output could not be assessed cleanly, so Taro will preserve it instead of overwriting blindly.`
+            )
+          )
+          console.warn(pc.yellow(`[taro] Assessment detail: ${String(error)}`))
+          return
+        }
+      }
 
       logScore(scoreResult)
       emitMarkerCoverageSection(scoreResult)
@@ -2413,7 +2721,10 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
 
       try {
         await materializeBoundarySupport(boundarySupportPlan)
-        const result = await writeTestFile(generated.code, outputPath, { createDir: true })
+        const result = await writeTestFile(generated.code, outputPath, {
+          createDir: true,
+          overwriteExisting: shouldOverwriteExistingOutput,
+        })
         await finalizeGeneratedOutput({
           code: generated.code,
           outputPath: result.filePath,

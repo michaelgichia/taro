@@ -287,6 +287,93 @@ describe('generateTestFromGroups', () => {
     expect(verifySyntax(generated.code, '/tmp/generated.test.tsx')).toEqual({ valid: true })
   })
 
+  it('uses setup helpers that return user plus render result for multi-test suites', () => {
+    const generated = generateTestFromGroups(
+      'Example Flow',
+      [
+        {
+          name: 'shows review state',
+          steps: [
+            {
+              action: 'assert',
+              target: 'Review Example Flow',
+              originalType: 'getByText',
+              source: 'js',
+            },
+          ],
+        },
+      ],
+      {
+        renderTarget: {
+          symbol: 'FeatureModule',
+          importPath: './FeatureModule',
+          sourceTestFile: 'src/FeatureModule.test.tsx',
+          helperNames: [],
+          usesWithin: false,
+        },
+        scenarios: [
+          {
+            name: 'shows review state',
+            goal: 'review',
+            steps: [
+              {
+                action: 'assert',
+                target: 'Review Example Flow',
+                originalType: 'getByText',
+                source: 'js',
+              },
+            ],
+            helperRefs: [],
+            requiresFreshRender: true,
+            markerAssertions: [],
+            unresolvedMarkerAssertions: [],
+          },
+        ],
+      }
+    )
+
+    expect(generated.code).toContain('const setup = () => {')
+    expect(generated.code).toContain('const renderResult = render(<FeatureModule />)')
+    expect(generated.code).toContain('return { ...renderResult }')
+    expect(generated.code).toContain('setup()')
+    expect(verifySyntax(generated.code, '/tmp/generated.test.tsx')).toEqual({ valid: true })
+  })
+
+  it('prefers exact assertion queries and awaits findBy assertions', () => {
+    const generated = generateTestFromGroups(
+      'Stock Flow',
+      [
+        {
+          name: 'shows updated quantity',
+          steps: [
+            {
+              action: 'assert',
+              target: 'Quantity after adjustment 1000',
+              originalType: 'findByText',
+              source: 'js',
+              metadata: {
+                query: {
+                  stepId: 'js-step-1',
+                  method: 'findByText',
+                  queryRoot: 'screen',
+                  target: 'Quantity after adjustment 1000',
+                  raw: "screen.findByText(/Quantity after adjustment\\s*1000/i)",
+                },
+              },
+            },
+          ],
+        },
+      ],
+      {}
+    )
+
+    expect(generated.code).toContain(
+      "expect(await screen.findByText('Quantity after adjustment 1000')).toBeVisible()"
+    )
+    expect(generated.code).not.toContain('/Quantity after adjustment\\s*1000/i')
+    expect(verifySyntax(generated.code, '/tmp/generated.test.tsx')).toEqual({ valid: true })
+  })
+
   it('moves helper-owned marker proof into the scenario body, keeps distinct checkpoints, and dedupes exact repeats', () => {
     const openDialogStep = {
       id: 'js-step-1',

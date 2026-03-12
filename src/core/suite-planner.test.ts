@@ -540,7 +540,7 @@ describe('planJsSuite', () => {
     expect(plan.scenarios[1]?.markerAssertions).toEqual([])
   })
 
-  it('marks multi-step mutation-heavy flows as module-boundary drafts', () => {
+  it('marks multi-step mutation-heavy flows as module-boundary drafts while replaying setup per contract', () => {
     const recording = createRecording([
       { action: 'click', target: 'Open Example Wizard', originalType: 'click', source: 'js' },
       { action: 'fill', target: 'Quantity', value: '4', originalType: 'fill', source: 'js' },
@@ -560,15 +560,23 @@ describe('planJsSuite', () => {
 
     expect(plan.renderBoundary.kind).toBe('module')
     expect(plan.renderBoundary.reason).toContain('container/module boundary')
-    expect(plan.stateSafety.status).toBe('single-flow-required')
-    expect(plan.itGroups).toHaveLength(1)
-    expect(plan.scenarios).toHaveLength(1)
+    expect(plan.stateSafety.status).toBe('setup-replay-required')
+    expect(plan.itGroups).toHaveLength(2)
+    expect(plan.scenarios).toHaveLength(2)
     expect(plan.helpers).toHaveLength(2)
+    expect(plan.scenarios[0]?.helperRefs).toEqual(['planOpenExampleDialog'])
+    expect(plan.scenarios[1]?.helperRefs).toEqual([
+      'planOpenExampleDialog',
+      'planCompleteExampleWizard',
+    ])
     expect(plan.helpers.every((helper) => helper.assertionPolicy === 'sync-only')).toBe(true)
     expect(plan.warnings).toContain(
       'Prefer a repo-local module/container render boundary for this flow instead of targeting a leaf form component directly.'
     )
     expect(plan.warnings.some((warning) => warning.includes('@repo/data-client'))).toBe(true)
+    expect(plan.warnings).toContain(
+      'Replay prerequisite setup inside each scenario helper instead of collapsing multiple contracts into one broad end-to-end test.'
+    )
   })
 
   it('keeps simple flows at component scope without boundary warnings', () => {
@@ -638,7 +646,7 @@ describe('planJsSuite', () => {
     expect(plan.helpers.every((helper) => helper.assertionPolicy === 'sync-only')).toBe(true)
   })
 
-  it('keeps stateful wizard flows explicit when the owning render target is still unresolved', () => {
+  it('keeps stateful wizard flows explicit by replaying setup when the owning render target is still unresolved', () => {
     const recording = createRecording([
       { action: 'click', target: 'Open example wizard', originalType: 'click', source: 'js' },
       { action: 'fill', target: 'Customer', value: 'Jane', originalType: 'fill', source: 'js' },
@@ -657,10 +665,19 @@ describe('planJsSuite', () => {
     })
 
     expect(plan.renderBoundary.kind).toBe('unknown')
-    expect(plan.stateSafety.status).toBe('unknown')
+    expect(plan.stateSafety.status).toBe('setup-replay-required')
+    expect(plan.scenarios).toHaveLength(2)
+    expect(plan.scenarios[0]?.helperRefs).toEqual(['planOpenExampleDialog'])
+    expect(plan.scenarios[1]?.helperRefs).toEqual([
+      'planOpenExampleDialog',
+      'planCompleteExampleWizard',
+    ])
     expect(plan.renderBoundary.resolvedTarget).toBeNull()
     expect(plan.warnings).toContain(
       'Taro could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.'
+    )
+    expect(plan.warnings).toContain(
+      'Replay prerequisite setup inside each scenario helper instead of collapsing multiple contracts into one broad end-to-end test.'
     )
   })
 })

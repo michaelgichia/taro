@@ -33,6 +33,7 @@ Stored metadata must stay non-secret:
 - In interactive runs, Taro launches a local Playwright browser for optional screenshot capture and auth checkpoints.
 - Completion is automatic: Taro resumes only after expected route/title checks pass and the target selector or expected landmarks appear.
 - On successful manual auth, Taro saves `storageState`, persists the chosen non-secret path in `.taro/state.json`, and reuses it later.
+- If a wrapper environment does not expose TTY stdio cleanly, pass `-i` / `--interactive-auth` to force interactive auth recovery for that run.
 - If Playwright launch or navigation fails, screenshot capture is skipped with explicit guidance and core generation continues.
 - In non-interactive runs, Taro does not attempt interactive auth recovery and should report remediation guidance instead of silently degrading.
 - If manual auth times out, screenshot capture stops with a clear auth error, but optional browser work must not be mistaken for a generation failure.

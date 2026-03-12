@@ -44,10 +44,10 @@ That command builds Taro, installs the Codex skill surface into this repo's `./.
 
 ## Runtime Entrypoints
 
-- Claude Code: `/@taro-dev/rtl:help`, `/@taro-dev/rtl:init`, `/@taro-dev/rtl:refresh`, `/@taro-dev/rtl:generate`
-- Gemini CLI: `/@taro-dev/rtl:help`, `/@taro-dev/rtl:init`, `/@taro-dev/rtl:refresh`, `/@taro-dev/rtl:generate`
-- OpenCode: `/@taro-dev/rtl-help`, `/@taro-dev/rtl-init`, `/@taro-dev/rtl-refresh`, `/@taro-dev/rtl-generate`
-- Codex: `$@taro-dev/rtl-help`, `$@taro-dev/rtl-init`, `$@taro-dev/rtl-refresh`, `$@taro-dev/rtl-generate`
+- Claude Code: `/@taro-dev/rtl:help`, `/@taro-dev/rtl:init`, `/@taro-dev/rtl:refresh`, `/@taro-dev/rtl:generate`, `/@taro-dev/rtl:generate-i`
+- Gemini CLI: `/@taro-dev/rtl:help`, `/@taro-dev/rtl:init`, `/@taro-dev/rtl:refresh`, `/@taro-dev/rtl:generate`, `/@taro-dev/rtl:generate-i`
+- OpenCode: `/@taro-dev/rtl-help`, `/@taro-dev/rtl-init`, `/@taro-dev/rtl-refresh`, `/@taro-dev/rtl-generate`, `/@taro-dev/rtl-generate-i`
+- Codex: `$@taro-dev/rtl-help`, `$@taro-dev/rtl-init`, `$@taro-dev/rtl-refresh`, `$@taro-dev/rtl-generate`, `$@taro-dev/rtl-generate-i`
 
 ## Refresh Maintenance
 

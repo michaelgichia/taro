@@ -21,6 +21,23 @@ Non-negotiable expectations:
 - let the Taro runtime own local Playwright inspection and screenshot capture
 - keep low-confidence gaps explicit instead of pretending the output is finished
 
+## Repository-Specific Test Contracts
+
+These rules override generic generation habits for this repo:
+
+- generate one test per behavior or contract; never bundle multiple user journeys or system concerns into one test
+- when a later behavior depends on earlier UI steps, replay that setup in helpers, but keep the assertion target narrow to one contract per test
+- name tests by the behavior that would break, not by the actions performed
+- helpers are setup only; never place `expect(...)` calls inside shared interaction utilities
+- never wrap RTL query results in `.toBeDefined()`; the query itself is the assertion unless `.toBeInTheDocument()` or another matcher is explicitly needed
+- if a test typed or selected a value, assert that payload field exactly; avoid `expect.any(...)` and `expect.anything()` for known values
+- configure mock behavior per test; do not mutate shared mock-control objects in `beforeEach`
+- keep related async mock assertions in the same `waitFor` callback when timing is shared
+- do not generate explicit teardown that combines RTL `cleanup()` with manual `document.body` repairs; fix root-level leaks at the component or portal boundary
+- choose one mock reset boundary per suite: one complete utility reset or explicit individual resets, never a mixed partial-reset pattern
+- prefer exact text matchers; do not loosen assertions with regex unless the pattern itself is the contract under test
+- setup helpers must return `{ user, ...renderResult }`
+
 ## Reference Map
 
 Read only the files that apply to the current problem:
@@ -54,7 +71,7 @@ When you do repo inspection beyond Taro's own console output, report:
 1. Accept only Testing Library Recorder `.js` exports.
 2. Taro must write the generated test next to the inferred component when it can resolve the owning render target.
 3. If the render target stays unresolved, keep the fallback boundary-draft output next to the recording.
-4. If that intended output file already exists, stop and tell the user to rename or delete it before rerunning generation.
+4. If that intended output file already exists, assess whether the existing test already covers the Recorder flow and whether the new generation improves quality. Keep the existing file when it already matches or exceeds the candidate; otherwise update it in place and report why.
 5. If the user is asking for convention diagnosis or mock review instead of generation, route them to the more specific Taro skill when that is the better fit.
 
 ## Generation Workflow

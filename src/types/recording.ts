@@ -464,7 +464,7 @@ export interface ItGroup {
 }
 
 export type JsHelperAssertionPolicy = 'sync-only'
-export type JsStateSafetyStatus = 'safe-multi-it' | 'single-flow-required' | 'unknown'
+export type JsStateSafetyStatus = 'safe-multi-it' | 'setup-replay-required' | 'unknown'
 export type JsScenarioGoal = 'flow' | 'validation' | 'review' | 'mutation-state'
 
 export interface JsHelperPlan {

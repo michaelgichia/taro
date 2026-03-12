@@ -13,6 +13,7 @@ import {
   getSupportedTestingLibraryQueryFamily,
   isTestIdQueryMethod,
 } from './query-policy.js'
+import { detectRepoContractIssues } from './repo-contracts.js'
 
 const QUERY_WEIGHTS: Record<string, number> = {
   ByRole: 1.0,
@@ -32,6 +33,51 @@ const ROLE_QUERY_REGEX = /\b(?:get|query|find)(?:All)?ByRole\s*\(/g
 const TEST_ID_QUERY_REGEX = /\b(?:get|query|find)(?:All)?ByTestId\s*\(/g
 const BOUNDARY_WARNING_REGEX = /taro-boundary-warning:/g
 const TEST_BLOCK_REGEX = /\b(?:it|test)\s*\(/g
+const REPO_CONTRACT_REASON_CONFIG: Record<
+  ReturnType<typeof detectRepoContractIssues>[number]['code'],
+  { dimension: keyof ScoreDimensions; code: string; weight: number }
+> = {
+  'helper-assertion': {
+    dimension: 'testStructure',
+    code: 'helper-assertions',
+    weight: 16,
+  },
+  'query-to-be-defined': {
+    dimension: 'assertionSpecificity',
+    code: 'query-to-be-defined',
+    weight: 14,
+  },
+  'loose-payload': {
+    dimension: 'assertionSpecificity',
+    code: 'loose-payload-matchers',
+    weight: 14,
+  },
+  'shared-mutable-mock-state': {
+    dimension: 'boundaryIsolation',
+    code: 'shared-mutable-mock-state',
+    weight: 16,
+  },
+  'split-async-mock-assertions': {
+    dimension: 'assertionSpecificity',
+    code: 'split-async-mock-assertions',
+    weight: 12,
+  },
+  'manual-dom-repair': {
+    dimension: 'boundaryIsolation',
+    code: 'manual-dom-repair',
+    weight: 12,
+  },
+  'regex-text-matcher': {
+    dimension: 'queryQuality',
+    code: 'regex-text-matchers',
+    weight: 8,
+  },
+  'mixed-reset-boundary': {
+    dimension: 'boundaryIsolation',
+    code: 'mixed-reset-boundary',
+    weight: 10,
+  },
+}
 
 function clampScore(score: number): number {
   return Math.min(100, Math.max(0, Math.round(score)))
@@ -72,7 +118,23 @@ export function calculateAssertionScore(code: string): number {
   }
 
   const weightedScore = strongAssertions + weakAssertions * 0.3
-  return clampScore((weightedScore / totalAssertions) * 100)
+  let score = clampScore((weightedScore / totalAssertions) * 100)
+  const issues = new Set(detectRepoContractIssues(code).map((issue) => issue.code))
+
+  if (issues.has('query-to-be-defined')) {
+    score -= 15
+  }
+  if (issues.has('loose-payload')) {
+    score -= 15
+  }
+  if (issues.has('split-async-mock-assertions')) {
+    score -= 10
+  }
+  if (issues.has('regex-text-matcher')) {
+    score -= 8
+  }
+
+  return clampScore(score)
 }
 
 export function calculateStructureScore(code: string): number {
@@ -99,6 +161,20 @@ export function calculateStructureScore(code: string): number {
 
   if (code.includes('taro-boundary-warning:')) {
     score -= 20
+  }
+
+  const issues = new Set(detectRepoContractIssues(code).map((issue) => issue.code))
+  if (issues.has('helper-assertion')) {
+    score -= 12
+  }
+  if (issues.has('manual-dom-repair')) {
+    score -= 8
+  }
+  if (issues.has('shared-mutable-mock-state')) {
+    score -= 10
+  }
+  if (issues.has('mixed-reset-boundary')) {
+    score -= 6
   }
 
   return clampScore(score)
@@ -149,7 +225,8 @@ function collectReasons(
   signals: ScoreSignals,
   boundaryMessages: string[],
   markerQualityGate: MarkerQualityGateState,
-  markerDiagnostics: MarkerReviewDiagnostics
+  markerDiagnostics: MarkerReviewDiagnostics,
+  repoContractIssues: ReturnType<typeof detectRepoContractIssues>
 ): ScoreReason[] {
   const reasons: ScoreReason[] = []
 
@@ -273,6 +350,13 @@ function collectReasons(
         )
       )
     }
+  }
+
+  for (const issue of repoContractIssues) {
+    const config = REPO_CONTRACT_REASON_CONFIG[issue.code]
+    reasons.push(
+      createReason(config.code, config.dimension, 'negative', config.weight, issue.message)
+    )
   }
 
   if (markerQualityGate.failing) {
@@ -476,6 +560,7 @@ export function scoreGeneratedTest(
   const boundaryIsolation = calculateBoundaryIsolationScore(code)
   const signals = collectSignals(code, queryResults, boundaryIssues.length)
   const queryCheckpointPenalty = Math.min(40, signals.queryCheckpointCount * 3)
+  const repoContractIssues = detectRepoContractIssues(code)
 
   const dimensions: ScoreDimensions = {
     queryQuality: clampScore(calculateQueryScore(queryResults) - queryCheckpointPenalty),
@@ -488,7 +573,8 @@ export function scoreGeneratedTest(
     signals,
     boundaryIssues.map((issue) => issue.message),
     markerQualityGate,
-    markerDiagnostics
+    markerDiagnostics,
+    repoContractIssues
   )
   const blockers = deriveBlockers(reasons)
   const aggregate = calculateAggregateScore(dimensions)
@@ -501,6 +587,7 @@ export function scoreGeneratedTest(
     blockers,
     requiresReview:
       aggregate.total < 80 ||
+      repoContractIssues.length > 0 ||
       markerQualityGate.failing ||
       markerDiagnostics.placementCorrections > 0 ||
       markerDiagnostics.placementConflicts > 0,

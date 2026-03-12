@@ -491,32 +491,35 @@ function deriveIntentLabel(steps: NormalizedStep[]): string {
     return navigateStep.target ? `navigate to ${navigateStep.target}` : 'navigation flow'
   }
 
+  const assertionStep = [...meaningfulSteps]
+    .reverse()
+    .find((step) => step.action === 'assert' && normalizedTarget(step.target))
+  if (assertionStep?.target) {
+    return `shows ${assertionStep.target}`
+  }
+
   const submitStep = meaningfulSteps.find(
     (step) =>
       step.action === 'click' &&
       /save|submit|confirm|continue|done|create|update/i.test(step.target ?? '')
   )
   if (submitStep?.target) {
-    return `submit ${submitStep.target}`
+    return `supports ${submitStep.target}`
   }
 
   const fillStep = meaningfulSteps.find(
     (step) => step.action === 'fill' || step.action === 'select'
   )
   if (fillStep?.target) {
-    return `edit ${fillStep.target}`
+    return `accepts ${fillStep.target}`
   }
 
   const clickStep = meaningfulSteps.find((step) => step.action === 'click')
-  if (clickStep?.target && meaningfulSteps.some((step) => step.action === 'assert')) {
-    return `confirm ${clickStep.target}`
-  }
-
   if (clickStep?.target) {
-    return `interact with ${clickStep.target}`
+    return `shows ${clickStep.target}`
   }
 
-  return 'recorded flow'
+  return 'supports the recorded behavior'
 }
 
 function isDialogLikeText(value?: string): boolean {

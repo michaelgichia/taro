@@ -24,6 +24,17 @@ Detect:
   implementations for UI libraries
 - inline collaborator implementations when a learned shared/scaffolded boundary support module exists
 - generated tests that bypass a learned provider-wrapper boundary and fall back to raw `render(...)`
+- tests that bundle multiple user-visible contracts into one `it(...)`
+- test names that describe actions instead of the protected behavior
+- setup helpers that contain `expect(...)` calls
+- `.toBeDefined()` assertions on RTL query results
+- loose `expect.any(...)` / `expect.anything()` payload assertions for known user-driven values
+- mutable shared objects that are reset in `beforeEach` to steer mock behavior
+- manual DOM cleanup that clears `document.body.innerHTML`
+- `afterEach` teardown that combines `cleanup()` with manual `document.body` mutation repair
+- mixed reset boundaries that combine a reset helper with extra suite-local `.mockClear()` churn
+- mock call count assertions inside `waitFor` with payload assertions outside it
+- regex text matchers used where the generated assertion is supposed to verify an exact rendered contract
 
 Allowed:
 

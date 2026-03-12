@@ -366,17 +366,17 @@ function assessStateSafety(params: {
 
   if (wizardFlow && hasMutationSignals(mockAnalysis)) {
     return {
-      status: 'single-flow-required',
+      status: 'setup-replay-required',
       reason:
-        'This flow spans multiple wizard steps and repo evidence shows mutation-driven state, so downstream tests should share one coordinated flow unless setup recreation is proven.',
+        'This flow spans multiple wizard steps and repo evidence shows mutation-driven state, so each scenario should replay the prerequisite setup instead of bundling multiple contracts into one test.',
     }
   }
 
   if (wizardFlow) {
     return {
-      status: 'unknown',
+      status: 'setup-replay-required',
       reason:
-        'This flow looks stateful, but repo evidence is not strong enough yet to prove whether multi-test recreation is safe.',
+        'This flow looks stateful, so later scenarios should rebuild prerequisite UI state with helpers instead of relying on one broad end-to-end test.',
     }
   }
 
@@ -486,14 +486,7 @@ export function planJsSuite(params: {
   }
 
   const baseGroups = enrichGroupSteps(
-    renderBoundary.kind === 'module'
-      ? [
-          {
-            name: fallbackTitle || 'complete recorded flow',
-            steps: analyzedRecording.steps,
-          },
-        ]
-      : buildFallbackGroups(analyzedRecording, fallbackTitle),
+    buildFallbackGroups(analyzedRecording, fallbackTitle),
     stepsById
   )
 
@@ -517,12 +510,19 @@ export function planJsSuite(params: {
   )
 
   const scenarios = baseGroups.map((group) => {
+    const matchingHelperIndexes = helpers.flatMap((helper, index) =>
+      sharesAnyStep(group.steps, helper.steps) ? [index] : []
+    )
     const helperRefs =
-      stateSafety.status === 'safe-multi-it'
-        ? helpers
+      stateSafety.status === 'setup-replay-required'
+        ? matchingHelperIndexes.length > 0
+          ? helpers
+              .slice(0, matchingHelperIndexes.at(-1)! + 1)
+              .map((helper) => helper.name)
+          : []
+        : helpers
             .filter((helper) => sharesAnyStep(group.steps, helper.steps))
             .map((helper) => helper.name)
-        : []
 
     return {
       name: group.name,
@@ -635,9 +635,9 @@ export function planJsSuite(params: {
       .map((entry) => entry.markerAssertion)
   }
 
-  if (stateSafety.status !== 'safe-multi-it' && baseGroups.length > 1) {
+  if (stateSafety.status === 'setup-replay-required' && baseGroups.length > 1) {
     warnings.push(
-      'Keep this flow in a single end-to-end scenario until Taro can prove that downstream state can be recreated safely per test.'
+      'Replay prerequisite setup inside each scenario helper instead of collapsing multiple contracts into one broad end-to-end test.'
     )
   }
 

@@ -4,6 +4,7 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { parse } from '@typescript-eslint/typescript-estree';
+import { detectRepoContractIssues } from '../core/repo-contracts.js';
 
 export interface VerificationResult {
   valid: boolean;
@@ -192,12 +193,7 @@ function checkCommonIssues(code: string): { errors: string[]; warnings: string[]
     warnings.push('Found TODO comment(s) - ensure tests are complete before finishing');
   }
 
-  // Check for potential memory leaks - missing cleanup
-  const hasCleanup = /cleanup\(\)|unmount\(\)/.test(code);
-  const hasDescribeEach = code.includes('describe.each');
-  if (hasDescribeEach && !hasCleanup) {
-    warnings.push('Using describe.each without explicit cleanup - consider adding afterEach(cleanup)');
-  }
+  warnings.push(...detectRepoContractIssues(code).map((issue) => issue.message))
 
   return { errors, warnings };
 }

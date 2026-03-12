@@ -149,6 +149,58 @@ describe('example flow', () => {
     })
   })
 
+  it('marks repo-contract smells as draft blockers even when the suite has multiple tests', () => {
+    const draft = `
+describe('stock flow', () => {
+  const setup = async () => {
+    render(<FeatureModule />)
+    expect(await screen.findByText('Ready')).toBeDefined()
+  }
+
+  const mockState = { shouldFail: false }
+
+  beforeEach(() => {
+    resetDataLayerMock()
+    save.mockReset()
+    mockState.shouldFail = false
+  })
+
+  afterEach(() => {
+    cleanup()
+    document.body.removeAttribute('style')
+  })
+
+  it('submits values', async () => {
+    await setup()
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+    expect(save).toHaveBeenCalledWith({ symbol: expect.any(String) })
+    expect(screen.getByText(/saved/i)).toBeInTheDocument()
+  })
+
+  it('shows review state', async () => {
+    render(<FeatureModule />)
+    expect(screen.getByRole('heading', { name: 'Review' })).toBeVisible()
+  })
+})
+`
+
+    const score = scoreGeneratedTest(draft, [
+      { method: 'findByText', query: "screen.findByText('Ready')", quality: 'good' },
+      { method: 'getByRole', query: "screen.getByRole('heading', { name: 'Review' })", quality: 'excellent' },
+    ])
+
+    expect(score.requiresReview).toBe(true)
+    expect(score.reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'helper-assertions', impact: 'negative' }),
+        expect.objectContaining({ code: 'query-to-be-defined', impact: 'negative' }),
+        expect.objectContaining({ code: 'loose-payload-matchers', impact: 'negative' }),
+        expect.objectContaining({ code: 'shared-mutable-mock-state', impact: 'negative' }),
+        expect.objectContaining({ code: 'mixed-reset-boundary', impact: 'negative' }),
+      ])
+    )
+  })
+
   it('returns normalized marker coverage and deterministic marker gate metadata when context is provided', () => {
     const withCoverage = scoreGeneratedTest("test('flow', () => expect(true).toBe(true))", {
       markerCoverage: {

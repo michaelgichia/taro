@@ -53,7 +53,7 @@ export function evaluateQualityGates(code: string): QualityScore {
   // Evaluate each criterion
   const structure = evaluateStructure(ast, issues);
   const queries = evaluateQueries(code, ast, issues);
-  const matchers = evaluateMatchers(ast, issues);
+  const matchers = evaluateMatchers(code, ast, issues);
   const noFragility = evaluateNoFragility(code, ast, issues);
 
   // Calculate weighted overall score
@@ -174,7 +174,7 @@ function evaluateQueries(code: string, ast: ParsedAST, issues: QualityIssue[]): 
 /**
  * Evaluate assertion matchers
  */
-function evaluateMatchers(ast: ParsedAST, issues: QualityIssue[]): number {
+function evaluateMatchers(code: string, ast: ParsedAST, issues: QualityIssue[]): number {
   let expectCount = 0;
   let matcherCount = 0;
 
@@ -243,6 +243,39 @@ function evaluateMatchers(ast: ParsedAST, issues: QualityIssue[]): number {
     return 0;
   }
 
+  if (/\bexpect\s*\(\s*(?:await\s+)?(?:screen|within\([^)]*\)|[a-zA-Z_$][\w$]*\.(?:getBy|findBy|queryBy))/m.test(code) &&
+      /\.toBeDefined\s*\(\s*\)/.test(code)) {
+    issues.push({
+      type: 'matchers',
+      severity: 'warning',
+      message: 'RTL query results are wrapped in .toBeDefined()',
+      suggestion: 'Let the query throw or use .toBeInTheDocument() for explicit DOM assertions'
+    });
+    matcherCount = Math.max(0, matcherCount - 1);
+  }
+
+  if (/toHaveBeenCalledWith\s*\([\s\S]*expect\.(?:any|anything)\s*\(/.test(code)) {
+    issues.push({
+      type: 'matchers',
+      severity: 'warning',
+      message: 'Mutation payload assertions use loose expect.any/expect.anything matchers',
+      suggestion: 'Assert exact payload values for fields the test explicitly typed or selected'
+    });
+    matcherCount = Math.max(0, matcherCount - 1);
+  }
+
+  if (/waitFor\s*\(/.test(code) &&
+      /toHaveBeenCalledTimes\(/.test(code) &&
+      /toHaveBeenCalledWith\(/.test(code)) {
+    issues.push({
+      type: 'matchers',
+      severity: 'warning',
+      message: 'Mock call count and payload assertions are split across an async boundary',
+      suggestion: 'Keep both assertions inside the same waitFor callback'
+    });
+    matcherCount = Math.max(0, matcherCount - 1);
+  }
+
   if (matcherCount < expectCount) {
     return Math.min(100, 50 + (matcherCount * 15));
   }
@@ -299,11 +332,49 @@ function evaluateNoFragility(code: string, ast: ParsedAST, issues: QualityIssue[
     });
   }
 
+  if (/(?:const|function)\s+(?:setup|plan[A-Z]\w*|open[A-Z]\w*|prepare[A-Z]\w*|render[A-Z]\w*)[\s\S]{0,1200}?\bexpect\s*\(/.test(code)) {
+    issues.push({
+      type: 'fragility',
+      severity: 'warning',
+      message: 'Setup helper contains assertions',
+      suggestion: 'Keep expect() calls in the test body so failures point to the broken contract'
+    });
+  }
+
+  if (/const\s+\w+\s*=\s*\{[\s\S]*?\bbeforeEach\s*\([\s\S]*?\b\w+\.\w+\s*=/.test(code)) {
+    issues.push({
+      type: 'fragility',
+      severity: 'warning',
+      message: 'Shared mutable state is controlling mock behavior',
+      suggestion: 'Move mock configuration into each test or use per-test factory helpers'
+    });
+  }
+
+  if (/afterEach\s*\([\s\S]*cleanup\s*\(/.test(code) && /afterEach\s*\([\s\S]*document\.body\./.test(code)) {
+    issues.push({
+      type: 'fragility',
+      severity: 'warning',
+      message: 'Teardown compensates for leaked document.body side effects',
+      suggestion: 'Fix the leak in the component or portal implementation instead of patching every test'
+    });
+  }
+
+  if (/(?:getByText|findByText|queryByText)\s*\(\s*\/.*\/[gimsuy]*\s*[),]/.test(code)) {
+    issues.push({
+      type: 'fragility',
+      severity: 'info',
+      message: 'Regex text matcher detected for rendered output',
+      suggestion: 'Prefer exact text assertions unless the pattern itself is under test'
+    });
+  }
+
   // Score based on absence of fragile patterns
-  if (cssSelectorCount === 0 && testIdCount === 0) return 100;
-  if (cssSelectorCount === 0) return 80;
-  if (testIdCount === 0) return 70;
-  return 50;
+  let score = 100;
+  if (cssSelectorCount > 0) score -= 30;
+  else if (testIdCount > 0) score -= 20;
+  const penalties = issues.filter((issue) => issue.type === 'fragility').length;
+  score -= penalties * 10;
+  return Math.max(20, score);
 }
 
 /**

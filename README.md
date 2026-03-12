@@ -130,9 +130,13 @@ That reinstalls the Codex skill surface only. It does not place a global `taro` 
 After installation and a first `init` run, use the runtime-native installed generate command or skill for your agent:
 
 - Claude Code: `/@taro-dev/rtl:generate`
+- Claude Code: `/@taro-dev/rtl:generate-i`
 - Gemini CLI: `/@taro-dev/rtl:generate`
+- Gemini CLI: `/@taro-dev/rtl:generate-i`
 - OpenCode: `/@taro-dev/rtl-generate`
+- OpenCode: `/@taro-dev/rtl-generate-i`
 - Codex: `$@taro-dev/rtl-generate`
+- Codex: `$@taro-dev/rtl-generate-i`
 
 ### Prerequisites
 
@@ -253,7 +257,7 @@ After installation, each runtime gets a namespaced help entrypoint plus `init`, 
 ### Tips
 
 - When Taro infers the owning render target, it writes the generated test next to that component using the same basename
-- If you re-record a flow, rename or delete the old generated test before running Taro again
+- If you re-record a flow, Taro now compares the existing generated test against the new Recorder flow and only overwrites when coverage or quality improves
 - If you record multiple flows, run Taro on each to build up package state in `.taro/state.json` — later runs benefit from earlier ones
 - Commit `.taro/state.json` when you want learned package profiles to persist across teammates and CI
 - Add `.taro/overrides.json` when you need to pin runner, render helper, or shared mock policy for a package
