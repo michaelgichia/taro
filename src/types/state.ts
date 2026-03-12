@@ -45,6 +45,7 @@ export type TaroBoundaryPayloadSource =
   | 'exemplar-only'
   | 'manual'
   | 'unknown'
+export type TaroBoundaryGuardrailReason = 'repo-owned-ui-wrapper' | 'ui-package'
 export type TaroQueryHookPolicy = 'avoid' | 'allow-centralized' | 'allow-when-needed'
 
 export interface TaroSignal<T> {
@@ -96,6 +97,7 @@ export interface TaroBoundaryProfile {
   target: string
   kind: TaroBoundaryKind
   strategy: TaroBoundaryStrategy
+  guardrailReason: TaroBoundaryGuardrailReason | null
   supportImportPath: string | null
   supportPath: string | null
   supportExports: TaroBoundarySupportExports

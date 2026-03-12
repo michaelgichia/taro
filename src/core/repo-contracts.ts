@@ -21,7 +21,7 @@ const ISSUE_MESSAGES: Record<RepoContractIssueCode, string> = {
   'loose-payload':
     'Avoid loose payload matchers for known user-driven values - assert exact mutation payload fields when the test set them explicitly.',
   'shared-mutable-mock-state':
-    'Avoid mutable shared objects to control mock behavior - configure mock state per test instead of resetting shared state in beforeEach.',
+    'Avoid mutable shared objects to control mock behavior - hoist plain vi.fn() mocks, set a default mockImplementation in beforeEach, and override per-test with a complete mockImplementation.',
   'split-async-mock-assertions':
     'Keep async mock call count and payload assertions inside the same waitFor callback to avoid race conditions.',
   'manual-dom-repair':
@@ -44,7 +44,7 @@ const DETECTORS: Array<[RepoContractIssueCode, RegExp]> = [
   ['loose-payload', /toHaveBeenCalledWith\s*\([\s\S]*expect\.(?:any|anything)\s*\(/],
   [
     'shared-mutable-mock-state',
-    /const\s+\w+\s*=\s*\{[\s\S]*?\bbeforeEach\s*\([\s\S]*?\b\w+\.\w+\s*=/,
+    /(?:const\s+\w+\s*=\s*\{[\s\S]*?\bbeforeEach\s*\([\s\S]*?\b\w+\.\w+\s*=|vi\.hoisted\s*\(\s*\(\)\s*=>[\s\S]*?(?::\s*(?:false|true|null|"|'|\d)|(?:outcome|control|state|shouldFail)\s*:))/,
   ],
   [
     'split-async-mock-assertions',

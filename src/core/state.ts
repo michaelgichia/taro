@@ -12,6 +12,7 @@ import {
 import {
   classifyBoundaryKind,
   collectBoundaryLearning,
+  getBoundaryGuardrailReason,
   summarizeBoundaryProfiles,
 } from './boundary-learning.js'
 import {
@@ -36,6 +37,7 @@ import type { ScoreResult } from '../types/score.js'
 import type {
   RepoRenderTargetCandidate,
   TaroBoundaryExemplarProfile,
+  TaroBoundaryGuardrailReason,
   TaroBoundaryKind,
   TaroBoundaryPayloadSource,
   TaroBoundaryProfile,
@@ -152,6 +154,7 @@ const boundaryPayloadSourceSchema = z.enum([
   'manual',
   'unknown',
 ])
+const boundaryGuardrailReasonSchema = z.enum(['repo-owned-ui-wrapper', 'ui-package'])
 const queryHookPolicySchema = z.enum(['avoid', 'allow-centralized', 'allow-when-needed'])
 const conventionFileSchema = z.object({
   path: z.string(),
@@ -213,6 +216,7 @@ const boundaryProfileSchema = z.object({
   target: z.string(),
   kind: boundaryKindSchema,
   strategy: boundaryStrategySchema,
+  guardrailReason: boundaryGuardrailReasonSchema.nullable().default(null),
   supportImportPath: z.string().nullable(),
   supportPath: z.string().nullable(),
   supportExports: boundarySupportExportsSchema,
@@ -2232,6 +2236,7 @@ export function resolveTaroPackageProfile(
         target,
         kind: classifyBoundaryKind(target),
         strategy: 'shared-module-factory',
+        guardrailReason: getBoundaryGuardrailReason(target),
         supportImportPath,
         supportPath: null,
         supportExports: {
@@ -2260,9 +2265,13 @@ export function resolveTaroPackageProfile(
   const resolvedBoundaryProfiles = [...boundaryProfilesByTarget.values()]
     .map((boundaryProfile) => {
       const forcedSupportImportPath =
-        preferredBoundaryImplementations[boundaryProfile.target] ?? boundaryProfile.supportImportPath
+        boundaryProfile.guardrailReason
+          ? null
+          : preferredBoundaryImplementations[boundaryProfile.target] ?? boundaryProfile.supportImportPath
+      const effectiveGuardrailReason: TaroBoundaryGuardrailReason | null =
+        boundaryProfile.guardrailReason ?? getBoundaryGuardrailReason(boundaryProfile.target)
       const forcedStrategy =
-        forbidBoundaryTargets.includes(boundaryProfile.target)
+        effectiveGuardrailReason || forbidBoundaryTargets.includes(boundaryProfile.target)
           ? 'forbid'
           : boundaryPolicies[boundaryProfile.target] ??
             (preferredBoundaryImplementations[boundaryProfile.target]
@@ -2271,8 +2280,19 @@ export function resolveTaroPackageProfile(
 
       return {
         ...boundaryProfile,
+        guardrailReason: effectiveGuardrailReason,
         strategy: forcedStrategy,
         supportImportPath: forcedSupportImportPath,
+        supportExports:
+          forcedStrategy === 'forbid'
+            ? {
+                factoryExport: null,
+                resetExport: null,
+                overrideExports: [],
+                spyExports: [],
+                fixtureExports: [],
+              }
+            : boundaryProfile.supportExports,
       }
     })
     .sort((left, right) => left.target.localeCompare(right.target))

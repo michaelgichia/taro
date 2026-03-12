@@ -125,4 +125,31 @@ describe('analyzeBoundaryIsolation', () => {
     expect(analyzeBoundaryIsolation(generated.code)).toEqual([])
     expect(calculateBoundaryIsolationScore(generated.code)).toBe(100)
   })
+
+  it('flags mocked repo-owned UI wrapper boundaries', () => {
+    const code = `
+      import { describe, expect, it, vi } from 'vitest'
+      import type { ReactNode } from 'react'
+
+      vi.mock('@/components/library/Modal', () => ({
+        Dialog: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+        DialogContent: ({ children }: { children: ReactNode }) => (
+          <div role="dialog">{children}</div>
+        ),
+      }))
+
+      describe('example', () => {
+        it('renders', () => {
+          expect(true).toBe(true)
+        })
+      })
+    `
+
+    expect(analyzeBoundaryIsolation(code)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: 'protected-ui-boundary-mock' }),
+      ])
+    )
+    expect(calculateBoundaryIsolationScore(code)).toBeLessThan(100)
+  })
 })

@@ -341,12 +341,15 @@ function evaluateNoFragility(code: string, ast: ParsedAST, issues: QualityIssue[
     });
   }
 
-  if (/const\s+\w+\s*=\s*\{[\s\S]*?\bbeforeEach\s*\([\s\S]*?\b\w+\.\w+\s*=/.test(code)) {
+  if (
+    /const\s+\w+\s*=\s*\{[\s\S]*?\bbeforeEach\s*\([\s\S]*?\b\w+\.\w+\s*=/.test(code) ||
+    /vi\.hoisted\s*\(\s*\(\)\s*=>[\s\S]*?(?::\s*(?:false|true|null|"|'|\d)|(?:outcome|control|state|shouldFail)\s*:)/.test(code)
+  ) {
     issues.push({
       type: 'fragility',
       severity: 'warning',
       message: 'Shared mutable state is controlling mock behavior',
-      suggestion: 'Move mock configuration into each test or use per-test factory helpers'
+      suggestion: 'Hoist plain vi.fn() mocks, set a default mockImplementation in beforeEach, and override per-test with a complete mockImplementation'
     });
   }
 

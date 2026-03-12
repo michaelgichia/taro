@@ -32,6 +32,7 @@ import {
   materializeBoundarySupport,
   planBoundarySupport,
 } from '../../core/boundary-support.js'
+import { discoverBoundaryImportsFromSource } from '../../core/boundary-learning.js'
 import {
   appendGeneratedTestRecord,
   detectPackageProfileStaleness,
@@ -1812,18 +1813,30 @@ function summarizeResolvedPackageProfile(
   console.log(pc.dim('[taro]') + ` State profile: ${parts.join(', ')}`)
 }
 
-function auditBoundaryPolicy(
+async function auditBoundaryPolicy(
   code: string,
-  packageProfile: ResolvedTaroPackageProfile | null
-): string[] {
+  packageProfile: ResolvedTaroPackageProfile | null,
+  renderTargetFile: string | null
+): Promise<string[]> {
   if (!packageProfile) {
-    return []
+    if (!renderTargetFile) {
+      return []
+    }
   }
 
   const warnings: string[] = []
-  const forbiddenTargets = new Set([
-    ...packageProfile.forbidMocks,
-    ...packageProfile.forbidBoundaryTargets,
+  const discoveredImports = renderTargetFile
+    ? await discoverBoundaryImportsFromSource(renderTargetFile)
+    : []
+  const forbiddenTargets = new Set<string>([
+    ...(packageProfile?.forbidMocks ?? []),
+    ...(packageProfile?.forbidBoundaryTargets ?? []),
+    ...((packageProfile?.boundaryProfiles ?? [])
+      .filter((profile) => profile.strategy === 'forbid')
+      .map((profile) => profile.target)),
+    ...discoveredImports
+      .filter((importedBoundary) => importedBoundary.guardrailReason)
+      .map((importedBoundary) => importedBoundary.target),
   ])
 
   for (const target of forbiddenTargets) {
@@ -1837,7 +1850,23 @@ function auditBoundaryPolicy(
     }
   }
 
-  for (const profile of packageProfile.boundaryProfiles) {
+  for (const discoveredImport of discoveredImports) {
+    if (
+      !discoveredImport.guardrailReason ||
+      (!code.includes(`vi.mock('${discoveredImport.target}'`) &&
+        !code.includes(`vi.mock("${discoveredImport.target}"`) &&
+        !code.includes(`jest.mock('${discoveredImport.target}'`) &&
+        !code.includes(`jest.mock("${discoveredImport.target}"`))
+    ) {
+      continue
+    }
+
+    warnings.push(
+      `Generated test mocks protected UI boundary "${discoveredImport.target}". Repo-owned UI wrappers must remain real at test time; fix portal, animation, or cleanup issues at the source instead of mocking around them.`
+    )
+  }
+
+  for (const profile of packageProfile?.boundaryProfiles ?? []) {
     if (
       ['shared-module-factory', 'scaffolded-module-factory'].includes(profile.strategy) &&
       profile.supportImportPath &&
@@ -1854,8 +1883,8 @@ function auditBoundaryPolicy(
   }
 
   if (
-    packageProfile.boundaryProfiles.some((profile) => profile.strategy === 'provider-wrapper') &&
-    !packageProfile.effectiveRenderHelper &&
+    packageProfile?.boundaryProfiles.some((profile) => profile.strategy === 'provider-wrapper') &&
+    !packageProfile?.effectiveRenderHelper &&
     code.includes('render(')
   ) {
     warnings.push(
@@ -2636,7 +2665,11 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
         renderHelper: generationRenderHelper,
       })
       generated.code = applyBoundarySupport(generated.code, boundarySupportPlan)
-      const boundaryPolicyWarnings = auditBoundaryPolicy(generated.code, packageProfile)
+      const boundaryPolicyWarnings = await auditBoundaryPolicy(
+        generated.code,
+        packageProfile,
+        resolvedRenderTargetFile
+      )
       const markerCoverage = buildMarkerCoverageSummary({
         analyzedRecording,
         suitePlan: hydratedSuitePlan,

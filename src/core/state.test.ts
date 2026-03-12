@@ -313,6 +313,89 @@ describe('initTaroState', () => {
     )
   })
 
+  it('persists repo-owned UI wrapper guardrails in state and summary output', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src', 'tests', 'mocks'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'tests', 'mocks', 'orders-api.ts'),
+      `
+        export function createOrdersApiMock() {
+          return {}
+        }
+      `,
+      'utf-8'
+    )
+    await writeFile(
+      join(examplePackage, 'src', 'sales-module.test.tsx'),
+      `
+        import { describe, expect, it, vi } from 'vitest'
+        import { createOrdersApiMock } from '@/tests/mocks/orders-api'
+
+        vi.mock('@/features/orders/api', async (importOriginal) => {
+          const actual = await importOriginal<typeof import('@/features/orders/api')>()
+          return { ...actual, ...createOrdersApiMock() }
+        })
+
+        vi.mock('@/components/library/Modal', () => ({
+          Dialog: vi.fn(),
+          DialogContent: vi.fn(),
+        }))
+
+        describe('sales module', () => {
+          it('records the guardrail', () => {
+            expect(true).toBe(true)
+          })
+        })
+      `,
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const exampleProfile = result.state.packages['packages/example-app']
+    const summary = await readFile(join(projectRoot, '.taro', 'summary.md'), 'utf-8')
+    const persisted = JSON.parse(
+      await readFile(join(projectRoot, '.taro', 'state.json'), 'utf-8')
+    ) as {
+      packages: Record<string, { boundaryProfiles: Array<{ target: string; guardrailReason: string | null }> }>
+    }
+
+    expect(exampleProfile?.boundaryProfiles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          target: '@/features/orders/api',
+          strategy: 'shared-module-factory',
+          guardrailReason: null,
+        }),
+        expect.objectContaining({
+          target: '@/components/library/Modal',
+          kind: 'local-child',
+          strategy: 'forbid',
+          guardrailReason: 'repo-owned-ui-wrapper',
+          supportImportPath: null,
+        }),
+      ])
+    )
+    expect(summary).toContain(
+      '- `@/components/library/Modal`: local-child, forbid, confidence=high, guardrail=repo-owned-ui-wrapper'
+    )
+    expect(
+      persisted.packages['packages/example-app']?.boundaryProfiles.find(
+        (profile) => profile.target === '@/components/library/Modal'
+      )
+    ).toEqual(
+      expect.objectContaining({
+        target: '@/components/library/Modal',
+        guardrailReason: 'repo-owned-ui-wrapper',
+      })
+    )
+  })
+
   it('detects Playwright storageState assets from config during init', async () => {
     const examplePackage = join(projectRoot, 'packages', 'example-app')
     const authDir = join(examplePackage, 'playwright', '.auth')

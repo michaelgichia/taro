@@ -8,6 +8,7 @@ import type { MutationLifecyclePattern } from '../types/conventions.js'
 import type {
   RepoRenderTargetCandidate,
   TaroBoundaryExemplarProfile,
+  TaroBoundaryGuardrailReason,
   TaroBoundaryKind,
   TaroBoundaryPayloadSource,
   TaroBoundaryProfile,
@@ -34,6 +35,7 @@ export interface BoundaryImportReference {
   target: string
   importedNames: string[]
   kind: TaroBoundaryKind
+  guardrailReason: TaroBoundaryGuardrailReason | null
 }
 
 interface ImportedBinding {
@@ -46,6 +48,7 @@ interface BoundaryObservation {
   target: string
   kind: TaroBoundaryKind
   strategy: TaroBoundaryStrategy
+  guardrailReason: TaroBoundaryGuardrailReason | null
   supportImportPath: string | null
   supportExports: TaroBoundaryProfile['supportExports']
   payloadSource: TaroBoundaryPayloadSource
@@ -74,7 +77,9 @@ const AST_PLUGINS: babelParser.ParserPlugin[] = [
 
 const SUPPORT_IMPORT_REGEX = /(mock|fixture|factor)/i
 const MOCK_METHOD_REGEX = /^mock(?:Implementation(?:Once)?|ReturnValue(?:Once)?|ResolvedValue(?:Once)?|RejectedValue(?:Once)?|Reset|Clear)$/u
-const UI_PACKAGE_REGEX = /(?:^@[^/]+\/(?:components|ui(?:-kit)?|design-system)$)|(?:\/components?$)|(?:\/library\/)/i
+const UI_PATH_REGEX = /(?:^|\/)(?:components?|library|ui(?:-kit)?|design-system)(?:\/|$)/i
+const THIRD_PARTY_UI_PACKAGE_REGEX =
+  /(?:^@[^/]+\/(?:components|ui(?:-kit)?|design-system)$)|(?:^[^./~@][^/]*\/(?:components|ui(?:-kit)?|design-system)$)/i
 
 function parseCode(code: string) {
   return babelParser.parse(code, {
@@ -118,6 +123,51 @@ function strategyPriority(strategy: TaroBoundaryStrategy): number {
 
 function normalizeTarget(target: string): string {
   return target.replace(/\\/g, '/')
+}
+
+function isRepoOwnedBoundaryTarget(target: string): boolean {
+  return /^(?:\.{1,2}\/|@\/|~\/)/u.test(target)
+}
+
+function isComponentLikeExportName(name: string): boolean {
+  if (name === 'default') {
+    return true
+  }
+
+  if (!/^[A-Z][A-Za-z0-9]*$/u.test(name)) {
+    return false
+  }
+
+  if (/^use[A-Z]/u.test(name) || /^[A-Z0-9_]+$/u.test(name)) {
+    return false
+  }
+
+  return true
+}
+
+function isRepoOwnedUiWrapperTarget(target: string, exportedNames: string[]): boolean {
+  return (
+    isRepoOwnedBoundaryTarget(target) &&
+    UI_PATH_REGEX.test(target) &&
+    exportedNames.some((name) => isComponentLikeExportName(name))
+  )
+}
+
+export function getBoundaryGuardrailReason(
+  target: string,
+  exportedNames: string[] = []
+): TaroBoundaryGuardrailReason | null {
+  const normalized = normalizeTarget(target)
+
+  if (isRepoOwnedUiWrapperTarget(normalized, exportedNames)) {
+    return 'repo-owned-ui-wrapper'
+  }
+
+  if (!isRepoOwnedBoundaryTarget(normalized) && THIRD_PARTY_UI_PACKAGE_REGEX.test(normalized)) {
+    return 'ui-package'
+  }
+
+  return null
 }
 
 export function classifyBoundaryKind(target: string): TaroBoundaryKind {
@@ -169,8 +219,8 @@ export function classifyBoundaryKind(target: string): TaroBoundaryKind {
   return 'unknown'
 }
 
-export function isForbiddenBoundaryTarget(target: string): boolean {
-  return UI_PACKAGE_REGEX.test(target)
+export function isForbiddenBoundaryTarget(target: string, exportedNames: string[] = []): boolean {
+  return getBoundaryGuardrailReason(target, exportedNames) !== null
 }
 
 function inferPayloadSource(importPath: string | null): TaroBoundaryPayloadSource {
@@ -279,10 +329,11 @@ function pushUnique(target: string[], value: string | null | undefined): void {
 
 function inferStrategy(params: {
   target: string
+  guardrailReason: TaroBoundaryGuardrailReason | null
   supportImportPath: string | null
   usedFactoryExport: boolean
 }): TaroBoundaryStrategy {
-  if (isForbiddenBoundaryTarget(params.target)) {
+  if (params.guardrailReason) {
     return 'forbid'
   }
   if (params.usedFactoryExport && params.supportImportPath) {
@@ -327,6 +378,30 @@ function getReturnedObjectExpression(
     }
   }
   return null
+}
+
+function getReturnedObjectPropertyNames(node: t.ObjectExpression | null): string[] {
+  if (!node) {
+    return []
+  }
+
+  const names = new Set<string>()
+  for (const property of node.properties) {
+    if (t.isObjectProperty(property)) {
+      if (t.isIdentifier(property.key)) {
+        names.add(property.key.name)
+      } else if (t.isStringLiteral(property.key)) {
+        names.add(property.key.value)
+      }
+      continue
+    }
+
+    if (t.isObjectMethod(property) && t.isIdentifier(property.key)) {
+      names.add(property.key.name)
+    }
+  }
+
+  return [...names].sort()
 }
 
 function inferRenderBoundary(
@@ -386,6 +461,7 @@ export async function collectBoundaryLearning(params: {
         target,
         kind: next.kind,
         strategy: next.strategy,
+        guardrailReason: next.guardrailReason ?? null,
         supportImportPath: next.supportImportPath ?? null,
         supportExports,
         payloadSource: next.payloadSource ?? inferPayloadSource(next.supportImportPath ?? null),
@@ -405,12 +481,13 @@ export async function collectBoundaryLearning(params: {
     traverse(ast, {
       CallExpression(path: NodePath<t.CallExpression>) {
         const target = getMockTarget(path)
-        if (target) {
-          const normalizedTarget = normalizeTarget(target)
-          const returnedObject = getReturnedObjectExpression(path.node.arguments[1])
-          let supportImportPath: string | null = null
-          const supportExports = createEmptySupportExports()
-          let usedFactoryExport = false
+      if (target) {
+        const normalizedTarget = normalizeTarget(target)
+        const returnedObject = getReturnedObjectExpression(path.node.arguments[1])
+        const returnedObjectPropertyNames = getReturnedObjectPropertyNames(returnedObject)
+        let supportImportPath: string | null = null
+        const supportExports = createEmptySupportExports()
+        let usedFactoryExport = false
 
           if (returnedObject) {
             for (const property of returnedObject.properties) {
@@ -444,13 +521,19 @@ export async function collectBoundaryLearning(params: {
           }
 
           const kind = classifyBoundaryKind(normalizedTarget)
+          const guardrailReason = getBoundaryGuardrailReason(
+            normalizedTarget,
+            returnedObjectPropertyNames
+          )
           upsertObservation(normalizedTarget, {
             kind,
             strategy: inferStrategy({
               target: normalizedTarget,
+              guardrailReason,
               supportImportPath,
               usedFactoryExport,
             }),
+            guardrailReason,
             supportImportPath,
             supportExports,
             payloadSource: inferPayloadSource(supportImportPath),
@@ -527,6 +610,7 @@ export async function collectBoundaryLearning(params: {
       target,
       kind: classifyBoundaryKind(target),
       strategy: 'provider-wrapper',
+      guardrailReason: getBoundaryGuardrailReason(target, []),
       supportImportPath: wrapper.importPath,
       supportExports: createEmptySupportExports(),
       payloadSource: 'manual',
@@ -569,16 +653,20 @@ export async function collectBoundaryLearning(params: {
         target,
         kind: winner.kind,
         strategy: winner.strategy,
-        supportImportPath: winner.supportImportPath,
+        guardrailReason: winner.guardrailReason,
+        supportImportPath: winner.strategy === 'forbid' ? null : winner.supportImportPath,
         supportPath: null,
-        supportExports: {
-          factoryExport: winner.supportExports.factoryExport,
-          resetExport: winner.supportExports.resetExport,
-          overrideExports: [...winner.supportExports.overrideExports].sort(),
-          spyExports: [...winner.supportExports.spyExports].sort(),
-          fixtureExports: [...winner.supportExports.fixtureExports].sort(),
-        },
-        payloadSource: winner.payloadSource,
+        supportExports:
+          winner.strategy === 'forbid'
+            ? createEmptySupportExports()
+            : {
+                factoryExport: winner.supportExports.factoryExport,
+                resetExport: winner.supportExports.resetExport,
+                overrideExports: [...winner.supportExports.overrideExports].sort(),
+                spyExports: [...winner.supportExports.spyExports].sort(),
+                fixtureExports: [...winner.supportExports.fixtureExports].sort(),
+              },
+        payloadSource: winner.strategy === 'forbid' ? 'unknown' : winner.payloadSource,
         confidence,
         files,
         evidence,
@@ -660,6 +748,7 @@ export async function discoverBoundaryImportsFromSource(
       target,
       importedNames: [...importedNames].sort(),
       kind: classifyBoundaryKind(target),
+      guardrailReason: getBoundaryGuardrailReason(target, [...importedNames]),
     }))
     .sort((left, right) => left.target.localeCompare(right.target))
 }
@@ -682,6 +771,9 @@ export function summarizeBoundaryProfiles(
         `${profile.strategy}`,
         `confidence=${profile.confidence}`,
       ]
+      if (profile.guardrailReason) {
+        detail.push(`guardrail=${profile.guardrailReason}`)
+      }
       if (profile.supportImportPath) {
         detail.push(`support=${profile.supportImportPath}`)
       }

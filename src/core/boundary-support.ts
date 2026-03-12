@@ -3,7 +3,7 @@ import { dirname, join, relative, resolve } from 'node:path'
 import {
   classifyBoundaryKind,
   discoverBoundaryImportsFromSource,
-  isForbiddenBoundaryTarget,
+  getBoundaryGuardrailReason,
 } from './boundary-learning.js'
 import type {
   RepoRenderTargetCandidate,
@@ -257,6 +257,7 @@ async function scaffoldBoundaryProfile(params: {
       target: params.target,
       kind: classifyBoundaryKind(params.target),
       strategy: 'scaffolded-module-factory',
+      guardrailReason: null,
       supportImportPath: toImportPath(fromDir, supportPath),
       supportPath: relative(params.projectRoot, supportPath).replace(/\\/g, '/'),
       supportExports: {
@@ -330,10 +331,17 @@ export async function planBoundarySupport(params: {
   }
 
   for (const importedBoundary of discoveredImports) {
-    if (!relevantTargets.has(importedBoundary.target)) {
+    if (importedBoundary.guardrailReason) {
+      const conflictingProfile = boundaryProfiles.get(importedBoundary.target) ?? null
+      if (conflictingProfile && conflictingProfile.strategy !== 'forbid') {
+        plan.warnings.push(
+          `Keeping ${importedBoundary.target} real at test time because it is a ${importedBoundary.guardrailReason}; fix environment issues at the source instead of mocking around the UI boundary.`
+        )
+        plan.requiresReview = true
+      }
       continue
     }
-    if (isForbiddenBoundaryTarget(importedBoundary.target)) {
+    if (!relevantTargets.has(importedBoundary.target)) {
       continue
     }
 
@@ -360,6 +368,14 @@ export async function planBoundarySupport(params: {
       profile.strategy !== 'shared-module-factory' &&
       profile.strategy !== 'scaffolded-module-factory'
     ) {
+      continue
+    }
+
+    if (getBoundaryGuardrailReason(profile.target, importedBoundary.importedNames)) {
+      plan.warnings.push(
+        `Keeping ${profile.target} real at test time because it is a protected UI boundary; fix environment issues at the source instead of mocking around the UI boundary.`
+      )
+      plan.requiresReview = true
       continue
     }
 

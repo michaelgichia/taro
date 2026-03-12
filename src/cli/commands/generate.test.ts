@@ -29,155 +29,147 @@ vi.mock('../../core/mock-intelligence.js', () => ({
   analyzeMocks: vi.fn(async () => null),
 }))
 
-const { taroStateControl } = vi.hoisted(() => ({
-  taroStateControl: {
-    statePackages: {} as Record<string, unknown>,
-    stale: false,
-    staleReason: null as string | null,
-    profile: {
-      packagePath: '.',
-      packageName: null,
-      scannedAt: new Date(0).toISOString(),
-      testFileCount: 0,
-      conventions: {
-        scannedAt: new Date(0).toISOString(),
-        projectRoot: '/tmp/project',
-        importStyle: 'esm',
-        mockPattern: 'none',
-        testFiles: [],
-        folderPattern: 'unknown',
-        fileExtension: 'ts',
-      },
-      importStyle: { value: 'esm', confidence: 'high', evidence: [] as string[] },
-      runner: { value: 'unknown' as const, confidence: 'low', evidence: [] as string[] },
-      mockPattern: { value: 'none' as const, confidence: 'low', evidence: [] as string[] },
-      folderPattern: { value: 'unknown' as const, confidence: 'low', evidence: [] as string[] },
-      fileExtension: { value: 'ts' as const, confidence: 'high', evidence: [] as string[] },
-      renderHelpers: [],
-      providerWrappers: [],
-      renderTargets: [] as Array<{
-        symbol: string
-        importPath: string
-        sourceTestFile: string
-        helperNames: string[]
-        usesWithin: boolean
-      }>,
-      repeatedMockTargets: [],
-      sharedMockFactories: [],
-      boundaryProfiles: [],
-      boundaryExemplars: [],
-      inlineSafeMockTargets: [],
-      mutationLifecycles: [],
-      instabilityWarnings: [],
-      mockRecommendations: [],
-      fixtureRoots: [],
-      exemplars: [],
-      playwrightAuth: null,
-      warnings: [],
-      effectiveRunner: 'unknown' as const,
-      effectiveRenderHelper: null,
-      appliedOverrides: [] as string[],
-      forbidMocks: [] as string[],
-      preferredSharedMocks: {},
-      boundaryPolicies: {},
-      preferredBoundaryImplementations: {},
-      forbidBoundaryTargets: [] as string[],
-      effectiveQueryHookPolicy: 'avoid' as const,
-    },
-  },
+const {
+  loadOrBootstrapTaroStateMock,
+  detectPackageProfileStalenessMock,
+  resolveTaroPackageProfileMock,
+  appendGeneratedTestRecordMock,
+  persistPlaywrightAuthProfileMock,
+  readTaroOverridesMock,
+  refreshTaroStateMock,
+} = vi.hoisted(() => ({
+  loadOrBootstrapTaroStateMock: vi.fn(),
+  detectPackageProfileStalenessMock: vi.fn(),
+  resolveTaroPackageProfileMock: vi.fn(),
+  appendGeneratedTestRecordMock: vi.fn(),
+  persistPlaywrightAuthProfileMock: vi.fn(),
+  readTaroOverridesMock: vi.fn(),
+  refreshTaroStateMock: vi.fn(),
 }))
+
+const defaultProfile = {
+  packagePath: '.',
+  packageName: null,
+  scannedAt: new Date(0).toISOString(),
+  testFileCount: 0,
+  conventions: {
+    scannedAt: new Date(0).toISOString(),
+    projectRoot: '/tmp/project',
+    importStyle: 'esm',
+    mockPattern: 'none',
+    testFiles: [],
+    folderPattern: 'unknown',
+    fileExtension: 'ts',
+  },
+  importStyle: { value: 'esm', confidence: 'high', evidence: [] as string[] },
+  runner: { value: 'unknown' as const, confidence: 'low', evidence: [] as string[] },
+  mockPattern: { value: 'none' as const, confidence: 'low', evidence: [] as string[] },
+  folderPattern: { value: 'unknown' as const, confidence: 'low', evidence: [] as string[] },
+  fileExtension: { value: 'ts' as const, confidence: 'high', evidence: [] as string[] },
+  renderHelpers: [],
+  providerWrappers: [],
+  renderTargets: [] as Array<{
+    symbol: string
+    importPath: string
+    sourceTestFile: string
+    helperNames: string[]
+    usesWithin: boolean
+  }>,
+  repeatedMockTargets: [],
+  sharedMockFactories: [],
+  boundaryProfiles: [],
+  boundaryExemplars: [],
+  inlineSafeMockTargets: [],
+  mutationLifecycles: [],
+  instabilityWarnings: [],
+  mockRecommendations: [],
+  fixtureRoots: [],
+  exemplars: [],
+  playwrightAuth: null as {
+    strategy: string
+    path: string
+    detectedAt: string
+    source: string
+  } | null,
+  warnings: [],
+  effectiveRunner: 'unknown' as const,
+  effectiveRenderHelper: null,
+  appliedOverrides: [] as string[],
+  forbidMocks: [] as string[],
+  preferredSharedMocks: {},
+  boundaryPolicies: {},
+  preferredBoundaryImplementations: {},
+  forbidBoundaryTargets: [] as string[],
+  effectiveQueryHookPolicy: 'avoid' as const,
+}
+
+function createDefaultTaroState(packages: Record<string, unknown> = {}) {
+  return {
+    state: {
+      version: 1,
+      meta: {
+        createdAt: new Date(0).toISOString(),
+        updatedAt: new Date(0).toISOString(),
+        taroVersion: 'test',
+      },
+      packages: packages as Record<string, never>,
+      mockStore: {
+        rootDir: null,
+        importHint: null,
+        resources: [],
+      },
+      generatedTests: [],
+    },
+    summary: {
+      packageCount: 1,
+      renderHelperCount: 0,
+      repeatedMockTargetCount: 0,
+      boundaryProfileCount: 0,
+      lowConfidenceBoundaryCount: 0,
+      fixtureRootCount: 0,
+      migratedLegacyState: false,
+      overridePackageCount: 0,
+      packages: [],
+      warnings: [],
+    },
+  }
+}
+
+function createPackageResolver(
+  packages: Record<string, typeof defaultProfile>,
+  fallbackProfile = defaultProfile
+) {
+  return (
+    _state: unknown,
+    _projectRoot: string,
+    targetPath: string
+  ) => {
+    const normalizedTarget = targetPath.replace(/\\/g, '/')
+    const matchingPackage = Object.keys(packages)
+      .filter((packagePath) => packagePath !== '.')
+      .sort((left, right) => right.length - left.length)
+      .find((packagePath) => normalizedTarget.includes(`/${packagePath}/`))
+
+    if (matchingPackage) {
+      return packages[matchingPackage] ?? fallbackProfile
+    }
+
+    return fallbackProfile
+  }
+}
 
 vi.mock('../../core/state.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../core/state.js')>()
 
   return {
     ...actual,
-    appendGeneratedTestRecord: vi.fn(async () => undefined),
-    loadOrBootstrapTaroState: vi.fn(async () => ({
-      state: {
-        version: 1,
-        meta: {
-          createdAt: new Date(0).toISOString(),
-          updatedAt: new Date(0).toISOString(),
-          taroVersion: 'test',
-        },
-        packages: taroStateControl.statePackages as Record<string, never>,
-        mockStore: {
-          rootDir: null,
-          importHint: null,
-          resources: [],
-        },
-        generatedTests: [],
-      },
-      summary: {
-        packageCount: 1,
-        renderHelperCount: 0,
-        repeatedMockTargetCount: 0,
-        boundaryProfileCount: 0,
-        lowConfidenceBoundaryCount: 0,
-        fixtureRootCount: 0,
-        migratedLegacyState: false,
-        overridePackageCount: 0,
-        packages: [],
-        warnings: [],
-      },
-    })),
-    detectPackageProfileStaleness: vi.fn(async () => ({
-      stale: taroStateControl.stale,
-      reason: taroStateControl.staleReason,
-      latestEvidencePath: taroStateControl.staleReason ? 'src/example.test.tsx' : null,
-    })),
-    persistPlaywrightAuthProfile: vi.fn(async () => true),
-    readTaroOverrides: vi.fn(async () => ({})),
-    refreshTaroState: vi.fn(async () => ({
-      state: {
-        version: 1,
-        meta: {
-          createdAt: new Date(0).toISOString(),
-          updatedAt: new Date(0).toISOString(),
-          taroVersion: 'test',
-        },
-        packages: {},
-        mockStore: {
-          rootDir: null,
-          importHint: null,
-          resources: [],
-        },
-        generatedTests: [],
-      },
-      summary: {
-        packageCount: 1,
-        renderHelperCount: 0,
-        repeatedMockTargetCount: 0,
-        boundaryProfileCount: 0,
-        lowConfidenceBoundaryCount: 0,
-        fixtureRootCount: 0,
-        migratedLegacyState: false,
-        overridePackageCount: 0,
-        packages: [],
-        warnings: [],
-      },
-    })),
-    resolveTaroPackageProfile: vi.fn(
-      (
-        _state: unknown,
-        _projectRoot: string,
-        targetPath: string
-      ) => {
-        const normalizedTarget = targetPath.replace(/\\/g, '/')
-        const matchingPackage = Object.keys(taroStateControl.statePackages)
-          .filter((packagePath) => packagePath !== '.')
-          .sort((left, right) => right.length - left.length)
-          .find((packagePath) => normalizedTarget.includes(`/${packagePath}/`))
-
-        if (matchingPackage) {
-          return (taroStateControl.statePackages[matchingPackage] as typeof taroStateControl.profile) ??
-            taroStateControl.profile
-        }
-
-        return taroStateControl.profile
-      }
-    ),
+    appendGeneratedTestRecord: appendGeneratedTestRecordMock,
+    loadOrBootstrapTaroState: loadOrBootstrapTaroStateMock,
+    detectPackageProfileStaleness: detectPackageProfileStalenessMock,
+    persistPlaywrightAuthProfile: persistPlaywrightAuthProfileMock,
+    readTaroOverrides: readTaroOverridesMock,
+    refreshTaroState: refreshTaroStateMock,
+    resolveTaroPackageProfile: resolveTaroPackageProfileMock,
   }
 })
 
@@ -386,22 +378,17 @@ async function runGenerate(
 beforeEach(() => {
   captureVisualStateMock.mockReset()
   captureVisualStateMock.mockResolvedValue(null)
-  taroStateControl.statePackages = {}
-  taroStateControl.stale = false
-  taroStateControl.staleReason = null
-  taroStateControl.profile.renderTargets = []
-  taroStateControl.profile.folderPattern = { value: 'unknown', confidence: 'low', evidence: [] }
-  taroStateControl.profile.conventions.folderPattern = 'unknown'
-  taroStateControl.profile.effectiveRunner = 'unknown'
-  taroStateControl.profile.effectiveRenderHelper = null
-  taroStateControl.profile.appliedOverrides = []
-  taroStateControl.profile.playwrightAuth = null
-  taroStateControl.profile.boundaryProfiles = []
-  taroStateControl.profile.boundaryExemplars = []
-  taroStateControl.profile.boundaryPolicies = {}
-  taroStateControl.profile.preferredBoundaryImplementations = {}
-  taroStateControl.profile.forbidBoundaryTargets = []
-  taroStateControl.profile.effectiveQueryHookPolicy = 'avoid'
+  loadOrBootstrapTaroStateMock.mockResolvedValue(createDefaultTaroState())
+  detectPackageProfileStalenessMock.mockResolvedValue({
+    stale: false,
+    reason: null,
+    latestEvidencePath: null,
+  })
+  resolveTaroPackageProfileMock.mockImplementation(() => structuredClone(defaultProfile))
+  appendGeneratedTestRecordMock.mockResolvedValue(undefined)
+  persistPlaywrightAuthProfileMock.mockResolvedValue(true)
+  readTaroOverridesMock.mockResolvedValue({})
+  refreshTaroStateMock.mockResolvedValue(createDefaultTaroState())
   planJsSuiteMock.mockClear()
   resolveSelectorMock.mockReset()
   resolveSelectorMock.mockImplementation(defaultResolveSelector)
@@ -417,15 +404,18 @@ describe('createGenerateCommand', () => {
     const fixture = await createRecordingFixture('write-sample')
     const outputPath = join(fixture.outputDir, 'sample', 'FeatureFlow.test.tsx')
 
-    taroStateControl.profile.renderTargets = [
-      {
-        symbol: 'FeatureFlow',
-        importPath: './FeatureFlow',
-        sourceTestFile: 'sample/feature-flow.test.tsx',
-        helperNames: ['openFeatureEntry', 'completeFeatureFlow', 'reviewFeatureState'],
-        usesWithin: true,
-      },
-    ]
+    resolveTaroPackageProfileMock.mockImplementation(() => ({
+      ...structuredClone(defaultProfile),
+      renderTargets: [
+        {
+          symbol: 'FeatureFlow',
+          importPath: './FeatureFlow',
+          sourceTestFile: 'sample/feature-flow.test.tsx',
+          helperNames: ['openFeatureEntry', 'completeFeatureFlow', 'reviewFeatureState'],
+          usesWithin: true,
+        },
+      ],
+    }))
 
     const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
     const written = await readFile(outputPath, 'utf-8')
@@ -503,7 +493,7 @@ test('Example flow', async () => {
     )
 
     const exampleProfile = {
-      ...structuredClone(taroStateControl.profile),
+      ...structuredClone(defaultProfile),
       packagePath: 'packages/example-app',
       packageName: '@repo/example-app',
       renderTargets: [],
@@ -524,10 +514,9 @@ test('Example flow', async () => {
       effectiveRunner: 'vitest' as const,
     }
 
-    taroStateControl.statePackages = {
-      '.': taroStateControl.profile,
-      'packages/example-app': exampleProfile,
-    }
+    const packages = { '.': defaultProfile, 'packages/example-app': exampleProfile }
+    loadOrBootstrapTaroStateMock.mockResolvedValue(createDefaultTaroState(packages))
+    resolveTaroPackageProfileMock.mockImplementation(createPackageResolver(packages as Record<string, typeof defaultProfile>))
 
     const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
     const written = await readFile(outputPath, 'utf-8')
@@ -623,17 +612,16 @@ test('Example flow', async () => {
     })
 
     const exampleProfile = {
-      ...structuredClone(taroStateControl.profile),
+      ...structuredClone(defaultProfile),
       packagePath: 'packages/example-app',
       packageName: '@repo/example-app',
       renderTargets: [],
       effectiveRunner: 'vitest' as const,
     }
 
-    taroStateControl.statePackages = {
-      '.': taroStateControl.profile,
-      'packages/example-app': exampleProfile,
-    }
+    const packages = { '.': defaultProfile, 'packages/example-app': exampleProfile }
+    loadOrBootstrapTaroStateMock.mockResolvedValue(createDefaultTaroState(packages))
+    resolveTaroPackageProfileMock.mockImplementation(createPackageResolver(packages as Record<string, typeof defaultProfile>))
 
     const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
     const createdPath = result.logs.match(/Created: (.+\.test\.tsx)/)?.[1]
@@ -702,7 +690,7 @@ test('Example flow', async () => {
     )
 
     const exampleProfile = {
-      ...structuredClone(taroStateControl.profile),
+      ...structuredClone(defaultProfile),
       packagePath: 'packages/example-app',
       packageName: '@repo/example-app',
       effectiveRunner: 'vitest' as const,
@@ -711,6 +699,7 @@ test('Example flow', async () => {
           target: '@digitax/data-layer',
           kind: 'data-module' as const,
           strategy: 'shared-module-factory' as const,
+          guardrailReason: null,
           supportImportPath: '@/tests/mocks/digitax-data-layer',
           supportPath: 'packages/example-app/src/tests/mocks/digitax-data-layer.ts',
           supportExports: {
@@ -730,10 +719,9 @@ test('Example flow', async () => {
       ],
     }
 
-    taroStateControl.statePackages = {
-      '.': taroStateControl.profile,
-      'packages/example-app': exampleProfile,
-    }
+    const packages = { '.': defaultProfile, 'packages/example-app': exampleProfile }
+    loadOrBootstrapTaroStateMock.mockResolvedValue(createDefaultTaroState(packages))
+    resolveTaroPackageProfileMock.mockImplementation(createPackageResolver(packages as Record<string, typeof defaultProfile>))
 
     const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
     const written = await readFile(outputPath, 'utf-8')
@@ -748,6 +736,127 @@ test('Example flow', async () => {
     expect(written).toContain('beforeEach(() => {')
     expect(written).toContain('resetDataLayerMock()')
     expect(written).not.toContain('createDigitaxDataLayerMock')
+  })
+
+  it('keeps repo-owned UI wrappers real even when state tries to learn them as shared mocks', async () => {
+    const fixture = await createProjectInlineJsFixture(
+      'boundary-support-ui-guardrail',
+      `/**
+ * ${environmentUrlMarker}
+ * ${environmentOptionsMarker} { "url": "http://localhost:3001/example" }
+ */
+const {screen} = require('@testing-library/dom')
+const {default: userEvent} = require('@testing-library/user-event')
+require('@testing-library/jest-dom')
+
+test('Example flow', async () => {
+  expect(location.href).toBe('http://localhost:3001/example')
+  await userEvent.click(screen.getByRole('button', { name: 'Open Example Flow' }))
+  await userEvent.click(screen.getByRole('heading', { name: 'Review Example Flow' }))
+})`
+    )
+    const featureFlowPath = join(
+      fixture.outputDir,
+      'packages',
+      'example-app',
+      'src',
+      'features',
+      'FeatureFlow.tsx'
+    )
+    const outputPath = join(dirname(featureFlowPath), 'FeatureFlow.test.tsx')
+    await mkdir(dirname(featureFlowPath), { recursive: true })
+    await writeFile(
+      featureFlowPath,
+      `
+        import { useCreateOrderMutation, useOrdersQuery } from '@/features/orders/api'
+        import { Dialog, DialogContent } from '@/components/library/Modal'
+
+        export default function FeatureFlow() {
+          useOrdersQuery()
+          useCreateOrderMutation()
+
+          return (
+            <Dialog open>
+              <DialogContent title="Review Example Flow">
+                <button>Open Example Flow</button>
+                <h1>Review Example Flow</h1>
+              </DialogContent>
+            </Dialog>
+          )
+        }
+      `,
+      'utf-8'
+    )
+
+    const exampleProfile = {
+      ...structuredClone(defaultProfile),
+      packagePath: 'packages/example-app',
+      packageName: '@repo/example-app',
+      effectiveRunner: 'vitest' as const,
+      boundaryProfiles: [
+        {
+          target: '@/features/orders/api',
+          kind: 'data-module' as const,
+          strategy: 'shared-module-factory' as const,
+          guardrailReason: null,
+          supportImportPath: '@/tests/mocks/orders-api',
+          supportPath: 'packages/example-app/src/tests/mocks/orders-api.ts',
+          supportExports: {
+            factoryExport: 'createOrdersApiMock',
+            resetExport: 'resetOrdersApiMock',
+            overrideExports: ['useCreateOrderMutationMock'],
+            spyExports: [],
+            fixtureExports: [],
+          },
+          payloadSource: 'fixtures' as const,
+          confidence: 'high' as const,
+          files: ['packages/example-app/src/features/feature-flow.test.tsx'],
+          evidence: ['packages/example-app/src/features/feature-flow.test.tsx: mock target @/features/orders/api'],
+          conflictTargets: [],
+          lowConfidenceScaffold: false,
+        },
+        {
+          target: '@/components/library/Modal',
+          kind: 'local-child' as const,
+          strategy: 'shared-module-factory' as const,
+          guardrailReason: null,
+          supportImportPath: '@/tests/mocks/modal',
+          supportPath: 'packages/example-app/src/tests/mocks/modal.ts',
+          supportExports: {
+            factoryExport: 'createModalMock',
+            resetExport: 'resetModalMock',
+            overrideExports: [],
+            spyExports: [],
+            fixtureExports: [],
+          },
+          payloadSource: 'typed-defaults' as const,
+          confidence: 'high' as const,
+          files: ['packages/example-app/src/features/feature-flow.test.tsx'],
+          evidence: ['packages/example-app/src/features/feature-flow.test.tsx: mock target @/components/library/Modal'],
+          conflictTargets: [],
+          lowConfidenceScaffold: false,
+        },
+      ],
+    }
+
+    const packages = { '.': defaultProfile, 'packages/example-app': exampleProfile }
+    loadOrBootstrapTaroStateMock.mockResolvedValue(createDefaultTaroState(packages))
+    resolveTaroPackageProfileMock.mockImplementation(createPackageResolver(packages as Record<string, typeof defaultProfile>))
+
+    const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
+    const written = await readFile(outputPath, 'utf-8')
+
+    expect(result.thrown).toBeUndefined()
+    expect(written).toContain("vi.mock('@/features/orders/api', async (importOriginal) => {")
+    expect(written).not.toContain("vi.mock('@/components/library/Modal'")
+    expect(written).not.toContain('createModalMock')
+    expect(written).toContain(
+      'Keeping @/components/library/Modal real at test time because it is a repo-owned-ui-wrapper'
+    )
+    expect(result.warnings).toContain(
+      'Keeping @/components/library/Modal real at test time because it is a repo-owned-ui-wrapper'
+    )
+    expect(result.warnings).toContain('Manual review required')
   })
 
   it('scaffolds central boundary support when no learned collaborator profile exists', async () => {
@@ -807,7 +916,7 @@ test('Example flow', async () => {
     )
 
     const exampleProfile = {
-      ...structuredClone(taroStateControl.profile),
+      ...structuredClone(defaultProfile),
       packagePath: 'packages/example-app',
       packageName: '@repo/example-app',
       effectiveRunner: 'vitest' as const,
@@ -820,10 +929,9 @@ test('Example flow', async () => {
       ],
     }
 
-    taroStateControl.statePackages = {
-      '.': taroStateControl.profile,
-      'packages/example-app': exampleProfile,
-    }
+    const packages = { '.': defaultProfile, 'packages/example-app': exampleProfile }
+    loadOrBootstrapTaroStateMock.mockResolvedValue(createDefaultTaroState(packages))
+    resolveTaroPackageProfileMock.mockImplementation(createPackageResolver(packages as Record<string, typeof defaultProfile>))
 
     const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
     const written = await readFile(outputPath, 'utf-8')
@@ -928,8 +1036,6 @@ test('Semantic marker flow', async () => {
     const fixture = await createRecordingFixture('boundary-draft')
     const outputPath = deriveOutputPath(fixture.recordingPath)
 
-    taroStateControl.profile.renderTargets = []
-
     const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
     const written = await readFile(outputPath, 'utf-8')
 
@@ -943,9 +1049,11 @@ test('Semantic marker flow', async () => {
 
   it('refreshes stale package state before generation and reports the reason', async () => {
     const fixture = await createRecordingFixture('stale-profile')
-    taroStateControl.stale = true
-    taroStateControl.staleReason =
-      'packages/example-app/src/feature-flow.test.tsx changed after the package profile was scanned.'
+    detectPackageProfileStalenessMock.mockResolvedValue({
+      stale: true,
+      reason: 'packages/example-app/src/feature-flow.test.tsx changed after the package profile was scanned.',
+      latestEvidencePath: 'src/example.test.tsx',
+    })
 
     const result = await runGenerate([fixture.recordingPath], fixture.outputDir)
 
@@ -1030,12 +1138,15 @@ test('Semantic marker flow', async () => {
 
   it('fails fast in non-interactive runs when visual capture reports an auth interrupt', async () => {
     const fixture = await createRecordingFixture('auth-interrupt')
-    taroStateControl.profile.playwrightAuth = {
-      strategy: 'storageState',
-      path: 'playwright/.auth/user.json',
-      detectedAt: 'init',
-      source: 'detected',
-    }
+    resolveTaroPackageProfileMock.mockImplementation(() => ({
+      ...structuredClone(defaultProfile),
+      playwrightAuth: {
+        strategy: 'storageState',
+        path: 'playwright/.auth/user.json',
+        detectedAt: 'init',
+        source: 'detected',
+      },
+    }))
     captureVisualStateMock.mockResolvedValue({
       capturedAt: new Date().toISOString(),
       dialog: null,

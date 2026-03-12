@@ -30,6 +30,12 @@ Detect:
 - `.toBeDefined()` assertions on RTL query results
 - loose `expect.any(...)` / `expect.anything()` payload assertions for known user-driven values
 - mutable shared objects that are reset in `beforeEach` to steer mock behavior
+  (hoisted state objects whose fields are mutated per-test to alter mock
+  behavior — for example `vi.hoisted(() => ({ outcome: "success" }))` with
+  `beforeEach` resetting fields and test bodies mutating them).
+  Correct pattern: hoist plain `vi.fn()` mocks, set a default happy-path
+  `mockImplementation` in `beforeEach`, override with a complete
+  `mockImplementation` inside each test that needs a different scenario.
 - manual DOM cleanup that clears `document.body.innerHTML`
 - `afterEach` teardown that combines `cleanup()` with manual `document.body` mutation repair
 - mixed reset boundaries that combine a reset helper with extra suite-local `.mockClear()` churn

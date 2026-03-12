@@ -127,6 +127,9 @@ Subtract:
 - -4: mocks rely on global state without reset
 - -3: mixes shared reset utilities with additional ad hoc `.mockClear()` calls in the same suite
 - -4: uses mutable shared state in `beforeEach` to steer mock behavior across tests
+  (a hoisted object's fields are reset in `beforeEach` and mutated in test
+  bodies — the mock's behavior is no longer co-located with the test that
+  depends on it, and missed resets cause cross-test state leakage)
 - -20: UI-library component reimplementation detected (policy violation)
 
 Cap 20.

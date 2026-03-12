@@ -2,6 +2,7 @@ import * as babelParser from '@babel/parser'
 import _traverse from '@babel/traverse'
 import type { NodePath } from '@babel/traverse'
 import * as t from '@babel/types'
+import { getBoundaryGuardrailReason } from './boundary-learning.js'
 
 const traverse = (_traverse as any).default ?? _traverse
 
@@ -20,6 +21,7 @@ export type BoundaryIssueKind =
   | 'leaf-render-boundary'
   | 'inline-hook-mock'
   | 'helper-embedded-assertion'
+  | 'protected-ui-boundary-mock'
   | 'positional-control-selection'
 
 export interface BoundaryIssue {
@@ -116,6 +118,30 @@ function getReturnedObjectExpression(
   return undefined
 }
 
+function getReturnedPropertyNames(node: t.ObjectExpression | undefined): string[] {
+  if (!node) {
+    return []
+  }
+
+  const names = new Set<string>()
+  for (const property of node.properties) {
+    if (t.isObjectProperty(property)) {
+      if (t.isIdentifier(property.key)) {
+        names.add(property.key.name)
+      } else if (t.isStringLiteral(property.key)) {
+        names.add(property.key.value)
+      }
+      continue
+    }
+
+    if (t.isObjectMethod(property) && t.isIdentifier(property.key)) {
+      names.add(property.key.name)
+    }
+  }
+
+  return [...names].sort()
+}
+
 function collectRenderedComponentNames(
   node: t.Node | null | undefined,
   names: Set<string>
@@ -157,6 +183,7 @@ export function analyzeBoundaryIsolation(code: string): BoundaryIssue[] {
   const renderedComponents = new Set<string>()
   const helperNamesWithExpect = new Set<string>()
   const inlineHookMocks = new Set<string>()
+  const protectedUiBoundaryMocks = new Set<string>()
   const allByRoleCollections = new Set<string>()
   let hasButtonQuery = false
   let hasHeadingQuery = false
@@ -237,8 +264,23 @@ export function analyzeBoundaryIsolation(code: string): BoundaryIssue[] {
         ['vi', 'jest'].includes(path.node.callee.object.name) &&
         t.isIdentifier(path.node.callee.property, { name: 'mock' })
       ) {
+        const targetArg = path.node.arguments[0]
+        const target =
+          t.isStringLiteral(targetArg)
+            ? targetArg.value
+            : t.isTemplateLiteral(targetArg) && targetArg.expressions.length === 0
+              ? targetArg.quasis[0]?.value.cooked ?? null
+              : null
         const factory = path.node.arguments[1]
         const objectExpression = getReturnedObjectExpression(factory)
+        const returnedPropertyNames = getReturnedPropertyNames(objectExpression)
+        const guardrailReason =
+          target && getBoundaryGuardrailReason(target, returnedPropertyNames)
+
+        if (guardrailReason === 'repo-owned-ui-wrapper' && target) {
+          protectedUiBoundaryMocks.add(target)
+        }
+
         if (!objectExpression) {
           return
         }
@@ -306,6 +348,16 @@ export function analyzeBoundaryIsolation(code: string): BoundaryIssue[] {
     })
   }
 
+  if (protectedUiBoundaryMocks.size > 0) {
+    issues.push({
+      kind: 'protected-ui-boundary-mock',
+      severity: 'warning',
+      message: `Generated test mocks protected repo-owned UI boundaries: ${[...protectedUiBoundaryMocks].join(', ')}.`,
+      suggestion:
+        'Keep repo-owned UI wrappers real in tests and fix portal, animation, or cleanup issues in the environment instead of replacing the component with a fake.',
+    })
+  }
+
   if (hasPositionalControlSelection) {
     issues.push({
       kind: 'positional-control-selection',
@@ -324,6 +376,7 @@ export function calculateBoundaryIsolationScore(code: string): number {
     'leaf-render-boundary': 35,
     'inline-hook-mock': 30,
     'helper-embedded-assertion': 20,
+    'protected-ui-boundary-mock': 30,
     'positional-control-selection': 15,
   }
 

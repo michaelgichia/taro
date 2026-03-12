@@ -12,7 +12,12 @@ Rules:
 - Export seed objects
 - Central index.ts exports all fixtures
 - Prefer collaborator-oriented modules over component-specific inline mocks
-- Shared support modules should expose stable factory/reset/override exports when tests need per-test mutation-state control
+- Shared support modules should expose stable factory/reset/override exports when tests need per-test scenario control
+- Never use mutable shared objects to steer mock behavior across tests
+  (hoisted state objects with fields reset in `beforeEach` and mutated in
+  test bodies). Instead hoist plain `vi.fn()` mocks, set a default
+  `mockImplementation` in `beforeEach`, and override per-test with a
+  complete `mockImplementation` that describes the scenario inline.
 
 Example:
 
