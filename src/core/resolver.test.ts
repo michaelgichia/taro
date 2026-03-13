@@ -914,6 +914,90 @@ describe('captureVisualState', () => {
     expect(session.page.waitForTimeout).toHaveBeenCalled()
   })
 
+  it('retries transient Playwright navigation failures before giving up', async () => {
+    const session = createPlaywrightSession([
+      {
+        dialog: {
+          role: 'dialog',
+          title: 'Checkout Dialog',
+          description: 'Confirm the purchase',
+          actions: ['Cancel', 'Confirm'],
+          isOpen: true,
+        },
+        elements: {
+          '#save': accessibleButton,
+        },
+        matchedLandmarks: ['Checkout Dialog'],
+        title: 'Checkout Dialog',
+        url: 'http://localhost:3000/dashboard',
+      },
+    ])
+
+    session.page.goto
+      .mockRejectedValueOnce(new Error('page.goto: Timeout 5000ms exceeded.'))
+      .mockResolvedValue(undefined)
+
+    const result = await captureVisualState('http://localhost:3000/dashboard', {
+      expected: {
+        landmarks: ['Checkout Dialog'],
+        title: 'Checkout Dialog',
+        url: 'http://localhost:3000/dashboard',
+      },
+      reason: 'dialog-detected',
+      screenshotDir: '/tmp/taro-visual',
+      selector: '#save',
+    })
+
+    expect(result?.status).toBe('captured')
+    expect(session.page.goto).toHaveBeenCalledTimes(2)
+    expect(session.browser.close).toHaveBeenCalledTimes(2)
+  })
+
+  it('treats an interactive redirect away from the expected page as an auth checkpoint even without login copy', async () => {
+    const session = createPlaywrightSession([
+      {
+        dialog: null,
+        elements: {
+          '#save': null,
+        },
+        matchedLandmarks: [],
+        title: 'DigiTax',
+        url: 'http://localhost:3000/',
+      },
+    ])
+
+    const result = await captureVisualState('http://localhost:3000/dashboard', {
+      authRecovery: {
+        enabled: true,
+        timeoutMs: 1000,
+      },
+      expected: {
+        landmarks: ['Checkout Dialog'],
+        title: 'DigiTax',
+        url: 'http://localhost:3000/dashboard',
+      },
+      reason: 'dialog-detected',
+      screenshotDir: '/tmp/taro-visual',
+      selector: '#save',
+      timeoutMs: 1000,
+    })
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        finalUrl: 'http://localhost:3000/',
+        screenshotPath: '/tmp/taro-visual/auth-checkpoint.png',
+        status: 'auth-recovery-timed-out',
+      })
+    )
+    expect(result?.interrupt?.signals).toEqual(
+      expect.arrayContaining([
+        'route-mismatch',
+        'expected-selector-missing',
+        'expected-landmarks-missing',
+      ])
+    )
+  })
+
   it('recovers auth in interactive runs and persists storage state', async () => {
     const session = createPlaywrightSession([
       {
@@ -977,6 +1061,71 @@ describe('captureVisualState', () => {
     expect(session.browser.newContext).toHaveBeenCalledWith({
       storageState: '/tmp/playwright/.auth/user.json',
     })
+    expect(session.page.waitForTimeout).toHaveBeenCalled()
+    expect(session.context.storageState).toHaveBeenCalledWith({
+      path: '/tmp/playwright/.auth/user.json',
+    })
+  })
+
+  it('recovers after an interactive redirect checkpoint without explicit auth cues', async () => {
+    const session = createPlaywrightSession([
+      {
+        dialog: null,
+        elements: {
+          '#save': null,
+        },
+        matchedLandmarks: [],
+        title: 'DigiTax',
+        url: 'http://localhost:3000/',
+      },
+      {
+        dialog: {
+          role: 'dialog',
+          title: 'Checkout Dialog',
+          description: 'Confirm the purchase',
+          actions: ['Cancel', 'Confirm'],
+          isOpen: true,
+        },
+        elements: {
+          '#save': accessibleButton,
+        },
+        matchedLandmarks: ['Checkout Dialog'],
+        title: 'Checkout Dialog',
+        url: 'http://localhost:3000/dashboard',
+      },
+    ])
+
+    const result = await captureVisualState('http://localhost:3000/dashboard', {
+      auth: {
+        path: '/tmp/playwright/.auth/user.json',
+        strategy: 'storageState',
+      },
+      authRecovery: {
+        enabled: true,
+        persistedAuthPath: '.taro/playwright/.auth/user.json',
+        saveStorageStatePath: '/tmp/playwright/.auth/user.json',
+        timeoutMs: 2000,
+      },
+      expected: {
+        landmarks: ['Checkout Dialog'],
+        title: 'Checkout Dialog',
+        url: 'http://localhost:3000/dashboard',
+      },
+      reason: 'dialog-detected',
+      screenshotDir: '/tmp/taro-visual',
+      selector: '#save',
+      timeoutMs: 1000,
+    })
+
+    expect(result?.status).toBe('auth-recovered')
+    expect(result?.startingPointConfirmed).toBe(true)
+    expect(result?.interrupt?.signals).toEqual(
+      expect.arrayContaining([
+        'route-mismatch',
+        'expected-selector-missing',
+        'expected-landmarks-missing',
+      ])
+    )
     expect(session.page.waitForTimeout).toHaveBeenCalled()
     expect(session.context.storageState).toHaveBeenCalledWith({
       path: '/tmp/playwright/.auth/user.json',

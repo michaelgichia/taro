@@ -65,6 +65,8 @@ const PLAYWRIGHT_CAPTURE_FAILURE_PREFIX = 'Playwright visual capture failed.'
 const PLAYWRIGHT_SELECTOR_INSPECTION_ERROR_PREFIX = 'Playwright selector inspection failed.'
 const PLAYWRIGHT_AUTH_RECOVERY_POLL_MS = 1000
 const PLAYWRIGHT_PAGE_CONFIRMATION_POLL_MS = 250
+const PLAYWRIGHT_OPEN_RETRY_LIMIT = 2
+const PLAYWRIGHT_OPEN_RETRY_DELAY_MS = 250
 
 /**
  * Escapes single quotes in strings for use in generated query code.
@@ -83,6 +85,21 @@ function sanitizeSelectorForTestId(selector: string): string {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unknown error'
+}
+
+function isRetryablePlaywrightOpenError(error: unknown): boolean {
+  const message = getErrorMessage(error)
+
+  return (
+    /Target page, context or browser has been closed/i.test(message) ||
+    /Timeout \d+ms exceeded/i.test(message) ||
+    /net::ERR_CONNECTION_REFUSED/i.test(message) ||
+    /ERR_ABORTED/i.test(message)
+  )
+}
+
+async function waitForRetryDelay(delayMs: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, delayMs))
 }
 
 export interface FoundSelectorInspectionResult {
@@ -782,6 +799,7 @@ async function detectAuthCheckpoint(
   page: Page,
   options: {
     actualTitle: string
+    allowManualInterrupt?: boolean
     element: ElementInfo | null
     expectedLandmarks?: string[]
     expectedTitle?: string
@@ -850,12 +868,14 @@ async function detectAuthCheckpoint(
   const missingLandmarks = expectedLandmarks.filter(
     (landmark) => !bodyAnalysis.matchedLandmarks.includes(landmark)
   )
+  const missingExpectedLandmarks =
+    expectedLandmarks.length > 0 && bodyAnalysis.matchedLandmarks.length === 0
+  const unresolvedPageMismatch =
+    routeMismatch && (pageTitleMismatch || missingExpectedSelector || missingExpectedLandmarks)
   const interrupt =
-    authSignals.size > 0 &&
-    (routeMismatch ||
-      pageTitleMismatch ||
-      missingExpectedSelector ||
-      (expectedLandmarks.length > 0 && bodyAnalysis.matchedLandmarks.length === 0))
+    (authSignals.size > 0 ||
+      ((options.allowManualInterrupt ?? false) && unresolvedPageMismatch)) &&
+    (routeMismatch || pageTitleMismatch || missingExpectedSelector || missingExpectedLandmarks)
 
   return {
     authSignals: [...authSignals],
@@ -942,18 +962,43 @@ export async function openCapturePage(params: {
   page: Page
 }> {
   const { auth, headless, timeoutMs, url } = params
-  const browser = await chromium.launch({ headless })
-  const context = await openCaptureContext(browser, auth)
-  const page = await context.newPage()
+  let lastError: unknown
 
-  await page.goto(url, { timeout: timeoutMs, waitUntil: 'domcontentloaded' })
+  for (let attempt = 1; attempt <= PLAYWRIGHT_OPEN_RETRY_LIMIT; attempt += 1) {
+    let browser: Browser | null = null
 
-  return { browser, context, page }
+    try {
+      browser = await chromium.launch({ headless })
+      const context = await openCaptureContext(browser, auth)
+      const page = await context.newPage()
+
+      await page.goto(url, { timeout: timeoutMs, waitUntil: 'domcontentloaded' })
+
+      return { browser, context, page }
+    } catch (error) {
+      lastError = error
+      if (browser) {
+        await browser.close().catch(() => undefined)
+      }
+
+      if (
+        attempt === PLAYWRIGHT_OPEN_RETRY_LIMIT ||
+        !isRetryablePlaywrightOpenError(error)
+      ) {
+        throw error
+      }
+
+      await waitForRetryDelay(PLAYWRIGHT_OPEN_RETRY_DELAY_MS)
+    }
+  }
+
+  throw lastError
 }
 
 async function inspectVisualPage(
   page: Page,
   options: {
+    allowManualInterrupt?: boolean
     expected?: CaptureVisualStateExpectations
     selector?: string
   }
@@ -962,6 +1007,7 @@ async function inspectVisualPage(
   const element = await readOptionalElementInfo(page, options.selector)
   const authCheckpoint = await detectAuthCheckpoint(page, {
     actualTitle: pageTitle,
+    allowManualInterrupt: options.allowManualInterrupt,
     element,
     expectedLandmarks: options.expected?.landmarks,
     expectedTitle: options.expected?.title,
@@ -1164,6 +1210,7 @@ function buildStartingPointWarnings(params: {
 }
 
 async function waitForStartingPoint(params: {
+  allowManualInterrupt?: boolean
   expected?: CaptureVisualStateExpectations
   page: Page
   selector?: string
@@ -1174,6 +1221,7 @@ async function waitForStartingPoint(params: {
 }> {
   const deadline = Date.now() + params.timeoutMs
   let snapshot = await inspectVisualPage(params.page, {
+    allowManualInterrupt: params.allowManualInterrupt,
     expected: params.expected,
     selector: params.selector,
   })
@@ -1201,6 +1249,7 @@ async function waitForStartingPoint(params: {
       Math.min(PLAYWRIGHT_PAGE_CONFIRMATION_POLL_MS, remainingMs)
     )
     snapshot = await inspectVisualPage(params.page, {
+      allowManualInterrupt: params.allowManualInterrupt,
       expected: params.expected,
       selector: params.selector,
     })
@@ -1362,6 +1411,7 @@ export async function captureVisualState(
     browser = captureSession.browser
 
     const { snapshot, startingPointConfirmed } = await waitForStartingPoint({
+      allowManualInterrupt: options.authRecovery?.enabled ?? false,
       expected: options.expected,
       page: captureSession.page,
       selector: options.selector,
