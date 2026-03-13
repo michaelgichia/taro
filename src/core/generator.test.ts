@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { generateTestFromGroups } from './generator.js'
+import { generateTestFromGroups, selectorToQuery } from './generator.js'
 import { verifySyntax } from './verifier.js'
 import type { PlannedMarkerAssertion } from '../types/recording.js'
 
@@ -464,27 +464,31 @@ describe('generateTestFromGroups', () => {
     )
 
     expect(generated.code).toContain('await planOpenExampleDialog(user)')
+    // 2+ marker assertions after the same step are grouped in a waitFor block with sync queries
+    expect(generated.code).toContain('await waitFor(() => {')
     expect(generated.code).toContain(
-      "expect(await screen.findByRole('heading', { name: 'Review Example' })).toBeVisible()"
+      "expect(screen.getByRole('heading', { name: 'Review Example' })).toBeVisible()"
     )
     expect(generated.code).toContain(
-      "expect(await screen.findByText('Review Example')).toBeVisible()"
+      "expect(screen.getByText('Review Example')).toBeVisible()"
     )
     expect(generated.code.indexOf('await planOpenExampleDialog(user)')).toBeLessThan(
-      generated.code.indexOf("expect(await screen.findByText('Review Example')).toBeVisible()")
+      generated.code.indexOf('await waitFor(() => {')
     )
     expect(
       countOccurrences(
         generated.code,
-        "expect(await screen.findByRole('heading', { name: 'Review Example' })).toBeVisible()"
+        "expect(screen.getByRole('heading', { name: 'Review Example' })).toBeVisible()"
       )
     ).toBe(1)
     expect(
       countOccurrences(
         generated.code,
-        "expect(await screen.findByText('Review Example')).toBeVisible()"
+        "expect(screen.getByText('Review Example')).toBeVisible()"
       )
     ).toBe(1)
+    // waitFor import is included
+    expect(generated.code).toContain('waitFor')
     expect(verifySyntax(generated.code, '/tmp/generated.test.tsx')).toEqual({ valid: true })
   })
 
@@ -774,5 +778,73 @@ describe('generateTestFromGroups', () => {
     expect(generated.code).not.toContain("findByText('+')")
     expect(generated.code).not.toContain('.toBeVisible()')
     expect(verifySyntax(generated.code, '/tmp/generated.test.tsx')).toEqual({ valid: true })
+  })
+})
+
+describe('selectorToQuery', () => {
+  it('returns document.body for undefined selector', () => {
+    expect(selectorToQuery(undefined)).toBe('document.body')
+  })
+
+  it('maps input[type="search"] to searchbox role, not textbox', () => {
+    expect(selectorToQuery('input[type="search"]')).toContain("getByRole('searchbox')")
+  })
+
+  it('maps input[type="search"] with placeholder to getByPlaceholderText', () => {
+    expect(selectorToQuery('input[type="search"][placeholder="Find items"]')).toBe(
+      "screen.getByPlaceholderText('Find items')"
+    )
+  })
+
+  it('maps input[type="text"] to textbox role', () => {
+    expect(selectorToQuery('input[type="text"]')).toContain("getByRole('textbox')")
+  })
+
+  it('maps input[type="email"] to textbox role', () => {
+    expect(selectorToQuery('input[type="email"]')).toContain("getByRole('textbox')")
+  })
+
+  it('maps textarea to textbox role', () => {
+    expect(selectorToQuery('textarea')).toContain("getByRole('textbox')")
+  })
+
+  it('maps input[type="text"] with placeholder to getByPlaceholderText', () => {
+    expect(selectorToQuery('input[type="text"][placeholder="Email"]')).toBe(
+      "screen.getByPlaceholderText('Email')"
+    )
+  })
+
+  it('does not map input[type="checkbox"] to textbox', () => {
+    expect(selectorToQuery('input[type="checkbox"]')).toBe("screen.getByRole('checkbox')")
+  })
+
+  it('does not map input[type="radio"] to textbox', () => {
+    expect(selectorToQuery('input[type="radio"]')).toBe("screen.getByRole('radio')")
+  })
+
+  it('maps input[type="password"] to getByLabelText (no implicit role)', () => {
+    const result = selectorToQuery('input[type="password"]')
+    expect(result).not.toContain("getByRole('textbox')")
+    expect(result).toContain('getByLabelText(')
+    expect(result).toContain('TODO')
+  })
+
+  it('maps input[type="password"] with placeholder to getByPlaceholderText', () => {
+    expect(selectorToQuery('input[type="password"][placeholder="Enter password"]')).toBe(
+      "screen.getByPlaceholderText('Enter password')"
+    )
+  })
+
+  it('maps button to button role', () => {
+    expect(selectorToQuery('button')).toBe("screen.getByRole('button')")
+  })
+
+  it('maps select to combobox role', () => {
+    expect(selectorToQuery('select')).toBe("screen.getByRole('combobox')")
+  })
+
+  it('annotates bare textbox and searchbox queries with TODO for missing name', () => {
+    expect(selectorToQuery('input[type="text"]')).toContain('TODO')
+    expect(selectorToQuery('input[type="search"]')).toContain('TODO')
   })
 })

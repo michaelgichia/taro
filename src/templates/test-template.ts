@@ -21,6 +21,7 @@ export interface ImportBlockOptions {
   renderHelper?: RenderHelperImport | null
   jestDomImportPath?: string
   needsWithin?: boolean
+  needsWaitFor?: boolean
 }
 
 export function importBlock(
@@ -29,6 +30,9 @@ export function importBlock(
   options: ImportBlockOptions = {}
 ): string {
   const testingLibraryMembers = ['screen']
+  if (options.needsWaitFor) {
+    testingLibraryMembers.push('waitFor')
+  }
   if (options.needsWithin) {
     testingLibraryMembers.push('within')
   }
@@ -170,6 +174,21 @@ export function markerAssertionTemplate(opts: {
   matcher?: string
 }): string {
   return `expect(await ${opts.queryExpression})${normalizeAssertionMatcher(opts.matcher ?? 'toBeVisible')}`
+}
+
+/** Synchronous variant for use inside waitFor callbacks — uses getBy instead of findBy. */
+export function markerAssertionTemplateSync(opts: {
+  queryExpression: string
+  matcher?: string
+}): string {
+  const syncQuery = opts.queryExpression.replace(/\.findBy/g, '.getBy').replace(/\.findAllBy/g, '.getAllBy')
+  return `expect(${syncQuery})${normalizeAssertionMatcher(opts.matcher ?? 'toBeVisible')}`
+}
+
+/** Wrap 2+ assertions in a single waitFor callback for atomic async verification. */
+export function waitForAssertionBlock(assertions: string[]): string {
+  const indented = assertions.map((a) => `  ${a}`).join('\n')
+  return `await waitFor(() => {\n${indented}\n})`
 }
 
 export function describeBlock(

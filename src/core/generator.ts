@@ -25,6 +25,8 @@ import {
   importBlock,
   describeBlock,
   markerAssertionTemplate,
+  markerAssertionTemplateSync,
+  waitForAssertionBlock,
   stepTemplate,
   describeBlockMultiIt,
 } from '../templates/test-template.js'
@@ -46,7 +48,7 @@ export interface GeneratedTest {
 }
 
 /** Convert a CSS selector to an RTL screen query string. */
-function selectorToQuery(selector: string | undefined): string {
+export function selectorToQuery(selector: string | undefined): string {
   if (!selector) return 'document.body'
 
   // data-testid attribute
@@ -62,21 +64,11 @@ function selectorToQuery(selector: string | undefined): string {
     return `screen.getByLabelText(/* aria-labelledby */ /./)`
   }
 
-  // placeholder attribute
-  const placeholderMatch = selector.match(/\[placeholder=['"]?([^'"[\]]+)['"]?\]/)
-  if (placeholderMatch) return `screen.getByPlaceholderText('${placeholderMatch[1]}')`
-
-  // alt/title/display-value attributes
-  const altMatch = selector.match(/\[alt=['"]?([^'"[\]]+)['"]?\]/)
-  if (altMatch) return `screen.getByAltText('${altMatch[1]}')`
-
-  const titleMatch = selector.match(/\[title=['"]?([^'"[\]]+)['"]?\]/)
-  if (titleMatch) return `screen.getByTitle('${titleMatch[1]}')`
-
-  const valueMatch = selector.match(/\[value=['"]?([^'"[\]]+)['"]?\]/)
-  if (valueMatch) return `screen.getByDisplayValue('${valueMatch[1]}')`
-
   // Element-level role inference
+  const placeholderMatch = selector.match(/\[placeholder=['"]?([^'"[\]]+)['"]?\]/)
+  const hasInputTag = /(?:^|[\s>])input(?:[^a-z]|$)/.test(selector)
+  const hasTextareaTag = /(?:^|[\s>])textarea(?:[^a-z]|$)/.test(selector)
+
   if (/(?:^|[\s>])button(?:[^a-z]|$)|\[type=['"]?(?:button|submit)['"]?\]/.test(selector)) {
     return `screen.getByRole('button')`
   }
@@ -92,18 +84,53 @@ function selectorToQuery(selector: string | undefined): string {
   if (/(?:^|[\s>])select(?:[^a-z]|$)/.test(selector)) {
     return `screen.getByRole('combobox')`
   }
-  if (/(?:^|[\s>])input(?:[^a-z]|$)|\[type=['"]?(?:text|email|password|search|tel|url)['"]?\]/.test(selector)) {
-    return `screen.getByRole('textbox')`
+
+  // password inputs have no implicit ARIA role — best query is getByLabelText
+  if (hasInputTag && /\[type=['"]?password['"]?\]/.test(selector)) {
+    if (placeholderMatch) {
+      return `screen.getByPlaceholderText('${placeholderMatch[1]}')`
+    }
+    return `screen.getByLabelText(/* TODO: password input has no implicit role — use the associated <label> text */ '')`
   }
-  if (/(?:^|[\s>])textarea(?:[^a-z]|$)/.test(selector)) {
-    return `screen.getByRole('textbox')`
+
+  // search inputs have their own ARIA role: searchbox (not textbox)
+  if (hasInputTag && /\[type=['"]?search['"]?\]/.test(selector)) {
+    if (placeholderMatch) {
+      return `screen.getByPlaceholderText('${placeholderMatch[1]}')`
+    }
+    return `screen.getByRole('searchbox') /* TODO: add { name } — ambiguous without accessible name */`
   }
+
+  // text-like inputs: require both input tag AND a text-entry type (excludes search, password)
+  const isTextLikeInput =
+    hasInputTag && /\[type=['"]?(?:text|email|tel|url)['"]?\]/.test(selector)
+
+  if (hasTextareaTag || isTextLikeInput) {
+    if (placeholderMatch) {
+      return `screen.getByPlaceholderText('${placeholderMatch[1]}')`
+    }
+    return `screen.getByRole('textbox') /* TODO: add { name } — ambiguous without accessible name */`
+  }
+
   if (/(?:^|[\s>])h[1-6](?:[^a-z]|$)/.test(selector)) {
     return `screen.getByRole('heading')`
   }
   if (/(?:^|[\s>])img(?:[^a-z]|$)/.test(selector)) {
     return `screen.getByRole('img')`
   }
+
+  // placeholder fallback when no tag-level role can be inferred
+  if (placeholderMatch) return `screen.getByPlaceholderText('${placeholderMatch[1]}')`
+
+  // alt/title/display-value attributes
+  const altMatch = selector.match(/\[alt=['"]?([^'"[\]]+)['"]?\]/)
+  if (altMatch) return `screen.getByAltText('${altMatch[1]}')`
+
+  const titleMatch = selector.match(/\[title=['"]?([^'"[\]]+)['"]?\]/)
+  if (titleMatch) return `screen.getByTitle('${titleMatch[1]}')`
+
+  const valueMatch = selector.match(/\[value=['"]?([^'"[\]]+)['"]?\]/)
+  if (valueMatch) return `screen.getByDisplayValue('${valueMatch[1]}')`
 
   // Last resort: escape the selector and use as getByTestId placeholder
   const escaped = selector.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
@@ -453,6 +480,39 @@ function renderMarkerAssertion(markerAssertion: PlannedMarkerAssertion): string 
   })
 }
 
+function renderMarkerAssertionSync(markerAssertion: PlannedMarkerAssertion): string {
+  return markerAssertionTemplateSync({
+    queryExpression: markerAssertion.assertion.queryExpression,
+    matcher: markerAssertion.assertion.matcher,
+  })
+}
+
+/**
+ * Render a list of marker assertions, wrapping 2+ assertions
+ * in a single waitFor block for atomic async verification.
+ * Returns { lines, usedWaitFor }.
+ */
+function renderMarkerAssertionGroup(
+  markerAssertions: PlannedMarkerAssertion[]
+): { lines: string[]; usedWaitFor: boolean } {
+  if (markerAssertions.length === 0) {
+    return { lines: [], usedWaitFor: false }
+  }
+
+  if (markerAssertions.length === 1) {
+    return {
+      lines: [renderMarkerAssertion(markerAssertions[0]!)],
+      usedWaitFor: false,
+    }
+  }
+
+  const syncAssertions = markerAssertions.map((ma) => renderMarkerAssertionSync(ma))
+  return {
+    lines: [waitForAssertionBlock(syncAssertions)],
+    usedWaitFor: true,
+  }
+}
+
 function inferAssertionMatcher(step: NormalizedStep, query: string, matcher?: string): string | undefined {
   if (matcher) {
     return matcher
@@ -547,11 +607,10 @@ export function generateTestFromGroups(
       )
     )
     const markerAssertions = dedupeMarkerAssertions([...(scenario.markerAssertions ?? [])])
-    const markerAssertionsAfterStep = new Map<string, string[]>()
-    const markerAssertionsAfterHelper = new Map<string, string[]>()
+    const markerAssertionsAfterStep = new Map<string, PlannedMarkerAssertion[]>()
+    const markerAssertionsAfterHelper = new Map<string, PlannedMarkerAssertion[]>()
 
     for (const markerAssertion of markerAssertions) {
-      const renderedAssertion = renderMarkerAssertion(markerAssertion)
       const helperPlacementName =
         markerAssertion.placement.kind === 'after-helper'
           ? markerAssertion.placement.helperName
@@ -559,15 +618,17 @@ export function generateTestFromGroups(
 
       if (helperPlacementName) {
         const existing = markerAssertionsAfterHelper.get(helperPlacementName) ?? []
-        existing.push(renderedAssertion)
+        existing.push(markerAssertion)
         markerAssertionsAfterHelper.set(helperPlacementName, existing)
         continue
       }
 
       const existing = markerAssertionsAfterStep.get(markerAssertion.placement.stepId) ?? []
-      existing.push(renderedAssertion)
+      existing.push(markerAssertion)
       markerAssertionsAfterStep.set(markerAssertion.placement.stepId, existing)
     }
+
+    let scenarioNeedsWaitFor = false
 
     const bodyLines = scenario.steps.flatMap((step) => {
       if (step.action !== 'assert' && helperStepSet.has(step)) {
@@ -594,7 +655,7 @@ export function generateTestFromGroups(
       }
 
       const matcher = query ? inferAssertionMatcher(step, query, matcherMap.get(query)) : undefined
-      const stepLines = [
+      const lines = [
         stepTemplate({
           action: step.action,
           query: query ?? 'document.body',
@@ -604,17 +665,26 @@ export function generateTestFromGroups(
       ]
 
       if (step.id) {
-        stepLines.push(...(markerAssertionsAfterStep.get(step.id) ?? []))
+        const stepMarkers = markerAssertionsAfterStep.get(step.id) ?? []
+        const { lines: assertionLines, usedWaitFor } = renderMarkerAssertionGroup(stepMarkers)
+        lines.push(...assertionLines)
+        if (usedWaitFor) {
+          scenarioNeedsWaitFor = true
+        }
       }
 
-      return stepLines
+      return lines
     })
 
     const stepLines = [
-      ...helperRefs.flatMap((helperName) => [
-        `await ${helperName}(user)`,
-        ...(markerAssertionsAfterHelper.get(helperName) ?? []),
-      ]),
+      ...helperRefs.flatMap((helperName) => {
+        const helperMarkers = markerAssertionsAfterHelper.get(helperName) ?? []
+        const { lines: assertionLines, usedWaitFor } = renderMarkerAssertionGroup(helperMarkers)
+        if (usedWaitFor) {
+          scenarioNeedsWaitFor = true
+        }
+        return [`await ${helperName}(user)`, ...assertionLines]
+      }),
       ...bodyLines,
     ]
 
@@ -622,8 +692,11 @@ export function generateTestFromGroups(
       name: scenario.name,
       stepLines,
       hasUserEvents: hasUserEvents || helperRefs.length > 0,
+      needsWaitFor: scenarioNeedsWaitFor,
     }
   })
+
+  const globalNeedsWaitFor = itBlocks.some((block) => block.needsWaitFor)
 
   const imports = importBlock(globalHasUserEvents, importStyle, {
     renderTarget: renderTarget
@@ -641,6 +714,7 @@ export function generateTestFromGroups(
       : null,
     jestDomImportPath,
     needsWithin: renderTarget?.usesWithin ?? false,
+    needsWaitFor: globalNeedsWaitFor,
   })
   const describeCode = describeBlockMultiIt(title, itBlocks, {
     renderExpression: renderTarget ? `<${renderTarget.symbol} />` : '<App />',
