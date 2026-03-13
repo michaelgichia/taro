@@ -996,6 +996,18 @@ describe('captureVisualState', () => {
         'expected-landmarks-missing',
       ])
     )
+    expect(result?.authRecovery?.retryToExpectedUrl).toEqual(
+      expect.objectContaining({
+        attempted: true,
+        outcome: 'succeeded',
+        targetUrl: 'http://localhost:3000/dashboard',
+      })
+    )
+    expect(session.page.goto).toHaveBeenCalledTimes(2)
+    expect(session.page.goto).toHaveBeenLastCalledWith('http://localhost:3000/dashboard', {
+      timeout: expect.any(Number),
+      waitUntil: 'domcontentloaded',
+    })
   })
 
   it('recovers auth in interactive runs and persists storage state', async () => {
@@ -1061,6 +1073,7 @@ describe('captureVisualState', () => {
     expect(session.browser.newContext).toHaveBeenCalledWith({
       storageState: '/tmp/playwright/.auth/user.json',
     })
+    expect(session.page.goto).toHaveBeenCalledTimes(1)
     expect(session.page.waitForTimeout).toHaveBeenCalled()
     expect(session.context.storageState).toHaveBeenCalledWith({
       path: '/tmp/playwright/.auth/user.json',
@@ -1126,10 +1139,67 @@ describe('captureVisualState', () => {
         'expected-landmarks-missing',
       ])
     )
+    expect(result?.authRecovery?.retryToExpectedUrl).toEqual(
+      expect.objectContaining({
+        attempted: true,
+        outcome: 'succeeded',
+        targetUrl: 'http://localhost:3000/dashboard',
+      })
+    )
+    expect(session.page.goto).toHaveBeenCalledTimes(2)
+    expect(session.page.goto).toHaveBeenLastCalledWith('http://localhost:3000/dashboard', {
+      timeout: expect.any(Number),
+      waitUntil: 'domcontentloaded',
+    })
     expect(session.page.waitForTimeout).toHaveBeenCalled()
     expect(session.context.storageState).toHaveBeenCalledWith({
       path: '/tmp/playwright/.auth/user.json',
     })
+  })
+
+  it('records retry metadata when the post-auth deep-link retry fails', async () => {
+    const session = createPlaywrightSession([
+      {
+        dialog: null,
+        elements: {
+          '#save': null,
+        },
+        matchedLandmarks: [],
+        title: 'DigiTax',
+        url: 'http://localhost:3000/',
+      },
+    ])
+
+    session.page.goto
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('page.goto: Timeout 1000ms exceeded.'))
+
+    const result = await captureVisualState('http://localhost:3000/dashboard', {
+      authRecovery: {
+        enabled: true,
+        timeoutMs: 1000,
+      },
+      expected: {
+        landmarks: ['Checkout Dialog'],
+        title: 'DigiTax',
+        url: 'http://localhost:3000/dashboard',
+      },
+      reason: 'dialog-detected',
+      screenshotDir: '/tmp/taro-visual',
+      selector: '#save',
+      timeoutMs: 1000,
+    })
+
+    expect(result?.status).toBe('auth-recovery-timed-out')
+    expect(result?.authRecovery?.retryToExpectedUrl).toEqual(
+      expect.objectContaining({
+        attempted: true,
+        error: 'page.goto: Timeout 1000ms exceeded.',
+        outcome: 'failed',
+        targetUrl: 'http://localhost:3000/dashboard',
+      })
+    )
+    expect(session.page.goto).toHaveBeenCalledTimes(2)
   })
 })
 

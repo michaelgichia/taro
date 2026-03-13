@@ -151,6 +151,13 @@ export interface VisualAuthRecovery {
   error?: string
   instructionsPath?: string
   persistedAuthPath?: string
+  retryToExpectedUrl?: {
+    attempted: boolean
+    completedAt?: string
+    error?: string
+    outcome: 'succeeded' | 'failed'
+    targetUrl: string
+  }
   startedAt: string
   status: 'succeeded' | 'failed' | 'timed-out'
   timeoutMs: number

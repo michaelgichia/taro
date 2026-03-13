@@ -1329,6 +1329,16 @@ function applySelectorResolution(
   }
 }
 
+function canSuccessfulReplayRevealAdditionalState(step: NormalizedStep): boolean {
+  return (
+    step.action === 'click' ||
+    step.action === 'fill' ||
+    step.action === 'select' ||
+    step.action === 'navigate' ||
+    step.action === 'keyDown'
+  )
+}
+
 function rehydrateItGroups(itGroups: ItGroup[], steps: NormalizedStep[]): ItGroup[] {
   const stepMap = new Map(steps.map((step) => [step.id, step]))
 
@@ -1652,6 +1662,12 @@ function summarizeVisualState(visualState: VisualState | null): void {
 
   if (visualState.status === 'auth-recovered') {
     console.log(pc.dim('[taro]') + ' Visual auth recovered via Playwright runtime.')
+    if (visualState.authRecovery?.retryToExpectedUrl?.attempted) {
+      console.log(
+        pc.dim('[taro]') +
+          ` Retried recorded URL once after auth recovery: ${visualState.authRecovery.retryToExpectedUrl.targetUrl}`
+      )
+    }
     if (visualState.startingPointConfirmed) {
       console.log(pc.dim('[taro]') + ` Starting point confirmed: ${visualState.finalUrl}`)
     }
@@ -1682,6 +1698,15 @@ function summarizeVisualState(visualState: VisualState | null): void {
       console.warn(
         pc.yellow('[taro]') +
           ` Visual auth instructions: ${visualState.authRecovery.instructionsPath}`
+      )
+    }
+    if (visualState.authRecovery?.retryToExpectedUrl?.attempted) {
+      const retry = visualState.authRecovery.retryToExpectedUrl
+      const failureDetail =
+        retry.outcome === 'failed' && retry.error ? ` (${retry.error})` : ''
+      console.warn(
+        pc.yellow('[taro]') +
+          ` Retried recorded URL once after auth recovery: ${retry.targetUrl}${failureDetail}`
       )
     }
     if (visualState.screenshotPath) {
@@ -2077,56 +2102,72 @@ async function resolveJsGeneration(
       browser = captureSession.browser
       const page = captureSession.page
       const inspect = createPageInspector(page)
+      const unresolvedSelectorResolutions = new Map<StepId, SelectorResolutionResult>()
+
+      const resolveStepSelectors = async (stepId: StepId) => {
+        const selectors = selectorGroups.get(stepId)
+        if (!selectors?.length) {
+          unresolvedSelectorResolutions.delete(stepId)
+          return
+        }
+
+        const currentStep = updatedSteps.get(stepId) ?? stepMap.get(stepId)
+        if (!currentStep) {
+          unresolvedSelectorResolutions.delete(stepId)
+          selectorStepIds.delete(stepId)
+          return
+        }
+
+        const preservedQuery = getStepQueryDescriptor(currentStep)
+        const stepWarnings: string[] = []
+        let chosenResolution: SelectorResolutionResult | undefined
+
+        if (preservedQuery) {
+          chosenResolution = await resolveSelector(selectors[0]!, {
+            url: recording.url,
+            preservedQuery,
+          })
+        } else {
+          for (const selector of selectors) {
+            const resolution = await resolveSelector(selector, {
+              url: recording.url,
+              inspect,
+            })
+
+            if (resolution.status === 'resolved') {
+              chosenResolution = resolution
+              break
+            }
+
+            stepWarnings.push(...resolution.warnings)
+            chosenResolution ??= resolution
+          }
+        }
+
+        if (!chosenResolution) {
+          return
+        }
+
+        const resolution = mergeSelectorResolutionWarnings(chosenResolution, stepWarnings)
+        updatedSteps.set(stepId, applySelectorResolution(currentStep, resolution))
+
+        if (resolution.status === 'resolved') {
+          unresolvedSelectorResolutions.delete(stepId)
+          if (resolution.outcome !== 'preserved-query') {
+            queryResults.push(queryDescriptorToResult(resolution.query))
+          }
+          return
+        }
+
+        unresolvedSelectorResolutions.set(stepId, resolution)
+      }
 
       for (const step of recording.steps) {
         const stepId = step.id
 
         // Resolve selectors BEFORE replaying this step (DOM is in pre-step state)
         if (stepId && selectorStepIds.has(stepId)) {
-          const selectors = selectorGroups.get(stepId)!
-          const currentStep = updatedSteps.get(stepId) ?? stepMap.get(stepId)
-          if (currentStep) {
-            const preservedQuery = getStepQueryDescriptor(currentStep)
-            const stepWarnings: string[] = []
-            let chosenResolution: SelectorResolutionResult | undefined
-
-            if (preservedQuery) {
-              chosenResolution = await resolveSelector(selectors[0]!, {
-                url: recording.url,
-                preservedQuery,
-              })
-            } else {
-              for (const selector of selectors) {
-                const resolution = await resolveSelector(selector, {
-                  url: recording.url,
-                  inspect,
-                })
-
-                if (resolution.status === 'resolved') {
-                  chosenResolution = resolution
-                  break
-                }
-
-                stepWarnings.push(...resolution.warnings)
-                chosenResolution ??= resolution
-              }
-            }
-
-            if (chosenResolution) {
-              const resolution = mergeSelectorResolutionWarnings(chosenResolution, stepWarnings)
-              updatedSteps.set(stepId, applySelectorResolution(currentStep, resolution))
-
-              if (resolution.status === 'resolved') {
-                if (resolution.outcome !== 'preserved-query') {
-                  queryResults.push(queryDescriptorToResult(resolution.query))
-                }
-              } else {
-                warnings.push(
-                  `QRY-03 [${stepId}] unresolved selector ${resolution.selector.selector}: ${resolution.reason}`
-                )
-              }
-            }
-          }
+          await resolveStepSelectors(stepId)
         }
 
         // Replay the step to advance DOM state for subsequent steps
@@ -2138,6 +2179,26 @@ async function resolveJsGeneration(
               replayResult.warning
           )
         }
+
+        if (
+          replayResult.replayed &&
+          canSuccessfulReplayRevealAdditionalState(step) &&
+          unresolvedSelectorResolutions.size > 0
+        ) {
+          for (const unresolvedStepId of unresolvedSelectorResolutions.keys()) {
+            await resolveStepSelectors(unresolvedStepId)
+          }
+        }
+      }
+
+      for (const resolution of unresolvedSelectorResolutions.values()) {
+        if (resolution.status !== 'unresolved') {
+          continue
+        }
+
+        warnings.push(
+          `QRY-03 [${resolution.stepId}] unresolved selector ${resolution.selector.selector}: ${resolution.reason}`
+        )
       }
     } catch (error) {
       // Browser open failed — fall through, selectors remain unresolved

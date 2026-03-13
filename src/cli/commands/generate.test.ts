@@ -10,8 +10,15 @@ import type {
   SelectorResolutionResult,
 } from "../../types/recording.js";
 
-const { captureVisualStateMock, resolveSelectorMock } = vi.hoisted(() => ({
+const {
+  captureVisualStateMock,
+  openCapturePageMock,
+  replayStepMock,
+  resolveSelectorMock,
+} = vi.hoisted(() => ({
   captureVisualStateMock: vi.fn(async () => null),
+  openCapturePageMock: vi.fn(),
+  replayStepMock: vi.fn(),
   resolveSelectorMock: vi.fn(),
 }));
 
@@ -22,6 +29,8 @@ vi.mock("../../core/resolver.js", async (importOriginal) => {
   return {
     ...actual,
     captureVisualState: captureVisualStateMock,
+    openCapturePage: openCapturePageMock,
+    replayStep: replayStepMock,
     resolveSelector: resolveSelectorMock,
   };
 });
@@ -400,6 +409,11 @@ async function runGenerate(
 beforeEach(() => {
   captureVisualStateMock.mockReset();
   captureVisualStateMock.mockResolvedValue(null);
+  openCapturePageMock.mockReset();
+  openCapturePageMock.mockResolvedValue({
+    browser: { close: vi.fn(async () => undefined) },
+    page: {},
+  });
   loadOrBootstrapTaroStateMock.mockResolvedValue(createDefaultTaroState());
   detectPackageProfileStalenessMock.mockResolvedValue({
     stale: false,
@@ -414,6 +428,10 @@ beforeEach(() => {
   readTaroOverridesMock.mockResolvedValue({});
   refreshTaroStateMock.mockResolvedValue(createDefaultTaroState());
   planJsSuiteMock.mockClear();
+  replayStepMock.mockReset();
+  replayStepMock.mockResolvedValue({
+    replayed: true,
+  });
   resolveSelectorMock.mockReset();
   resolveSelectorMock.mockImplementation(defaultResolveSelector);
 });
@@ -498,6 +516,96 @@ describe("createGenerateCommand", () => {
       "Taro could not resolve the exact render target",
     );
     expect(analyzeBoundaryIsolation(written)).toEqual([]);
+  });
+
+  it("retries unresolved selectors after successful replay advances page state", async () => {
+    const fixture = await createInlineJsFixture(
+      "reveal-after-click",
+      `/**
+ * ${environmentUrlMarker}
+ * ${environmentOptionsMarker} { "url": "http://localhost:3001/workspace" }
+ */
+const {screen} = require('@testing-library/dom')
+const {default: userEvent} = require('@testing-library/user-event')
+require('@testing-library/jest-dom')
+
+test('Reveal flow', async () => {
+  expect(location.href).toBe('http://localhost:3001/workspace')
+  await userEvent.click(screen.getByRole('button', { name: 'Add Party' }))
+  await userEvent.click(document.querySelector('#party-type'))
+  await userEvent.click(screen.getByRole('radio', { name: 'Business' }))
+})`,
+    );
+
+    const deferredSelector = "#party-type";
+    const deferredQuery: QueryDescriptor = {
+      stepId: "js-step-2",
+      method: "getByRole",
+      queryRoot: "screen",
+      line: 10,
+      target: "Party Type",
+      role: "combobox",
+      name: "Party Type",
+      quality: "excellent",
+      raw: "screen.getByRole('combobox', { name: 'Party Type' })",
+    };
+
+    let successfulReplays = 0;
+    replayStepMock.mockImplementation(async (page, step) => {
+      if (step.id === "js-step-2") {
+        return {
+          replayed: false,
+          warning: "No locator for click on #party-type",
+        };
+      }
+
+      successfulReplays += 1;
+      return { replayed: true };
+    });
+
+    resolveSelectorMock.mockImplementation((selector, options = {}) => {
+      if (options.preservedQuery) {
+        return resolvedSelector(selector, options.preservedQuery, "baseline");
+      }
+
+      if (selector.selector !== deferredSelector) {
+        return defaultResolveSelector(selector, options);
+      }
+
+      if (successfulReplays < 2) {
+        return unresolvedSelector(
+          selector,
+          "selector-not-found",
+          `Selector ${selector.selector} was not found at ${options.url}.`,
+          { url: options.url },
+        );
+      }
+
+      return resolvedSelector(selector, deferredQuery);
+    });
+
+    const result = await runGenerate([fixture.recordingPath], fixture.outputDir);
+    const written = await readFile(
+      deriveOutputPath(fixture.recordingPath),
+      "utf-8",
+    );
+
+    expect(result.thrown).toBeUndefined();
+    expect(result.errors).toBe("");
+    expect(result.logs).toContain(
+      "Resolving 1 selector(s) via Playwright with step replay...",
+    );
+    expect(result.warnings).toContain(
+      "Step replay: No locator for click on #party-type",
+    );
+    expect(result.warnings).not.toContain(
+      `unresolved selector ${deferredSelector}`,
+    );
+    expect(written).toContain(
+      "screen.getByRole('combobox', { name: 'Party Type' })",
+    );
+    expect(written).not.toContain(`// selector: ${deferredSelector}`);
+    expect(resolveSelectorMock).toHaveBeenCalledTimes(2);
   });
 
   it("uses recording text matches to select package context and recover a source render target", async () => {
@@ -1378,6 +1486,12 @@ test('Semantic marker flow', async () => {
       authRecovery: {
         completedAt: new Date().toISOString(),
         persistedAuthPath: ".taro/playwright/.auth/user.json",
+        retryToExpectedUrl: {
+          attempted: true,
+          completedAt: new Date().toISOString(),
+          outcome: "succeeded",
+          targetUrl: "http://localhost:3001/dashboard",
+        },
         startedAt: new Date().toISOString(),
         status: "succeeded",
         timeoutMs: 300000,
@@ -1420,6 +1534,9 @@ test('Semantic marker flow', async () => {
       "Visual auth recovered via Playwright runtime.",
     );
     expect(result.logs).toContain(
+      "Retried recorded URL once after auth recovery: http://localhost:3001/dashboard",
+    );
+    expect(result.logs).toContain(
       "Saved Playwright storageState: .taro/playwright/.auth/user.json",
     );
     expect(result.logs).toContain(
@@ -1445,6 +1562,12 @@ test('Semantic marker flow', async () => {
       authRecovery: {
         completedAt: new Date().toISOString(),
         persistedAuthPath: ".taro/playwright/.auth/user.json",
+        retryToExpectedUrl: {
+          attempted: true,
+          completedAt: new Date().toISOString(),
+          outcome: "succeeded",
+          targetUrl: "http://localhost:3001/dashboard",
+        },
         startedAt: new Date().toISOString(),
         status: "succeeded",
         timeoutMs: 300000,
@@ -1483,6 +1606,9 @@ test('Semantic marker flow', async () => {
       "Visual auth recovered via Playwright runtime.",
     );
     expect(result.logs).toContain(
+      "Retried recorded URL once after auth recovery: http://localhost:3001/dashboard",
+    );
+    expect(result.logs).toContain(
       "Saved Playwright storageState: .taro/playwright/.auth/user.json",
     );
     expect(
@@ -1514,6 +1640,13 @@ test('Semantic marker flow', async () => {
         completedAt: new Date().toISOString(),
         instructionsPath: "instructions/auth.md",
         persistedAuthPath: ".taro/playwright/.auth/user.json",
+        retryToExpectedUrl: {
+          attempted: true,
+          completedAt: new Date().toISOString(),
+          error: "page.goto: Timeout 3000ms exceeded.",
+          outcome: "failed",
+          targetUrl: "http://localhost:3001/dashboard",
+        },
         startedAt: new Date().toISOString(),
         status: "timed-out",
         timeoutMs: 300000,
@@ -1553,6 +1686,9 @@ test('Semantic marker flow', async () => {
     expect(result.warnings).toContain("Playwright authentication timed out.");
     expect(result.warnings).toContain(
       "Visual auth instructions: instructions/auth.md",
+    );
+    expect(result.warnings).toContain(
+      "Retried recorded URL once after auth recovery: http://localhost:3001/dashboard (page.goto: Timeout 3000ms exceeded.)",
     );
     expect(result.warnings).toContain(
       "Timed out waiting 300s for manual authentication.",

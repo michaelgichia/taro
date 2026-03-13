@@ -1174,6 +1174,22 @@ function isStartingPointConfirmed(params: {
   return selectorSatisfied && landmarkSatisfied
 }
 
+function shouldRetryExpectedUrlDuringAuthRecovery(params: {
+  expected?: CaptureVisualStateExpectations
+  snapshot: VisualPageSnapshot
+}): boolean {
+  const { expected, snapshot } = params
+  if (!expected?.url) {
+    return false
+  }
+
+  if (snapshot.authCheckpoint.interrupt) {
+    return false
+  }
+
+  return snapshot.authCheckpoint.routeMismatch
+}
+
 function buildStartingPointWarnings(params: {
   expected?: CaptureVisualStateExpectations
   selector?: string
@@ -1280,6 +1296,15 @@ async function attemptAuthRecovery(params: {
   const { context, expected, initialInterrupt, page, reason, recovery, selector, url } = params
   const startedAt = new Date().toISOString()
   const deadline = Date.now() + recovery.timeoutMs
+  let retryToExpectedUrl:
+    | {
+        attempted: true
+        completedAt?: string
+        error?: string
+        outcome: 'succeeded' | 'failed'
+        targetUrl: string
+      }
+    | undefined
 
   try {
     while (Date.now() <= deadline) {
@@ -1306,6 +1331,7 @@ async function attemptAuthRecovery(params: {
             completedAt: new Date().toISOString(),
             instructionsPath: recovery.instructionsPath,
             persistedAuthPath: recovery.persistedAuthPath,
+            retryToExpectedUrl,
             startedAt,
             status: 'succeeded',
             timeoutMs: recovery.timeoutMs,
@@ -1327,6 +1353,41 @@ async function attemptAuthRecovery(params: {
         }
       }
 
+      if (
+        !retryToExpectedUrl &&
+        shouldRetryExpectedUrlDuringAuthRecovery({
+          expected,
+          snapshot,
+        })
+      ) {
+        const targetUrl = expected?.url
+        if (!targetUrl) {
+          continue
+        }
+
+        try {
+          await page.goto(targetUrl, {
+            timeout: Math.max(1, deadline - Date.now()),
+            waitUntil: 'domcontentloaded',
+          })
+          retryToExpectedUrl = {
+            attempted: true,
+            completedAt: new Date().toISOString(),
+            outcome: 'succeeded',
+            targetUrl,
+          }
+          continue
+        } catch (error) {
+          retryToExpectedUrl = {
+            attempted: true,
+            completedAt: new Date().toISOString(),
+            error: getErrorMessage(error),
+            outcome: 'failed',
+            targetUrl,
+          }
+        }
+      }
+
       const remainingMs = deadline - Date.now()
       if (remainingMs <= 0) {
         break
@@ -1340,6 +1401,7 @@ async function attemptAuthRecovery(params: {
         completedAt: new Date().toISOString(),
         instructionsPath: recovery.instructionsPath,
         persistedAuthPath: recovery.persistedAuthPath,
+        retryToExpectedUrl,
         startedAt,
         status: 'timed-out',
         timeoutMs: recovery.timeoutMs,
@@ -1369,6 +1431,7 @@ async function attemptAuthRecovery(params: {
         error: message,
         instructionsPath: recovery.instructionsPath,
         persistedAuthPath: recovery.persistedAuthPath,
+        retryToExpectedUrl,
         startedAt,
         status: 'failed',
         timeoutMs: recovery.timeoutMs,
