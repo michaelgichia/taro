@@ -1073,10 +1073,6 @@ function emitUnresolvedMarkerWarnings(suitePlan: JsSuitePlan | null): void {
   }
 }
 
-function enforceMarkerGateExit(scoreResult: ScoreResult): void {
-  void scoreResult
-}
-
 function emitLowConfidenceBanner(scoreResult: ScoreResult): void {
   if (!scoreResult.requiresReview) {
     return
@@ -2971,7 +2967,6 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
         })
         const action = result.overwritten ? pc.yellow('Updated') : pc.green('Created')
         log(`${action}: ${pc.bold(result.filePath)}`)
-        enforceMarkerGateExit(scoreResult)
       } catch (err) {
         console.error(pc.red('Error:') + ` ${String(err)}`)
         process.exit(2)
