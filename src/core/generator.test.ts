@@ -847,4 +847,68 @@ describe('selectorToQuery', () => {
     expect(selectorToQuery('input[type="text"]')).toContain('TODO')
     expect(selectorToQuery('input[type="search"]')).toContain('TODO')
   })
+
+  it('renders synthesized companion annotations as inline guidance comments', () => {
+    const generated = generateTestFromGroups(
+      'Mutation Contract Flow',
+      [
+        {
+          name: 'create profile',
+          steps: [
+            {
+              action: 'fill',
+              target: 'Profile name',
+              value: 'Acme',
+              originalType: 'fill',
+              source: 'js',
+            },
+            {
+              action: 'click',
+              target: 'Save profile',
+              originalType: 'click',
+              source: 'js',
+            },
+          ],
+        },
+      ],
+      {
+        scenarios: [
+          {
+            name: 'create profile shows in-flight UI',
+            goal: 'mutation-state',
+            steps: [
+              {
+                action: 'fill',
+                target: 'Profile name',
+                value: 'Acme',
+                originalType: 'fill',
+                source: 'js',
+              },
+              {
+                action: 'click',
+                target: 'Save profile',
+                originalType: 'click',
+                source: 'js',
+              },
+            ],
+            helperRefs: [],
+            requiresFreshRender: true,
+            provenance: 'synthesized-companion',
+            contractKind: 'mutation-form',
+            companionState: 'in-flight',
+            annotations: [
+              'Override the shared mutation boundary so the submit action stays unresolved before asserting the in-flight UI.',
+            ],
+            markerAssertions: [],
+            unresolvedMarkerAssertions: [],
+          },
+        ],
+      }
+    )
+
+    expect(generated.code).toContain(
+      '// Override the shared mutation boundary so the submit action stays unresolved before asserting the in-flight UI.'
+    )
+    expect(verifySyntax(generated.code, '/tmp/generated.test.tsx')).toEqual({ valid: true })
+  })
 })

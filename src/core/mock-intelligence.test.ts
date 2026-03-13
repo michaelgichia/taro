@@ -106,10 +106,13 @@ describe('analyzeMocks', () => {
       })
     )
     expect(analysis.mutationLifecycles).toEqual([])
+    expect(analysis.interactionContracts).toEqual([])
     expect(analysis.instabilityWarnings).toEqual([])
     expect(analysis.sharedMockFactories).toEqual([])
     expect(analysis.preferredSharedMocks).toEqual({})
     expect(analysis.forbidMocks).toEqual([])
+    expect(analysis.companionPolicy).toBe('heuristic')
+    expect(analysis.enabledContractFamilies).toEqual(['mutation-form'])
   })
 
   it('uses the resolved package profile when provided', async () => {
@@ -157,6 +160,7 @@ describe('analyzeMocks', () => {
           },
         ],
         inlineSafeMockTargets: ['next/navigation'],
+        interactionContracts: [],
         mutationLifecycles: [],
         instabilityWarnings: [],
         mockRecommendations: [
@@ -178,6 +182,12 @@ describe('analyzeMocks', () => {
         preferredSharedMocks: {
           '@/modules/orders/api': '@/tests/mocks/orders',
         },
+        boundaryPolicies: {},
+        preferredBoundaryImplementations: {},
+        forbidBoundaryTargets: [],
+        effectiveQueryHookPolicy: 'avoid',
+        effectiveCompanionPolicy: 'heuristic',
+        enabledContractFamilies: ['mutation-form'],
       },
     })
 
@@ -201,6 +211,8 @@ describe('analyzeMocks', () => {
     expect(analysis.preferredSharedMocks).toEqual({
       '@/modules/orders/api': '@/tests/mocks/orders',
     })
+    expect(analysis.companionPolicy).toBe('heuristic')
+    expect(analysis.enabledContractFamilies).toEqual(['mutation-form'])
   })
 })
 

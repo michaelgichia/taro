@@ -3,7 +3,9 @@ import { resolveSemanticMarkerAssertion } from './resolver.js'
 import type {
   AnalyzedRecording,
   ItGroup,
+  JsDetectedInteractionContract,
   JsHelperPlan,
+  JsInteractionCompanionState,
   PlannedMarkerAssertion,
   PlannedMarkerAssertionDiagnostics,
   JsScenarioPlan,
@@ -31,6 +33,7 @@ export interface JsSuitePlan {
   itGroups: ItGroup[]
   scenarios: JsScenarioPlan[]
   helpers: JsHelperPlan[]
+  contracts: JsDetectedInteractionContract[]
   stateSafety: JsStateSafetyAssessment
   renderBoundary: RenderBoundaryAssessment
   warnings: string[]
@@ -309,6 +312,189 @@ function inferScenarioGoal(groupName: string): JsScenarioPlan['goal'] {
   return 'flow'
 }
 
+function isSubmitLikeStep(step: NormalizedStep): boolean {
+  if (step.action !== 'click') {
+    return false
+  }
+
+  return /(save|submit|create|update|add|delete|confirm|finish)/i.test(step.target ?? '')
+}
+
+function findSubmitStepIndex(steps: NormalizedStep[]): number {
+  for (let index = steps.length - 1; index >= 0; index -= 1) {
+    if (isSubmitLikeStep(steps[index]!)) {
+      return index
+    }
+  }
+
+  return -1
+}
+
+function detectInteractionContracts(params: {
+  recording: NormalizedRecording
+  mockAnalysis: MockAnalysis | null
+}): JsDetectedInteractionContract[] {
+  const { recording, mockAnalysis } = params
+  if (!mockAnalysis || mockAnalysis.companionPolicy === 'off') {
+    return []
+  }
+
+  if (!mockAnalysis.enabledContractFamilies.includes('mutation-form')) {
+    return []
+  }
+
+  const hasFormInput = recording.steps.some((step) => step.action === 'fill' || step.action === 'select')
+  if (!hasFormInput || findSubmitStepIndex(recording.steps) === -1) {
+    return []
+  }
+
+  const repoContracts = mockAnalysis.interactionContracts.filter(
+    (contract) => contract.kind === 'mutation-form' && contract.states.length > 0
+  )
+  const companionStates = [
+    ...new Set(
+      repoContracts.length > 0
+        ? repoContracts.flatMap((contract) => contract.states)
+        : mockAnalysis.mutationLifecycles.flatMap((lifecycle) => [
+            lifecycle.stages.includes('loading') ? ('in-flight' as const) : null,
+            lifecycle.stages.includes('error') ? ('failed-completion' as const) : null,
+          ]).filter((state): state is JsInteractionCompanionState => state !== null)
+    ),
+  ]
+
+  if (companionStates.length === 0) {
+    return []
+  }
+
+  if (repoContracts.length > 0) {
+    const highConfidence = repoContracts.some((contract) => contract.confidence === 'high')
+    const mediumConfidence = highConfidence || repoContracts.some((contract) => contract.confidence === 'medium')
+
+    return [
+      {
+        kind: 'mutation-form',
+        source: 'repo-contract',
+        confidence: highConfidence ? 'high' : mediumConfidence ? 'medium' : 'low',
+        companionStates,
+        evidence: [
+          `${repoContracts.length} learned mutation-form contract(s)`,
+          ...repoContracts[0]!.evidence.slice(0, 2),
+        ],
+      },
+    ]
+  }
+
+  const hasSharedBoundarySupport =
+    mockAnalysis.repeatedTargets.length > 0 ||
+    mockAnalysis.boundaryProfiles.some((profile) =>
+      ['shared-module-factory', 'provider-wrapper', 'scaffolded-module-factory'].includes(
+        profile.strategy
+      )
+    )
+
+  return [
+    {
+      kind: 'mutation-form',
+      source: 'repo-signal',
+      confidence: hasSharedBoundarySupport ? 'medium' : 'low',
+      companionStates,
+      evidence: [
+        `${mockAnalysis.mutationLifecycles.length} mutation lifecycle signal(s)`,
+        hasSharedBoundarySupport
+          ? 'shared boundary support signals detected'
+          : 'no stable shared boundary support detected',
+      ],
+    },
+  ]
+}
+
+function buildCompanionAnnotations(state: JsInteractionCompanionState): string[] {
+  if (state === 'in-flight') {
+    return [
+      'Override the shared mutation boundary so the submit action stays unresolved before asserting the in-flight UI.',
+      'Keep this test focused on the observable in-flight state instead of the eventual success path.',
+    ]
+  }
+
+  return [
+    'Override the shared mutation boundary so submit resolves with a failure before asserting the error UI.',
+    'Keep this test focused on the observable failure state instead of replaying the happy path assertions.',
+  ]
+}
+
+function buildCompanionScenarioName(params: {
+  baseName: string
+  state: JsInteractionCompanionState
+}): string {
+  const { baseName, state } = params
+  return state === 'in-flight' ? `${baseName} shows in-flight UI` : `${baseName} shows failure UI`
+}
+
+function synthesizeContractCompanionScenarios(params: {
+  scenarios: JsScenarioPlan[]
+  contracts: JsDetectedInteractionContract[]
+}): {
+  scenarios: JsScenarioPlan[]
+  warnings: string[]
+} {
+  const { scenarios, contracts } = params
+  const warnings: string[] = []
+  const mutationContract = contracts.find((contract) => contract.kind === 'mutation-form')
+
+  if (!mutationContract) {
+    return { scenarios, warnings }
+  }
+
+  if (mutationContract.confidence === 'low') {
+    warnings.push(
+      'Taro detected a possible mutation-backed contract but companion scaffolds were suppressed because repo control seams are not stable enough yet.'
+    )
+    return { scenarios, warnings }
+  }
+
+  const primaryScenarioIndex = [...scenarios.keys()]
+    .reverse()
+    .find((index) => findSubmitStepIndex(scenarios[index]!.steps) !== -1)
+
+  if (primaryScenarioIndex === undefined) {
+    warnings.push(
+      'Taro detected a mutation-backed contract but could not find a submit scenario to use as the companion scaffold anchor.'
+    )
+    return { scenarios, warnings }
+  }
+
+  const primaryScenario = scenarios[primaryScenarioIndex]!
+  const submitStepIndex = findSubmitStepIndex(primaryScenario.steps)
+  const primarySteps =
+    submitStepIndex >= 0 ? primaryScenario.steps.slice(0, submitStepIndex + 1) : primaryScenario.steps
+
+  const synthesized = mutationContract.companionStates.map((state) => ({
+    ...primaryScenario,
+    name: buildCompanionScenarioName({
+      baseName: primaryScenario.name,
+      state,
+    }),
+    steps: primarySteps,
+    provenance: 'synthesized-companion' as const,
+    contractKind: mutationContract.kind,
+    companionState: state,
+    annotations: buildCompanionAnnotations(state),
+    markerAssertions: [],
+    unresolvedMarkerAssertions: [],
+  }))
+
+  if (synthesized.length > 0) {
+    warnings.push(
+      `Synthesized ${synthesized.length} companion scenario(s) for the ${mutationContract.kind} contract.`
+    )
+  }
+
+  return {
+    scenarios: [...scenarios, ...synthesized],
+    warnings,
+  }
+}
+
 function hasMutationSignals(mockAnalysis: MockAnalysis | null): boolean {
   if (!mockAnalysis) {
     return false
@@ -317,6 +503,7 @@ function hasMutationSignals(mockAnalysis: MockAnalysis | null): boolean {
   const boundaryProfiles = mockAnalysis.boundaryProfiles ?? []
 
   return (
+    mockAnalysis.interactionContracts.length > 0 ||
     mockAnalysis.mutationLifecycles.length > 0 ||
     mockAnalysis.repeatedTargets.length > 0 ||
     boundaryProfiles.some((profile) =>
@@ -410,6 +597,9 @@ export function assessRenderBoundary(params: {
   if (mockAnalysis?.mutationLifecycles.length) {
     signals.push('existing tests model mutation lifecycle states')
   }
+  if (mockAnalysis?.interactionContracts.length) {
+    signals.push('repo already learns stateful interaction contracts')
+  }
 
   if (mockAnalysis?.repeatedTargets.length) {
     signals.push('repo already shares repeated mock targets')
@@ -459,6 +649,7 @@ export function planJsSuite(params: {
   const { recording, analyzedRecording, mockAnalysis, fallbackTitle } = params
   const renderBoundary = assessRenderBoundary({ recording, mockAnalysis })
   const stateSafety = assessStateSafety({ recording, analyzedRecording, mockAnalysis })
+  const contracts = detectInteractionContracts({ recording, mockAnalysis })
   const warnings: string[] = []
   const stepsById = new Map(
     analyzedRecording.steps
@@ -530,6 +721,7 @@ export function planJsSuite(params: {
       steps: filterManagedSemanticMarkerSteps(group.steps),
       helperRefs,
       requiresFreshRender: true,
+      provenance: 'recorded' as const,
       markerAssertions: [] as PlannedMarkerAssertion[],
       unresolvedMarkerAssertions: [] as UnresolvedSemanticMarkerAssertionResolution[],
     }
@@ -641,10 +833,17 @@ export function planJsSuite(params: {
     )
   }
 
+  const synthesizedCompanions = synthesizeContractCompanionScenarios({
+    scenarios,
+    contracts,
+  })
+  warnings.push(...synthesizedCompanions.warnings)
+
   return {
     itGroups: baseGroups,
-    scenarios,
+    scenarios: synthesizedCompanions.scenarios,
     helpers,
+    contracts,
     stateSafety,
     renderBoundary,
     warnings,

@@ -7,6 +7,8 @@ export type MockPattern = 'vi.mock' | 'jest.mock' | 'none'
 export type MockRecommendationKind = 'inline' | 'extract'
 export type MutationLifecycleStage = 'loading' | 'success' | 'error'
 export type MockInstabilityKind = 'recreated-factory' | 'per-test-churn'
+export type InteractionContractKind = 'mutation-form'
+export type InteractionCompanionState = 'in-flight' | 'failed-completion'
 
 export interface ConventionFile {
   path: string
@@ -43,6 +45,13 @@ export interface MockRecommendation {
 export interface MutationLifecyclePattern {
   file: string
   stages: MutationLifecycleStage[]
+  evidence: string[]
+}
+
+export interface InteractionContractPattern {
+  file: string
+  kind: InteractionContractKind
+  states: InteractionCompanionState[]
   evidence: string[]
 }
 

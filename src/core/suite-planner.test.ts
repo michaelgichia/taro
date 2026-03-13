@@ -69,6 +69,17 @@ function createMockAnalysis(): MockAnalysis {
         evidence: ['loading cues detected', 'success cues detected', 'error cues detected'],
       },
     ],
+    interactionContracts: [
+      {
+        file: 'src/features/FeatureFlow.test.tsx',
+        kind: 'mutation-form',
+        states: ['in-flight', 'failed-completion'],
+        supportTargets: ['@repo/data-client'],
+        overrideStyle: 'stable-handles',
+        confidence: 'high',
+        evidence: ['loading cues detected', 'error cues detected'],
+      },
+    ],
     instabilityWarnings: [],
     sharedMockFactories: [],
     boundaryProfiles: [],
@@ -78,6 +89,8 @@ function createMockAnalysis(): MockAnalysis {
     preferredBoundaryImplementations: {},
     forbidBoundaryTargets: [],
     queryHookPolicy: 'avoid',
+    companionPolicy: 'heuristic',
+    enabledContractFamilies: ['mutation-form'],
   }
 }
 
@@ -554,7 +567,10 @@ describe('planJsSuite', () => {
     const plan = planJsSuite({
       recording,
       analyzedRecording: createAnalyzedRecording(recording),
-      mockAnalysis: createMockAnalysis(),
+      mockAnalysis: {
+        ...createMockAnalysis(),
+        companionPolicy: 'off',
+      },
       fallbackTitle: recording.title,
     })
 
@@ -678,6 +694,85 @@ describe('planJsSuite', () => {
     )
     expect(plan.warnings).toContain(
       'Replay prerequisite setup inside each scenario helper instead of collapsing multiple contracts into one broad end-to-end test.'
+    )
+  })
+
+  it('synthesizes mutation-form companion scenarios when repo contracts are high confidence', () => {
+    const recording = createRecording([
+      { action: 'click', target: 'Add profile', originalType: 'click', source: 'js' },
+      { action: 'fill', target: 'Profile name', value: 'Acme', originalType: 'fill', source: 'js' },
+      { action: 'select', target: 'Country', value: 'Kenya', originalType: 'select', source: 'js' },
+      { action: 'click', target: 'Save profile', originalType: 'click', source: 'js' },
+      { action: 'assert', target: 'Profile saved', originalType: 'assert', source: 'js' },
+    ])
+
+    const intentGroups: ItGroup[] = [{ name: 'create profile', steps: recording.steps }]
+    const plan = planJsSuite({
+      recording,
+      analyzedRecording: createAnalyzedRecording(recording, intentGroups),
+      mockAnalysis: createMockAnalysis(),
+      fallbackTitle: recording.title,
+    })
+
+    expect(plan.contracts).toEqual([
+      expect.objectContaining({
+        kind: 'mutation-form',
+        confidence: 'high',
+        companionStates: ['in-flight', 'failed-completion'],
+      }),
+    ])
+    expect(plan.scenarios.map((scenario) => scenario.name)).toEqual([
+      'create profile',
+      'create profile shows in-flight UI',
+      'create profile shows failure UI',
+    ])
+    expect(plan.scenarios[0]?.provenance).toBe('recorded')
+    expect(plan.scenarios[1]).toMatchObject({
+      provenance: 'synthesized-companion',
+      contractKind: 'mutation-form',
+      companionState: 'in-flight',
+      annotations: expect.arrayContaining([expect.stringContaining('stays unresolved')]),
+    })
+    expect(plan.scenarios[1]?.steps).toHaveLength(4)
+    expect(plan.scenarios[2]).toMatchObject({
+      provenance: 'synthesized-companion',
+      contractKind: 'mutation-form',
+      companionState: 'failed-completion',
+    })
+    expect(plan.warnings).toContain(
+      'Synthesized 2 companion scenario(s) for the mutation-form contract.'
+    )
+  })
+
+  it('suppresses mutation-form companion scenarios when support seams are only low confidence', () => {
+    const recording = createRecording([
+      { action: 'fill', target: 'Name', value: 'Acme', originalType: 'fill', source: 'js' },
+      { action: 'click', target: 'Save', originalType: 'click', source: 'js' },
+    ])
+    const lowConfidenceAnalysis: MockAnalysis = {
+      ...createMockAnalysis(),
+      interactionContracts: [],
+      repeatedTargets: [],
+      boundaryProfiles: [],
+      preferredSharedMocks: {},
+    }
+
+    const plan = planJsSuite({
+      recording,
+      analyzedRecording: createAnalyzedRecording(recording, [{ name: 'save profile', steps: recording.steps }]),
+      mockAnalysis: lowConfidenceAnalysis,
+      fallbackTitle: recording.title,
+    })
+
+    expect(plan.contracts).toEqual([
+      expect.objectContaining({
+        kind: 'mutation-form',
+        confidence: 'low',
+      }),
+    ])
+    expect(plan.scenarios).toHaveLength(1)
+    expect(plan.warnings).toContain(
+      'Taro detected a possible mutation-backed contract but companion scaffolds were suppressed because repo control seams are not stable enough yet.'
     )
   })
 })

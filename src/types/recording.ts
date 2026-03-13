@@ -473,6 +473,17 @@ export interface ItGroup {
 export type JsHelperAssertionPolicy = 'sync-only'
 export type JsStateSafetyStatus = 'safe-multi-it' | 'setup-replay-required' | 'unknown'
 export type JsScenarioGoal = 'flow' | 'validation' | 'review' | 'mutation-state'
+export type JsScenarioProvenance = 'recorded' | 'synthesized-companion'
+export type JsInteractionContractKind = 'mutation-form'
+export type JsInteractionCompanionState = 'in-flight' | 'failed-completion'
+
+export interface JsDetectedInteractionContract {
+  kind: JsInteractionContractKind
+  source: 'repo-contract' | 'repo-signal'
+  confidence: 'low' | 'medium' | 'high'
+  companionStates: JsInteractionCompanionState[]
+  evidence: string[]
+}
 
 export interface JsHelperPlan {
   name: string
@@ -488,6 +499,10 @@ export interface JsScenarioPlan {
   steps: NormalizedStep[]
   helperRefs: string[]
   requiresFreshRender: boolean
+  provenance?: JsScenarioProvenance
+  contractKind?: JsInteractionContractKind
+  companionState?: JsInteractionCompanionState
+  annotations?: string[]
   markerAssertions?: PlannedMarkerAssertion[]
   unresolvedMarkerAssertions?: UnresolvedSemanticMarkerAssertionResolution[]
 }

@@ -24,6 +24,8 @@ import { DEFAULT_CONVENTIONS } from '../types/conventions.js'
 import type {
   ConventionFile,
   ConventionsSchema,
+  InteractionContractKind,
+  InteractionContractPattern,
   ImportStyle,
   MockInstabilityWarning,
   MockPattern,
@@ -51,6 +53,7 @@ import type {
   TaroFixtureRootKind,
   TaroFixtureRootProfile,
   TaroGeneratedTestRecord,
+  TaroInteractionContractProfile,
   TaroMockStoreResource,
   TaroOverrides,
   TaroPackageOverrides,
@@ -257,6 +260,15 @@ const mutationLifecyclePatternSchema = z.object({
   stages: z.array(z.enum(['loading', 'success', 'error'])),
   evidence: z.array(z.string()),
 })
+const interactionContractProfileSchema = z.object({
+  file: z.string(),
+  kind: z.enum(['mutation-form']),
+  states: z.array(z.enum(['in-flight', 'failed-completion'])),
+  supportTargets: z.array(z.string()),
+  overrideStyle: z.enum(['stable-handles', 'inline-reconfigure', 'none']),
+  confidence: confidenceSchema,
+  evidence: z.array(z.string()),
+})
 const mockInstabilityWarningSchema = z.object({
   file: z.string(),
   kind: z.enum(['recreated-factory', 'per-test-churn']),
@@ -323,6 +335,7 @@ const packageProfileSchema = z.object({
   sharedMockFactories: z.array(sharedMockFactoryProfileSchema),
   boundaryProfiles: z.array(boundaryProfileSchema).default([]),
   boundaryExemplars: z.array(boundaryExemplarProfileSchema).default([]),
+  interactionContracts: z.array(interactionContractProfileSchema).default([]),
   inlineSafeMockTargets: z.array(z.string()),
   mutationLifecycles: z.array(mutationLifecyclePatternSchema),
   instabilityWarnings: z.array(mockInstabilityWarningSchema),
@@ -386,6 +399,8 @@ const taroOverridesSchema = z.object({
         preferredBoundaryImplementations: z.record(z.string(), z.string()).optional(),
         forbidBoundaryTargets: z.array(z.string()).optional(),
         queryHookPolicy: queryHookPolicySchema.optional(),
+        companionPolicy: z.enum(['heuristic', 'off']).optional(),
+        enabledContractFamilies: z.array(z.enum(['mutation-form'])).optional(),
       })
     )
     .optional(),
@@ -683,6 +698,55 @@ function analyzeMutationLifecycleInFiles(
       }
     })
     .filter((entry): entry is MutationLifecyclePattern => entry !== null)
+    .sort((left, right) => left.file.localeCompare(right.file))
+}
+
+function deriveInteractionContracts(params: {
+  mutationLifecycles: MutationLifecyclePattern[]
+  boundaryExemplars: TaroBoundaryExemplarProfile[]
+}): TaroInteractionContractProfile[] {
+  const { mutationLifecycles, boundaryExemplars } = params
+  const exemplarsByFile = new Map(
+    boundaryExemplars.map((exemplar) => [exemplar.file.replace(/\\/g, '/'), exemplar])
+  )
+
+  return mutationLifecycles
+    .map((lifecycle) => {
+      const states = [
+        lifecycle.stages.includes('loading') ? 'in-flight' : null,
+        lifecycle.stages.includes('error') ? 'failed-completion' : null,
+      ].filter((state): state is NonNullable<InteractionContractPattern['states'][number]> =>
+        state !== null
+      )
+
+      if (states.length === 0) {
+        return null
+      }
+
+      const exemplar = exemplarsByFile.get(lifecycle.file)
+      const supportTargets = exemplar?.boundaryTargets ?? []
+      const overrideStyle = exemplar?.overrideStyle ?? 'none'
+      const confidence: TaroStateConfidence =
+        overrideStyle === 'stable-handles' && supportTargets.length > 0
+          ? 'high'
+          : overrideStyle === 'inline-reconfigure' || supportTargets.length > 0
+            ? 'medium'
+            : 'low'
+
+      return {
+        file: lifecycle.file,
+        kind: 'mutation-form' as const,
+        states,
+        supportTargets,
+        overrideStyle,
+        confidence,
+        evidence: [
+          ...lifecycle.evidence,
+          exemplar ? `boundary override style: ${overrideStyle}` : 'no matching boundary exemplar',
+        ],
+      }
+    })
+    .filter((entry): entry is TaroInteractionContractProfile => entry !== null)
     .sort((left, right) => left.file.localeCompare(right.file))
 }
 
@@ -1316,6 +1380,10 @@ async function buildPackageProfile(
     providerWrappers,
     mutationLifecycles,
   })
+  const interactionContracts = deriveInteractionContracts({
+    mutationLifecycles,
+    boundaryExemplars: boundaryLearning.exemplars,
+  })
   const existingProfile = resolveExistingPackageProfile(existingState, descriptor.key)
   const detectedPlaywrightAuth = await detectPlaywrightAuthForPackage(
     projectRoot,
@@ -1347,6 +1415,7 @@ async function buildPackageProfile(
     sharedMockFactories: collectSharedMockFactories(projectRoot, files),
     boundaryProfiles: boundaryLearning.profiles,
     boundaryExemplars: boundaryLearning.exemplars,
+    interactionContracts,
     inlineSafeMockTargets: mockRecommendations
       .filter((recommendation) => recommendation.kind === 'inline')
       .map((recommendation) => recommendation.target)
@@ -1513,6 +1582,7 @@ function deriveLegacyPackageProfile(
     sharedMockFactories: [],
     boundaryProfiles: [],
     boundaryExemplars: [],
+    interactionContracts: [],
     inlineSafeMockTargets: [],
     mutationLifecycles: [],
     instabilityWarnings: [],
@@ -1820,6 +1890,7 @@ function buildStateSummaryMarkdown(state: TaroState): string {
     lines.push(`- Collaborator categories: ${summarizeCollaboratorKinds(profile)}`)
     lines.push(`- Canonical boundary support: ${summarizeCanonicalBoundarySupport(profile)}`)
     lines.push(`- Learned boundary profiles: ${profile.boundaryProfiles.length}`)
+    lines.push(`- Learned interaction contracts: ${profile.interactionContracts.length}`)
     lines.push(
       `- Low-confidence scaffolds awaiting corroboration: ${profile.boundaryProfiles.filter((entry) => entry.lowConfidenceScaffold).length}`
     )
@@ -2186,6 +2257,10 @@ export function resolveTaroPackageProfile(
     ]),
   ]
   const boundaryPolicies = { ...(packageOverrides?.boundaryPolicies ?? {}) }
+  const enabledContractFamilies =
+    packageOverrides?.enabledContractFamilies?.length
+      ? [...packageOverrides.enabledContractFamilies]
+      : (['mutation-form'] as InteractionContractKind[])
 
   if (packageOverrides?.runner) {
     appliedOverrides.push(`runner:${packageOverrides.runner}`)
@@ -2224,6 +2299,12 @@ export function resolveTaroPackageProfile(
   }
   if (packageOverrides?.queryHookPolicy) {
     appliedOverrides.push(`queryHookPolicy:${packageOverrides.queryHookPolicy}`)
+  }
+  if (packageOverrides?.companionPolicy) {
+    appliedOverrides.push(`companionPolicy:${packageOverrides.companionPolicy}`)
+  }
+  if (packageOverrides?.enabledContractFamilies?.length) {
+    appliedOverrides.push('enabledContractFamilies')
   }
 
   const boundaryProfilesByTarget = new Map(
@@ -2309,6 +2390,8 @@ export function resolveTaroPackageProfile(
     preferredBoundaryImplementations,
     forbidBoundaryTargets,
     effectiveQueryHookPolicy: packageOverrides?.queryHookPolicy ?? 'avoid',
+    effectiveCompanionPolicy: packageOverrides?.companionPolicy ?? 'heuristic',
+    enabledContractFamilies,
   }
 }
 

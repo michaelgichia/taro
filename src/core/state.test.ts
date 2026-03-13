@@ -252,6 +252,8 @@ describe('initTaroState', () => {
 
         describe('feature module', () => {
           it('reuses learned boundary support', () => {
+            const submitOrder = vi.fn().mockResolvedValue({ ok: true })
+            const submitOrderWithError = vi.fn().mockRejectedValue(new Error('boom'))
             useCreateOrderMutationMock.mockImplementationOnce(() => ({
               mutate: vi.fn(),
               isPending: true,
@@ -259,6 +261,11 @@ describe('initTaroState', () => {
 
             render(<FeatureModule />)
             renderWithProviders(<FeatureModule />, { wrapper: QueryClientProvider })
+            expect({ isLoading: true }).toBeTruthy()
+            void submitOrder()
+            expect(submitOrder).toHaveBeenCalled()
+            expect(screen.getByRole('alert')).toBeInTheDocument()
+            void submitOrderWithError()
             expect(true).toBe(true)
           })
         })
@@ -301,10 +308,22 @@ describe('initTaroState', () => {
         }),
       ])
     )
+    expect(exampleProfile?.interactionContracts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          file: 'packages/example-app/src/feature-module.test.tsx',
+          kind: 'mutation-form',
+          states: expect.arrayContaining(['in-flight', 'failed-completion']),
+          overrideStyle: 'stable-handles',
+          confidence: 'high',
+        }),
+      ])
+    )
     expect(summary).toContain('# Taro Boundary Summary')
     expect(summary).toContain('## packages/example-app')
     expect(summary).toContain('- Preferred render boundary: `module`')
     expect(summary).toContain('- Collaborator categories: data-module=1, local-child=1')
+    expect(summary).toContain('- Learned interaction contracts: 1')
     expect(summary).toContain(
       '- Canonical boundary support: `@/tests/mocks/orders-api`, `@/tests/renderWithProviders`'
     )

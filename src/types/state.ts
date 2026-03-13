@@ -1,5 +1,7 @@
 import type {
   ConventionsSchema,
+  InteractionContractKind,
+  InteractionContractPattern,
   ImportStyle,
   MockInstabilityWarning,
   MockPattern,
@@ -47,6 +49,7 @@ export type TaroBoundaryPayloadSource =
   | 'unknown'
 export type TaroBoundaryGuardrailReason = 'repo-owned-ui-wrapper' | 'ui-package'
 export type TaroQueryHookPolicy = 'avoid' | 'allow-centralized' | 'allow-when-needed'
+export type TaroCompanionPolicy = 'heuristic' | 'off'
 
 export interface TaroSignal<T> {
   value: T
@@ -132,6 +135,12 @@ export interface TaroBoundaryExemplarProfile {
   tags: string[]
 }
 
+export interface TaroInteractionContractProfile extends InteractionContractPattern {
+  supportTargets: string[]
+  overrideStyle: 'stable-handles' | 'inline-reconfigure' | 'none'
+  confidence: TaroStateConfidence
+}
+
 export interface TaroPlaywrightAuthProfile {
   strategy: TaroPlaywrightAuthStrategy
   path: string
@@ -157,6 +166,7 @@ export interface TaroPackageProfile {
   sharedMockFactories: TaroSharedMockFactoryProfile[]
   boundaryProfiles: TaroBoundaryProfile[]
   boundaryExemplars: TaroBoundaryExemplarProfile[]
+  interactionContracts: TaroInteractionContractProfile[]
   inlineSafeMockTargets: string[]
   mutationLifecycles: MutationLifecyclePattern[]
   instabilityWarnings: MockInstabilityWarning[]
@@ -217,6 +227,8 @@ export interface TaroPackageOverrides {
   preferredBoundaryImplementations?: Record<string, string>
   forbidBoundaryTargets?: string[]
   queryHookPolicy?: TaroQueryHookPolicy
+  companionPolicy?: TaroCompanionPolicy
+  enabledContractFamilies?: InteractionContractKind[]
 }
 
 export interface TaroOverrides {
@@ -233,6 +245,8 @@ export interface ResolvedTaroPackageProfile extends TaroPackageProfile {
   preferredBoundaryImplementations: Record<string, string>
   forbidBoundaryTargets: string[]
   effectiveQueryHookPolicy: TaroQueryHookPolicy
+  effectiveCompanionPolicy: TaroCompanionPolicy
+  enabledContractFamilies: InteractionContractKind[]
 }
 
 export interface TaroStateSummaryPackage {
