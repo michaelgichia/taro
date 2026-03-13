@@ -372,9 +372,9 @@ export function emitQuerySummary(queryResults: QueryResult[]): void {
       quality === 'fragile' && lines.length > 0
         ? ` — see line${lines.length > 1 ? 's' : ''} ${lines.join(', ')}`
         : ''
-    console.log(
+    process.stderr.write(
       pc.dim('[taro]') +
-        ` ${count} ${method} (${quality}${lineInfo})`
+        ` ${count} ${method} (${quality}${lineInfo})` + '\n'
     )
   }
 }
@@ -676,7 +676,9 @@ export function generateTestFromGroups(
       return lines
     })
 
+    const annotationLines = (scenario.annotations ?? []).map((annotation) => `// ${annotation}`)
     const stepLines = [
+      ...annotationLines,
       ...helperRefs.flatMap((helperName) => {
         const helperMarkers = markerAssertionsAfterHelper.get(helperName) ?? []
         const { lines: assertionLines, usedWaitFor } = renderMarkerAssertionGroup(helperMarkers)
