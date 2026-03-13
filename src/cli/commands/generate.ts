@@ -2480,7 +2480,7 @@ async function finalizeGeneratedOutput(params: {
     console.error(pc.red('[taro] Error: Post-write verification failed'))
     console.error(pc.red(`  ${verification.error}`))
     console.error(pc.red('  This is a Taro bug. Please report it.'))
-    process.exit(1)
+    process.exit(2)
   }
 
   log(pc.green('[taro] ✓ post-write verified'))
@@ -2530,7 +2530,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
         console.error(
           pc.red('Error:') + ` File not found or not accessible: ${pc.bold(filePath)}`
         )
-        process.exit(1)
+        process.exit(2)
       }
 
       let parsedInput: Awaited<ReturnType<typeof loadInput>>
@@ -2540,7 +2540,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
         console.error(
           pc.red('Error:') + ` Failed to parse recording: ${pc.bold(filePath)}\n${String(err)}`
         )
-        process.exit(1)
+        process.exit(2)
       }
 
       let normalizedRecording = normalizeJsBaseline(parsedInput)
@@ -2974,7 +2974,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
         enforceMarkerGateExit(scoreResult)
       } catch (err) {
         console.error(pc.red('Error:') + ` ${String(err)}`)
-        process.exit(1)
+        process.exit(2)
       }
     })
 
