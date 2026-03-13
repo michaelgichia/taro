@@ -74,10 +74,23 @@ import type {
   TaroPlaywrightAuthProfile,
 } from '../../types/state.js'
 import { isTestIdQueryMethod } from '../../core/query-policy.js'
+import {
+  type Finding,
+  formatFindingsBlock,
+  hasBlockingFindings,
+} from '../../core/findings-reporter.js'
 
 /** Write an operational log line to stderr. Never use console.log in this file — stdout is reserved for the findings envelope. */
 function log(msg: string): void {
   process.stderr.write(msg + '\n')
+}
+
+/** Emit the findings envelope to stdout and exit with the correct code. Call on every execution path exit. */
+function flushFindings(findings: Finding[]): never {
+  if (findings.length > 0) {
+    process.stdout.write(formatFindingsBlock(findings) + '\n')
+  }
+  process.exit(hasBlockingFindings(findings) ? 1 : 0)
 }
 
 const EMPTY_MARKER_COVERAGE: MarkerCoverageTotals = {
@@ -2511,6 +2524,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
     .action(async (file: string) => {
       const filePath = resolve(file)
       const projectRoot = cwd()
+      const findings: Finding[] = []
       const commandOptions = generate.opts<{
         auth?: string
         interactiveAuth?: boolean
@@ -2920,7 +2934,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
           })
 
           if (!shouldOverwriteExistingOutput) {
-            return
+            flushFindings(findings)
           }
         } catch (error) {
           console.warn(
@@ -2929,7 +2943,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
             )
           )
           console.warn(pc.yellow(`[taro] Assessment detail: ${String(error)}`))
-          return
+          flushFindings(findings)
         }
       }
 
@@ -2968,9 +2982,10 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
         const action = result.overwritten ? pc.yellow('Updated') : pc.green('Created')
         log(`${action}: ${pc.bold(result.filePath)}`)
       } catch (err) {
-        console.error(pc.red('Error:') + ` ${String(err)}`)
+        process.stderr.write(pc.red('Error:') + ` ${String(err)}` + '\n')
         process.exit(2)
       }
+      flushFindings(findings)
     })
 
   return generate

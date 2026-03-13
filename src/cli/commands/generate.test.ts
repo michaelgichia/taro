@@ -372,6 +372,10 @@ async function createInlineJsFixture(label: string, source: string) {
   return { ...sandbox, recordingPath };
 }
 
+class ProcessExitSignal {
+  constructor(public readonly code: number) {}
+}
+
 async function runGenerate(
   args: string[],
   cwdPath: string,
@@ -379,11 +383,23 @@ async function runGenerate(
 ) {
   const command = createGenerateCommand(context);
   const stderrChunks: string[] = [];
+  const stdoutChunks: string[] = [];
   const stderrSpy = vi
     .spyOn(process.stderr, "write")
     .mockImplementation((chunk) => {
       stderrChunks.push(String(chunk));
       return true;
+    });
+  const stdoutSpy = vi
+    .spyOn(process.stdout, "write")
+    .mockImplementation((chunk) => {
+      stdoutChunks.push(String(chunk));
+      return true;
+    });
+  const exitSpy = vi
+    .spyOn(process, "exit")
+    .mockImplementation((code?: number) => {
+      throw new ProcessExitSignal(code ?? 0);
     });
   const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
   const errorSpy = vi
@@ -391,24 +407,32 @@ async function runGenerate(
     .mockImplementation(() => undefined);
   const originalCwd = process.cwd();
   let thrown: unknown;
+  let capturedExitCode: number | undefined;
 
   process.chdir(cwdPath);
 
   try {
     await command.parseAsync(args, { from: "user" });
   } catch (error) {
-    thrown = error;
+    if (error instanceof ProcessExitSignal) {
+      capturedExitCode = error.code;
+    } else {
+      thrown = error;
+    }
   } finally {
     const result = {
       logs: stderrChunks.join(""),
+      stdout: stdoutChunks.join(""),
       warnings: warnSpy.mock.calls.flat().join("\n"),
       errors: errorSpy.mock.calls.flat().join("\n"),
       thrown,
-      exitCode: process.exitCode,
+      exitCode: capturedExitCode,
     };
 
     process.chdir(originalCwd);
     stderrSpy.mockRestore();
+    stdoutSpy.mockRestore();
+    exitSpy.mockRestore();
     warnSpy.mockRestore();
     errorSpy.mockRestore();
     return result;
@@ -1398,7 +1422,7 @@ test('Semantic marker flow', async () => {
     expect(result.warnings).toContain(
       "Playwright visual capture failed. browser executable is missing.",
     );
-    expect(result.exitCode).toBeUndefined();
+    expect(result.exitCode).toBe(0);
   });
 
   it("persists explicit storageState auth and forwards it to visual capture", async () => {
@@ -1497,7 +1521,7 @@ test('Semantic marker flow', async () => {
       "Reuse or replace the saved storage state with --auth /tmp/playwright/.auth/user.json.",
     );
     expect(result.errors).toBe("");
-    expect(result.exitCode).toBeUndefined();
+    expect(result.exitCode).toBe(0);
   });
 
   it("persists recovered MCP auth in interactive runs and continues generation", async () => {
@@ -1714,7 +1738,7 @@ test('Semantic marker flow', async () => {
       "Timed out waiting 300s for manual authentication.",
     );
     expect(result.errors).toBe("");
-    expect(result.exitCode).toBeUndefined();
+    expect(result.exitCode).toBe(0);
   });
 
   it("keeps zero marker conversion warning-only after writing output", async () => {
@@ -1754,7 +1778,7 @@ test('Marker gate fail in write mode', async () => {
     expect(result.warnings).toContain(
       "Manual review required — this generated test is still a draft",
     );
-    expect(result.exitCode).toBeUndefined();
+    expect(result.exitCode).toBe(0);
     expect(written).toContain("it(");
   });
 
