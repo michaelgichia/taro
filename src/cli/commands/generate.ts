@@ -75,6 +75,11 @@ import type {
 } from '../../types/state.js'
 import { isTestIdQueryMethod } from '../../core/query-policy.js'
 
+/** Write an operational log line to stderr. Never use console.log in this file — stdout is reserved for the findings envelope. */
+function log(msg: string): void {
+  process.stderr.write(msg + '\n')
+}
+
 const EMPTY_MARKER_COVERAGE: MarkerCoverageTotals = {
   detected: 0,
   emitted: 0,
@@ -510,20 +515,20 @@ function logExistingOutputDecision(params: {
   overwrite: boolean
 }): void {
   const { outputPath, candidate, existing, overwrite } = params
-  console.log(pc.dim('[taro]') + ` Existing output detected: ${outputPath}`)
-  console.log(
+  log(pc.dim('[taro]') + ` Existing output detected: ${outputPath}`)
+  log(
     pc.dim('[taro]') +
       ` Recorder flow coverage — existing ${existing.flowCoverage.coveredSteps}/${existing.flowCoverage.totalSteps}, ` +
       `candidate ${candidate.flowCoverage.coveredSteps}/${candidate.flowCoverage.totalSteps}`
   )
-  console.log(
+  log(
     pc.dim('[taro]') +
       ` Quality — existing ${existing.scoreResult.total}/100 (${existing.scoreResult.grade}), ` +
       `candidate ${candidate.scoreResult.total}/100 (${candidate.scoreResult.grade})`
   )
 
   if (overwrite) {
-    console.log(
+    log(
       pc.yellow(
         `[taro] Existing output will be updated because the new generation improves flow coverage or overall quality.`
       )
@@ -531,7 +536,7 @@ function logExistingOutputDecision(params: {
     return
   }
 
-  console.log(
+  log(
     pc.green(
       `[taro] Keeping the existing test because it already matches or exceeds the new generation for Recorder flow coverage and quality.`
     )
@@ -612,7 +617,7 @@ function summarizePageConfirmedContext(visualState: VisualState | null): void {
     return
   }
 
-  console.log(
+  log(
     pc.dim('[taro]') +
       ` Page-confirmed context: ${confirmedTerms.slice(0, 3).join(' | ')}`
   )
@@ -902,7 +907,7 @@ function logScore(scoreResult: ScoreResult): void {
     `markers: detected=${scoreResult.markerCoverage.detected}, ` +
     `emitted=${scoreResult.markerCoverage.emitted}, ` +
     `unresolved=${scoreResult.markerCoverage.unresolved}`
-  console.log(
+  log(
     pc.dim('[taro]') +
       ` Score: ${scoreResult.total}/100 (${scoreResult.grade}) — ` +
       `query: ${scoreResult.dimensions.queryQuality}, ` +
@@ -918,11 +923,11 @@ function emitMarkerCoverageSection(scoreResult: ScoreResult): void {
     scoreResult.markerQualityGate.status === 'warn'
       ? pc.yellow('WARN')
       : pc.green('PASS')
-  console.log(pc.dim('[taro]') + ' Marker coverage:')
-  console.log(pc.dim('[taro]') + `   detected: ${scoreResult.markerCoverage.detected}`)
-  console.log(pc.dim('[taro]') + `   emitted: ${scoreResult.markerCoverage.emitted}`)
-  console.log(pc.dim('[taro]') + `   unresolved: ${scoreResult.markerCoverage.unresolved}`)
-  console.log(
+  log(pc.dim('[taro]') + ' Marker coverage:')
+  log(pc.dim('[taro]') + `   detected: ${scoreResult.markerCoverage.detected}`)
+  log(pc.dim('[taro]') + `   emitted: ${scoreResult.markerCoverage.emitted}`)
+  log(pc.dim('[taro]') + `   unresolved: ${scoreResult.markerCoverage.unresolved}`)
+  log(
     pc.dim('[taro]') +
       `   QUAL-02 gate: ${gateStatus} (${scoreResult.markerQualityGate.reason})`
   )
@@ -979,7 +984,7 @@ function emitRecoveredMarkerDiagnostics(suitePlan: JsSuitePlan | null): void {
     }
 
     seenMarkerStepIds.add(markerAssertion.markerStepId)
-    console.log(
+    log(
       pc.dim('[taro]') +
         ` MKR-01 canonical-copy marker=${markerAssertion.markerStepId} ` +
         `file=${recovery.sourceFile} from="${recovery.fromText}" to="${recovery.toText}"`
@@ -1097,7 +1102,7 @@ function emitScoreHints(
     const testIdCount = queryResults.filter((queryResult) => {
       return isTestIdQueryMethod(queryResult.method)
     }).length
-    console.log(
+    log(
       pc.yellow(
         `[taro] Tip: ${testIdCount} getByTestId queries — consider adding aria-label`
       )
@@ -1105,7 +1110,7 @@ function emitScoreHints(
   }
 
   if (scoreResult.dimensions.assertionSpecificity < 60) {
-    console.log(
+    log(
       pc.yellow(
         '[taro] Tip: Add specific matchers like toHaveValue() for better assertions'
       )
@@ -1113,7 +1118,7 @@ function emitScoreHints(
   }
 
   if (scoreResult.dimensions.testStructure < 60) {
-    console.log(
+    log(
       pc.yellow(
         '[taro] Tip: Split into multiple it() blocks for better test organization'
       )
@@ -1160,7 +1165,7 @@ function summarizeCleanup(analyzedRecording: AnalyzedRecording): void {
     return
   }
 
-  console.log(pc.dim('[taro]') + ` Recording cleanup: ${parts.join(', ')}`)
+  log(pc.dim('[taro]') + ` Recording cleanup: ${parts.join(', ')}`)
 }
 
 function countPlannedScenarioMarkers(
@@ -1592,7 +1597,7 @@ function summarizeAuthPreflight(params: {
     return
   }
 
-  console.log(pc.dim('[taro]') + ` Auth status: ${status}`)
+  log(pc.dim('[taro]') + ` Auth status: ${status}`)
 }
 
 function summarizePlaywrightAuth(
@@ -1602,7 +1607,7 @@ function summarizePlaywrightAuth(
     return
   }
 
-  console.log(
+  log(
     pc.dim('[taro]') +
       ` Visual auth: ${packageProfile.playwrightAuth.strategy}=${packageProfile.playwrightAuth.path} (${packageProfile.playwrightAuth.source})`
   )
@@ -1655,30 +1660,30 @@ function summarizeVisualState(visualState: VisualState | null): void {
       }
     }
     if (visualState.screenshotPath) {
-      console.log(pc.dim('[taro]') + ` Auth checkpoint screenshot: ${visualState.screenshotPath}`)
+      log(pc.dim('[taro]') + ` Auth checkpoint screenshot: ${visualState.screenshotPath}`)
     }
     return
   }
 
   if (visualState.status === 'auth-recovered') {
-    console.log(pc.dim('[taro]') + ' Visual auth recovered via Playwright runtime.')
+    log(pc.dim('[taro]') + ' Visual auth recovered via Playwright runtime.')
     if (visualState.authRecovery?.retryToExpectedUrl?.attempted) {
-      console.log(
+      log(
         pc.dim('[taro]') +
           ` Retried recorded URL once after auth recovery: ${visualState.authRecovery.retryToExpectedUrl.targetUrl}`
       )
     }
     if (visualState.startingPointConfirmed) {
-      console.log(pc.dim('[taro]') + ` Starting point confirmed: ${visualState.finalUrl}`)
+      log(pc.dim('[taro]') + ` Starting point confirmed: ${visualState.finalUrl}`)
     }
     if (visualState.authRecovery?.persistedAuthPath) {
-      console.log(
+      log(
         pc.dim('[taro]') +
           ` Saved Playwright storageState: ${visualState.authRecovery.persistedAuthPath}`
       )
     }
     if (visualState.screenshotPath) {
-      console.log(
+      log(
         pc.dim('[taro]') + ` Starting point screenshot: ${visualState.screenshotPath}`
       )
     }
@@ -1710,7 +1715,7 @@ function summarizeVisualState(visualState: VisualState | null): void {
       )
     }
     if (visualState.screenshotPath) {
-      console.log(pc.dim('[taro]') + ` Auth checkpoint screenshot: ${visualState.screenshotPath}`)
+      log(pc.dim('[taro]') + ` Auth checkpoint screenshot: ${visualState.screenshotPath}`)
     }
     for (const warning of visualState.warnings) {
       console.warn(pc.yellow(`[taro] ${warning}`))
@@ -1729,9 +1734,9 @@ function summarizeVisualState(visualState: VisualState | null): void {
     parts.push(`screenshot=${visualState.screenshotPath}`)
   }
 
-  console.log(pc.dim('[taro]') + ` Visual state: ${parts.join(', ')}`)
+  log(pc.dim('[taro]') + ` Visual state: ${parts.join(', ')}`)
   if (visualState.startingPointConfirmed && visualState.screenshotPath) {
-    console.log(
+    log(
       pc.dim('[taro]') + ` Starting point screenshot: ${visualState.screenshotPath}`
     )
   }
@@ -1757,6 +1762,9 @@ function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
   if (mockAnalysis.mutationLifecycles.length > 0) {
     parts.push(`${mockAnalysis.mutationLifecycles.length} mutation flow(s)`)
   }
+  if (mockAnalysis.interactionContracts.length > 0) {
+    parts.push(`${mockAnalysis.interactionContracts.length} interaction contract(s)`)
+  }
 
   if (mockAnalysis.instabilityWarnings.length > 0) {
     parts.push(`${mockAnalysis.instabilityWarnings.length} stability warning(s)`)
@@ -1769,11 +1777,11 @@ function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
     return
   }
 
-  console.log(pc.dim('[taro]') + ` Mock analysis: ${parts.join(', ')}`)
+  log(pc.dim('[taro]') + ` Mock analysis: ${parts.join(', ')}`)
 
   const topRecommendation = mockAnalysis.recommendations[0]
   if (topRecommendation) {
-    console.log(
+    log(
       pc.dim('[taro]') +
         ` Mock hint: ${topRecommendation.kind} ${topRecommendation.target} (${topRecommendation.count} file(s))`
     )
@@ -1781,7 +1789,7 @@ function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
 
   const preferredSharedMock = Object.entries(mockAnalysis.preferredSharedMocks)[0]
   if (preferredSharedMock) {
-    console.log(
+    log(
       pc.dim('[taro]') +
         ` Shared mock preference: ${preferredSharedMock[0]} -> ${preferredSharedMock[1]}`
     )
@@ -1802,9 +1810,17 @@ function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
 
   const topLifecycle = mockAnalysis.mutationLifecycles[0]
   if (topLifecycle) {
-    console.log(
+    log(
       pc.dim('[taro]') +
         ` Mutation lifecycle: ${topLifecycle.stages.join(' -> ')} in ${topLifecycle.file}`
+    )
+  }
+
+  const topContract = mockAnalysis.interactionContracts[0]
+  if (topContract) {
+    log(
+      pc.dim('[taro]') +
+        ` Interaction contract: ${topContract.kind} (${topContract.states.join(', ')}) in ${topContract.file}`
     )
   }
 
@@ -1818,6 +1834,22 @@ function summarizeBoundaryWarnings(warnings: string[]): void {
   for (const warning of warnings) {
     console.warn(pc.yellow(`[taro] Boundary: ${warning}`))
   }
+}
+
+function summarizeSuiteContracts(plan: JsSuitePlan): void {
+  if (plan.contracts.length === 0) {
+    return
+  }
+
+  const primaryContract = plan.contracts[0]!
+  const synthesizedCount = plan.scenarios.filter(
+    (scenario) => scenario.provenance === 'synthesized-companion'
+  ).length
+
+  log(
+    pc.dim('[taro]') +
+      ` Contract planner: ${primaryContract.kind}, confidence=${primaryContract.confidence}, synthesized=${synthesizedCount}`
+  )
 }
 
 function summarizeResolvedPackageProfile(
@@ -1839,7 +1871,7 @@ function summarizeResolvedPackageProfile(
     `inlineMocks=${packageProfile.inlineSafeMockTargets.length}`,
   ]
 
-  console.log(pc.dim('[taro]') + ` State profile: ${parts.join(', ')}`)
+  log(pc.dim('[taro]') + ` State profile: ${parts.join(', ')}`)
 }
 
 async function auditBoundaryPolicy(
@@ -2083,7 +2115,7 @@ async function resolveJsGeneration(
 
   if (hasSelectorsToResolve && hasUrl) {
     // REPLAY PATH: open one persistent browser and replay steps in order
-    console.log(
+    log(
       pc.dim('[taro]') +
         ` Resolving ${baseline.selectors.length} selector(s) via Playwright with step replay...`
     )
@@ -2212,7 +2244,7 @@ async function resolveJsGeneration(
     }
   } else if (hasSelectorsToResolve) {
     // FALLBACK PATH: no URL available, resolve without replay (original behavior)
-    console.log(
+    log(
       pc.dim('[taro]') +
         ` Resolving ${baseline.selectors.length} selector(s) via Playwright...`
     )
@@ -2404,7 +2436,7 @@ async function persistRecoveredVisualAuth(params: {
       persistedAuth
     )
     if (persisted) {
-      console.log(
+      log(
         pc.dim('[taro]') +
           ` Persisted visual auth for package ${packageProfile.packagePath}: ${persistedAuth.strategy}=${persistedAuth.path}`
       )
@@ -2451,7 +2483,7 @@ async function finalizeGeneratedOutput(params: {
     process.exit(1)
   }
 
-  console.log(pc.green('[taro] ✓ post-write verified'))
+  log(pc.green('[taro] ✓ post-write verified'))
 
   try {
     await refreshTaroState(projectRoot)
@@ -2461,7 +2493,7 @@ async function finalizeGeneratedOutput(params: {
       testFile: outputPath,
       scoreResult,
     })
-    console.log(
+    log(
       pc.dim('[taro]') +
         ` Updated .taro/state.json for package ${packageProfile?.packagePath ?? '.'}.`
     )
@@ -2584,7 +2616,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
         url: recordingUrl,
       })
       if (!screenshotsEnabled) {
-        console.log(
+        log(
           pc.dim('[taro]') +
             ' Screenshot artifacts skipped (--no-screenshots); Playwright page confirmation still ran.'
         )
@@ -2626,7 +2658,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
       if (packageProfile) {
         const staleness = await detectPackageProfileStaleness(projectRoot, packageProfile)
         if (staleness.stale) {
-          console.log(
+          log(
             pc.dim('[taro]') +
               ` Detected stale package profile ${packageProfile.packagePath}; refreshing before generation.`
           )
@@ -2677,7 +2709,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
           visualAuth
         )
         if (persisted) {
-          console.log(
+          log(
             pc.dim('[taro]') +
               ` Persisted visual auth for package ${packageProfile.packagePath}: ${visualAuth.strategy}=${visualAuth.path}`
           )
@@ -2693,22 +2725,22 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
       }
 
       if (!hadState) {
-        console.log(pc.dim('[taro]') + ' Bootstrapped .taro/state.json from current repo tests.')
+        log(pc.dim('[taro]') + ' Bootstrapped .taro/state.json from current repo tests.')
       }
       if (contextMatches.length > 0) {
-        console.log(
+        log(
           pc.dim('[taro]') +
             ` Context matches: ${formatContextMatchesSummary(contextMatches)}`
         )
       }
       if (packageProfile?.appliedOverrides.length) {
-        console.log(
+        log(
           pc.dim('[taro]') +
             ` Applied overrides for ${packageProfile.packagePath}: ${packageProfile.appliedOverrides.join(', ')}`
         )
       }
       if (contextProfileReason && packageProfile) {
-        console.log(
+        log(
           pc.dim('[taro]') +
             ` Context-selected package profile ${packageProfile.packagePath}: ${contextProfileReason}.`
         )
@@ -2716,7 +2748,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
       summarizeResolvedPackageProfile(packageProfile)
       summarizePlaywrightAuth(packageProfile)
 
-      console.log(
+      log(
         pc.green('Parsed:') +
           ` ${pc.bold(normalizedRecording.title)} — ${normalizedRecording.steps.length} steps` +
           `, ${normalizedRecording.baseline?.itGroups.length ?? 0} test group(s)`
@@ -2789,6 +2821,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
 
       if (jsSuitePlan) {
         summarizeBoundaryWarnings(jsSuitePlan.warnings)
+        summarizeSuiteContracts(jsSuitePlan)
       }
 
       const resolvedJsGeneration = await resolveJsGeneration(
@@ -2937,7 +2970,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
           packageProfile,
         })
         const action = result.overwritten ? pc.yellow('Updated') : pc.green('Created')
-        console.log(`${action}: ${pc.bold(result.filePath)}`)
+        log(`${action}: ${pc.bold(result.filePath)}`)
         enforceMarkerGateExit(scoreResult)
       } catch (err) {
         console.error(pc.red('Error:') + ` ${String(err)}`)

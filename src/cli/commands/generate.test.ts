@@ -105,6 +105,7 @@ const defaultProfile = {
   sharedMockFactories: [],
   boundaryProfiles: [],
   boundaryExemplars: [],
+  interactionContracts: [],
   inlineSafeMockTargets: [],
   mutationLifecycles: [],
   instabilityWarnings: [],
@@ -127,6 +128,8 @@ const defaultProfile = {
   preferredBoundaryImplementations: {},
   forbidBoundaryTargets: [] as string[],
   effectiveQueryHookPolicy: "avoid" as const,
+  effectiveCompanionPolicy: "heuristic" as const,
+  enabledContractFamilies: ["mutation-form"] as const,
 };
 
 function createDefaultTaroState(packages: Record<string, unknown> = {}) {
@@ -375,7 +378,13 @@ async function runGenerate(
   context?: Parameters<typeof createGenerateCommand>[0],
 ) {
   const command = createGenerateCommand(context);
-  const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  const stderrChunks: string[] = [];
+  const stderrSpy = vi
+    .spyOn(process.stderr, "write")
+    .mockImplementation((chunk) => {
+      stderrChunks.push(String(chunk));
+      return true;
+    });
   const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
   const errorSpy = vi
     .spyOn(console, "error")
@@ -391,7 +400,7 @@ async function runGenerate(
     thrown = error;
   } finally {
     const result = {
-      logs: logSpy.mock.calls.flat().join("\n"),
+      logs: stderrChunks.join(""),
       warnings: warnSpy.mock.calls.flat().join("\n"),
       errors: errorSpy.mock.calls.flat().join("\n"),
       thrown,
@@ -399,7 +408,7 @@ async function runGenerate(
     };
 
     process.chdir(originalCwd);
-    logSpy.mockRestore();
+    stderrSpy.mockRestore();
     warnSpy.mockRestore();
     errorSpy.mockRestore();
     return result;
@@ -667,6 +676,17 @@ test('Example flow', async () => {
         {
           file: "packages/example-app/src/features/feature-flow.test.tsx",
           stages: ["success", "error"],
+          evidence: ["mutation stages detected"],
+        },
+      ],
+      interactionContracts: [
+        {
+          file: "packages/example-app/src/features/feature-flow.test.tsx",
+          kind: "mutation-form" as const,
+          states: ["failed-completion"] as const,
+          supportTargets: ["@repo/data-client"],
+          overrideStyle: "stable-handles" as const,
+          confidence: "high" as const,
           evidence: ["mutation stages detected"],
         },
       ],
