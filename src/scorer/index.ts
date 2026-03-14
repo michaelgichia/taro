@@ -4,9 +4,11 @@
 
 import { writeFileSync, existsSync } from 'fs';
 import { evaluateQualityGates } from './quality-gates.js';
-import { preWriteAudit, AuditResult } from './pre-audit.js';
-import { postWriteVerification, VerificationResult } from './post-verify.js';
-import { QualityScore, ScoringResult } from './types.js';
+import { preWriteAudit } from './pre-audit.js';
+import { postWriteVerification } from './post-verify.js';
+import type { AuditResult } from './pre-audit.js';
+import type { VerificationResult } from './post-verify.js';
+import type { QualityScore, ScoringResult, QualityIssue, QualityCriteria } from './types.js';
 
 export interface Recording {
   id: string;
@@ -113,7 +115,9 @@ export function orchestrateWithScoring(options: OrchestrateOptions): Orchestrate
   };
 }
 
-export { QualityScore, QualityIssue, QualityCriteria } from './types.js';
+export type { QualityScore, QualityIssue, QualityCriteria } from './types.js';
 export { evaluateQualityGates } from './quality-gates.js';
-export { preWriteAudit, AuditResult } from './pre-audit.js';
-export { postWriteVerification, VerificationResult } from './post-verify.js';
+export { preWriteAudit } from './pre-audit.js';
+export type { AuditResult } from './pre-audit.js';
+export { postWriteVerification } from './post-verify.js';
+export type { VerificationResult } from './post-verify.js';

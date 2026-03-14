@@ -7,12 +7,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { ensureProjectStateDirSync } from '../project-state.js';
-import { TestConvention, createEmptyConvention } from './types.js';
+import { createEmptyConvention } from './types.js';
+import type { TestConvention } from './types.js';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const Database = require('better-sqlite3');
 
-export { TestConvention };
+export type { TestConvention };
 
 /**
  * ConventionStore class with SQLite persistence
