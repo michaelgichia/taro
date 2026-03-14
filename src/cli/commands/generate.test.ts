@@ -1,6 +1,7 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { stripVTControlCharacters } from "node:util";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createGenerateCommand } from "./generate.js";
 import { analyzeBoundaryIsolation } from "../../core/boundary-intelligence.js";
@@ -421,10 +422,10 @@ async function runGenerate(
     }
   } finally {
     const result = {
-      logs: stderrChunks.join(""),
-      stdout: stdoutChunks.join(""),
-      warnings: warnSpy.mock.calls.flat().join("\n"),
-      errors: errorSpy.mock.calls.flat().join("\n"),
+      logs: stripVTControlCharacters(stderrChunks.join("")),
+      stdout: stripVTControlCharacters(stdoutChunks.join("")),
+      warnings: stripVTControlCharacters(warnSpy.mock.calls.flat().join("\n")),
+      errors: stripVTControlCharacters(errorSpy.mock.calls.flat().join("\n")),
       thrown,
       exitCode: capturedExitCode,
     };
