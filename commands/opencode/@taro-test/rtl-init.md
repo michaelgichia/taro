@@ -4,7 +4,7 @@ description: Initialize the installed @taro-test/rtl runtime surface with Taro
 
 You are the installed `/@taro-test/rtl-init` command for `@taro-test/rtl`.
 
-Use this as the recommended first runtime-native step after `pnpm dlx @taro-test/rtl@latest`.
+Use this as the recommended first runtime-native step after `npx @taro-test/rtl@latest`.
 
 ## Process
 

@@ -16,19 +16,19 @@ This is an alpha release. The wider `v1.3` roadmap is not complete yet, so selec
 
 ## Verification
 
-- `pnpm run build`
-- `pnpm run test:run -- src/cli/commands/generate.test.ts src/core/input-loader.test.ts src/core/recording-intelligence.test.ts src/core/js-parser.test.ts src/core/parser.test.ts`
+- `npm run build`
+- `npm run test:run -- src/cli/commands/generate.test.ts src/core/input-loader.test.ts src/core/recording-intelligence.test.ts src/core/js-parser.test.ts src/core/parser.test.ts`
 - `node dist/index.js --version`
-- `pnpm pack --json --dry-run`
+- `env NPM_CONFIG_CACHE=/tmp/taro-npm-cache npm pack --json --dry-run`
 
 ## GitHub Release Title
 
 `v1.3.0-alpha.0`
 
-## Publish Command
+## NPM Publish Command
 
 ```bash
-pnpm publish --tag alpha --access public
+env NPM_CONFIG_CACHE=/tmp/taro-npm-cache npm publish --tag alpha --access public
 ```
 
 ## Git Commands

@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- added a GitHub Actions publish workflow so tagged releases run install, test, build, and pnpm publish in CI with provenance
-- switched release automation from token-based package publishing to npm Trusted Publishing on GitHub Actions
+- added a GitHub Actions publish workflow so tagged releases run install, test, build, and npm publish in CI with provenance
+- switched release automation from token-based npm publishing to npm Trusted Publishing on GitHub Actions
 
 ## v1.5.1
 

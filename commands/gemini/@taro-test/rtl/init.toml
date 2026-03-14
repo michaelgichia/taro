@@ -2,7 +2,7 @@ description = "Initialize the installed @taro-test/rtl runtime surface with Taro
 prompt = """
 You are the installed /@taro-test/rtl:init command for @taro-test/rtl.
 
-Use this as the recommended first runtime-native step after `pnpm dlx @taro-test/rtl@latest`.
+Use this as the recommended first runtime-native step after `npx @taro-test/rtl@latest`.
 
 Process:
 1. Run `{{TARO_RUNTIME_COMMAND}} __init`.

@@ -22,32 +22,26 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22.14.0
           registry-url: https://registry.npmjs.org
-          cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Run tests
-        run: pnpm test
+        run: npm test
 
       - name: Build package
-        run: pnpm run build --if-present
+        run: npm run build --if-present
 
       - name: Verify changelog generation
-        run: pnpm run changelog
+        run: npm run changelog
 
       - name: Verify package publish payload
-        run: pnpm publish --dry-run --access public --no-git-checks
+        run: npm publish --dry-run --access public
 
       - name: Summary
         run: |
@@ -57,6 +51,6 @@ jobs:
             echo "- Tests passed"
             echo "- Build completed"
             echo "- Changelog generated"
-            echo "- Publish payload verified with pnpm dry-run"
+            echo "- Publish payload verified with npm dry-run"
             echo "- Trusted publishing workflow is ready on GitHub-hosted runners"
           } >> "$GITHUB_STEP_SUMMARY"
