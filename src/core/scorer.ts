@@ -1,8 +1,5 @@
-import {
-  analyzeBoundaryIsolation,
-  calculateBoundaryIsolationScore,
-} from "./boundary-intelligence.js";
-import type { QueryResult } from "../types/recording.js";
+import { analyzeBoundaryIsolation, calculateBoundaryIsolationScore } from './boundary-intelligence.js'
+import type { QueryResult } from '../types/recording.js'
 import type {
   MarkerCoverageTotals,
   MarkerReviewDiagnostics,
@@ -11,12 +8,12 @@ import type {
   ScoreReason,
   ScoreResult,
   ScoreSignals,
-} from "../types/score.js";
+} from '../types/score.js'
 import {
   getSupportedTestingLibraryQueryFamily,
   isTestIdQueryMethod,
-} from "./query-policy.js";
-import { detectRepoContractIssues } from "./repo-contracts.js";
+} from './query-policy.js'
+import { detectRepoContractIssues } from './repo-contracts.js'
 
 const QUERY_WEIGHTS: Record<string, number> = {
   ByRole: 1.0,
@@ -27,165 +24,160 @@ const QUERY_WEIGHTS: Record<string, number> = {
   ByTitle: 0.5,
   ByDisplayValue: 0.5,
   ByTestId: 0.2,
-};
+}
 
-const STRONG_ASSERTION_REGEX =
-  /\.toHaveValue\(|\.toBeChecked\(|\.toHaveTextContent\(|\.toBeVisible\(/g;
-const WEAK_ASSERTION_REGEX = /\.toBeInTheDocument\(/g;
-const QUERY_CHECKPOINT_REGEX = /taro-query-checkpoint:/g;
-const ROLE_QUERY_REGEX = /\b(?:get|query|find)(?:All)?ByRole\s*\(/g;
-const TEST_ID_QUERY_REGEX = /\b(?:get|query|find)(?:All)?ByTestId\s*\(/g;
-const BOUNDARY_WARNING_REGEX = /taro-boundary-warning:/g;
-const TEST_BLOCK_REGEX = /\b(?:it|test)\s*\(/g;
+const STRONG_ASSERTION_REGEX = /\.toHaveValue\(|\.toBeChecked\(|\.toHaveTextContent\(|\.toBeVisible\(/g
+const WEAK_ASSERTION_REGEX = /\.toBeInTheDocument\(/g
+const QUERY_CHECKPOINT_REGEX = /taro-query-checkpoint:/g
+const ROLE_QUERY_REGEX = /\b(?:get|query|find)(?:All)?ByRole\s*\(/g
+const TEST_ID_QUERY_REGEX = /\b(?:get|query|find)(?:All)?ByTestId\s*\(/g
+const BOUNDARY_WARNING_REGEX = /taro-boundary-warning:/g
+const TEST_BLOCK_REGEX = /\b(?:it|test)\s*\(/g
 const REPO_CONTRACT_REASON_CONFIG: Record<
-  ReturnType<typeof detectRepoContractIssues>[number]["code"],
+  ReturnType<typeof detectRepoContractIssues>[number]['code'],
   { dimension: keyof ScoreDimensions; code: string; weight: number }
 > = {
-  "helper-assertion": {
-    dimension: "testStructure",
-    code: "helper-assertions",
+  'helper-assertion': {
+    dimension: 'testStructure',
+    code: 'helper-assertions',
     weight: 16,
   },
-  "query-to-be-defined": {
-    dimension: "assertionSpecificity",
-    code: "query-to-be-defined",
+  'query-to-be-defined': {
+    dimension: 'assertionSpecificity',
+    code: 'query-to-be-defined',
     weight: 14,
   },
-  "loose-payload": {
-    dimension: "assertionSpecificity",
-    code: "loose-payload-matchers",
+  'loose-payload': {
+    dimension: 'assertionSpecificity',
+    code: 'loose-payload-matchers',
     weight: 14,
   },
-  "shared-mutable-mock-state": {
-    dimension: "boundaryIsolation",
-    code: "shared-mutable-mock-state",
+  'shared-mutable-mock-state': {
+    dimension: 'boundaryIsolation',
+    code: 'shared-mutable-mock-state',
     weight: 16,
   },
-  "split-async-mock-assertions": {
-    dimension: "assertionSpecificity",
-    code: "split-async-mock-assertions",
+  'split-async-mock-assertions': {
+    dimension: 'assertionSpecificity',
+    code: 'split-async-mock-assertions',
     weight: 12,
   },
-  "manual-dom-repair": {
-    dimension: "boundaryIsolation",
-    code: "manual-dom-repair",
+  'manual-dom-repair': {
+    dimension: 'boundaryIsolation',
+    code: 'manual-dom-repair',
     weight: 12,
   },
-  "regex-text-matcher": {
-    dimension: "queryQuality",
-    code: "regex-text-matchers",
+  'regex-text-matcher': {
+    dimension: 'queryQuality',
+    code: 'regex-text-matchers',
     weight: 8,
   },
-  "mixed-reset-boundary": {
-    dimension: "boundaryIsolation",
-    code: "mixed-reset-boundary",
+  'mixed-reset-boundary': {
+    dimension: 'boundaryIsolation',
+    code: 'mixed-reset-boundary',
     weight: 10,
   },
-};
+}
 
 function clampScore(score: number): number {
-  return Math.min(100, Math.max(0, Math.round(score)));
+  return Math.min(100, Math.max(0, Math.round(score)))
 }
 
 function countMatches(input: string, pattern: RegExp): number {
-  return input.match(pattern)?.length ?? 0;
+  return input.match(pattern)?.length ?? 0
 }
 
 function normalizeCount(value: unknown): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return 0;
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return 0
   }
 
-  return Math.max(0, Math.round(value));
+  return Math.max(0, Math.round(value))
 }
 
 export function calculateQueryScore(queryResults: QueryResult[]): number {
   if (queryResults.length === 0) {
-    return 100;
+    return 100
   }
 
   const totalWeight = queryResults.reduce((sum, queryResult) => {
-    const family = getSupportedTestingLibraryQueryFamily(queryResult.method);
-    return sum + (family ? QUERY_WEIGHTS[family] : 0.2);
-  }, 0);
+    const family = getSupportedTestingLibraryQueryFamily(queryResult.method)
+    return sum + (family ? QUERY_WEIGHTS[family] : 0.2)
+  }, 0)
 
-  return clampScore((totalWeight / queryResults.length) * 100);
+  return clampScore((totalWeight / queryResults.length) * 100)
 }
 
 export function calculateAssertionScore(code: string): number {
-  const strongAssertions = countMatches(code, STRONG_ASSERTION_REGEX);
-  const weakAssertions = countMatches(code, WEAK_ASSERTION_REGEX);
-  const totalAssertions = strongAssertions + weakAssertions;
+  const strongAssertions = countMatches(code, STRONG_ASSERTION_REGEX)
+  const weakAssertions = countMatches(code, WEAK_ASSERTION_REGEX)
+  const totalAssertions = strongAssertions + weakAssertions
 
   if (totalAssertions === 0) {
-    return 0;
+    return 0
   }
 
-  const weightedScore = strongAssertions + weakAssertions * 0.3;
-  let score = clampScore((weightedScore / totalAssertions) * 100);
-  const issues = new Set(
-    detectRepoContractIssues(code).map((issue) => issue.code)
-  );
+  const weightedScore = strongAssertions + weakAssertions * 0.3
+  let score = clampScore((weightedScore / totalAssertions) * 100)
+  const issues = new Set(detectRepoContractIssues(code).map((issue) => issue.code))
 
-  if (issues.has("query-to-be-defined")) {
-    score -= 15;
+  if (issues.has('query-to-be-defined')) {
+    score -= 15
   }
-  if (issues.has("loose-payload")) {
-    score -= 15;
+  if (issues.has('loose-payload')) {
+    score -= 15
   }
-  if (issues.has("split-async-mock-assertions")) {
-    score -= 10;
+  if (issues.has('split-async-mock-assertions')) {
+    score -= 10
   }
-  if (issues.has("regex-text-matcher")) {
-    score -= 8;
+  if (issues.has('regex-text-matcher')) {
+    score -= 8
   }
 
-  return clampScore(score);
+  return clampScore(score)
 }
 
 export function calculateStructureScore(code: string): number {
-  const describeCount = code.match(/\bdescribe\s*\(/g)?.length ?? 0;
-  const itCount = countMatches(code, TEST_BLOCK_REGEX);
+  const describeCount = code.match(/\bdescribe\s*\(/g)?.length ?? 0
+  const itCount = countMatches(code, TEST_BLOCK_REGEX)
 
-  let score = 50;
+  let score = 50
 
   if (describeCount > 0) {
-    score += 20;
+    score += 20
   }
 
   if (itCount > 1) {
-    score += Math.min((itCount - 1) * 15, 30);
+    score += Math.min((itCount - 1) * 15, 30)
   }
 
   if (itCount === 1 && code.length > 2000) {
-    score -= 20;
+    score -= 20
   }
 
-  if (code.includes("render(<App />)")) {
-    score -= 25;
+  if (code.includes('render(<App />)')) {
+    score -= 25
   }
 
-  if (code.includes("taro-boundary-warning:")) {
-    score -= 20;
+  if (code.includes('taro-boundary-warning:')) {
+    score -= 20
   }
 
-  const issues = new Set(
-    detectRepoContractIssues(code).map((issue) => issue.code)
-  );
-  if (issues.has("helper-assertion")) {
-    score -= 12;
+  const issues = new Set(detectRepoContractIssues(code).map((issue) => issue.code))
+  if (issues.has('helper-assertion')) {
+    score -= 12
   }
-  if (issues.has("manual-dom-repair")) {
-    score -= 8;
+  if (issues.has('manual-dom-repair')) {
+    score -= 8
   }
-  if (issues.has("shared-mutable-mock-state")) {
-    score -= 10;
+  if (issues.has('shared-mutable-mock-state')) {
+    score -= 10
   }
-  if (issues.has("mixed-reset-boundary")) {
-    score -= 6;
+  if (issues.has('mixed-reset-boundary')) {
+    score -= 6
   }
 
-  return clampScore(score);
+  return clampScore(score)
 }
 
 function collectSignals(
@@ -196,39 +188,36 @@ function collectSignals(
   return {
     queryCheckpointCount: countMatches(code, QUERY_CHECKPOINT_REGEX),
     roleQueryCount:
-      queryResults.filter(
-        (queryResult) =>
-          getSupportedTestingLibraryQueryFamily(queryResult.method) === "ByRole"
-      ).length + countMatches(code, ROLE_QUERY_REGEX),
+      queryResults.filter((queryResult) => getSupportedTestingLibraryQueryFamily(queryResult.method) === 'ByRole').length +
+      countMatches(code, ROLE_QUERY_REGEX),
     testIdQueryCount:
-      queryResults.filter((queryResult) =>
-        isTestIdQueryMethod(queryResult.method)
-      ).length + countMatches(code, TEST_ID_QUERY_REGEX),
+      queryResults.filter((queryResult) => isTestIdQueryMethod(queryResult.method)).length +
+      countMatches(code, TEST_ID_QUERY_REGEX),
     strongAssertionCount: countMatches(code, STRONG_ASSERTION_REGEX),
     weakAssertionCount: countMatches(code, WEAK_ASSERTION_REGEX),
     boundaryWarningCount: countMatches(code, BOUNDARY_WARNING_REGEX),
     boundaryIssueCount,
-    placeholderRenderTarget: code.includes("render(<App />)"),
+    placeholderRenderTarget: code.includes('render(<App />)'),
     multipleTestBlocks: countMatches(code, TEST_BLOCK_REGEX) > 1,
-  };
+  }
 }
 
 function createReason(
   code: string,
   dimension: keyof ScoreDimensions,
-  impact: "positive" | "negative",
+  impact: 'positive' | 'negative',
   weight: number,
   message: string
 ): ScoreReason {
-  return { code, dimension, impact, weight, message };
+  return { code, dimension, impact, weight, message }
 }
 
 function compareReasons(left: ScoreReason, right: ScoreReason): number {
   if (right.weight !== left.weight) {
-    return right.weight - left.weight;
+    return right.weight - left.weight
   }
 
-  return left.code.localeCompare(right.code);
+  return left.code.localeCompare(right.code)
 }
 
 function collectReasons(
@@ -239,114 +228,114 @@ function collectReasons(
   markerDiagnostics: MarkerReviewDiagnostics,
   repoContractIssues: ReturnType<typeof detectRepoContractIssues>
 ): ScoreReason[] {
-  const reasons: ScoreReason[] = [];
+  const reasons: ScoreReason[] = []
 
   if (signals.queryCheckpointCount > 0) {
     reasons.push(
       createReason(
-        "query-checkpoints",
-        "queryQuality",
-        "negative",
+        'query-checkpoints',
+        'queryQuality',
+        'negative',
         Math.min(40, signals.queryCheckpointCount * 3),
         `${signals.queryCheckpointCount} unresolved query checkpoint(s) remain, so query quality is still draft-grade.`
       )
-    );
+    )
   }
 
   if (signals.testIdQueryCount > 0) {
     reasons.push(
       createReason(
-        "testid-queries",
-        "queryQuality",
-        "negative",
+        'testid-queries',
+        'queryQuality',
+        'negative',
         Math.min(15, signals.testIdQueryCount * 4),
         `${signals.testIdQueryCount} test-id query(ies) remain in the generated output.`
       )
-    );
+    )
   }
 
   if (signals.roleQueryCount > 0 && dimensions.queryQuality >= 80) {
     reasons.push(
       createReason(
-        "role-queries",
-        "queryQuality",
-        "positive",
+        'role-queries',
+        'queryQuality',
+        'positive',
         8,
         `Recovered role-based queries cover ${signals.roleQueryCount} interaction(s).`
       )
-    );
+    )
   }
 
   if (signals.strongAssertionCount === 0 && signals.weakAssertionCount > 0) {
     reasons.push(
       createReason(
-        "weak-assertions-only",
-        "assertionSpecificity",
-        "negative",
+        'weak-assertions-only',
+        'assertionSpecificity',
+        'negative',
         12,
-        "Assertions rely on generic presence checks instead of stronger user-visible expectations."
+        'Assertions rely on generic presence checks instead of stronger user-visible expectations.'
       )
-    );
+    )
   }
 
   if (signals.strongAssertionCount === 0 && signals.weakAssertionCount === 0) {
     reasons.push(
       createReason(
-        "no-assertions",
-        "assertionSpecificity",
-        "negative",
+        'no-assertions',
+        'assertionSpecificity',
+        'negative',
         20,
-        "The generated test has no load-bearing assertions yet."
+        'The generated test has no load-bearing assertions yet.'
       )
-    );
+    )
   }
 
   if (signals.strongAssertionCount > 0) {
     reasons.push(
       createReason(
-        "strong-assertions",
-        "assertionSpecificity",
-        "positive",
+        'strong-assertions',
+        'assertionSpecificity',
+        'positive',
         8,
         `Strong matcher usage covers ${signals.strongAssertionCount} assertion(s).`
       )
-    );
+    )
   }
 
   if (signals.placeholderRenderTarget) {
     reasons.push(
       createReason(
-        "placeholder-render-target",
-        "testStructure",
-        "negative",
+        'placeholder-render-target',
+        'testStructure',
+        'negative',
         25,
-        "The generated test still renders <App /> instead of a resolved repo target."
+        'The generated test still renders <App /> instead of a resolved repo target.'
       )
-    );
+    )
   }
 
   if (signals.boundaryWarningCount > 0) {
     reasons.push(
       createReason(
-        "boundary-warnings",
-        "testStructure",
-        "negative",
+        'boundary-warnings',
+        'testStructure',
+        'negative',
         20,
-        "Boundary warnings remain in the generated file, so the render/mock boundary still needs cleanup."
+        'Boundary warnings remain in the generated file, so the render/mock boundary still needs cleanup.'
       )
-    );
+    )
   }
 
   if (signals.multipleTestBlocks && dimensions.testStructure >= 70) {
     reasons.push(
       createReason(
-        "multiple-tests",
-        "testStructure",
-        "positive",
+        'multiple-tests',
+        'testStructure',
+        'positive',
         6,
-        "The suite is organized into multiple test blocks where the flow allows it."
+        'The suite is organized into multiple test blocks where the flow allows it.'
       )
-    );
+    )
   }
 
   if (signals.boundaryIssueCount > 0) {
@@ -354,128 +343,122 @@ function collectReasons(
       reasons.push(
         createReason(
           `boundary-issue-${index + 1}`,
-          "boundaryIsolation",
-          "negative",
+          'boundaryIsolation',
+          'negative',
           10 - index,
           message
         )
-      );
+      )
     }
   }
 
   for (const issue of repoContractIssues) {
-    const config = REPO_CONTRACT_REASON_CONFIG[issue.code];
+    const config = REPO_CONTRACT_REASON_CONFIG[issue.code]
     reasons.push(
-      createReason(
-        config.code,
-        config.dimension,
-        "negative",
-        config.weight,
-        issue.message
-      )
-    );
+      createReason(config.code, config.dimension, 'negative', config.weight, issue.message)
+    )
   }
 
   if (markerQualityGate.failing) {
     reasons.push(
       createReason(
-        "marker-quality-gate-fail",
-        "assertionSpecificity",
-        "negative",
+        'marker-quality-gate-fail',
+        'assertionSpecificity',
+        'negative',
         45,
         `QUAL-02 warning: ${markerQualityGate.message}`
       )
-    );
-  } else if (markerQualityGate.reason === "markers-fully-converted") {
+    )
+  } else if (markerQualityGate.reason === 'markers-fully-converted') {
     reasons.push(
       createReason(
-        "marker-quality-gate-pass",
-        "assertionSpecificity",
-        "positive",
+        'marker-quality-gate-pass',
+        'assertionSpecificity',
+        'positive',
         8,
         `QUAL-02 passed: ${markerQualityGate.message}`
       )
-    );
+    )
   } else {
     reasons.push(
       createReason(
-        "marker-quality-gate-pass-no-markers",
-        "assertionSpecificity",
-        "positive",
+        'marker-quality-gate-pass-no-markers',
+        'assertionSpecificity',
+        'positive',
         4,
         `QUAL-02 passed: ${markerQualityGate.message}`
       )
-    );
+    )
   }
 
   if (markerDiagnostics.placementCorrections > 0) {
     reasons.push(
       createReason(
-        "marker-placement-corrections",
-        "boundaryIsolation",
-        "negative",
+        'marker-placement-corrections',
+        'boundaryIsolation',
+        'negative',
         14,
         `${markerDiagnostics.placementCorrections} marker assertion placement correction(s) were needed to align checkpoints with the anchored scenario.`
       )
-    );
+    )
   }
 
   if (markerDiagnostics.placementConflicts > 0) {
     reasons.push(
       createReason(
-        "marker-placement-conflicts",
-        "boundaryIsolation",
-        "negative",
+        'marker-placement-conflicts',
+        'boundaryIsolation',
+        'negative',
         18,
         `${markerDiagnostics.placementConflicts} semantic marker(s) could not be assigned to a single safe scenario.`
       )
-    );
+    )
   }
 
-  return reasons.sort(compareReasons);
+  return reasons.sort(compareReasons)
 }
 
 function deriveBlockers(reasons: ScoreReason[], limit = 2): string[] {
   return reasons
-    .filter((reason) => reason.impact === "negative")
+    .filter((reason) => reason.impact === 'negative')
     .sort(compareReasons)
     .slice(0, limit)
-    .map((reason) => reason.message);
+    .map((reason) => reason.message)
 }
 
 export function calculateAggregateScore(
   dimensions: ScoreDimensions
-): Pick<ScoreResult, "total" | "grade"> {
+): Pick<ScoreResult, 'total' | 'grade'> {
   const total = clampScore(
     dimensions.queryQuality * 0.3 +
       dimensions.assertionSpecificity * 0.25 +
       dimensions.testStructure * 0.2 +
       dimensions.boundaryIsolation * 0.25
-  );
+  )
 
   if (total >= 90) {
-    return { total, grade: "A" };
+    return { total, grade: 'A' }
   }
 
   if (total >= 80) {
-    return { total, grade: "B" };
+    return { total, grade: 'B' }
   }
 
   if (total >= 70) {
-    return { total, grade: "C" };
+    return { total, grade: 'C' }
   }
 
   if (total >= 60) {
-    return { total, grade: "D" };
+    return { total, grade: 'D' }
   }
 
-  return { total, grade: "F" };
+  return { total, grade: 'F' }
 }
 
 export interface ScoreGeneratedTestOptions {
-  queryResults?: QueryResult[];
-  markerCoverage?: Partial<MarkerCoverageTotals>;
-  markerDiagnostics?: Partial<MarkerReviewDiagnostics>;
+  queryResults?: QueryResult[]
+  markerCoverage?: Partial<MarkerCoverageTotals>
+  markerDiagnostics?: Partial<MarkerReviewDiagnostics>
 }
 
 function resolveMarkerCoverage(
@@ -485,7 +468,7 @@ function resolveMarkerCoverage(
     detected: normalizeCount(markerCoverage?.detected),
     emitted: normalizeCount(markerCoverage?.emitted),
     unresolved: normalizeCount(markerCoverage?.unresolved),
-  };
+  }
 }
 
 function resolveMarkerDiagnostics(
@@ -494,10 +477,8 @@ function resolveMarkerDiagnostics(
   return {
     canonicalRecoveries: normalizeCount(markerDiagnostics?.canonicalRecoveries),
     placementConflicts: normalizeCount(markerDiagnostics?.placementConflicts),
-    placementCorrections: normalizeCount(
-      markerDiagnostics?.placementCorrections
-    ),
-  };
+    placementCorrections: normalizeCount(markerDiagnostics?.placementCorrections),
+  }
 }
 
 function deriveMarkerQualityGate(
@@ -505,70 +486,67 @@ function deriveMarkerQualityGate(
 ): MarkerQualityGateState {
   if (markerCoverage.detected === 0) {
     return {
-      status: "pass",
-      reason: "no-markers-detected",
+      status: 'pass',
+      reason: 'no-markers-detected',
       failing: false,
-      message: "No semantic markers were detected in this run.",
-    };
+      message: 'No semantic markers were detected in this run.',
+    }
   }
 
   if (markerCoverage.emitted === 0) {
     return {
-      status: "warn",
-      reason: "zero-marker-conversion",
+      status: 'warn',
+      reason: 'zero-marker-conversion',
       failing: true,
-      message:
-        "Semantic markers were detected, but no marker-derived assertions were emitted.",
-    };
+      message: 'Semantic markers were detected, but no marker-derived assertions were emitted.',
+    }
   }
 
   if (markerCoverage.unresolved > 0) {
     return {
-      status: "warn",
-      reason: "markers-partially-converted",
+      status: 'warn',
+      reason: 'markers-partially-converted',
       failing: true,
-      message:
-        "Marker-derived assertions were emitted, but unresolved semantic markers remain.",
-    };
+      message: 'Marker-derived assertions were emitted, but unresolved semantic markers remain.',
+    }
   }
 
   return {
-    status: "pass",
-    reason: "markers-fully-converted",
+    status: 'pass',
+    reason: 'markers-fully-converted',
     failing: false,
-    message:
-      "All detected semantic markers were converted into marker-derived assertions.",
-  };
+    message: 'All detected semantic markers were converted into marker-derived assertions.',
+  }
 }
 
 function resolveScoreGeneratedTestOptions(
   input: QueryResult[] | ScoreGeneratedTestOptions | undefined
 ): {
-  queryResults: QueryResult[];
-  markerCoverage: MarkerCoverageTotals;
-  markerDiagnostics: MarkerReviewDiagnostics;
+  queryResults: QueryResult[]
+  markerCoverage: MarkerCoverageTotals
+  markerDiagnostics: MarkerReviewDiagnostics
 } {
   if (Array.isArray(input)) {
     return {
       queryResults: input,
       markerCoverage: resolveMarkerCoverage(),
       markerDiagnostics: resolveMarkerDiagnostics(),
-    };
+    }
   }
 
-  if (input && typeof input === "object") {
+  if (input && typeof input === 'object') {
     return {
       queryResults: input.queryResults ?? [],
       markerCoverage: resolveMarkerCoverage(input.markerCoverage),
       markerDiagnostics: resolveMarkerDiagnostics(input.markerDiagnostics),
-    };
+    }
   }
 
   return {
     queryResults: [],
     markerCoverage: resolveMarkerCoverage(),
     markerDiagnostics: resolveMarkerDiagnostics(),
-  };
+  }
 }
 
 export function scoreGeneratedTest(
@@ -576,22 +554,20 @@ export function scoreGeneratedTest(
   input: QueryResult[] | ScoreGeneratedTestOptions = []
 ): ScoreResult {
   const { queryResults, markerCoverage, markerDiagnostics } =
-    resolveScoreGeneratedTestOptions(input);
-  const markerQualityGate = deriveMarkerQualityGate(markerCoverage);
-  const boundaryIssues = analyzeBoundaryIsolation(code);
-  const boundaryIsolation = calculateBoundaryIsolationScore(code);
-  const signals = collectSignals(code, queryResults, boundaryIssues.length);
-  const queryCheckpointPenalty = Math.min(40, signals.queryCheckpointCount * 3);
-  const repoContractIssues = detectRepoContractIssues(code);
+    resolveScoreGeneratedTestOptions(input)
+  const markerQualityGate = deriveMarkerQualityGate(markerCoverage)
+  const boundaryIssues = analyzeBoundaryIsolation(code)
+  const boundaryIsolation = calculateBoundaryIsolationScore(code)
+  const signals = collectSignals(code, queryResults, boundaryIssues.length)
+  const queryCheckpointPenalty = Math.min(40, signals.queryCheckpointCount * 3)
+  const repoContractIssues = detectRepoContractIssues(code)
 
   const dimensions: ScoreDimensions = {
-    queryQuality: clampScore(
-      calculateQueryScore(queryResults) - queryCheckpointPenalty
-    ),
+    queryQuality: clampScore(calculateQueryScore(queryResults) - queryCheckpointPenalty),
     assertionSpecificity: calculateAssertionScore(code),
     testStructure: calculateStructureScore(code),
     boundaryIsolation,
-  };
+  }
   const reasons = collectReasons(
     dimensions,
     signals,
@@ -599,9 +575,9 @@ export function scoreGeneratedTest(
     markerQualityGate,
     markerDiagnostics,
     repoContractIssues
-  );
-  const blockers = deriveBlockers(reasons);
-  const aggregate = calculateAggregateScore(dimensions);
+  )
+  const blockers = deriveBlockers(reasons)
+  const aggregate = calculateAggregateScore(dimensions)
 
   return {
     ...aggregate,
@@ -618,5 +594,5 @@ export function scoreGeneratedTest(
     markerCoverage,
     markerDiagnostics,
     markerQualityGate,
-  };
+  }
 }

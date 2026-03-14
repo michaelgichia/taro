@@ -3,43 +3,40 @@
  * Internal runtime-only generation pipeline for Testing Library Recorder JS exports.
  */
 
-import { Command } from "commander";
-import { access, readdir, readFile } from "node:fs/promises";
-import { basename, dirname, extname, join, relative, resolve } from "node:path";
-import { cwd, stdin, stdout } from "node:process";
-import pc from "picocolors";
-import { writeTestFile } from "../../core/writer.js";
+import { Command } from 'commander'
+import { access, mkdir, readdir, readFile } from 'node:fs/promises'
+import { basename, dirname, extname, join, relative, resolve } from 'node:path'
+import { cwd, stdin, stdout } from 'node:process'
+import pc from 'picocolors'
+import { writeTestFile } from '../../core/writer.js'
 import {
   captureVisualState,
   createPageInspector,
   openCapturePage,
   replayStep,
   resolveSelector,
-} from "../../core/resolver.js";
-import type { CaptureVisualStateAuthOptions } from "../../core/resolver.js";
-import { scoreGeneratedTest } from "../../core/scorer.js";
-import { analyzeBoundaryIsolation } from "../../core/boundary-intelligence.js";
-import { verifySyntax } from "../../core/verifier.js";
-import { enrichCanonicalSemanticMarkers } from "../../core/semantic-marker-enrichment.js";
+} from '../../core/resolver.js'
+import type { CaptureVisualStateAuthOptions } from '../../core/resolver.js'
+import { scoreGeneratedTest } from '../../core/scorer.js'
+import { analyzeBoundaryIsolation } from '../../core/boundary-intelligence.js'
+import { verifySyntax } from '../../core/verifier.js'
+import { enrichCanonicalSemanticMarkers } from '../../core/semantic-marker-enrichment.js'
 import {
   analyzeRecording,
   findVisualCaptureCandidates,
-} from "../../core/recording-intelligence.js";
-import { analyzeMocks } from "../../core/mock-intelligence.js";
-import {
-  generateTestFromGroups,
-  emitQuerySummary,
-} from "../../core/generator.js";
-import { loadInput } from "../../core/input-loader.js";
-import { parseJsRecording, type JsParseResult } from "../../core/js-parser.js";
-import { normalizeJsBaseline } from "../../core/baseline-normalizer.js";
-import { planJsSuite } from "../../core/suite-planner.js";
+} from '../../core/recording-intelligence.js'
+import { analyzeMocks } from '../../core/mock-intelligence.js'
+import { generateTestFromGroups, emitQuerySummary } from '../../core/generator.js'
+import { loadInput } from '../../core/input-loader.js'
+import { parseJsRecording, type JsParseResult } from '../../core/js-parser.js'
+import { normalizeJsBaseline } from '../../core/baseline-normalizer.js'
+import { planJsSuite } from '../../core/suite-planner.js'
 import {
   applyBoundarySupport,
   materializeBoundarySupport,
   planBoundarySupport,
-} from "../../core/boundary-support.js";
-import { discoverBoundaryImportsFromSource } from "../../core/boundary-learning.js";
+} from '../../core/boundary-support.js'
+import { discoverBoundaryImportsFromSource } from '../../core/boundary-learning.js'
 import {
   appendGeneratedTestRecord,
   detectPackageProfileStaleness,
@@ -48,7 +45,7 @@ import {
   readTaroOverrides,
   refreshTaroState,
   resolveTaroPackageProfile,
-} from "../../core/state.js";
+} from '../../core/state.js'
 import type {
   AnalyzedRecording,
   ItGroup,
@@ -63,223 +60,228 @@ import type {
   StepId,
   UnresolvedSemanticMarkerAssertionResolution,
   VisualState,
-} from "../../types/recording.js";
+} from '../../types/recording.js'
 import type {
+  MarkerCoverageTotals,
   MarkerReviewDiagnostics,
   ScoreResult,
-} from "../../types/score.js";
-import type { MockAnalysis } from "../../core/mock-intelligence.js";
-import type { JsSuitePlan } from "../../core/suite-planner.js";
+} from '../../types/score.js'
+import type { MockAnalysis } from '../../core/mock-intelligence.js'
+import type { JsSuitePlan } from '../../core/suite-planner.js'
 import type {
   RepoRenderTargetCandidate,
   ResolvedTaroPackageProfile,
   TaroPlaywrightAuthProfile,
-} from "../../types/state.js";
-import { isTestIdQueryMethod } from "../../core/query-policy.js";
+} from '../../types/state.js'
+import { isTestIdQueryMethod } from '../../core/query-policy.js'
 import {
   type Finding,
   formatFindingsBlock,
   hasBlockingFindings,
-} from "../../core/findings-reporter.js";
+} from '../../core/findings-reporter.js'
 
 /** Write an operational log line to stderr. Never use console.log in this file — stdout is reserved for the findings envelope. */
 function log(msg: string): void {
-  process.stderr.write(msg + "\n");
+  process.stderr.write(msg + '\n')
 }
 
 /** Emit the findings envelope to stdout and exit with the correct code. Call on every execution path exit. */
 function flushFindings(findings: Finding[]): never {
   if (findings.length > 0) {
-    process.stdout.write(formatFindingsBlock(findings) + "\n");
+    process.stdout.write(formatFindingsBlock(findings) + '\n')
   }
-  process.exit(hasBlockingFindings(findings) ? 1 : 0);
+  process.exit(hasBlockingFindings(findings) ? 1 : 0)
 }
 
+const EMPTY_MARKER_COVERAGE: MarkerCoverageTotals = {
+  detected: 0,
+  emitted: 0,
+  unresolved: 0,
+}
 const EMPTY_MARKER_DIAGNOSTICS: MarkerReviewDiagnostics = {
   canonicalRecoveries: 0,
   placementConflicts: 0,
   placementCorrections: 0,
-};
-const MANUAL_VISUAL_AUTH_TIMEOUT_MS = 5 * 60 * 1000;
-const DEFAULT_VISUAL_AUTH_STORAGE_STATE_PATH =
-  ".taro/playwright/.auth/user.json";
-const PAGE_CONFIRMED_CONTEXT_TERM_BONUS = 50;
+}
+const MANUAL_VISUAL_AUTH_TIMEOUT_MS = 5 * 60 * 1000
+const DEFAULT_VISUAL_AUTH_STORAGE_STATE_PATH = '.taro/playwright/.auth/user.json'
+const PAGE_CONFIRMED_CONTEXT_TERM_BONUS = 50
 
 interface GenerateCommandContext {
-  input?: Pick<typeof stdin, "isTTY">;
-  output?: Pick<typeof stdout, "isTTY">;
+  input?: Pick<typeof stdin, 'isTTY'>
+  output?: Pick<typeof stdout, 'isTTY'>
 }
 
 const CONTEXT_SEARCH_SKIP_DIRS = new Set([
-  "node_modules",
-  ".git",
-  "dist",
-  ".taro",
-  "coverage",
-  ".next",
-  ".nuxt",
-]);
+  'node_modules',
+  '.git',
+  'dist',
+  '.taro',
+  'coverage',
+  '.next',
+  '.nuxt',
+])
 
-const CONTEXT_SEARCH_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
+const CONTEXT_SEARCH_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx'])
 const GENERIC_CONTEXT_TERMS = new Set([
-  "add",
-  "back",
-  "cancel",
-  "close",
-  "continue",
-  "done",
-  "next",
-  "open",
-  "save",
-  "submit",
-]);
+  'add',
+  'back',
+  'cancel',
+  'close',
+  'continue',
+  'done',
+  'next',
+  'open',
+  'save',
+  'submit',
+])
 
 const UNRESOLVED_MARKER_REASON_GUIDANCE: Record<
   SemanticMarkerAssertionUnresolvedReason,
   string
 > = {
-  "missing-marker-candidate":
-    "Semantic marker candidate metadata is missing. Re-record or keep marker metadata intact.",
-  "missing-anchor":
-    "Marker has no reliable anchor step. Re-record with marker near the intended assertion moment.",
-  "missing-query":
-    "Recorder evidence is missing an accessible query. Capture a clearer role/name or visible text.",
-  "unsupported-proof-subject":
-    "Marker proof subject is unsupported for safe RTL conversion. Use role/name or visible text proof.",
-  "ambiguous-field-context":
-    "Field context is ambiguous. Capture a single, specific field label or value target.",
-  "unsupported-field-context":
-    "Field context could not map to a trusted RTL field query. Record a clearer label/placeholder.",
-  "generic-container":
-    "Marker points to a generic container. Capture the concrete user-facing element instead.",
-  "css-only-evidence":
-    "Marker is backed only by CSS-like evidence. Capture semantic role/name or visible text evidence.",
-  "icon-only-target":
-    "Marker target is icon-only and ambiguous. Capture surrounding accessible text context.",
-  "hidden-evidence":
-    "Marker evidence depends on hidden/implementation selectors. Capture user-visible evidence instead.",
-  "boundary-placement-conflict":
-    "Marker could not be assigned to a single safe scenario. Keep the checkpoint near the intended state change or repair the scenario split.",
-};
+  'missing-marker-candidate':
+    'Semantic marker candidate metadata is missing. Re-record or keep marker metadata intact.',
+  'missing-anchor':
+    'Marker has no reliable anchor step. Re-record with marker near the intended assertion moment.',
+  'missing-query':
+    'Recorder evidence is missing an accessible query. Capture a clearer role/name or visible text.',
+  'unsupported-proof-subject':
+    'Marker proof subject is unsupported for safe RTL conversion. Use role/name or visible text proof.',
+  'ambiguous-field-context':
+    'Field context is ambiguous. Capture a single, specific field label or value target.',
+  'unsupported-field-context':
+    'Field context could not map to a trusted RTL field query. Record a clearer label/placeholder.',
+  'generic-container':
+    'Marker points to a generic container. Capture the concrete user-facing element instead.',
+  'css-only-evidence':
+    'Marker is backed only by CSS-like evidence. Capture semantic role/name or visible text evidence.',
+  'icon-only-target':
+    'Marker target is icon-only and ambiguous. Capture surrounding accessible text context.',
+  'hidden-evidence':
+    'Marker evidence depends on hidden/implementation selectors. Capture user-visible evidence instead.',
+  'boundary-placement-conflict':
+    'Marker could not be assigned to a single safe scenario. Keep the checkpoint near the intended state change or repair the scenario split.',
+}
 
 function deriveOutputPath(inputPath: string): string {
-  const dir = dirname(inputPath);
-  const name = basename(inputPath).replace(/\.[cm]?[jt]sx?$/, "");
-  return join(dir, `${name}.test.tsx`);
+  const dir = dirname(inputPath)
+  const name = basename(inputPath).replace(/\.[cm]?[jt]sx?$/, '')
+  return join(dir, `${name}.test.tsx`)
 }
 
 function isTestFilePath(filePath: string): boolean {
-  return /\.(test|spec)\.[cm]?[jt]sx?$/u.test(filePath);
+  return /\.(test|spec)\.[cm]?[jt]sx?$/u.test(filePath)
 }
 
 function isRelativeImportPath(importPath: string): boolean {
-  return importPath.startsWith("./") || importPath.startsWith("../");
+  return importPath.startsWith('./') || importPath.startsWith('../')
 }
 
 async function pathExists(filePath: string): Promise<boolean> {
   try {
-    await access(filePath);
-    return true;
+    await access(filePath)
+    return true
   } catch {
-    return false;
+    return false
   }
 }
 
 async function resolveImportedFilePath(params: {
-  projectRoot: string;
-  sourceFile: string;
-  importPath: string;
+  projectRoot: string
+  sourceFile: string
+  importPath: string
 }): Promise<string | null> {
-  const { projectRoot, sourceFile, importPath } = params;
+  const { projectRoot, sourceFile, importPath } = params
   if (!isRelativeImportPath(importPath)) {
-    return null;
+    return null
   }
 
-  const sourceDir = dirname(resolve(projectRoot, sourceFile));
-  const rawTargetPath = resolve(sourceDir, importPath);
+  const sourceDir = dirname(resolve(projectRoot, sourceFile))
+  const rawTargetPath = resolve(sourceDir, importPath)
   const candidates = [
     rawTargetPath,
     `${rawTargetPath}.ts`,
     `${rawTargetPath}.tsx`,
     `${rawTargetPath}.js`,
     `${rawTargetPath}.jsx`,
-    join(rawTargetPath, "index.ts"),
-    join(rawTargetPath, "index.tsx"),
-    join(rawTargetPath, "index.js"),
-    join(rawTargetPath, "index.jsx"),
-  ];
+    join(rawTargetPath, 'index.ts'),
+    join(rawTargetPath, 'index.tsx'),
+    join(rawTargetPath, 'index.js'),
+    join(rawTargetPath, 'index.jsx'),
+  ]
 
   for (const candidate of candidates) {
     if (await pathExists(candidate)) {
-      return candidate;
+      return candidate
     }
   }
 
-  return rawTargetPath;
+  return rawTargetPath
 }
 
 async function resolveRenderTargetFile(params: {
-  projectRoot: string;
-  renderTarget: RepoRenderTargetCandidate | null;
+  projectRoot: string
+  renderTarget: RepoRenderTargetCandidate | null
 }): Promise<string | null> {
-  const { projectRoot, renderTarget } = params;
+  const { projectRoot, renderTarget } = params
   if (!renderTarget) {
-    return null;
+    return null
   }
 
   if (!isTestFilePath(renderTarget.sourceTestFile)) {
-    return resolve(projectRoot, renderTarget.sourceTestFile);
+    return resolve(projectRoot, renderTarget.sourceTestFile)
   }
 
   return resolveImportedFilePath({
     projectRoot,
     sourceFile: renderTarget.sourceTestFile,
     importPath: renderTarget.importPath,
-  });
+  })
 }
 
 function rebaseRenderHelperImportPath(params: {
-  projectRoot: string;
-  outputPath: string;
-  renderHelper: ResolvedTaroPackageProfile["effectiveRenderHelper"];
-}): ResolvedTaroPackageProfile["effectiveRenderHelper"] {
-  const { projectRoot, outputPath, renderHelper } = params;
+  projectRoot: string
+  outputPath: string
+  renderHelper: ResolvedTaroPackageProfile['effectiveRenderHelper']
+}): ResolvedTaroPackageProfile['effectiveRenderHelper'] {
+  const { projectRoot, outputPath, renderHelper } = params
   if (
     !renderHelper ||
     !isRelativeImportPath(renderHelper.importPath) ||
     !isTestFilePath(renderHelper.sourceTestFile)
   ) {
-    return renderHelper;
+    return renderHelper
   }
 
   const absoluteImportPath = resolve(
     dirname(resolve(projectRoot, renderHelper.sourceTestFile)),
     renderHelper.importPath
-  );
+  )
 
   return {
     ...renderHelper,
     importPath: toImportPath(dirname(outputPath), absoluteImportPath),
-  };
+  }
 }
 
 interface RepoContextMatch {
-  filePath: string;
-  matchedTerms: string[];
-  kind: "source" | "test";
-  score: number;
+  filePath: string
+  matchedTerms: string[]
+  kind: 'source' | 'test'
+  score: number
 }
 
 interface FlowCoverageSummary {
-  totalSteps: number;
-  coveredSteps: number;
-  coveredStepIds: string[];
-  uncoveredStepIds: string[];
+  totalSteps: number
+  coveredSteps: number
+  coveredStepIds: string[]
+  uncoveredStepIds: string[]
 }
 
 interface OutputAssessment {
-  flowCoverage: FlowCoverageSummary;
-  scoreResult: ScoreResult;
+  flowCoverage: FlowCoverageSummary
+  scoreResult: ScoreResult
 }
 
 function looksLikeSelectorLikeString(value: string): boolean {
@@ -287,510 +289,477 @@ function looksLikeSelectorLikeString(value: string): boolean {
     /^[#.[]/.test(value) ||
     /^[a-z][a-z0-9-]*(?:[.#[:>])/i.test(value) ||
     /^(button|input|select|textarea|a|img|h[1-6])$/i.test(value)
-  );
+  )
 }
 
 function normalizeContextTerm(value?: string): string | null {
-  const normalized = value?.replace(/\s+/g, " ").trim();
-  if (
-    !normalized ||
-    normalized.length < 4 ||
-    looksLikeSelectorLikeString(normalized)
-  ) {
-    return null;
+  const normalized = value?.replace(/\s+/g, ' ').trim()
+  if (!normalized || normalized.length < 4 || looksLikeSelectorLikeString(normalized)) {
+    return null
   }
 
-  const lower = normalized.toLowerCase();
+  const lower = normalized.toLowerCase()
   if (!/\s/.test(normalized) && GENERIC_CONTEXT_TERMS.has(lower)) {
-    return null;
+    return null
   }
 
-  return normalized;
+  return normalized
 }
 
 function normalizeComparableText(value?: string | null): string | null {
-  const normalized = value?.replace(/\s+/g, " ").trim().toLowerCase();
-  return normalized ? normalized : null;
+  const normalized = value?.replace(/\s+/g, ' ').trim().toLowerCase()
+  return normalized ? normalized : null
 }
 
 function isGenericCoverageToken(token: string): boolean {
   return (
     GENERIC_CONTEXT_TERMS.has(token) ||
     [
-      "screen",
-      "within",
-      "document",
-      "location.href",
-      "document.title",
-      "button",
-      "textbox",
-      "heading",
-      "dialog",
-      "combobox",
-      "listitem",
-      "link",
-      "checkbox",
-      "radio",
-      "switch",
-      "option",
-      "getbyrole",
-      "findbyrole",
-      "querybyrole",
-      "getbytext",
-      "findbytext",
-      "querybytext",
+      'screen',
+      'within',
+      'document',
+      'location.href',
+      'document.title',
+      'button',
+      'textbox',
+      'heading',
+      'dialog',
+      'combobox',
+      'listitem',
+      'link',
+      'checkbox',
+      'radio',
+      'switch',
+      'option',
+      'getbyrole',
+      'findbyrole',
+      'querybyrole',
+      'getbytext',
+      'findbytext',
+      'querybytext',
     ].includes(token)
-  );
+  )
 }
 
 function collectComparableTokens(value?: string | null): string[] {
   if (!value) {
-    return [];
+    return []
   }
 
-  const tokens = new Set<string>();
-  const normalized = normalizeComparableText(value);
+  const tokens = new Set<string>()
+  const normalized = normalizeComparableText(value)
   const register = (candidate?: string | null) => {
-    const comparable = normalizeComparableText(candidate);
+    const comparable = normalizeComparableText(candidate)
     if (
       !comparable ||
       comparable.length < 2 ||
       looksLikeSelectorLikeString(comparable) ||
       isGenericCoverageToken(comparable)
     ) {
-      return;
+      return
     }
 
-    tokens.add(comparable);
-  };
+    tokens.add(comparable)
+  }
 
   if (!/\bscreen\.|\bwithin\(|\bdocument\./i.test(value)) {
-    register(normalized);
+    register(normalized)
   }
 
-  const quotedMatches = value.matchAll(/['"`]([^'"`\n]{2,120})['"`]/g);
+  const quotedMatches = value.matchAll(/['"`]([^'"`\n]{2,120})['"`]/g)
   for (const match of quotedMatches) {
-    register(match[1]);
+    register(match[1])
   }
 
-  return [...tokens];
+  return [...tokens]
 }
 
 function collectStepCoverageTokens(step: NormalizedStep): {
-  measurable: boolean;
-  primary: string[];
-  secondary: string[];
+  measurable: boolean
+  primary: string[]
+  secondary: string[]
 } {
-  if (
-    step.action === "navigate" ||
-    step.action === "scroll" ||
-    step.action === "waitForSelector"
-  ) {
-    return { measurable: false, primary: [], secondary: [] };
+  if (step.action === 'navigate' || step.action === 'scroll' || step.action === 'waitForSelector') {
+    return {
+      measurable: false,
+      primary: [],
+      secondary: [],
+    }
   }
 
   if (
-    step.action === "assert" &&
-    (step.target === "location.href" || step.target === "document.title")
+    step.action === 'assert' &&
+    (step.target === 'location.href' || step.target === 'document.title')
   ) {
-    return { measurable: false, primary: [], secondary: [] };
+    return {
+      measurable: false,
+      primary: [],
+      secondary: [],
+    }
   }
 
-  const primary = new Set<string>();
-  const secondary = new Set<string>();
+  const primary = new Set<string>()
+  const secondary = new Set<string>()
   const registerPrimary = (value?: string | null) => {
     for (const token of collectComparableTokens(value)) {
-      primary.add(token);
+      primary.add(token)
     }
-  };
+  }
   const registerSecondary = (value?: string | null) => {
     for (const token of collectComparableTokens(value)) {
-      secondary.add(token);
+      secondary.add(token)
     }
-  };
-
-  registerPrimary(step.target);
-  registerPrimary(step.semanticMarkerCandidate?.proofText);
-  registerPrimary(step.semanticMarkerCandidate?.target);
-  registerPrimary(step.semanticMarkerCandidate?.query?.target);
-  registerPrimary(step.semanticMarkerCandidate?.query?.name);
-  registerPrimary(step.unresolvedSemanticMarker?.proofText);
-  registerPrimary(step.unresolvedSemanticMarker?.target);
-  registerPrimary(step.unresolvedSemanticMarker?.query?.target);
-  registerPrimary(step.unresolvedSemanticMarker?.query?.name);
-
-  if (
-    step.action === "fill" ||
-    step.action === "select" ||
-    step.action === "assert"
-  ) {
-    registerSecondary(step.value);
   }
 
-  const hasEvidence = primary.size > 0 || secondary.size > 0;
+  registerPrimary(step.target)
+  registerPrimary(step.semanticMarkerCandidate?.proofText)
+  registerPrimary(step.semanticMarkerCandidate?.target)
+  registerPrimary(step.semanticMarkerCandidate?.query?.target)
+  registerPrimary(step.semanticMarkerCandidate?.query?.name)
+  registerPrimary(step.unresolvedSemanticMarker?.proofText)
+  registerPrimary(step.unresolvedSemanticMarker?.target)
+  registerPrimary(step.unresolvedSemanticMarker?.query?.target)
+  registerPrimary(step.unresolvedSemanticMarker?.query?.name)
+
+  if (step.action === 'fill' || step.action === 'select' || step.action === 'assert') {
+    registerSecondary(step.value)
+  }
+
+  const hasEvidence = primary.size > 0 || secondary.size > 0
   return {
     measurable: hasEvidence,
     primary: [...primary],
     secondary: [...secondary],
-  };
+  }
 }
 
-function codeIncludesCoverageToken(
-  normalizedCode: string,
-  token: string
-): boolean {
-  return normalizedCode.includes(token);
+function codeIncludesCoverageToken(normalizedCode: string, token: string): boolean {
+  return normalizedCode.includes(token)
 }
 
 function buildFlowCoverageSummary(
   analyzedRecording: AnalyzedRecording,
   code: string
 ): FlowCoverageSummary {
-  const normalizedCode = normalizeComparableText(code) ?? "";
-  let totalSteps = 0;
-  let coveredSteps = 0;
-  const coveredStepIds: string[] = [];
-  const uncoveredStepIds: string[] = [];
+  const normalizedCode = normalizeComparableText(code) ?? ''
+  let totalSteps = 0
+  let coveredSteps = 0
+  const coveredStepIds: string[] = []
+  const uncoveredStepIds: string[] = []
 
   for (const step of analyzedRecording.steps) {
-    const coverageTokens = collectStepCoverageTokens(step);
+    const coverageTokens = collectStepCoverageTokens(step)
     if (!coverageTokens.measurable) {
-      continue;
+      continue
     }
 
-    totalSteps += 1;
+    totalSteps += 1
     const hasPrimaryCoverage =
       coverageTokens.primary.length === 0 ||
-      coverageTokens.primary.some((token) =>
-        codeIncludesCoverageToken(normalizedCode, token)
-      );
+      coverageTokens.primary.some((token) => codeIncludesCoverageToken(normalizedCode, token))
     const hasSecondaryCoverage =
       coverageTokens.secondary.length === 0 ||
-      coverageTokens.secondary.some((token) =>
-        codeIncludesCoverageToken(normalizedCode, token)
-      );
-    const matched = hasPrimaryCoverage && hasSecondaryCoverage;
+      coverageTokens.secondary.some((token) => codeIncludesCoverageToken(normalizedCode, token))
+    const matched = hasPrimaryCoverage && hasSecondaryCoverage
 
     if (matched) {
-      coveredSteps += 1;
-      coveredStepIds.push(step.id ?? `${step.action}-${totalSteps}`);
+      coveredSteps += 1
+      coveredStepIds.push(step.id ?? `${step.action}-${totalSteps}`)
     } else {
-      uncoveredStepIds.push(step.id ?? `${step.action}-${totalSteps}`);
+      uncoveredStepIds.push(step.id ?? `${step.action}-${totalSteps}`)
     }
   }
 
-  return { totalSteps, coveredSteps, coveredStepIds, uncoveredStepIds };
+  return {
+    totalSteps,
+    coveredSteps,
+    coveredStepIds,
+    uncoveredStepIds,
+  }
 }
 
 function mapParsedQueriesToResults(parsed: JsParseResult): QueryResult[] {
   return parsed.queries.map((query) => ({
     method: query.method,
-    query:
-      query.raw ?? query.target ?? query.name ?? query.role ?? query.method,
-    quality: query.quality ?? "fragile",
+    query: query.raw ?? query.target ?? query.name ?? query.role ?? query.method,
+    quality: query.quality ?? 'fragile',
     line: query.line,
-  }));
+  }))
 }
 
 async function assessOutputAgainstRecording(params: {
-  analyzedRecording: AnalyzedRecording;
-  code: string;
+  analyzedRecording: AnalyzedRecording
+  code: string
 }): Promise<OutputAssessment> {
-  const parsed = await parseJsRecording(params.code);
-  const flowCoverage = buildFlowCoverageSummary(
-    params.analyzedRecording,
-    params.code
-  );
+  const parsed = await parseJsRecording(params.code)
+  const flowCoverage = buildFlowCoverageSummary(params.analyzedRecording, params.code)
   const scoreResult = scoreGeneratedTest(params.code, {
     queryResults: mapParsedQueriesToResults(parsed),
-  });
+  })
 
-  return { flowCoverage, scoreResult };
+  return {
+    flowCoverage,
+    scoreResult,
+  }
 }
 
-function compareOutputAssessments(
-  candidate: OutputAssessment,
-  existing: OutputAssessment
-): number {
-  const coverageDelta =
-    candidate.flowCoverage.coveredSteps - existing.flowCoverage.coveredSteps;
+function compareOutputAssessments(candidate: OutputAssessment, existing: OutputAssessment): number {
+  const coverageDelta = candidate.flowCoverage.coveredSteps - existing.flowCoverage.coveredSteps
   if (coverageDelta !== 0) {
-    return coverageDelta;
+    return coverageDelta
   }
 
-  if (
-    candidate.scoreResult.requiresReview !== existing.scoreResult.requiresReview
-  ) {
-    return candidate.scoreResult.requiresReview ? -1 : 1;
+  if (candidate.scoreResult.requiresReview !== existing.scoreResult.requiresReview) {
+    return candidate.scoreResult.requiresReview ? -1 : 1
   }
 
-  const scoreDelta = candidate.scoreResult.total - existing.scoreResult.total;
+  const scoreDelta = candidate.scoreResult.total - existing.scoreResult.total
   if (scoreDelta !== 0) {
-    return scoreDelta;
+    return scoreDelta
   }
 
-  return (
-    existing.scoreResult.blockers.length - candidate.scoreResult.blockers.length
-  );
+  return existing.scoreResult.blockers.length - candidate.scoreResult.blockers.length
 }
 
 function logExistingOutputDecision(params: {
-  outputPath: string;
-  candidate: OutputAssessment;
-  existing: OutputAssessment;
-  overwrite: boolean;
+  outputPath: string
+  candidate: OutputAssessment
+  existing: OutputAssessment
+  overwrite: boolean
 }): void {
-  const { outputPath, candidate, existing, overwrite } = params;
-  log(pc.dim("[taro]") + ` Existing output detected: ${outputPath}`);
+  const { outputPath, candidate, existing, overwrite } = params
+  log(pc.dim('[taro]') + ` Existing output detected: ${outputPath}`)
   log(
-    pc.dim("[taro]") +
+    pc.dim('[taro]') +
       ` Recorder flow coverage — existing ${existing.flowCoverage.coveredSteps}/${existing.flowCoverage.totalSteps}, ` +
       `candidate ${candidate.flowCoverage.coveredSteps}/${candidate.flowCoverage.totalSteps}`
-  );
+  )
   log(
-    pc.dim("[taro]") +
+    pc.dim('[taro]') +
       ` Quality — existing ${existing.scoreResult.total}/100 (${existing.scoreResult.grade}), ` +
       `candidate ${candidate.scoreResult.total}/100 (${candidate.scoreResult.grade})`
-  );
+  )
 
   if (overwrite) {
     log(
       pc.yellow(
         `[taro] Existing output will be updated because the new generation improves flow coverage or overall quality.`
       )
-    );
-    return;
+    )
+    return
   }
 
   log(
     pc.green(
       `[taro] Keeping the existing test because it already matches or exceeds the new generation for Recorder flow coverage and quality.`
     )
-  );
+  )
 }
 
 function scoreContextTerm(term: string): number {
-  let score = term.length;
+  let score = term.length
   if (/\s/.test(term)) {
-    score += 10;
+    score += 10
   }
   if (/[()/:+-]/.test(term)) {
-    score += 4;
+    score += 4
   }
   if (/\d/.test(term)) {
-    score += 2;
+    score += 2
   }
 
-  return score;
+  return score
 }
 
-function collectVisualElementContextTerm(
-  visualState: VisualState
-): string | null {
+function collectVisualElementContextTerm(visualState: VisualState): string | null {
   const candidates = [
     visualState.element?.ariaLabel,
     visualState.element?.labelText,
     visualState.element?.innerText,
     visualState.element?.altText,
     visualState.element?.title,
-  ];
+  ]
 
   for (const candidate of candidates) {
-    const normalized = normalizeContextTerm(candidate ?? undefined);
+    const normalized = normalizeContextTerm(candidate ?? undefined)
     if (normalized) {
-      return normalized;
+      return normalized
     }
   }
 
-  return null;
+  return null
 }
 
-function collectPageConfirmedContextTerms(
-  visualState: VisualState | null
-): string[] {
+function collectPageConfirmedContextTerms(visualState: VisualState | null): string[] {
   if (!visualState) {
-    return [];
+    return []
   }
 
-  const terms = new Set<string>();
+  const terms = new Set<string>()
   const register = (value?: string | null) => {
-    const normalized = normalizeContextTerm(value ?? undefined);
+    const normalized = normalizeContextTerm(value ?? undefined)
     if (normalized) {
-      terms.add(normalized);
+      terms.add(normalized)
     }
-  };
+  }
 
   for (const landmark of visualState.matchedLandmarks ?? []) {
-    register(landmark);
+    register(landmark)
   }
 
   if (
-    visualState.status === "auth-interrupted" ||
-    visualState.status === "auth-recovery-failed" ||
-    visualState.status === "auth-recovery-timed-out"
+    visualState.status === 'auth-interrupted' ||
+    visualState.status === 'auth-recovery-failed' ||
+    visualState.status === 'auth-recovery-timed-out'
   ) {
-    return [...terms];
+    return [...terms]
   }
 
-  register(visualState.dialog?.title);
+  register(visualState.dialog?.title)
   for (const action of visualState.dialog?.actions ?? []) {
-    register(action);
+    register(action)
   }
-  register(collectVisualElementContextTerm(visualState));
+  register(collectVisualElementContextTerm(visualState))
 
-  return [...terms];
+  return [...terms]
 }
 
 function summarizePageConfirmedContext(visualState: VisualState | null): void {
-  const confirmedTerms = collectPageConfirmedContextTerms(visualState);
+  const confirmedTerms = collectPageConfirmedContextTerms(visualState)
   if (confirmedTerms.length === 0) {
-    return;
+    return
   }
 
   log(
-    pc.dim("[taro]") +
-      ` Page-confirmed context: ${confirmedTerms.slice(0, 3).join(" | ")}`
-  );
+    pc.dim('[taro]') +
+      ` Page-confirmed context: ${confirmedTerms.slice(0, 3).join(' | ')}`
+  )
 }
 
 function collectRepoContextSearchTerms(
   recording: NormalizedRecording,
   visualState: VisualState | null = null
 ): string[] {
-  const termScores = new Map<string, number>();
+  const termScores = new Map<string, number>()
 
   const registerTerm = (value?: string, bonus = 0) => {
-    const term = normalizeContextTerm(value);
+    const term = normalizeContextTerm(value)
     if (!term) {
-      return;
+      return
     }
 
     termScores.set(
       term,
       (termScores.get(term) ?? 0) + scoreContextTerm(term) + bonus
-    );
-  };
-
-  for (const confirmedTerm of collectPageConfirmedContextTerms(visualState)) {
-    registerTerm(confirmedTerm, PAGE_CONFIRMED_CONTEXT_TERM_BONUS);
+    )
   }
 
-  registerTerm(recording.title);
+  for (const confirmedTerm of collectPageConfirmedContextTerms(visualState)) {
+    registerTerm(confirmedTerm, PAGE_CONFIRMED_CONTEXT_TERM_BONUS)
+  }
+
+  registerTerm(recording.title)
   for (const step of recording.steps) {
-    registerTerm(step.target);
-    registerTerm(step.value);
+    registerTerm(step.target)
+    registerTerm(step.value)
   }
 
   return [...termScores.entries()]
-    .sort(
-      (left, right) => right[1] - left[1] || left[0].localeCompare(right[0])
-    )
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
     .map(([term]) => term)
-    .slice(0, 8);
+    .slice(0, 8)
 }
 
 async function findRepoContextMatches(params: {
-  projectRoot: string;
-  terms: string[];
-  excludePaths: string[];
+  projectRoot: string
+  terms: string[]
+  excludePaths: string[]
 }): Promise<RepoContextMatch[]> {
-  const { projectRoot, terms, excludePaths } = params;
+  const { projectRoot, terms, excludePaths } = params
   if (terms.length === 0) {
-    return [];
+    return []
   }
 
   const normalizedTerms = terms.map((term) => ({
     raw: term,
     lower: term.toLowerCase(),
     weight: scoreContextTerm(term),
-  }));
-  const comparableProjectRoot = normalizeComparablePath(resolve(projectRoot));
+  }))
+  const comparableProjectRoot = normalizeComparablePath(resolve(projectRoot))
   const excluded = new Set(
     excludePaths.map((value) => normalizeComparablePath(resolve(value)))
-  );
+  )
   const excludedRelativePaths = new Set(
     excludePaths
       .map((value) =>
-        relative(
-          comparableProjectRoot,
-          normalizeComparablePath(resolve(value))
-        ).replace(/\\/g, "/")
+        relative(comparableProjectRoot, normalizeComparablePath(resolve(value))).replace(/\\/g, '/')
       )
-      .filter((value) => value && !value.startsWith(".."))
-  );
-  const matches: RepoContextMatch[] = [];
+      .filter((value) => value && !value.startsWith('..'))
+  )
+  const matches: RepoContextMatch[] = []
 
   async function walk(dir: string): Promise<void> {
-    let entries;
+    let entries
     try {
-      entries = await readdir(dir, { withFileTypes: true });
+      entries = await readdir(dir, { withFileTypes: true })
     } catch {
-      return;
+      return
     }
 
     for (const entry of entries) {
-      const fullPath = join(dir, entry.name);
+      const fullPath = join(dir, entry.name)
 
       if (entry.isDirectory()) {
         if (!CONTEXT_SEARCH_SKIP_DIRS.has(entry.name)) {
-          await walk(fullPath);
+          await walk(fullPath)
         }
-        continue;
+        continue
       }
 
-      if (
-        !entry.isFile() ||
-        !CONTEXT_SEARCH_EXTENSIONS.has(extname(entry.name))
-      ) {
-        continue;
+      if (!entry.isFile() || !CONTEXT_SEARCH_EXTENSIONS.has(extname(entry.name))) {
+        continue
       }
 
-      const resolvedPath = normalizeComparablePath(resolve(fullPath));
-      const relativePath = relative(
-        comparableProjectRoot,
-        resolvedPath
-      ).replace(/\\/g, "/");
-      if (
-        excluded.has(resolvedPath) ||
-        excludedRelativePaths.has(relativePath)
-      ) {
-        continue;
+      const resolvedPath = normalizeComparablePath(resolve(fullPath))
+      const relativePath = relative(comparableProjectRoot, resolvedPath).replace(/\\/g, '/')
+      if (excluded.has(resolvedPath) || excludedRelativePaths.has(relativePath)) {
+        continue
       }
 
-      let content: string;
+      let content: string
       try {
-        content = await readFile(resolvedPath, "utf-8");
+        content = await readFile(resolvedPath, 'utf-8')
       } catch {
-        continue;
+        continue
       }
 
       if (content.length > 500_000) {
-        continue;
+        continue
       }
 
-      const lowered = content.toLowerCase();
+      const lowered = content.toLowerCase()
       const matchedTerms = normalizedTerms
         .filter((term) => lowered.includes(term.lower))
-        .map((term) => term.raw);
+        .map((term) => term.raw)
 
       if (matchedTerms.length === 0) {
-        continue;
+        continue
       }
 
       const score = normalizedTerms
         .filter((term) => matchedTerms.includes(term.raw))
-        .reduce((sum, term) => sum + term.weight, 0);
+        .reduce((sum, term) => sum + term.weight, 0)
 
       matches.push({
         filePath: relativePath,
         matchedTerms,
-        kind: /\.(test|spec)\.[jt]sx?$/u.test(entry.name) ? "test" : "source",
+        kind: /\.(test|spec)\.[jt]sx?$/u.test(entry.name) ? 'test' : 'source',
         score,
-      });
+      })
     }
   }
 
-  await walk(projectRoot);
+  await walk(projectRoot)
 
   return matches
     .sort((left, right) => {
@@ -798,142 +767,141 @@ async function findRepoContextMatches(params: {
         right.score - left.score ||
         right.matchedTerms.length - left.matchedTerms.length ||
         left.filePath.localeCompare(right.filePath)
-      );
+      )
     })
-    .slice(0, 10);
+    .slice(0, 10)
 }
 
 function formatContextMatchesSummary(matches: RepoContextMatch[]): string {
   return matches
     .slice(0, 3)
-    .map(
-      (match) =>
-        `${match.filePath} [${match.matchedTerms.slice(0, 2).join(", ")}]`
-    )
-    .join(" | ");
+    .map((match) => `${match.filePath} [${match.matchedTerms.slice(0, 2).join(', ')}]`)
+    .join(' | ')
 }
 
 function normalizeComparablePath(value: string): string {
-  return value.replace(/^\/private(?=\/var\/)/u, "");
+  return value.replace(/^\/private(?=\/var\/)/u, '')
 }
 
 function resolvePackageProfileFromContextMatches(params: {
-  state: Awaited<ReturnType<typeof loadOrBootstrapTaroState>>["state"];
-  currentProfile: ResolvedTaroPackageProfile | null;
-  projectRoot: string;
-  overrides: Awaited<ReturnType<typeof readTaroOverrides>>;
-  matches: RepoContextMatch[];
+  state: Awaited<ReturnType<typeof loadOrBootstrapTaroState>>['state']
+  currentProfile: ResolvedTaroPackageProfile | null
+  projectRoot: string
+  overrides: Awaited<ReturnType<typeof readTaroOverrides>>
+  matches: RepoContextMatch[]
 }): { profile: ResolvedTaroPackageProfile | null; reason: string | null } {
-  const { state, currentProfile, projectRoot, overrides, matches } = params;
+  const { state, currentProfile, projectRoot, overrides, matches } = params
   if (matches.length === 0) {
-    return { profile: currentProfile, reason: null };
+    return {
+      profile: currentProfile,
+      reason: null,
+    }
   }
 
-  const scores = new Map<string, { score: number; filePath: string }>();
-  const packagePaths = Object.keys(state.packages).sort(
-    (left, right) => right.length - left.length
-  );
+  const scores = new Map<string, { score: number; filePath: string }>()
+  const packagePaths = Object.keys(state.packages).sort((left, right) => right.length - left.length)
 
   for (const match of matches) {
     const matchingPackagePath = packagePaths.find((packagePath) => {
-      return (
-        packagePath !== "." &&
-        (match.filePath === packagePath ||
-          match.filePath.startsWith(`${packagePath}/`))
-      );
-    });
+      return packagePath !== '.' &&
+        (match.filePath === packagePath || match.filePath.startsWith(`${packagePath}/`))
+    })
 
     if (!matchingPackagePath) {
-      continue;
+      continue
     }
 
-    const existing = scores.get(matchingPackagePath);
+    const existing = scores.get(matchingPackagePath)
     if (existing) {
-      existing.score += match.score;
-      continue;
+      existing.score += match.score
+      continue
     }
 
     scores.set(matchingPackagePath, {
       score: match.score,
       filePath: match.filePath,
-    });
+    })
   }
 
-  const bestMatch = [...scores.entries()].sort(
-    (left, right) =>
-      right[1].score - left[1].score || left[0].localeCompare(right[0])
-  )[0];
+  const bestMatch = [...scores.entries()]
+    .sort((left, right) => right[1].score - left[1].score || left[0].localeCompare(right[0]))[0]
 
   if (!bestMatch) {
-    return { profile: currentProfile, reason: null };
+    return {
+      profile: currentProfile,
+      reason: null,
+    }
   }
 
-  const [packagePath, info] = bestMatch;
+  const [packagePath, info] = bestMatch
   if (currentProfile?.packagePath === packagePath || info.score <= 0) {
-    return { profile: currentProfile, reason: null };
+    return {
+      profile: currentProfile,
+      reason: null,
+    }
   }
 
   const resolvedProfile = resolveTaroPackageProfile(
     state,
     projectRoot,
-    join(projectRoot, packagePath, "__taro-context-match__.test.tsx"),
+    join(projectRoot, packagePath, '__taro-context-match__.test.tsx'),
     overrides
-  );
+  )
 
   if (!resolvedProfile) {
-    return { profile: currentProfile, reason: null };
+    return {
+      profile: currentProfile,
+      reason: null,
+    }
   }
 
   return {
     profile: resolvedProfile,
     reason: `${info.filePath} matched recording text evidence`,
-  };
+  }
 }
 
 function toImportPath(fromDir: string, absoluteFilePath: string): string {
-  const withoutExtension = normalizeComparablePath(absoluteFilePath).replace(
-    /\.[^.]+$/u,
-    ""
-  );
+  const withoutExtension = normalizeComparablePath(absoluteFilePath).replace(/\.[^.]+$/u, '')
   const relativePath = relative(
     normalizeComparablePath(fromDir),
     withoutExtension
-  ).replace(/\\/g, "/");
-  return relativePath.startsWith(".") ? relativePath : `./${relativePath}`;
+  ).replace(/\\/g, '/')
+  return relativePath.startsWith('.') ? relativePath : `./${relativePath}`
 }
 
 function isLikelyRenderTargetSymbol(symbol: string): boolean {
-  return /^[A-Z][A-Za-z0-9_]*$/u.test(symbol);
+  return /^[A-Z][A-Za-z0-9_]*$/u.test(symbol)
 }
 
 function deriveContextRenderTargets(params: {
-  projectRoot: string;
-  outputPath: string;
-  matches: RepoContextMatch[];
+  projectRoot: string
+  outputPath: string
+  matches: RepoContextMatch[]
 }): RepoRenderTargetCandidate[] {
-  const { projectRoot, outputPath, matches } = params;
-  const candidates: RepoRenderTargetCandidate[] = [];
-  const seen = new Set<string>();
-  const outputDir = dirname(outputPath);
+  const { projectRoot, outputPath, matches } = params
+  const candidates: RepoRenderTargetCandidate[] = []
+  const seen = new Set<string>()
+  const outputDir = dirname(outputPath)
 
   for (const match of matches) {
-    if (match.kind !== "source") {
-      continue;
+    if (match.kind !== 'source') {
+      continue
     }
 
-    const absolutePath = join(projectRoot, match.filePath);
-    const symbol = basename(match.filePath).replace(/\.[^.]+$/u, "");
+    const absolutePath = join(projectRoot, match.filePath)
+    const symbol = basename(match.filePath).replace(/\.[^.]+$/u, '')
     if (!isLikelyRenderTargetSymbol(symbol)) {
-      continue;
+      continue
     }
 
-    const importPath = toImportPath(outputDir, absolutePath);
-    const dedupeKey = `${symbol}|${importPath}`;
+    const importPath = toImportPath(outputDir, absolutePath)
+    const dedupeKey = `${symbol}|${importPath}`
     if (seen.has(dedupeKey)) {
-      continue;
+      continue
     }
 
-    seen.add(dedupeKey);
+    seen.add(dedupeKey)
     candidates.push({
       symbol,
       importPath,
@@ -941,335 +909,317 @@ function deriveContextRenderTargets(params: {
       helperNames: [],
       usesWithin: false,
       evidenceTerms: match.matchedTerms,
-    });
+    })
   }
 
-  return candidates;
+  return candidates
 }
 
 function logScore(scoreResult: ScoreResult): void {
   const markerCoverageSummary =
     `markers: detected=${scoreResult.markerCoverage.detected}, ` +
     `emitted=${scoreResult.markerCoverage.emitted}, ` +
-    `unresolved=${scoreResult.markerCoverage.unresolved}`;
+    `unresolved=${scoreResult.markerCoverage.unresolved}`
   log(
-    pc.dim("[taro]") +
+    pc.dim('[taro]') +
       ` Score: ${scoreResult.total}/100 (${scoreResult.grade}) — ` +
       `query: ${scoreResult.dimensions.queryQuality}, ` +
       `assertions: ${scoreResult.dimensions.assertionSpecificity}, ` +
       `structure: ${scoreResult.dimensions.testStructure}, ` +
       `boundary: ${scoreResult.dimensions.boundaryIsolation}, ` +
       markerCoverageSummary
-  );
+  )
 }
 
 function emitMarkerCoverageSection(scoreResult: ScoreResult): void {
   const gateStatus =
-    scoreResult.markerQualityGate.status === "warn"
-      ? pc.yellow("WARN")
-      : pc.green("PASS");
-  log(pc.dim("[taro]") + " Marker coverage:");
-  log(pc.dim("[taro]") + `   detected: ${scoreResult.markerCoverage.detected}`);
-  log(pc.dim("[taro]") + `   emitted: ${scoreResult.markerCoverage.emitted}`);
+    scoreResult.markerQualityGate.status === 'warn'
+      ? pc.yellow('WARN')
+      : pc.green('PASS')
+  log(pc.dim('[taro]') + ' Marker coverage:')
+  log(pc.dim('[taro]') + `   detected: ${scoreResult.markerCoverage.detected}`)
+  log(pc.dim('[taro]') + `   emitted: ${scoreResult.markerCoverage.emitted}`)
+  log(pc.dim('[taro]') + `   unresolved: ${scoreResult.markerCoverage.unresolved}`)
   log(
-    pc.dim("[taro]") + `   unresolved: ${scoreResult.markerCoverage.unresolved}`
-  );
-  log(
-    pc.dim("[taro]") +
+    pc.dim('[taro]') +
       `   QUAL-02 gate: ${gateStatus} (${scoreResult.markerQualityGate.reason})`
-  );
+  )
 
   if (scoreResult.markerQualityGate.failing) {
-    console.warn(
-      pc.yellow(`[taro] QUAL-02 WARN: ${scoreResult.markerQualityGate.message}`)
-    );
+    console.warn(pc.yellow(`[taro] QUAL-02 WARN: ${scoreResult.markerQualityGate.message}`))
   }
 }
 
-function collectPlannedMarkerAssertions(
-  suitePlan: JsSuitePlan
-): PlannedMarkerAssertion[] {
-  return suitePlan.scenarios.flatMap(
-    (scenario) => scenario.markerAssertions ?? []
-  );
+function collectPlannedMarkerAssertions(suitePlan: JsSuitePlan): PlannedMarkerAssertion[] {
+  return suitePlan.scenarios.flatMap((scenario) => scenario.markerAssertions ?? [])
 }
 
 function buildMarkerReviewDiagnostics(
   suitePlan: JsSuitePlan | null
 ): MarkerReviewDiagnostics {
   if (!suitePlan) {
-    return EMPTY_MARKER_DIAGNOSTICS;
+    return EMPTY_MARKER_DIAGNOSTICS
   }
 
-  let canonicalRecoveries = 0;
-  let placementCorrections = 0;
+  let canonicalRecoveries = 0
+  let placementCorrections = 0
 
   for (const markerAssertion of collectPlannedMarkerAssertions(suitePlan)) {
     if (markerAssertion.diagnostics?.canonicalRecovery) {
-      canonicalRecoveries += 1;
+      canonicalRecoveries += 1
     }
     if (markerAssertion.diagnostics?.placementCorrection) {
-      placementCorrections += 1;
+      placementCorrections += 1
     }
   }
 
-  const placementConflicts = collectUnresolvedMarkerAssertions(
-    suitePlan
-  ).filter((marker) => marker.reason === "boundary-placement-conflict").length;
+  const placementConflicts = collectUnresolvedMarkerAssertions(suitePlan).filter(
+    (marker) => marker.reason === 'boundary-placement-conflict'
+  ).length
 
-  return { canonicalRecoveries, placementConflicts, placementCorrections };
+  return {
+    canonicalRecoveries,
+    placementConflicts,
+    placementCorrections,
+  }
 }
 
 function emitRecoveredMarkerDiagnostics(suitePlan: JsSuitePlan | null): void {
   if (!suitePlan) {
-    return;
+    return
   }
 
-  const seenMarkerStepIds = new Set<string>();
+  const seenMarkerStepIds = new Set<string>()
   for (const markerAssertion of collectPlannedMarkerAssertions(suitePlan)) {
-    const recovery = markerAssertion.diagnostics?.canonicalRecovery;
+    const recovery = markerAssertion.diagnostics?.canonicalRecovery
     if (!recovery || seenMarkerStepIds.has(markerAssertion.markerStepId)) {
-      continue;
+      continue
     }
 
-    seenMarkerStepIds.add(markerAssertion.markerStepId);
+    seenMarkerStepIds.add(markerAssertion.markerStepId)
     log(
-      pc.dim("[taro]") +
+      pc.dim('[taro]') +
         ` MKR-01 canonical-copy marker=${markerAssertion.markerStepId} ` +
         `file=${recovery.sourceFile} from="${recovery.fromText}" to="${recovery.toText}"`
-    );
+    )
   }
 }
 
 function emitMarkerPlacementCorrections(suitePlan: JsSuitePlan | null): void {
   if (!suitePlan) {
-    return;
+    return
   }
 
-  const seenMarkerStepIds = new Set<string>();
+  const seenMarkerStepIds = new Set<string>()
   for (const markerAssertion of collectPlannedMarkerAssertions(suitePlan)) {
-    const placementCorrection =
-      markerAssertion.diagnostics?.placementCorrection;
-    if (
-      !placementCorrection ||
-      seenMarkerStepIds.has(markerAssertion.markerStepId)
-    ) {
-      continue;
+    const placementCorrection = markerAssertion.diagnostics?.placementCorrection
+    if (!placementCorrection || seenMarkerStepIds.has(markerAssertion.markerStepId)) {
+      continue
     }
 
-    seenMarkerStepIds.add(markerAssertion.markerStepId);
+    seenMarkerStepIds.add(markerAssertion.markerStepId)
     console.warn(
       pc.yellow(
         `[taro] MKR-02 placement-correction marker=${markerAssertion.markerStepId} from="${placementCorrection.fromScenarioName}" to="${placementCorrection.toScenarioName}"`
       )
-    );
+    )
   }
 }
 
 function normalizeUnresolvedMarkerHint(
   marker: UnresolvedSemanticMarkerAssertionResolution
 ): string {
-  const hint =
-    marker.proofText ??
-    marker.target ??
-    marker.query?.raw ??
-    marker.selector?.selector;
-  const normalized = hint?.replace(/\s+/g, " ").trim();
-  return normalized && normalized.length > 0 ? normalized : "none";
+  const hint = marker.proofText ?? marker.target ?? marker.query?.raw ?? marker.selector?.selector
+  const normalized = hint?.replace(/\s+/g, ' ').trim()
+  return normalized && normalized.length > 0 ? normalized : 'none'
 }
 
 function formatUnresolvedMarkerLine(
   marker: UnresolvedSemanticMarkerAssertionResolution
 ): string {
-  const line = marker.line ?? marker.sourceContext.line;
-  return Number.isFinite(line) ? String(line) : "unknown";
+  const line = marker.line ?? marker.sourceContext.line
+  return Number.isFinite(line) ? String(line) : 'unknown'
 }
 
 function formatUnresolvedMarkerWarning(
   marker: UnresolvedSemanticMarkerAssertionResolution
 ): string {
-  const line = formatUnresolvedMarkerLine(marker);
-  const hint = normalizeUnresolvedMarkerHint(marker);
-  const guidance = UNRESOLVED_MARKER_REASON_GUIDANCE[marker.reason];
+  const line = formatUnresolvedMarkerLine(marker)
+  const hint = normalizeUnresolvedMarkerHint(marker)
+  const guidance = UNRESOLVED_MARKER_REASON_GUIDANCE[marker.reason]
 
   return (
     `MKR-03 unresolved-marker marker=${marker.markerStepId} ` +
     `line: ${line} reason=${marker.reason} ` +
     `detail="${guidance}" hint="${hint}"`
-  );
+  )
 }
 
 function collectUnresolvedMarkerAssertions(
   suitePlan: JsSuitePlan
 ): UnresolvedSemanticMarkerAssertionResolution[] {
-  const seenMarkerStepIds = new Set<string>();
-  const unresolvedMarkers: UnresolvedSemanticMarkerAssertionResolution[] = [];
+  const seenMarkerStepIds = new Set<string>()
+  const unresolvedMarkers: UnresolvedSemanticMarkerAssertionResolution[] = []
 
   for (const scenario of suitePlan.scenarios) {
     for (const unresolvedMarker of scenario.unresolvedMarkerAssertions ?? []) {
       if (seenMarkerStepIds.has(unresolvedMarker.markerStepId)) {
-        continue;
+        continue
       }
 
-      seenMarkerStepIds.add(unresolvedMarker.markerStepId);
-      unresolvedMarkers.push(unresolvedMarker);
+      seenMarkerStepIds.add(unresolvedMarker.markerStepId)
+      unresolvedMarkers.push(unresolvedMarker)
     }
   }
 
-  return unresolvedMarkers;
+  return unresolvedMarkers
 }
 
 function emitUnresolvedMarkerWarnings(suitePlan: JsSuitePlan | null): void {
   if (!suitePlan) {
-    return;
+    return
   }
 
-  const unresolvedMarkers = collectUnresolvedMarkerAssertions(suitePlan);
+  const unresolvedMarkers = collectUnresolvedMarkerAssertions(suitePlan)
   for (const unresolvedMarker of unresolvedMarkers) {
-    console.warn(
-      pc.yellow(`[taro] ${formatUnresolvedMarkerWarning(unresolvedMarker)}`)
-    );
+    console.warn(pc.yellow(`[taro] ${formatUnresolvedMarkerWarning(unresolvedMarker)}`))
   }
 }
 
 function emitLowConfidenceBanner(scoreResult: ScoreResult): void {
   if (!scoreResult.requiresReview) {
-    return;
+    return
   }
 
   console.warn(
     pc.yellow(
       `[taro] Manual review required — this generated test is still a draft (${scoreResult.total}/100, ${scoreResult.grade}).`
     )
-  );
+  )
 
   if (scoreResult.blockers.length > 0) {
-    console.warn(
-      pc.yellow(`[taro] Top blockers: ${scoreResult.blockers.join(" | ")}`)
-    );
+    console.warn(pc.yellow(`[taro] Top blockers: ${scoreResult.blockers.join(' | ')}`))
   }
 }
 
 function emitScoreHints(
   scoreResult: ScoreResult,
   queryResults: QueryResult[] = [],
-  boundaryIssues = analyzeBoundaryIsolation("")
+  boundaryIssues = analyzeBoundaryIsolation('')
 ): void {
   if (scoreResult.dimensions.queryQuality < 60) {
     const testIdCount = queryResults.filter((queryResult) => {
-      return isTestIdQueryMethod(queryResult.method);
-    }).length;
+      return isTestIdQueryMethod(queryResult.method)
+    }).length
     log(
       pc.yellow(
         `[taro] Tip: ${testIdCount} getByTestId queries — consider adding aria-label`
       )
-    );
+    )
   }
 
   if (scoreResult.dimensions.assertionSpecificity < 60) {
     log(
       pc.yellow(
-        "[taro] Tip: Add specific matchers like toHaveValue() for better assertions"
+        '[taro] Tip: Add specific matchers like toHaveValue() for better assertions'
       )
-    );
+    )
   }
 
   if (scoreResult.dimensions.testStructure < 60) {
     log(
       pc.yellow(
-        "[taro] Tip: Split into multiple it() blocks for better test organization"
+        '[taro] Tip: Split into multiple it() blocks for better test organization'
       )
-    );
+    )
   }
 
   if (scoreResult.dimensions.boundaryIsolation < 60) {
     for (const issue of boundaryIssues) {
-      console.warn(pc.yellow(`[taro] Boundary: ${issue.message}`));
-      console.warn(pc.yellow(`[taro] Tip: ${issue.suggestion}`));
+      console.warn(pc.yellow(`[taro] Boundary: ${issue.message}`))
+      console.warn(pc.yellow(`[taro] Tip: ${issue.suggestion}`))
     }
   }
 }
 
 function summarizeCleanup(analyzedRecording: AnalyzedRecording): void {
-  const { diagnostics } = analyzedRecording;
-  const parts: string[] = [];
+  const { diagnostics } = analyzedRecording
+  const parts: string[] = []
 
   if (diagnostics.removedRedundantClicks > 0) {
-    parts.push(`${diagnostics.removedRedundantClicks} redundant click(s)`);
+    parts.push(`${diagnostics.removedRedundantClicks} redundant click(s)`)
   }
 
   if ((diagnostics.preservedSemanticMarkers ?? 0) > 0) {
-    parts.push(
-      `${diagnostics.preservedSemanticMarkers} preserved semantic marker(s)`
-    );
+    parts.push(`${diagnostics.preservedSemanticMarkers} preserved semantic marker(s)`)
   }
 
   if ((diagnostics.unresolvedSemanticMarkers ?? 0) > 0) {
-    parts.push(
-      `${diagnostics.unresolvedSemanticMarkers} unresolved semantic marker(s)`
-    );
+    parts.push(`${diagnostics.unresolvedSemanticMarkers} unresolved semantic marker(s)`)
   }
 
   if (diagnostics.removedDoubleClickNoise > 0) {
-    parts.push(
-      `${diagnostics.removedDoubleClickNoise} dblClick noise event(s)`
-    );
+    parts.push(`${diagnostics.removedDoubleClickNoise} dblClick noise event(s)`)
   }
 
   if (diagnostics.removedCursorWander > 0) {
-    parts.push(`${diagnostics.removedCursorWander} cursor wander step(s)`);
+    parts.push(`${diagnostics.removedCursorWander} cursor wander step(s)`)
   }
 
   if (diagnostics.intentGroupCount > 1) {
-    parts.push(`${diagnostics.intentGroupCount} intent groups`);
+    parts.push(`${diagnostics.intentGroupCount} intent groups`)
   }
 
   if (parts.length === 0) {
-    return;
+    return
   }
 
-  log(pc.dim("[taro]") + ` Recording cleanup: ${parts.join(", ")}`);
+  log(pc.dim('[taro]') + ` Recording cleanup: ${parts.join(', ')}`)
 }
 
 function countPlannedScenarioMarkers(
-  scenarios: JsSuitePlan["scenarios"]
-): Pick<MarkerCoverageTotals, "emitted" | "unresolved"> {
+  scenarios: JsSuitePlan['scenarios']
+): Pick<MarkerCoverageTotals, 'emitted' | 'unresolved'> {
   return scenarios.reduce(
     (totals, scenario) => ({
       emitted: totals.emitted + (scenario.markerAssertions?.length ?? 0),
-      unresolved:
-        totals.unresolved + (scenario.unresolvedMarkerAssertions?.length ?? 0),
+      unresolved: totals.unresolved + (scenario.unresolvedMarkerAssertions?.length ?? 0),
     }),
-    { emitted: 0, unresolved: 0 }
-  );
+    {
+      emitted: 0,
+      unresolved: 0,
+    }
+  )
 }
 
 function buildMarkerCoverageSummary(params: {
-  analyzedRecording: AnalyzedRecording;
-  suitePlan: JsSuitePlan | null;
+  analyzedRecording: AnalyzedRecording
+  suitePlan: JsSuitePlan | null
 }): MarkerCoverageTotals {
-  const { analyzedRecording, suitePlan } = params;
-  const preservedMarkers =
-    analyzedRecording.diagnostics.preservedSemanticMarkers ?? 0;
-  const diagnosticUnresolvedMarkers =
-    analyzedRecording.diagnostics.unresolvedSemanticMarkers ?? 0;
+  const { analyzedRecording, suitePlan } = params
+  const preservedMarkers = analyzedRecording.diagnostics.preservedSemanticMarkers ?? 0
+  const diagnosticUnresolvedMarkers = analyzedRecording.diagnostics.unresolvedSemanticMarkers ?? 0
 
   if (!suitePlan) {
     return {
       detected: preservedMarkers + diagnosticUnresolvedMarkers,
       emitted: 0,
       unresolved: diagnosticUnresolvedMarkers,
-    };
+    }
   }
 
-  const plannedMarkerTotals = countPlannedScenarioMarkers(suitePlan.scenarios);
-  const unresolved = plannedMarkerTotals.unresolved;
+  const plannedMarkerTotals = countPlannedScenarioMarkers(suitePlan.scenarios)
+  const unresolved = plannedMarkerTotals.unresolved
   const detected = Math.max(
     preservedMarkers + unresolved,
     plannedMarkerTotals.emitted + unresolved
-  );
+  )
 
-  return { detected, emitted: plannedMarkerTotals.emitted, unresolved };
+  return {
+    detected,
+    emitted: plannedMarkerTotals.emitted,
+    unresolved,
+  }
 }
 
 function mergeAnalyzedStepState(
@@ -1278,22 +1228,20 @@ function mergeAnalyzedStepState(
 ): NormalizedRecording {
   const analyzedStepsById = new Map(
     analyzedRecording.steps
-      .filter((step): step is NormalizedStep & { id: StepId } =>
-        Boolean(step.id)
-      )
+      .filter((step): step is NormalizedStep & { id: StepId } => Boolean(step.id))
       .map((step) => [step.id, step])
-  );
+  )
 
   return {
     ...recording,
     steps: recording.steps.map((step) => {
       if (!step.id) {
-        return step;
+        return step
       }
 
-      const analyzedStep = analyzedStepsById.get(step.id);
+      const analyzedStep = analyzedStepsById.get(step.id)
       if (!analyzedStep) {
-        return step;
+        return step
       }
 
       return {
@@ -1307,76 +1255,78 @@ function mergeAnalyzedStepState(
         ...(analyzedStep.unresolvedSemanticMarker
           ? { unresolvedSemanticMarker: analyzedStep.unresolvedSemanticMarker }
           : {}),
-        metadata: { ...step.metadata, ...analyzedStep.metadata },
-      };
+        metadata: {
+          ...step.metadata,
+          ...analyzedStep.metadata,
+        },
+      }
     }),
-  };
+  }
 }
 
-function toItGroups(
-  analyzedRecording: AnalyzedRecording,
-  fallbackTitle: string
-): ItGroup[] {
+function toItGroups(analyzedRecording: AnalyzedRecording, fallbackTitle: string): ItGroup[] {
   if (analyzedRecording.intentGroups.length > 0) {
-    return analyzedRecording.intentGroups;
+    return analyzedRecording.intentGroups
   }
 
   return [
-    { name: fallbackTitle || "recorded flow", steps: analyzedRecording.steps },
-  ];
+    {
+      name: fallbackTitle || 'recorded flow',
+      steps: analyzedRecording.steps,
+    },
+  ]
 }
 
 function queryDescriptorToResult(descriptor: QueryDescriptor): QueryResult {
   return {
     query: descriptor.raw ?? descriptor.target ?? descriptor.method,
-    quality: descriptor.quality ?? "fragile",
+    quality: descriptor.quality ?? 'fragile',
     method: descriptor.method,
     line: descriptor.line,
-  };
+  }
 }
 
 function isQueryDescriptor(value: unknown): value is QueryDescriptor {
   return (
-    typeof value === "object" &&
+    typeof value === 'object' &&
     value !== null &&
-    "method" in value &&
-    typeof value.method === "string"
-  );
+    'method' in value &&
+    typeof value.method === 'string'
+  )
 }
 
-function getStepQueryDescriptor(
-  step: NormalizedStep
-): QueryDescriptor | undefined {
-  const query = step.metadata?.query;
-  return isQueryDescriptor(query) ? query : undefined;
+function getStepQueryDescriptor(step: NormalizedStep): QueryDescriptor | undefined {
+  const query = step.metadata?.query
+  return isQueryDescriptor(query) ? query : undefined
 }
 
 function groupSelectorsByStepId(
   selectors: SelectorDescriptor[]
 ): Map<StepId, SelectorDescriptor[]> {
-  const grouped = new Map<StepId, SelectorDescriptor[]>();
+  const grouped = new Map<StepId, SelectorDescriptor[]>()
 
   for (const selector of selectors) {
-    const current = grouped.get(selector.stepId) ?? [];
-    current.push(selector);
-    grouped.set(selector.stepId, current);
+    const current = grouped.get(selector.stepId) ?? []
+    current.push(selector)
+    grouped.set(selector.stepId, current)
   }
 
-  return grouped;
+  return grouped
 }
 
 function mergeSelectorResolutionWarnings(
   resolution: SelectorResolutionResult,
   warnings: string[]
 ): SelectorResolutionResult {
-  const mergedWarnings = Array.from(
-    new Set([...resolution.warnings, ...warnings])
-  );
+  const mergedWarnings = Array.from(new Set([...resolution.warnings, ...warnings]))
   if (mergedWarnings.length === resolution.warnings.length) {
-    return resolution;
+    return resolution
   }
 
-  return { ...resolution, warnings: mergedWarnings };
+  return {
+    ...resolution,
+    warnings: mergedWarnings,
+  }
 }
 
 function applySelectorResolution(
@@ -1388,45 +1338,34 @@ function applySelectorResolution(
     metadata: {
       ...step.metadata,
       selectorResolution: resolution,
-      ...(resolution.status === "resolved" ? { query: resolution.query } : {}),
+      ...(resolution.status === 'resolved' ? { query: resolution.query } : {}),
     },
-  };
+  }
 }
 
-function canSuccessfulReplayRevealAdditionalState(
-  step: NormalizedStep
-): boolean {
+function canSuccessfulReplayRevealAdditionalState(step: NormalizedStep): boolean {
   return (
-    step.action === "click" ||
-    step.action === "fill" ||
-    step.action === "select" ||
-    step.action === "navigate" ||
-    step.action === "keyDown"
-  );
+    step.action === 'click' ||
+    step.action === 'fill' ||
+    step.action === 'select' ||
+    step.action === 'navigate' ||
+    step.action === 'keyDown'
+  )
 }
 
-function rehydrateItGroups(
-  itGroups: ItGroup[],
-  steps: NormalizedStep[]
-): ItGroup[] {
-  const stepMap = new Map(steps.map((step) => [step.id, step]));
+function rehydrateItGroups(itGroups: ItGroup[], steps: NormalizedStep[]): ItGroup[] {
+  const stepMap = new Map(steps.map((step) => [step.id, step]))
 
   return itGroups.map((group) => ({
     ...group,
-    steps: group.steps.map((step) =>
-      step.id ? (stepMap.get(step.id) ?? step) : step
-    ),
-  }));
+    steps: group.steps.map((step) => (step.id ? stepMap.get(step.id) ?? step : step)),
+  }))
 }
 
-function rehydrateSuitePlan(
-  plan: JsSuitePlan,
-  steps: NormalizedStep[]
-): JsSuitePlan {
-  const stepMap = new Map(steps.map((step) => [step.id, step]));
+function rehydrateSuitePlan(plan: JsSuitePlan, steps: NormalizedStep[]): JsSuitePlan {
+  const stepMap = new Map(steps.map((step) => [step.id, step]))
 
-  const mapStep = (step: NormalizedStep) =>
-    step.id ? (stepMap.get(step.id) ?? step) : step;
+  const mapStep = (step: NormalizedStep) => (step.id ? stepMap.get(step.id) ?? step : step)
 
   return {
     ...plan,
@@ -1439,11 +1378,11 @@ function rehydrateSuitePlan(
       ...scenario,
       steps: scenario.steps.map(mapStep),
     })),
-  };
+  }
 }
 
 function isSemanticMarkerStep(step: NormalizedStep): boolean {
-  return Boolean(step.semanticMarkerLink || step.unresolvedSemanticMarker);
+  return Boolean(step.semanticMarkerLink || step.unresolvedSemanticMarker)
 }
 
 function stripSemanticMarkerStepsFromItGroups(itGroups: ItGroup[]): ItGroup[] {
@@ -1452,66 +1391,60 @@ function stripSemanticMarkerStepsFromItGroups(itGroups: ItGroup[]): ItGroup[] {
       ...group,
       steps: group.steps.filter((step) => !isSemanticMarkerStep(step)),
     }))
-    .filter((group) => group.steps.length > 0);
+    .filter((group) => group.steps.length > 0)
 }
 
-function stripSemanticMarkerStepsFromHelpers(
-  helpers: JsSuitePlan["helpers"]
-): JsSuitePlan["helpers"] {
+function stripSemanticMarkerStepsFromHelpers(helpers: JsSuitePlan['helpers']): JsSuitePlan['helpers'] {
   return helpers
     .map((helper) => ({
       ...helper,
       steps: helper.steps.filter((step) => !isSemanticMarkerStep(step)),
     }))
-    .filter((helper) => helper.steps.length > 0);
+    .filter((helper) => helper.steps.length > 0)
 }
 
 function stripSemanticMarkerStepsFromScenarios(
-  scenarios: JsSuitePlan["scenarios"],
-  helpers: JsSuitePlan["helpers"]
-): JsSuitePlan["scenarios"] {
-  const helperNames = new Set(helpers.map((helper) => helper.name));
+  scenarios: JsSuitePlan['scenarios'],
+  helpers: JsSuitePlan['helpers']
+): JsSuitePlan['scenarios'] {
+  const helperNames = new Set(helpers.map((helper) => helper.name))
 
   return scenarios
     .map((scenario) => ({
       ...scenario,
       steps: scenario.steps.filter((step) => !isSemanticMarkerStep(step)),
-      helperRefs: scenario.helperRefs.filter((helperRef) =>
-        helperNames.has(helperRef)
-      ),
+      helperRefs: scenario.helperRefs.filter((helperRef) => helperNames.has(helperRef)),
     }))
     .filter(
       (scenario) =>
         scenario.steps.length > 0 ||
         scenario.helperRefs.length > 0 ||
         (scenario.markerAssertions?.length ?? 0) > 0
-    );
+    )
 }
 
 function dedupeQueryResults(queryResults: QueryResult[]): QueryResult[] {
-  const seen = new Set<string>();
+  const seen = new Set<string>()
 
   return queryResults.filter((queryResult) => {
-    const key = `${queryResult.method}:${queryResult.query}:${queryResult.line ?? "na"}`;
+    const key = `${queryResult.method}:${queryResult.query}:${queryResult.line ?? 'na'}`
     if (seen.has(key)) {
-      return false;
+      return false
     }
 
-    seen.add(key);
-    return true;
-  });
+    seen.add(key)
+    return true
+  })
 }
 
-function getPrimarySelector(
-  recording: NormalizedRecording
-): string | undefined {
-  return recording.baseline?.selectors[0]?.selector;
+function getPrimarySelector(recording: NormalizedRecording): string | undefined {
+  return recording.baseline?.selectors[0]?.selector
 }
 
 function normalizeLandmarkCandidate(value?: string): string | null {
-  const normalized = value?.replace(/\s+/g, " ").trim();
+  const normalized = value?.replace(/\s+/g, ' ').trim()
   if (!normalized) {
-    return null;
+    return null
   }
 
   if (
@@ -1520,102 +1453,85 @@ function normalizeLandmarkCandidate(value?: string): string | null {
     /^(document|location)\./i.test(normalized) ||
     /(?:[#.]|>|:|=|nth-(?:child|of-type)|querySelector)/i.test(normalized)
   ) {
-    return null;
+    return null
   }
 
-  return normalized;
+  return normalized
 }
 
-function findExpectedPageTitle(
-  recording: NormalizedRecording
-): string | undefined {
+function findExpectedPageTitle(recording: NormalizedRecording): string | undefined {
   const titleAssertion = recording.steps.find(
-    (step) =>
-      step.action === "assert" &&
-      step.target === "document.title" &&
-      typeof step.value === "string"
-  );
-  return typeof titleAssertion?.value === "string"
-    ? titleAssertion.value
-    : undefined;
+    (step) => step.action === 'assert' && step.target === 'document.title' && typeof step.value === 'string'
+  )
+  return typeof titleAssertion?.value === 'string' ? titleAssertion.value : undefined
 }
 
 function collectExpectedLandmarks(recording: NormalizedRecording): string[] {
-  const values = new Set<string>();
+  const values = new Set<string>()
   const register = (candidate?: string) => {
-    const normalized = normalizeLandmarkCandidate(candidate);
+    const normalized = normalizeLandmarkCandidate(candidate)
     if (normalized) {
-      values.add(normalized);
+      values.add(normalized)
     }
-  };
+  }
 
   for (const query of recording.baseline?.queries ?? []) {
-    register(query.name);
-    register(query.target);
+    register(query.name)
+    register(query.target)
   }
 
   for (const step of recording.steps) {
-    if (
-      step.action !== "click" &&
-      step.action !== "assert" &&
-      step.action !== "fill"
-    ) {
-      continue;
+    if (step.action !== 'click' && step.action !== 'assert' && step.action !== 'fill') {
+      continue
     }
 
-    register(step.target);
-    if (typeof step.value === "string") {
-      register(step.value);
+    register(step.target)
+    if (typeof step.value === 'string') {
+      register(step.value)
     }
   }
 
-  return [...values].slice(0, 5);
+  return [...values].slice(0, 5)
 }
 
 function toProjectRelativePath(projectRoot: string, filePath: string): string {
-  const absoluteFilePath = resolve(filePath);
-  const normalized = relative(projectRoot, absoluteFilePath).replace(
-    /\\/g,
-    "/"
-  );
-  if (normalized && !normalized.startsWith("..")) {
-    return normalized;
+  const absoluteFilePath = resolve(filePath)
+  const normalized = relative(projectRoot, absoluteFilePath).replace(/\\/g, '/')
+  if (normalized && !normalized.startsWith('..')) {
+    return normalized
   }
 
   const authLikeSuffix = absoluteFilePath
-    .replace(/\\/g, "/")
-    .match(
-      /(?:^|\/)(playwright\/\.auth\/.+|\.auth\/.+|e2e\/\.auth\/.+|tests\/e2e\/\.auth\/.+)$/
-    );
+    .replace(/\\/g, '/')
+    .match(/(?:^|\/)(playwright\/\.auth\/.+|\.auth\/.+|e2e\/\.auth\/.+|tests\/e2e\/\.auth\/.+)$/)
   if (authLikeSuffix?.[1]) {
-    return authLikeSuffix[1];
+    return authLikeSuffix[1]
   }
 
-  return normalized.length === 0 ? "." : normalized;
+  return normalized.length === 0 ? '.' : normalized
 }
 
 async function resolveOptionalFilePath(
   projectRoot: string,
   inputPath: string | undefined
-): Promise<{ absolutePath: string; relativePath: string } | null> {
+): Promise<{
+  absolutePath: string
+  relativePath: string
+} | null> {
   if (!inputPath) {
-    return null;
+    return null
   }
 
-  const absolutePath = resolve(projectRoot, inputPath);
+  const absolutePath = resolve(projectRoot, inputPath)
   try {
-    await access(absolutePath);
+    await access(absolutePath)
     return {
       absolutePath,
       relativePath: toProjectRelativePath(projectRoot, absolutePath),
-    };
+    }
   } catch {
-    console.warn(
-      pc.yellow(
-        `[taro] Visual auth: file not found ${absolutePath}; continuing without it.`
-      )
-    );
-    return null;
+    console.warn(pc.yellow(`[taro] Visual auth: file not found ${absolutePath}; continuing without it.`))
+    return null
   }
 }
 
@@ -1626,349 +1542,323 @@ function hasInteractiveVisualAuthCapability(
   return (
     forceInteractiveAuth ||
     Boolean((context.input ?? stdin).isTTY && (context.output ?? stdout).isTTY)
-  );
+  )
 }
 
 function resolveVisualAuthStorageStatePath(
   projectRoot: string,
   auth: TaroPlaywrightAuthProfile | null
-): { absolutePath: string; relativePath: string } {
+): {
+  absolutePath: string
+  relativePath: string
+} {
   const relativePath =
-    auth?.strategy === "storageState"
-      ? auth.path
-      : DEFAULT_VISUAL_AUTH_STORAGE_STATE_PATH;
+    auth?.strategy === 'storageState' ? auth.path : DEFAULT_VISUAL_AUTH_STORAGE_STATE_PATH
 
-  return { absolutePath: resolve(projectRoot, relativePath), relativePath };
+  return {
+    absolutePath: resolve(projectRoot, relativePath),
+    relativePath,
+  }
 }
 
 function resolveVisualCaptureScreenshotDir(projectRoot: string): string {
-  return resolve(projectRoot, ".taro", "playwright", "screenshots");
+  return resolve(projectRoot, '.taro', 'playwright', 'screenshots')
 }
 
 type AuthPreflightStatus =
-  | "not_required"
-  | "unknown_recipe"
-  | "authenticated"
-  | "failed";
+  | 'not_required'
+  | 'unknown_recipe'
+  | 'authenticated'
+  | 'failed'
 
 function resolveAuthPreflightStatus(params: {
-  auth: TaroPlaywrightAuthProfile | null;
-  url?: string;
-  visualState: VisualState | null;
+  auth: TaroPlaywrightAuthProfile | null
+  url?: string
+  visualState: VisualState | null
 }): AuthPreflightStatus | null {
-  const { auth, url, visualState } = params;
+  const { auth, url, visualState } = params
   if (!url || !visualState) {
-    return null;
+    return null
   }
 
   switch (visualState.status) {
-    case "auth-recovered":
-      return "authenticated";
-    case "auth-recovery-failed":
-    case "auth-recovery-timed-out":
-      return "failed";
-    case "auth-interrupted":
-      return auth ? "failed" : "unknown_recipe";
-    case "captured":
-      return auth ? "authenticated" : "not_required";
-    case "capture-failed":
-      return null;
+    case 'auth-recovered':
+      return 'authenticated'
+    case 'auth-recovery-failed':
+    case 'auth-recovery-timed-out':
+      return 'failed'
+    case 'auth-interrupted':
+      return auth ? 'failed' : 'unknown_recipe'
+    case 'captured':
+      return auth ? 'authenticated' : 'not_required'
+    case 'capture-failed':
+      return null
   }
 }
 
 function summarizeAuthPreflight(params: {
-  auth: TaroPlaywrightAuthProfile | null;
-  url?: string;
-  visualState: VisualState | null;
+  auth: TaroPlaywrightAuthProfile | null
+  url?: string
+  visualState: VisualState | null
 }): void {
-  const status = resolveAuthPreflightStatus(params);
+  const status = resolveAuthPreflightStatus(params)
   if (!status) {
-    return;
+    return
   }
 
-  log(pc.dim("[taro]") + ` Auth status: ${status}`);
+  log(pc.dim('[taro]') + ` Auth status: ${status}`)
 }
 
 function summarizePlaywrightAuth(
   packageProfile: ResolvedTaroPackageProfile | null
 ): void {
   if (!packageProfile?.playwrightAuth) {
-    return;
+    return
   }
 
   log(
-    pc.dim("[taro]") +
+    pc.dim('[taro]') +
       ` Visual auth: ${packageProfile.playwrightAuth.strategy}=${packageProfile.playwrightAuth.path} (${packageProfile.playwrightAuth.source})`
-  );
+  )
 }
 
 function summarizeVisualState(visualState: VisualState | null): void {
   if (!visualState) {
-    return;
+    return
   }
 
-  if (visualState.status === "capture-failed") {
+  if (visualState.status === 'capture-failed') {
     for (const warning of visualState.warnings) {
-      console.warn(pc.yellow(`[taro] ${warning}`));
+      console.warn(pc.yellow(`[taro] ${warning}`))
     }
-    return;
+    return
   }
 
-  if (visualState.status === "auth-interrupted") {
-    const interrupt = visualState.interrupt;
+  if (visualState.status === 'auth-interrupted') {
+    const interrupt = visualState.interrupt
     console.warn(
-      pc.yellow(
-        "[taro] Visual context unavailable: authentication required before reaching the target UI."
-      )
-    );
+      pc.yellow('[taro] Visual context unavailable: authentication required before reaching the target UI.')
+    )
     if (interrupt) {
       console.warn(
-        pc.yellow("[taro]") +
-          ` Reached: ${interrupt.reachedUrl}${interrupt.actualTitle ? ` (${interrupt.actualTitle})` : ""}`
-      );
+        pc.yellow('[taro]') +
+          ` Reached: ${interrupt.reachedUrl}${interrupt.actualTitle ? ` (${interrupt.actualTitle})` : ''}`
+      )
       if (interrupt.expectedUrl) {
-        console.warn(
-          pc.yellow("[taro]") + ` Expected: ${interrupt.expectedUrl}`
-        );
+        console.warn(pc.yellow('[taro]') + ` Expected: ${interrupt.expectedUrl}`)
       }
       if (interrupt.expectedTitle) {
-        console.warn(
-          pc.yellow("[taro]") + ` Expected title: ${interrupt.expectedTitle}`
-        );
+        console.warn(pc.yellow('[taro]') + ` Expected title: ${interrupt.expectedTitle}`)
       }
-      console.warn(
-        pc.yellow("[taro]") + ` Signals: ${interrupt.signals.join(", ")}`
-      );
-      if (interrupt.strategy === "storageState" && interrupt.path) {
+      console.warn(pc.yellow('[taro]') + ` Signals: ${interrupt.signals.join(', ')}`)
+      if (interrupt.strategy === 'storageState' && interrupt.path) {
         console.warn(
-          pc.yellow("[taro]") +
+          pc.yellow('[taro]') +
             ` Reuse or replace the saved storage state with --auth ${interrupt.path}.`
-        );
-      } else if (interrupt.strategy === "instructions" && interrupt.path) {
+        )
+      } else if (interrupt.strategy === 'instructions' && interrupt.path) {
         console.warn(
-          pc.yellow("[taro]") +
+          pc.yellow('[taro]') +
             ` Review the saved auth instructions at ${interrupt.path}, or provide --auth for automatic session injection.`
-        );
+        )
       } else {
         console.warn(
-          pc.yellow("[taro]") +
-            " Options: --auth <storageState.json>, --instructions <auth.md>, or --no-screenshots."
-        );
+          pc.yellow('[taro]') +
+            ' Options: --auth <storageState.json>, --instructions <auth.md>, or --no-screenshots.'
+        )
       }
     }
     if (visualState.screenshotPath) {
-      log(
-        pc.dim("[taro]") +
-          ` Auth checkpoint screenshot: ${visualState.screenshotPath}`
-      );
+      log(pc.dim('[taro]') + ` Auth checkpoint screenshot: ${visualState.screenshotPath}`)
     }
-    return;
+    return
   }
 
-  if (visualState.status === "auth-recovered") {
-    log(pc.dim("[taro]") + " Visual auth recovered via Playwright runtime.");
+  if (visualState.status === 'auth-recovered') {
+    log(pc.dim('[taro]') + ' Visual auth recovered via Playwright runtime.')
     if (visualState.authRecovery?.retryToExpectedUrl?.attempted) {
       log(
-        pc.dim("[taro]") +
+        pc.dim('[taro]') +
           ` Retried recorded URL once after auth recovery: ${visualState.authRecovery.retryToExpectedUrl.targetUrl}`
-      );
+      )
     }
     if (visualState.startingPointConfirmed) {
-      log(
-        pc.dim("[taro]") + ` Starting point confirmed: ${visualState.finalUrl}`
-      );
+      log(pc.dim('[taro]') + ` Starting point confirmed: ${visualState.finalUrl}`)
     }
     if (visualState.authRecovery?.persistedAuthPath) {
       log(
-        pc.dim("[taro]") +
+        pc.dim('[taro]') +
           ` Saved Playwright storageState: ${visualState.authRecovery.persistedAuthPath}`
-      );
+      )
     }
     if (visualState.screenshotPath) {
       log(
-        pc.dim("[taro]") +
-          ` Starting point screenshot: ${visualState.screenshotPath}`
-      );
+        pc.dim('[taro]') + ` Starting point screenshot: ${visualState.screenshotPath}`
+      )
     }
-    return;
+    return
   }
 
   if (
-    visualState.status === "auth-recovery-failed" ||
-    visualState.status === "auth-recovery-timed-out"
+    visualState.status === 'auth-recovery-failed' ||
+    visualState.status === 'auth-recovery-timed-out'
   ) {
     const label =
-      visualState.status === "auth-recovery-timed-out"
-        ? "Playwright authentication timed out."
-        : "Playwright authentication could not be completed.";
-    console.warn(pc.yellow(`[taro] ${label}`));
+      visualState.status === 'auth-recovery-timed-out'
+        ? 'Playwright authentication timed out.'
+        : 'Playwright authentication could not be completed.'
+    console.warn(pc.yellow(`[taro] ${label}`))
     if (visualState.authRecovery?.instructionsPath) {
       console.warn(
-        pc.yellow("[taro]") +
+        pc.yellow('[taro]') +
           ` Visual auth instructions: ${visualState.authRecovery.instructionsPath}`
-      );
+      )
     }
     if (visualState.authRecovery?.retryToExpectedUrl?.attempted) {
-      const retry = visualState.authRecovery.retryToExpectedUrl;
+      const retry = visualState.authRecovery.retryToExpectedUrl
       const failureDetail =
-        retry.outcome === "failed" && retry.error ? ` (${retry.error})` : "";
+        retry.outcome === 'failed' && retry.error ? ` (${retry.error})` : ''
       console.warn(
-        pc.yellow("[taro]") +
+        pc.yellow('[taro]') +
           ` Retried recorded URL once after auth recovery: ${retry.targetUrl}${failureDetail}`
-      );
+      )
     }
     if (visualState.screenshotPath) {
-      log(
-        pc.dim("[taro]") +
-          ` Auth checkpoint screenshot: ${visualState.screenshotPath}`
-      );
+      log(pc.dim('[taro]') + ` Auth checkpoint screenshot: ${visualState.screenshotPath}`)
     }
     for (const warning of visualState.warnings) {
-      console.warn(pc.yellow(`[taro] ${warning}`));
+      console.warn(pc.yellow(`[taro] ${warning}`))
     }
-    return;
+    return
   }
 
-  const parts = [visualState.reason];
+  const parts = [visualState.reason]
   if (visualState.dialog?.title) {
-    parts.push(`dialog=${visualState.dialog.title}`);
+    parts.push(`dialog=${visualState.dialog.title}`)
   }
   if (visualState.startingPointConfirmed) {
-    parts.push(`page=${visualState.finalUrl}`);
+    parts.push(`page=${visualState.finalUrl}`)
   }
   if (visualState.screenshotPath && !visualState.startingPointConfirmed) {
-    parts.push(`screenshot=${visualState.screenshotPath}`);
+    parts.push(`screenshot=${visualState.screenshotPath}`)
   }
 
-  log(pc.dim("[taro]") + ` Visual state: ${parts.join(", ")}`);
+  log(pc.dim('[taro]') + ` Visual state: ${parts.join(', ')}`)
   if (visualState.startingPointConfirmed && visualState.screenshotPath) {
     log(
-      pc.dim("[taro]") +
-        ` Starting point screenshot: ${visualState.screenshotPath}`
-    );
+      pc.dim('[taro]') + ` Starting point screenshot: ${visualState.screenshotPath}`
+    )
   }
   for (const warning of visualState.warnings) {
-    console.warn(pc.yellow(`[taro] ${warning}`));
+    console.warn(pc.yellow(`[taro] ${warning}`))
   }
 }
 
 function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
   if (!mockAnalysis) {
-    return;
+    return
   }
 
-  const parts: string[] = [];
-  if (mockAnalysis.source === "package-profile" && mockAnalysis.packagePath) {
-    parts.push(`package=${mockAnalysis.packagePath}`);
+  const parts: string[] = []
+  if (mockAnalysis.source === 'package-profile' && mockAnalysis.packagePath) {
+    parts.push(`package=${mockAnalysis.packagePath}`)
   }
 
   if (mockAnalysis.repeatedTargets.length > 0) {
-    parts.push(`${mockAnalysis.repeatedTargets.length} repeated target(s)`);
+    parts.push(`${mockAnalysis.repeatedTargets.length} repeated target(s)`)
   }
 
   if (mockAnalysis.mutationLifecycles.length > 0) {
-    parts.push(`${mockAnalysis.mutationLifecycles.length} mutation flow(s)`);
+    parts.push(`${mockAnalysis.mutationLifecycles.length} mutation flow(s)`)
   }
   if (mockAnalysis.interactionContracts.length > 0) {
-    parts.push(
-      `${mockAnalysis.interactionContracts.length} interaction contract(s)`
-    );
+    parts.push(`${mockAnalysis.interactionContracts.length} interaction contract(s)`)
   }
 
   if (mockAnalysis.instabilityWarnings.length > 0) {
-    parts.push(
-      `${mockAnalysis.instabilityWarnings.length} stability warning(s)`
-    );
+    parts.push(`${mockAnalysis.instabilityWarnings.length} stability warning(s)`)
   }
   if (mockAnalysis.boundaryProfiles.length > 0) {
-    parts.push(`${mockAnalysis.boundaryProfiles.length} boundary profile(s)`);
+    parts.push(`${mockAnalysis.boundaryProfiles.length} boundary profile(s)`)
   }
 
   if (parts.length === 0) {
-    return;
+    return
   }
 
-  log(pc.dim("[taro]") + ` Mock analysis: ${parts.join(", ")}`);
+  log(pc.dim('[taro]') + ` Mock analysis: ${parts.join(', ')}`)
 
-  const topRecommendation = mockAnalysis.recommendations[0];
+  const topRecommendation = mockAnalysis.recommendations[0]
   if (topRecommendation) {
     log(
-      pc.dim("[taro]") +
+      pc.dim('[taro]') +
         ` Mock hint: ${topRecommendation.kind} ${topRecommendation.target} (${topRecommendation.count} file(s))`
-    );
+    )
   }
 
-  const preferredSharedMock = Object.entries(
-    mockAnalysis.preferredSharedMocks
-  )[0];
+  const preferredSharedMock = Object.entries(mockAnalysis.preferredSharedMocks)[0]
   if (preferredSharedMock) {
     log(
-      pc.dim("[taro]") +
+      pc.dim('[taro]') +
         ` Shared mock preference: ${preferredSharedMock[0]} -> ${preferredSharedMock[1]}`
-    );
+    )
   }
 
   if (mockAnalysis.forbidMocks.length > 0) {
     console.warn(
-      pc.yellow(
-        `[taro] Mock policy: forbidden targets ${mockAnalysis.forbidMocks.join(", ")}`
-      )
-    );
+      pc.yellow(`[taro] Mock policy: forbidden targets ${mockAnalysis.forbidMocks.join(', ')}`)
+    )
   }
   if (mockAnalysis.forbidBoundaryTargets.length > 0) {
     console.warn(
       pc.yellow(
-        `[taro] Boundary policy: forbidden targets ${mockAnalysis.forbidBoundaryTargets.join(", ")}`
+        `[taro] Boundary policy: forbidden targets ${mockAnalysis.forbidBoundaryTargets.join(', ')}`
       )
-    );
+    )
   }
 
-  const topLifecycle = mockAnalysis.mutationLifecycles[0];
+  const topLifecycle = mockAnalysis.mutationLifecycles[0]
   if (topLifecycle) {
     log(
-      pc.dim("[taro]") +
-        ` Mutation lifecycle: ${topLifecycle.stages.join(" -> ")} in ${topLifecycle.file}`
-    );
+      pc.dim('[taro]') +
+        ` Mutation lifecycle: ${topLifecycle.stages.join(' -> ')} in ${topLifecycle.file}`
+    )
   }
 
-  const topContract = mockAnalysis.interactionContracts[0];
+  const topContract = mockAnalysis.interactionContracts[0]
   if (topContract) {
     log(
-      pc.dim("[taro]") +
-        ` Interaction contract: ${topContract.kind} (${topContract.states.join(", ")}) in ${topContract.file}`
-    );
+      pc.dim('[taro]') +
+        ` Interaction contract: ${topContract.kind} (${topContract.states.join(', ')}) in ${topContract.file}`
+    )
   }
 
-  const topWarning = mockAnalysis.instabilityWarnings[0];
+  const topWarning = mockAnalysis.instabilityWarnings[0]
   if (topWarning) {
-    console.warn(
-      pc.yellow(
-        `[taro] Mock stability: ${topWarning.reason} (${topWarning.file})`
-      )
-    );
+    console.warn(pc.yellow(`[taro] Mock stability: ${topWarning.reason} (${topWarning.file})`))
   }
 }
 
 function summarizeBoundaryWarnings(warnings: string[]): void {
   for (const warning of warnings) {
-    console.warn(pc.yellow(`[taro] Boundary: ${warning}`));
+    console.warn(pc.yellow(`[taro] Boundary: ${warning}`))
   }
 }
 
 function summarizeSuiteContracts(plan: JsSuitePlan): void {
   if (plan.contracts.length === 0) {
-    return;
+    return
   }
 
-  const primaryContract = plan.contracts[0]!;
+  const primaryContract = plan.contracts[0]!
   const synthesizedCount = plan.scenarios.filter(
-    (scenario) => scenario.provenance === "synthesized-companion"
-  ).length;
+    (scenario) => scenario.provenance === 'synthesized-companion'
+  ).length
 
   log(
-    pc.dim("[taro]") +
+    pc.dim('[taro]') +
       ` Contract planner: ${primaryContract.kind}, confidence=${primaryContract.confidence}, synthesized=${synthesizedCount}`
-  );
+  )
 }
 
 function summarizeResolvedPackageProfile(
@@ -1976,23 +1866,21 @@ function summarizeResolvedPackageProfile(
 ): void {
   if (!packageProfile) {
     console.warn(
-      pc.yellow(
-        "[taro] State profile: no matching package profile found; using generic defaults."
-      )
-    );
-    return;
+      pc.yellow('[taro] State profile: no matching package profile found; using generic defaults.')
+    )
+    return
   }
 
   const parts = [
     `package=${packageProfile.packagePath}`,
     `runner=${packageProfile.effectiveRunner}`,
-    `renderHelper=${packageProfile.effectiveRenderHelper?.name ?? "none"}`,
+    `renderHelper=${packageProfile.effectiveRenderHelper?.name ?? 'none'}`,
     `sharedMocks=${packageProfile.sharedMockFactories.length}`,
     `boundaries=${packageProfile.boundaryProfiles.length}`,
     `inlineMocks=${packageProfile.inlineSafeMockTargets.length}`,
-  ];
+  ]
 
-  log(pc.dim("[taro]") + ` State profile: ${parts.join(", ")}`);
+  log(pc.dim('[taro]') + ` State profile: ${parts.join(', ')}`)
 }
 
 async function auditBoundaryPolicy(
@@ -2002,24 +1890,24 @@ async function auditBoundaryPolicy(
 ): Promise<string[]> {
   if (!packageProfile) {
     if (!renderTargetFile) {
-      return [];
+      return []
     }
   }
 
-  const warnings: string[] = [];
+  const warnings: string[] = []
   const discoveredImports = renderTargetFile
     ? await discoverBoundaryImportsFromSource(renderTargetFile)
-    : [];
+    : []
   const forbiddenTargets = new Set<string>([
     ...(packageProfile?.forbidMocks ?? []),
     ...(packageProfile?.forbidBoundaryTargets ?? []),
-    ...(packageProfile?.boundaryProfiles ?? [])
-      .filter((profile) => profile.strategy === "forbid")
-      .map((profile) => profile.target),
+    ...((packageProfile?.boundaryProfiles ?? [])
+      .filter((profile) => profile.strategy === 'forbid')
+      .map((profile) => profile.target)),
     ...discoveredImports
       .filter((importedBoundary) => importedBoundary.guardrailReason)
       .map((importedBoundary) => importedBoundary.target),
-  ]);
+  ])
 
   for (const target of forbiddenTargets) {
     if (
@@ -2028,9 +1916,7 @@ async function auditBoundaryPolicy(
       code.includes(`jest.mock('${target}'`) ||
       code.includes(`jest.mock("${target}"`)
     ) {
-      warnings.push(
-        `Generated test mocks forbidden boundary target "${target}".`
-      );
+      warnings.push(`Generated test mocks forbidden boundary target "${target}".`)
     }
   }
 
@@ -2042,19 +1928,17 @@ async function auditBoundaryPolicy(
         !code.includes(`jest.mock('${discoveredImport.target}'`) &&
         !code.includes(`jest.mock("${discoveredImport.target}"`))
     ) {
-      continue;
+      continue
     }
 
     warnings.push(
       `Generated test mocks protected UI boundary "${discoveredImport.target}". Repo-owned UI wrappers must remain real at test time; fix portal, animation, or cleanup issues at the source instead of mocking around them.`
-    );
+    )
   }
 
   for (const profile of packageProfile?.boundaryProfiles ?? []) {
     if (
-      ["shared-module-factory", "scaffolded-module-factory"].includes(
-        profile.strategy
-      ) &&
+      ['shared-module-factory', 'scaffolded-module-factory'].includes(profile.strategy) &&
       profile.supportImportPath &&
       (code.includes(`vi.mock('${profile.target}'`) ||
         code.includes(`vi.mock("${profile.target}"`) ||
@@ -2064,30 +1948,28 @@ async function auditBoundaryPolicy(
     ) {
       warnings.push(
         `Generated test bypasses learned central boundary support for "${profile.target}".`
-      );
+      )
     }
   }
 
   if (
-    packageProfile?.boundaryProfiles.some(
-      (profile) => profile.strategy === "provider-wrapper"
-    ) &&
+    packageProfile?.boundaryProfiles.some((profile) => profile.strategy === 'provider-wrapper') &&
     !packageProfile?.effectiveRenderHelper &&
-    code.includes("render(")
+    code.includes('render(')
   ) {
     warnings.push(
-      "Generated test may bypass a learned provider-wrapper boundary because no shared render helper was applied."
-    );
+      'Generated test may bypass a learned provider-wrapper boundary because no shared render helper was applied.'
+    )
   }
 
-  return warnings;
+  return warnings
 }
 
 function tokenizeSuiteHint(value: string): string[] {
   return value
     .toLowerCase()
     .split(/[^a-z0-9]+/)
-    .filter((token) => token.length >= 3);
+    .filter((token) => token.length >= 3)
 }
 
 function scoreRenderTargetCandidate(
@@ -2096,106 +1978,85 @@ function scoreRenderTargetCandidate(
   mockAnalysis: MockAnalysis | null,
   suitePlan: JsSuitePlan,
   options: {
-    packageProfile?: ResolvedTaroPackageProfile | null;
-    visualState?: VisualState | null;
+    packageProfile?: ResolvedTaroPackageProfile | null
+    visualState?: VisualState | null
   } = {}
 ): number {
-  const { packageProfile, visualState } = options;
+  const { packageProfile, visualState } = options
   const recordingTokens = new Set([
     ...tokenizeSuiteHint(recording.title),
-    ...recording.steps.flatMap((step) => tokenizeSuiteHint(step.target ?? "")),
-  ]);
+    ...recording.steps.flatMap((step) => tokenizeSuiteHint(step.target ?? '')),
+  ])
   const confirmedTokens = new Set(
-    collectPageConfirmedContextTerms(visualState ?? null).flatMap((term) =>
-      tokenizeSuiteHint(term)
-    )
-  );
+    collectPageConfirmedContextTerms(visualState ?? null).flatMap((term) => tokenizeSuiteHint(term))
+  )
   const candidateTokens = new Set([
     ...tokenizeSuiteHint(candidate.symbol),
     ...tokenizeSuiteHint(candidate.importPath),
     ...tokenizeSuiteHint(candidate.sourceTestFile),
     ...candidate.helperNames.flatMap((name) => tokenizeSuiteHint(name)),
-    ...(candidate.evidenceTerms ?? []).flatMap((term) =>
-      tokenizeSuiteHint(term)
-    ),
-  ]);
+    ...(candidate.evidenceTerms ?? []).flatMap((term) => tokenizeSuiteHint(term)),
+  ])
 
-  let score = 0;
+  let score = 0
   for (const token of candidateTokens) {
     if (recordingTokens.has(token)) {
-      score += 3;
+      score += 3
     }
     if (confirmedTokens.has(token)) {
-      score += 5;
+      score += 5
     }
   }
 
-  if (
-    /Module$/u.test(candidate.symbol) &&
-    suitePlan.renderBoundary.kind === "module"
-  ) {
-    score += 4;
+  if (/Module$/u.test(candidate.symbol) && suitePlan.renderBoundary.kind === 'module') {
+    score += 4
   }
 
   if (candidate.usesWithin) {
-    score += 1;
+    score += 1
   }
 
   if (mockAnalysis?.repeatedTargets.length) {
-    score += 1;
+    score += 1
   }
 
   if (
     packageProfile?.packagePath &&
-    packageProfile.packagePath !== "." &&
+    packageProfile.packagePath !== '.' &&
     (candidate.sourceTestFile === packageProfile.packagePath ||
       candidate.sourceTestFile.startsWith(`${packageProfile.packagePath}/`))
   ) {
-    score += 8;
+    score += 8
   }
 
-  return score;
+  return score
 }
 
 function resolveRepoRenderTarget(params: {
-  candidates: RepoRenderTargetCandidate[];
-  packageProfile?: ResolvedTaroPackageProfile | null;
-  recording: NormalizedRecording;
-  mockAnalysis: MockAnalysis | null;
-  suitePlan: JsSuitePlan;
-  visualState?: VisualState | null;
+  candidates: RepoRenderTargetCandidate[]
+  packageProfile?: ResolvedTaroPackageProfile | null
+  recording: NormalizedRecording
+  mockAnalysis: MockAnalysis | null
+  suitePlan: JsSuitePlan
+  visualState?: VisualState | null
 }): RepoRenderTargetCandidate | null {
-  const {
-    candidates,
-    packageProfile,
-    recording,
-    mockAnalysis,
-    suitePlan,
-    visualState,
-  } = params;
+  const { candidates, packageProfile, recording, mockAnalysis, suitePlan, visualState } = params
   if (candidates.length === 0) {
-    return null;
+    return null
   }
 
   const ranked = candidates
     .map((candidate) => ({
       candidate,
-      score: scoreRenderTargetCandidate(
-        candidate,
-        recording,
-        mockAnalysis,
-        suitePlan,
-        { packageProfile, visualState }
-      ),
+      score: scoreRenderTargetCandidate(candidate, recording, mockAnalysis, suitePlan, {
+        packageProfile,
+        visualState,
+      }),
     }))
     .filter((entry) => entry.score > 0)
-    .sort(
-      (left, right) =>
-        right.score - left.score ||
-        left.candidate.symbol.localeCompare(right.candidate.symbol)
-    );
+    .sort((left, right) => right.score - left.score || left.candidate.symbol.localeCompare(right.candidate.symbol))
 
-  return ranked[0]?.candidate ?? null;
+  return ranked[0]?.candidate ?? null
 }
 
 function applyRepoRenderTarget(
@@ -2203,7 +2064,7 @@ function applyRepoRenderTarget(
   renderTarget: RepoRenderTargetCandidate | null
 ): JsSuitePlan {
   if (!renderTarget) {
-    return suitePlan;
+    return suitePlan
   }
 
   return {
@@ -2212,167 +2073,152 @@ function applyRepoRenderTarget(
       ...suitePlan.renderBoundary,
       resolvedTarget: renderTarget.symbol,
       confidence:
-        suitePlan.renderBoundary.confidence === "low"
-          ? "medium"
-          : suitePlan.renderBoundary.confidence,
+        suitePlan.renderBoundary.confidence === 'low' ? 'medium' : suitePlan.renderBoundary.confidence,
     },
     warnings: suitePlan.warnings.filter(
       (warning) =>
-        !warning.includes(
-          "Taro could not resolve the exact render target from repo context"
-        ) &&
-        !warning.includes(
-          "Prefer a repo-local module/container render boundary"
-        )
+        !warning.includes('Taro could not resolve the exact render target from repo context') &&
+        !warning.includes('Prefer a repo-local module/container render boundary')
     ),
-  };
+  }
 }
 
-function findRecordingUrl(
-  analyzedRecording: AnalyzedRecording
-): string | undefined {
-  return (
-    analyzedRecording.url ??
-    analyzedRecording.steps.find((step) => step.action === "navigate")?.target
-  );
+function findRecordingUrl(analyzedRecording: AnalyzedRecording): string | undefined {
+  return analyzedRecording.url ?? analyzedRecording.steps.find((step) => step.action === 'navigate')?.target
 }
 
 async function resolveJsGeneration(
   recording: NormalizedRecording,
   itGroups: ItGroup[],
-  options?: { auth?: CaptureVisualStateAuthOptions | null }
+  options?: {
+    auth?: CaptureVisualStateAuthOptions | null
+  }
 ): Promise<{
-  itGroups: ItGroup[];
-  queryResults: QueryResult[];
-  recording: NormalizedRecording;
-  warnings: string[];
+  itGroups: ItGroup[]
+  queryResults: QueryResult[]
+  recording: NormalizedRecording
+  warnings: string[]
 }> {
-  const baseline = recording.baseline;
+  const baseline = recording.baseline
   if (!baseline) {
-    return { itGroups, queryResults: [], recording, warnings: [] };
+    return {
+      itGroups,
+      queryResults: [],
+      recording,
+      warnings: [],
+    }
   }
 
-  const queryResults = baseline.queries.map(queryDescriptorToResult);
-  const warnings: string[] = [];
-  const selectorGroups = groupSelectorsByStepId(baseline.selectors);
+  const queryResults = baseline.queries.map(queryDescriptorToResult)
+  const warnings: string[] = []
+  const selectorGroups = groupSelectorsByStepId(baseline.selectors)
   const stepMap = new Map(
     recording.steps
-      .filter((step): step is NormalizedStep & { id: StepId } =>
-        Boolean(step.id)
-      )
+      .filter((step): step is NormalizedStep & { id: StepId } => Boolean(step.id))
       .map((step) => [step.id, step])
-  );
-  const updatedSteps = new Map<StepId, NormalizedStep>();
+  )
+  const updatedSteps = new Map<StepId, NormalizedStep>()
 
-  const hasSelectorsToResolve = selectorGroups.size > 0;
-  const hasUrl = Boolean(recording.url);
+  const hasSelectorsToResolve = selectorGroups.size > 0
+  const hasUrl = Boolean(recording.url)
 
   if (hasSelectorsToResolve && hasUrl) {
     // REPLAY PATH: open one persistent browser and replay steps in order
     log(
-      pc.dim("[taro]") +
+      pc.dim('[taro]') +
         ` Resolving ${baseline.selectors.length} selector(s) via Playwright with step replay...`
-    );
+    )
 
-    const selectorStepIds = new Set(selectorGroups.keys());
-    let browser: import("playwright").Browser | null = null;
+    const selectorStepIds = new Set(selectorGroups.keys())
+    let browser: import('playwright').Browser | null = null
 
     try {
-      const authOptions = options?.auth ?? undefined;
+      const authOptions = options?.auth ?? undefined
       const captureSession = await openCapturePage({
         auth: authOptions,
         headless: true,
         timeoutMs: 10000,
         url: recording.url!,
-      });
-      browser = captureSession.browser;
-      const page = captureSession.page;
-      const inspect = createPageInspector(page);
-      const unresolvedSelectorResolutions = new Map<
-        StepId,
-        SelectorResolutionResult
-      >();
+      })
+      browser = captureSession.browser
+      const page = captureSession.page
+      const inspect = createPageInspector(page)
+      const unresolvedSelectorResolutions = new Map<StepId, SelectorResolutionResult>()
 
       const resolveStepSelectors = async (stepId: StepId) => {
-        const selectors = selectorGroups.get(stepId);
+        const selectors = selectorGroups.get(stepId)
         if (!selectors?.length) {
-          unresolvedSelectorResolutions.delete(stepId);
-          return;
+          unresolvedSelectorResolutions.delete(stepId)
+          return
         }
 
-        const currentStep = updatedSteps.get(stepId) ?? stepMap.get(stepId);
+        const currentStep = updatedSteps.get(stepId) ?? stepMap.get(stepId)
         if (!currentStep) {
-          unresolvedSelectorResolutions.delete(stepId);
-          selectorStepIds.delete(stepId);
-          return;
+          unresolvedSelectorResolutions.delete(stepId)
+          selectorStepIds.delete(stepId)
+          return
         }
 
-        const preservedQuery = getStepQueryDescriptor(currentStep);
-        const stepWarnings: string[] = [];
-        let chosenResolution: SelectorResolutionResult | undefined;
+        const preservedQuery = getStepQueryDescriptor(currentStep)
+        const stepWarnings: string[] = []
+        let chosenResolution: SelectorResolutionResult | undefined
 
         if (preservedQuery) {
           chosenResolution = await resolveSelector(selectors[0]!, {
             url: recording.url,
             preservedQuery,
-          });
+          })
         } else {
           for (const selector of selectors) {
             const resolution = await resolveSelector(selector, {
               url: recording.url,
               inspect,
-            });
+            })
 
-            if (resolution.status === "resolved") {
-              chosenResolution = resolution;
-              break;
+            if (resolution.status === 'resolved') {
+              chosenResolution = resolution
+              break
             }
 
-            stepWarnings.push(...resolution.warnings);
-            chosenResolution ??= resolution;
+            stepWarnings.push(...resolution.warnings)
+            chosenResolution ??= resolution
           }
         }
 
         if (!chosenResolution) {
-          return;
+          return
         }
 
-        const resolution = mergeSelectorResolutionWarnings(
-          chosenResolution,
-          stepWarnings
-        );
-        updatedSteps.set(
-          stepId,
-          applySelectorResolution(currentStep, resolution)
-        );
+        const resolution = mergeSelectorResolutionWarnings(chosenResolution, stepWarnings)
+        updatedSteps.set(stepId, applySelectorResolution(currentStep, resolution))
 
-        if (resolution.status === "resolved") {
-          unresolvedSelectorResolutions.delete(stepId);
-          if (resolution.outcome !== "preserved-query") {
-            queryResults.push(queryDescriptorToResult(resolution.query));
+        if (resolution.status === 'resolved') {
+          unresolvedSelectorResolutions.delete(stepId)
+          if (resolution.outcome !== 'preserved-query') {
+            queryResults.push(queryDescriptorToResult(resolution.query))
           }
-          return;
+          return
         }
 
-        unresolvedSelectorResolutions.set(stepId, resolution);
-      };
+        unresolvedSelectorResolutions.set(stepId, resolution)
+      }
 
       for (const step of recording.steps) {
-        const stepId = step.id;
+        const stepId = step.id
 
         // Resolve selectors BEFORE replaying this step (DOM is in pre-step state)
         if (stepId && selectorStepIds.has(stepId)) {
-          await resolveStepSelectors(stepId);
+          await resolveStepSelectors(stepId)
         }
 
         // Replay the step to advance DOM state for subsequent steps
-        const replayResult = await replayStep(page, step);
+        const replayResult = await replayStep(page, step)
         if (!replayResult.replayed && replayResult.warning) {
           console.warn(
-            pc.yellow("[taro]") +
-              pc.dim(" Step replay: ") +
+            pc.yellow('[taro]') +
+              pc.dim(' Step replay: ') +
               replayResult.warning
-          );
+          )
         }
 
         if (
@@ -2381,94 +2227,91 @@ async function resolveJsGeneration(
           unresolvedSelectorResolutions.size > 0
         ) {
           for (const unresolvedStepId of unresolvedSelectorResolutions.keys()) {
-            await resolveStepSelectors(unresolvedStepId);
+            await resolveStepSelectors(unresolvedStepId)
           }
         }
       }
 
       for (const resolution of unresolvedSelectorResolutions.values()) {
-        if (resolution.status !== "unresolved") {
-          continue;
+        if (resolution.status !== 'unresolved') {
+          continue
         }
 
         warnings.push(
           `QRY-03 [${resolution.stepId}] unresolved selector ${resolution.selector.selector}: ${resolution.reason}`
-        );
+        )
       }
     } catch (error) {
       // Browser open failed — fall through, selectors remain unresolved
-      const message = error instanceof Error ? error.message : "Unknown error";
+      const message = error instanceof Error ? error.message : 'Unknown error'
       console.warn(
-        pc.yellow("[taro]") +
+        pc.yellow('[taro]') +
           ` Step replay browser failed: ${message}. Selectors will remain unresolved.`
-      );
+      )
     } finally {
-      await browser?.close().catch(() => undefined);
+      await browser?.close().catch(() => undefined)
     }
   } else if (hasSelectorsToResolve) {
     // FALLBACK PATH: no URL available, resolve without replay (original behavior)
     log(
-      pc.dim("[taro]") +
+      pc.dim('[taro]') +
         ` Resolving ${baseline.selectors.length} selector(s) via Playwright...`
-    );
+    )
 
     for (const [stepId, selectors] of selectorGroups) {
-      const step = updatedSteps.get(stepId) ?? stepMap.get(stepId);
+      const step = updatedSteps.get(stepId) ?? stepMap.get(stepId)
       if (!step) {
-        continue;
+        continue
       }
 
-      const preservedQuery = getStepQueryDescriptor(step);
-      const stepWarnings: string[] = [];
-      let chosenResolution: SelectorResolutionResult | undefined;
+      const preservedQuery = getStepQueryDescriptor(step)
+      const stepWarnings: string[] = []
+      let chosenResolution: SelectorResolutionResult | undefined
 
       if (preservedQuery) {
         chosenResolution = await resolveSelector(selectors[0]!, {
           url: recording.url,
           preservedQuery,
-        });
+        })
       } else {
         for (const selector of selectors) {
           const resolution = await resolveSelector(selector, {
             url: recording.url,
-          });
+          })
 
-          if (resolution.status === "resolved") {
-            chosenResolution = resolution;
-            break;
+          if (resolution.status === 'resolved') {
+            chosenResolution = resolution
+            break
           }
 
-          stepWarnings.push(...resolution.warnings);
-          chosenResolution ??= resolution;
+          stepWarnings.push(...resolution.warnings)
+          chosenResolution ??= resolution
         }
       }
 
       if (!chosenResolution) {
-        continue;
+        continue
       }
 
-      const resolution = mergeSelectorResolutionWarnings(
-        chosenResolution,
-        stepWarnings
-      );
-      updatedSteps.set(stepId, applySelectorResolution(step, resolution));
+      const resolution = mergeSelectorResolutionWarnings(chosenResolution, stepWarnings)
+      updatedSteps.set(stepId, applySelectorResolution(step, resolution))
 
-      if (resolution.status === "resolved") {
-        if (resolution.outcome !== "preserved-query") {
-          queryResults.push(queryDescriptorToResult(resolution.query));
+      if (resolution.status === 'resolved') {
+        if (resolution.outcome !== 'preserved-query') {
+          queryResults.push(queryDescriptorToResult(resolution.query))
         }
-        continue;
+        continue
       }
 
       warnings.push(
         `QRY-03 [${stepId}] unresolved selector ${resolution.selector.selector}: ${resolution.reason}`
-      );
+      )
     }
   }
 
   const resolvedSteps = recording.steps.map((step) =>
-    step.id ? (updatedSteps.get(step.id) ?? step) : step
-  );
+    step.id ? updatedSteps.get(step.id) ?? step : step
+  )
 
   return {
     itGroups: rehydrateItGroups(itGroups, resolvedSteps),
@@ -2482,30 +2325,30 @@ async function resolveJsGeneration(
       steps: resolvedSteps,
     },
     warnings,
-  };
+  }
 }
 
 function summarizeSelectorWarnings(warnings: string[]): void {
   for (const warning of warnings) {
-    console.warn(pc.yellow(`[taro] ${warning}`));
+    console.warn(pc.yellow(`[taro] ${warning}`))
   }
 }
 
 async function maybeCaptureVisualState(params: {
-  analyzedRecording: AnalyzedRecording;
-  auth?: TaroPlaywrightAuthProfile | null;
+  analyzedRecording: AnalyzedRecording
+  auth?: TaroPlaywrightAuthProfile | null
   authRecovery?: {
-    enabled: boolean;
-    instructionsPath?: string;
-    persistedAuthPath?: string;
-    saveStorageStatePath?: string;
-    timeoutMs: number;
-  };
-  projectRoot: string;
-  recording: NormalizedRecording;
-  selector?: string;
-  skipScreenshotArtifacts?: boolean;
-  url?: string;
+    enabled: boolean
+    instructionsPath?: string
+    persistedAuthPath?: string
+    saveStorageStatePath?: string
+    timeoutMs: number
+  }
+  projectRoot: string
+  recording: NormalizedRecording
+  selector?: string
+  skipScreenshotArtifacts?: boolean
+  url?: string
 }): Promise<VisualState | null> {
   const {
     analyzedRecording,
@@ -2516,23 +2359,26 @@ async function maybeCaptureVisualState(params: {
     selector,
     skipScreenshotArtifacts = false,
     url,
-  } = params;
+  } = params
   if (!url) {
-    return null;
+    return null
   }
 
-  const candidates = findVisualCaptureCandidates(analyzedRecording);
+  const candidates = findVisualCaptureCandidates(analyzedRecording)
   const expected = {
     landmarks: collectExpectedLandmarks(recording),
     title: findExpectedPageTitle(recording),
     url,
-  };
+  }
   const screenshotDir = skipScreenshotArtifacts
     ? undefined
-    : resolveVisualCaptureScreenshotDir(projectRoot);
+    : resolveVisualCaptureScreenshotDir(projectRoot)
   const authOptions = auth
-    ? { path: resolve(projectRoot, auth.path), strategy: auth.strategy }
-    : null;
+    ? {
+        path: resolve(projectRoot, auth.path),
+        strategy: auth.strategy,
+      }
+    : null
 
   if (candidates.length > 0) {
     return captureVisualState(url, {
@@ -2542,7 +2388,7 @@ async function maybeCaptureVisualState(params: {
       reason: candidates[0]!.reason,
       screenshotDir,
       selector: candidates[0]!.selector,
-    });
+    })
   }
 
   if (selector) {
@@ -2550,48 +2396,46 @@ async function maybeCaptureVisualState(params: {
       auth: authOptions,
       authRecovery,
       expected,
-      reason: "ambiguous-ui",
+      reason: 'ambiguous-ui',
       screenshotDir,
       selector,
-    });
+    })
   }
 
   return captureVisualState(url, {
     auth: authOptions,
     authRecovery,
     expected,
-    reason: "page-context",
+    reason: 'page-context',
     screenshotDir,
-  });
+  })
 }
 
 async function persistRecoveredVisualAuth(params: {
-  packageProfile: ResolvedTaroPackageProfile | null;
-  projectRoot: string;
-  visualState: VisualState | null;
+  packageProfile: ResolvedTaroPackageProfile | null
+  projectRoot: string
+  visualState: VisualState | null
 }): Promise<TaroPlaywrightAuthProfile | null> {
-  const { packageProfile, projectRoot, visualState } = params;
+  const { packageProfile, projectRoot, visualState } = params
   if (
-    visualState?.status !== "auth-recovered" ||
+    visualState?.status !== 'auth-recovered' ||
     !visualState.authRecovery?.persistedAuthPath
   ) {
-    return null;
+    return null
   }
 
   const persistedAuth: TaroPlaywrightAuthProfile = {
-    strategy: "storageState",
+    strategy: 'storageState',
     path: visualState.authRecovery.persistedAuthPath,
-    detectedAt: "generate",
-    source: "manual",
-  };
+    detectedAt: 'generate',
+    source: 'manual',
+  }
 
   if (!packageProfile) {
     console.warn(
-      pc.yellow(
-        "[taro] Visual auth: storageState was saved, but no package profile was available to persist it in state."
-      )
-    );
-    return persistedAuth;
+      pc.yellow('[taro] Visual auth: storageState was saved, but no package profile was available to persist it in state.')
+    )
+    return persistedAuth
   }
 
   try {
@@ -2599,28 +2443,24 @@ async function persistRecoveredVisualAuth(params: {
       projectRoot,
       packageProfile.packagePath,
       persistedAuth
-    );
+    )
     if (persisted) {
       log(
-        pc.dim("[taro]") +
+        pc.dim('[taro]') +
           ` Persisted visual auth for package ${packageProfile.packagePath}: ${persistedAuth.strategy}=${persistedAuth.path}`
-      );
+      )
     } else {
       console.warn(
-        pc.yellow(
-          "[taro] Visual auth: storageState was saved, but Taro could not persist it in state."
-        )
-      );
+        pc.yellow('[taro] Visual auth: storageState was saved, but Taro could not persist it in state.')
+      )
     }
   } catch {
     console.warn(
-      pc.yellow(
-        "[taro] Visual auth: storageState was saved, but persisting it in .taro/state.json failed."
-      )
-    );
+      pc.yellow('[taro] Visual auth: storageState was saved, but persisting it in .taro/state.json failed.')
+    )
   }
 
-  return persistedAuth;
+  return persistedAuth
 }
 
 async function maybeAnalyzeMocks(
@@ -2628,172 +2468,143 @@ async function maybeAnalyzeMocks(
   packageProfile: ResolvedTaroPackageProfile | null
 ): Promise<MockAnalysis | null> {
   try {
-    return await analyzeMocks(projectRoot, { packageProfile });
+    return await analyzeMocks(projectRoot, { packageProfile })
   } catch {
-    return null;
+    return null
   }
 }
 
 async function finalizeGeneratedOutput(params: {
-  code: string;
-  outputPath: string;
-  projectRoot: string;
-  recordingFile: string;
-  scoreResult: ScoreResult;
-  packageProfile: ResolvedTaroPackageProfile | null;
+  code: string
+  outputPath: string
+  projectRoot: string
+  recordingFile: string
+  scoreResult: ScoreResult
+  packageProfile: ResolvedTaroPackageProfile | null
 }): Promise<void> {
-  const {
-    code,
-    outputPath,
-    projectRoot,
-    recordingFile,
-    scoreResult,
-    packageProfile,
-  } = params;
+  const { code, outputPath, projectRoot, recordingFile, scoreResult, packageProfile } = params
 
-  const verification = verifySyntax(code, outputPath);
+  const verification = verifySyntax(code, outputPath)
   if (!verification.valid) {
-    console.error(pc.red("[taro] Error: Post-write verification failed"));
-    console.error(pc.red(`  ${verification.error}`));
-    console.error(pc.red("  This is a Taro bug. Please report it."));
-    process.exit(2);
+    console.error(pc.red('[taro] Error: Post-write verification failed'))
+    console.error(pc.red(`  ${verification.error}`))
+    console.error(pc.red('  This is a Taro bug. Please report it.'))
+    process.exit(2)
   }
 
-  log(pc.green("[taro] ✓ post-write verified"));
+  log(pc.green('[taro] ✓ post-write verified'))
 
   try {
-    await refreshTaroState(projectRoot);
+    await refreshTaroState(projectRoot)
     await appendGeneratedTestRecord(projectRoot, {
-      packagePath: packageProfile?.packagePath ?? ".",
+      packagePath: packageProfile?.packagePath ?? '.',
       recordingFile,
       testFile: outputPath,
       scoreResult,
-    });
+    })
     log(
-      pc.dim("[taro]") +
-        ` Updated .taro/state.json for package ${packageProfile?.packagePath ?? "."}.`
-    );
+      pc.dim('[taro]') +
+        ` Updated .taro/state.json for package ${packageProfile?.packagePath ?? '.'}.`
+    )
   } catch {
     // State updates are best-effort; generation should still succeed.
   }
 }
 
-export function createGenerateCommand(
-  context: GenerateCommandContext = {}
-): Command {
-  const generate = new Command("__generate");
+export function createGenerateCommand(context: GenerateCommandContext = {}): Command {
+  const generate = new Command('__generate')
 
   generate
-    .description(
-      "Internal runtime-only generator for Testing Library Recorder JS exports"
-    )
-    .argument("<file>", "Path to the recorder export file (.js)")
-    .option(
-      "-i, --interactive-auth",
-      "Force interactive Playwright auth recovery even when stdio is not detected as TTY"
-    )
-    .option(
-      "--auth <file>",
-      "Path to a Playwright storageState JSON file for optional visual capture"
-    )
-    .option(
-      "--instructions <file>",
-      "Path to a non-secret auth instructions file for optional visual capture"
-    )
-    .option(
-      "--no-screenshots",
-      "Skip optional Playwright screenshots and visual inspection"
-    )
+    .description('Internal runtime-only generator for Testing Library Recorder JS exports')
+    .argument('<file>', 'Path to the recorder export file (.js)')
+    .option('-i, --interactive-auth', 'Force interactive Playwright auth recovery even when stdio is not detected as TTY')
+    .option('--auth <file>', 'Path to a Playwright storageState JSON file for optional visual capture')
+    .option('--instructions <file>', 'Path to a non-secret auth instructions file for optional visual capture')
+    .option('--no-screenshots', 'Skip optional Playwright screenshots and visual inspection')
     .action(async (file: string) => {
-      const filePath = resolve(file);
-      const projectRoot = cwd();
-      const findings: Finding[] = [];
+      const filePath = resolve(file)
+      const projectRoot = cwd()
+      const findings: Finding[] = []
       const commandOptions = generate.opts<{
-        auth?: string;
-        interactiveAuth?: boolean;
-        instructions?: string;
-        screenshots?: boolean;
-      }>();
-      const screenshotsEnabled = commandOptions.screenshots !== false;
+        auth?: string
+        interactiveAuth?: boolean
+        instructions?: string
+        screenshots?: boolean
+      }>()
+      const screenshotsEnabled = commandOptions.screenshots !== false
 
       // 1. Verify file is accessible
       try {
-        await access(filePath);
+        await access(filePath)
       } catch {
         console.error(
-          pc.red("Error:") +
-            ` File not found or not accessible: ${pc.bold(filePath)}`
-        );
-        process.exit(2);
+          pc.red('Error:') + ` File not found or not accessible: ${pc.bold(filePath)}`
+        )
+        process.exit(2)
       }
 
-      let parsedInput: Awaited<ReturnType<typeof loadInput>>;
+      let parsedInput: Awaited<ReturnType<typeof loadInput>>
       try {
-        parsedInput = await loadInput(filePath);
+        parsedInput = await loadInput(filePath)
       } catch (err) {
         console.error(
-          pc.red("Error:") +
-            ` Failed to parse recording: ${pc.bold(filePath)}\n${String(err)}`
-        );
-        process.exit(2);
+          pc.red('Error:') + ` Failed to parse recording: ${pc.bold(filePath)}\n${String(err)}`
+        )
+        process.exit(2)
       }
 
-      let normalizedRecording = normalizeJsBaseline(parsedInput);
-      const hadState = await access(join(projectRoot, ".taro", "state.json"))
+      let normalizedRecording = normalizeJsBaseline(parsedInput)
+      const hadState = await access(join(projectRoot, '.taro', 'state.json'))
         .then(() => true)
-        .catch(() => false);
-      const defaultOutputPath = deriveOutputPath(filePath);
-      let bootstrappedState = await loadOrBootstrapTaroState(projectRoot);
-      let overrides = await readTaroOverrides(projectRoot);
+        .catch(() => false)
+      const defaultOutputPath = deriveOutputPath(filePath)
+      let bootstrappedState = await loadOrBootstrapTaroState(projectRoot)
+      let overrides = await readTaroOverrides(projectRoot)
       let packageProfile = resolveTaroPackageProfile(
         bootstrappedState.state,
         projectRoot,
         defaultOutputPath,
         overrides
-      );
-      const explicitAuthPath = await resolveOptionalFilePath(
-        projectRoot,
-        commandOptions.auth
-      );
+      )
+      const explicitAuthPath = await resolveOptionalFilePath(projectRoot, commandOptions.auth)
       const explicitInstructionsPath = await resolveOptionalFilePath(
         projectRoot,
         commandOptions.instructions
-      );
+      )
       if (explicitAuthPath && explicitInstructionsPath) {
         console.warn(
-          pc.yellow(
-            "[taro] Visual auth: both --auth and --instructions were provided; preferring --auth for this run."
-          )
-        );
+          pc.yellow('[taro] Visual auth: both --auth and --instructions were provided; preferring --auth for this run.')
+        )
       }
-      let visualAuth: TaroPlaywrightAuthProfile | null = explicitAuthPath
-        ? {
-            strategy: "storageState",
-            path: explicitAuthPath.relativePath,
-            detectedAt: "generate",
-            source: "manual",
-          }
-        : explicitInstructionsPath
+      let visualAuth: TaroPlaywrightAuthProfile | null =
+        explicitAuthPath
           ? {
-              strategy: "instructions",
-              path: explicitInstructionsPath.relativePath,
-              detectedAt: "generate",
-              source: "manual",
+              strategy: 'storageState',
+              path: explicitAuthPath.relativePath,
+              detectedAt: 'generate',
+              source: 'manual',
             }
-          : (packageProfile?.playwrightAuth ?? null);
+          : explicitInstructionsPath
+            ? {
+                strategy: 'instructions',
+                path: explicitInstructionsPath.relativePath,
+                detectedAt: 'generate',
+                source: 'manual',
+              }
+            : packageProfile?.playwrightAuth ?? null
       const authInstructionsPath =
         explicitInstructionsPath?.relativePath ??
-        (visualAuth?.strategy === "instructions" ? visualAuth.path : undefined);
+        (visualAuth?.strategy === 'instructions' ? visualAuth.path : undefined)
       const interactiveVisualAuth = hasInteractiveVisualAuthCapability(
         context,
         commandOptions.interactiveAuth === true
-      );
+      )
       const recoveryStorageStatePath = resolveVisualAuthStorageStatePath(
         projectRoot,
         visualAuth
-      );
-      const earlyAnalyzedRecording = analyzeRecording(normalizedRecording);
-      const recordingUrl = findRecordingUrl(earlyAnalyzedRecording);
+      )
+      const earlyAnalyzedRecording = analyzeRecording(normalizedRecording)
+      const recordingUrl = findRecordingUrl(earlyAnalyzedRecording)
       // Authentication preflight runs before repo grounding so Playwright-confirmed
       // route and landmark evidence can steer context matching when available.
       let visualState = await maybeCaptureVisualState({
@@ -2813,192 +2624,165 @@ export function createGenerateCommand(
         selector: getPrimarySelector(normalizedRecording),
         skipScreenshotArtifacts: !screenshotsEnabled,
         url: recordingUrl,
-      });
+      })
       if (!screenshotsEnabled) {
         log(
-          pc.dim("[taro]") +
-            " Screenshot artifacts skipped (--no-screenshots); Playwright page confirmation still ran."
-        );
+          pc.dim('[taro]') +
+            ' Screenshot artifacts skipped (--no-screenshots); Playwright page confirmation still ran.'
+        )
       }
       summarizeAuthPreflight({
         auth: visualAuth,
         url: recordingUrl,
         visualState,
-      });
-      summarizeVisualState(visualState);
-      summarizePageConfirmedContext(visualState);
-      const contextSearchTerms = collectRepoContextSearchTerms(
-        normalizedRecording,
-        visualState
-      );
+      })
+      summarizeVisualState(visualState)
+      summarizePageConfirmedContext(visualState)
+      const contextSearchTerms = collectRepoContextSearchTerms(normalizedRecording, visualState)
       const contextMatches = await findRepoContextMatches({
         projectRoot,
         terms: contextSearchTerms,
         excludePaths: [filePath, defaultOutputPath],
-      });
+      })
       normalizedRecording = await enrichCanonicalSemanticMarkers({
         contextMatches,
         projectRoot,
         recording: normalizedRecording,
-      });
+      })
       const contextProfile = resolvePackageProfileFromContextMatches({
         state: bootstrappedState.state,
         currentProfile: packageProfile,
         projectRoot,
         overrides,
         matches: contextMatches,
-      });
-      packageProfile = contextProfile.profile;
-      let contextProfileReason = contextProfile.reason;
+      })
+      packageProfile = contextProfile.profile
+      let contextProfileReason = contextProfile.reason
 
       if (bootstrappedState.summary.warnings.length > 0) {
         for (const warning of bootstrappedState.summary.warnings) {
-          console.warn(pc.yellow(`[taro] State: ${warning}`));
+          console.warn(pc.yellow(`[taro] State: ${warning}`))
         }
       }
 
       if (packageProfile) {
-        const staleness = await detectPackageProfileStaleness(
-          projectRoot,
-          packageProfile
-        );
+        const staleness = await detectPackageProfileStaleness(projectRoot, packageProfile)
         if (staleness.stale) {
           log(
-            pc.dim("[taro]") +
+            pc.dim('[taro]') +
               ` Detected stale package profile ${packageProfile.packagePath}; refreshing before generation.`
-          );
+          )
           if (staleness.reason) {
-            console.warn(pc.yellow(`[taro] State: ${staleness.reason}`));
+            console.warn(pc.yellow(`[taro] State: ${staleness.reason}`))
           }
-          bootstrappedState = await refreshTaroState(projectRoot);
-          overrides = await readTaroOverrides(projectRoot);
+          bootstrappedState = await refreshTaroState(projectRoot)
+          overrides = await readTaroOverrides(projectRoot)
           packageProfile = resolveTaroPackageProfile(
             bootstrappedState.state,
             projectRoot,
             defaultOutputPath,
             overrides
-          );
-          const refreshedContextProfile =
-            resolvePackageProfileFromContextMatches({
-              state: bootstrappedState.state,
-              currentProfile: packageProfile,
-              projectRoot,
-              overrides,
-              matches: contextMatches,
-            });
-          packageProfile = refreshedContextProfile.profile;
-          contextProfileReason = refreshedContextProfile.reason;
+          )
+          const refreshedContextProfile = resolvePackageProfileFromContextMatches({
+            state: bootstrappedState.state,
+            currentProfile: packageProfile,
+            projectRoot,
+            overrides,
+            matches: contextMatches,
+          })
+          packageProfile = refreshedContextProfile.profile
+          contextProfileReason = refreshedContextProfile.reason
         }
       }
 
-      const conventions = packageProfile?.conventions ?? {
-        scannedAt: new Date().toISOString(),
-        projectRoot,
-        importStyle: "esm",
-        mockPattern: "none",
-        testFiles: [],
-        folderPattern: "unknown",
-        fileExtension: "ts",
-      };
+      const conventions =
+        packageProfile?.conventions ?? {
+          scannedAt: new Date().toISOString(),
+          projectRoot,
+          importStyle: 'esm',
+          mockPattern: 'none',
+          testFiles: [],
+          folderPattern: 'unknown',
+          fileExtension: 'ts',
+      }
       const contextRenderTargets = deriveContextRenderTargets({
         projectRoot,
         outputPath: defaultOutputPath,
         matches: contextMatches,
-      });
-      const repoRenderTargets = [
-        ...contextRenderTargets,
-        ...(packageProfile?.renderTargets ?? []),
-      ];
+      })
+      const repoRenderTargets = [...contextRenderTargets, ...(packageProfile?.renderTargets ?? [])]
 
-      if (
-        (explicitAuthPath || explicitInstructionsPath) &&
-        packageProfile &&
-        visualAuth
-      ) {
+      if ((explicitAuthPath || explicitInstructionsPath) && packageProfile && visualAuth) {
         const persisted = await persistPlaywrightAuthProfile(
           projectRoot,
           packageProfile.packagePath,
           visualAuth
-        );
+        )
         if (persisted) {
           log(
-            pc.dim("[taro]") +
+            pc.dim('[taro]') +
               ` Persisted visual auth for package ${packageProfile.packagePath}: ${visualAuth.strategy}=${visualAuth.path}`
-          );
+          )
         } else {
           console.warn(
-            pc.yellow(
-              "[taro] Visual auth: resolved the auth path for this run but could not persist it in state."
-            )
-          );
-        }
-      } else if (
-        (explicitAuthPath || explicitInstructionsPath) &&
-        !packageProfile &&
-        visualAuth
-      ) {
-        console.warn(
-          pc.yellow(
-            "[taro] Visual auth: using the explicit auth path for this run, but no package profile was available to persist it."
+            pc.yellow('[taro] Visual auth: resolved the auth path for this run but could not persist it in state.')
           )
-        );
+        }
+      } else if ((explicitAuthPath || explicitInstructionsPath) && !packageProfile && visualAuth) {
+        console.warn(
+          pc.yellow('[taro] Visual auth: using the explicit auth path for this run, but no package profile was available to persist it.')
+        )
       }
 
       if (!hadState) {
-        log(
-          pc.dim("[taro]") +
-            " Bootstrapped .taro/state.json from current repo tests."
-        );
+        log(pc.dim('[taro]') + ' Bootstrapped .taro/state.json from current repo tests.')
       }
       if (contextMatches.length > 0) {
         log(
-          pc.dim("[taro]") +
+          pc.dim('[taro]') +
             ` Context matches: ${formatContextMatchesSummary(contextMatches)}`
-        );
+        )
       }
       if (packageProfile?.appliedOverrides.length) {
         log(
-          pc.dim("[taro]") +
-            ` Applied overrides for ${packageProfile.packagePath}: ${packageProfile.appliedOverrides.join(", ")}`
-        );
+          pc.dim('[taro]') +
+            ` Applied overrides for ${packageProfile.packagePath}: ${packageProfile.appliedOverrides.join(', ')}`
+        )
       }
       if (contextProfileReason && packageProfile) {
         log(
-          pc.dim("[taro]") +
+          pc.dim('[taro]') +
             ` Context-selected package profile ${packageProfile.packagePath}: ${contextProfileReason}.`
-        );
+        )
       }
-      summarizeResolvedPackageProfile(packageProfile);
-      summarizePlaywrightAuth(packageProfile);
+      summarizeResolvedPackageProfile(packageProfile)
+      summarizePlaywrightAuth(packageProfile)
 
       log(
-        pc.green("Parsed:") +
+        pc.green('Parsed:') +
           ` ${pc.bold(normalizedRecording.title)} — ${normalizedRecording.steps.length} steps` +
           `, ${normalizedRecording.baseline?.itGroups.length ?? 0} test group(s)`
-      );
+      )
 
-      const analyzedRecording = analyzeRecording(normalizedRecording);
-      const markerAwareRecording = mergeAnalyzedStepState(
-        normalizedRecording,
-        analyzedRecording
-      );
-      summarizeCleanup(analyzedRecording);
+      const analyzedRecording = analyzeRecording(normalizedRecording)
+      const markerAwareRecording = mergeAnalyzedStepState(normalizedRecording, analyzedRecording)
+      summarizeCleanup(analyzedRecording)
       const recoveredVisualAuth = await persistRecoveredVisualAuth({
         packageProfile,
         projectRoot,
         visualState,
-      });
+      })
       if (recoveredVisualAuth) {
-        visualAuth = recoveredVisualAuth;
+        visualAuth = recoveredVisualAuth
       }
-      const mockAnalysis = await maybeAnalyzeMocks(projectRoot, packageProfile);
-      summarizeMockAnalysis(mockAnalysis);
+      const mockAnalysis = await maybeAnalyzeMocks(projectRoot, packageProfile)
+      summarizeMockAnalysis(mockAnalysis)
       const rawJsSuitePlan = planJsSuite({
         recording: markerAwareRecording,
         analyzedRecording,
         mockAnalysis,
         fallbackTitle: normalizedRecording.title,
-      });
+      })
 
       const repoRenderTarget = resolveRepoRenderTarget({
         candidates: repoRenderTargets,
@@ -3007,68 +2791,61 @@ export function createGenerateCommand(
         mockAnalysis,
         suitePlan: rawJsSuitePlan,
         visualState,
-      });
+      })
       const resolvedRenderTargetFile = await resolveRenderTargetFile({
         projectRoot,
         renderTarget: repoRenderTarget,
-      });
+      })
       const outputPath = resolvedRenderTargetFile
         ? deriveOutputPath(resolvedRenderTargetFile)
-        : defaultOutputPath;
+        : defaultOutputPath
       const generationRenderTarget =
         repoRenderTarget && resolvedRenderTargetFile
           ? {
               ...repoRenderTarget,
-              importPath: toImportPath(
-                dirname(outputPath),
-                resolvedRenderTargetFile
-              ),
+              importPath: toImportPath(dirname(outputPath), resolvedRenderTargetFile),
             }
-          : repoRenderTarget;
+          : repoRenderTarget
       const generationRenderHelper = rebaseRenderHelperImportPath({
         projectRoot,
         outputPath,
         renderHelper: packageProfile?.effectiveRenderHelper ?? null,
-      });
+      })
       const boundarySupportPlan = await planBoundarySupport({
         projectRoot,
         outputPath,
         packageProfile,
         renderTargetFile: resolvedRenderTargetFile,
         renderTarget: repoRenderTarget,
-      });
+      })
 
       if (boundarySupportPlan.warnings.length > 0) {
         for (const warning of boundarySupportPlan.warnings) {
-          console.warn(pc.yellow(`[taro] Boundary support: ${warning}`));
+          console.warn(pc.yellow(`[taro] Boundary support: ${warning}`))
         }
       }
 
       const jsSuitePlan = rawJsSuitePlan
         ? applyRepoRenderTarget(rawJsSuitePlan, repoRenderTarget)
-        : null;
+        : null
 
       if (jsSuitePlan) {
-        summarizeBoundaryWarnings(jsSuitePlan.warnings);
-        summarizeSuiteContracts(jsSuitePlan);
+        summarizeBoundaryWarnings(jsSuitePlan.warnings)
+        summarizeSuiteContracts(jsSuitePlan)
       }
 
       const resolvedJsGeneration = await resolveJsGeneration(
         markerAwareRecording,
-        jsSuitePlan?.itGroups ??
-          toItGroups(analyzedRecording, normalizedRecording.title),
+        jsSuitePlan?.itGroups ?? toItGroups(analyzedRecording, normalizedRecording.title),
         {
           auth: visualAuth
-            ? {
-                path: resolve(projectRoot, visualAuth.path),
-                strategy: visualAuth.strategy,
-              }
+            ? { path: resolve(projectRoot, visualAuth.path), strategy: visualAuth.strategy }
             : undefined,
         }
-      );
+      )
 
       if (resolvedJsGeneration) {
-        summarizeSelectorWarnings(resolvedJsGeneration.warnings);
+        summarizeSelectorWarnings(resolvedJsGeneration.warnings)
       }
 
       const hydratedSuitePlan = jsSuitePlan
@@ -3076,146 +2853,124 @@ export function createGenerateCommand(
             jsSuitePlan,
             resolvedJsGeneration?.recording.steps ?? markerAwareRecording.steps
           )
-        : jsSuitePlan;
+        : jsSuitePlan
       const generationHelpers = hydratedSuitePlan
         ? stripSemanticMarkerStepsFromHelpers(hydratedSuitePlan.helpers)
-        : undefined;
+        : undefined
       const generationScenarios =
         hydratedSuitePlan && generationHelpers
-          ? stripSemanticMarkerStepsFromScenarios(
-              hydratedSuitePlan.scenarios,
-              generationHelpers
-            )
-          : undefined;
+          ? stripSemanticMarkerStepsFromScenarios(hydratedSuitePlan.scenarios, generationHelpers)
+          : undefined
       const generationItGroups = stripSemanticMarkerStepsFromItGroups(
         resolvedJsGeneration?.itGroups ??
           hydratedSuitePlan?.itGroups ??
           toItGroups(analyzedRecording, normalizedRecording.title)
-      );
+      )
 
-      const generated = generateTestFromGroups(
-        normalizedRecording.title,
-        generationItGroups,
-        {
-          outputPath,
-          conventions,
-          runner: packageProfile?.effectiveRunner ?? "unknown",
-          queryResults: resolvedJsGeneration?.queryResults ?? [],
-          helpers: generationHelpers,
-          scenarios: generationScenarios,
-          renderTarget: generationRenderTarget,
-          renderHelper: generationRenderHelper,
-        }
-      );
-      generated.code = applyBoundarySupport(
-        generated.code,
-        boundarySupportPlan
-      );
+      const generated = generateTestFromGroups(normalizedRecording.title, generationItGroups, {
+        outputPath,
+        conventions,
+        runner: packageProfile?.effectiveRunner ?? 'unknown',
+        queryResults: resolvedJsGeneration?.queryResults ?? [],
+        helpers: generationHelpers,
+        scenarios: generationScenarios,
+        renderTarget: generationRenderTarget,
+        renderHelper: generationRenderHelper,
+      })
+      generated.code = applyBoundarySupport(generated.code, boundarySupportPlan)
       const boundaryPolicyWarnings = await auditBoundaryPolicy(
         generated.code,
         packageProfile,
         resolvedRenderTargetFile
-      );
+      )
       const markerCoverage = buildMarkerCoverageSummary({
         analyzedRecording,
         suitePlan: hydratedSuitePlan,
-      });
+      })
 
       if (hydratedSuitePlan?.warnings.length) {
         generated.code = [
-          ...hydratedSuitePlan.warnings.map(
-            (warning) => `// taro-boundary-warning: ${warning}`
-          ),
+          ...hydratedSuitePlan.warnings.map((warning) => `// taro-boundary-warning: ${warning}`),
           generated.code,
-        ].join("\n");
+        ].join('\n')
       }
       if (boundaryPolicyWarnings.length > 0) {
         generated.code = [
-          ...boundaryPolicyWarnings.map(
-            (warning) => `// taro-boundary-warning: ${warning}`
-          ),
+          ...boundaryPolicyWarnings.map((warning) => `// taro-boundary-warning: ${warning}`),
           generated.code,
-        ].join("\n");
+        ].join('\n')
       }
 
-      emitQuerySummary(resolvedJsGeneration?.queryResults ?? []);
+      emitQuerySummary(resolvedJsGeneration?.queryResults ?? [])
 
-      const markerDiagnostics = buildMarkerReviewDiagnostics(hydratedSuitePlan);
-      const candidateFlowCoverage = buildFlowCoverageSummary(
-        analyzedRecording,
-        generated.code
-      );
+      const markerDiagnostics = buildMarkerReviewDiagnostics(hydratedSuitePlan)
+      const candidateFlowCoverage = buildFlowCoverageSummary(analyzedRecording, generated.code)
       const scoreResult = scoreGeneratedTest(generated.code, {
         queryResults: resolvedJsGeneration?.queryResults ?? [],
         markerCoverage,
         markerDiagnostics,
-      });
-      const boundaryIssues = analyzeBoundaryIsolation(generated.code);
+      })
+      const boundaryIssues = analyzeBoundaryIsolation(generated.code)
       const candidateAssessment: OutputAssessment = {
         flowCoverage: candidateFlowCoverage,
         scoreResult,
-      };
+      }
 
-      let shouldOverwriteExistingOutput = false;
+      let shouldOverwriteExistingOutput = false
       if (await pathExists(outputPath)) {
         try {
-          const existingCode = await readFile(outputPath, "utf-8");
+          const existingCode = await readFile(outputPath, 'utf-8')
           const existingAssessment = await assessOutputAgainstRecording({
             analyzedRecording,
             code: existingCode,
-          });
+          })
           shouldOverwriteExistingOutput =
-            compareOutputAssessments(candidateAssessment, existingAssessment) >
-            0;
+            compareOutputAssessments(candidateAssessment, existingAssessment) > 0
           logExistingOutputDecision({
             outputPath,
             candidate: candidateAssessment,
             existing: existingAssessment,
             overwrite: shouldOverwriteExistingOutput,
-          });
+          })
 
           if (!shouldOverwriteExistingOutput) {
-            flushFindings(findings);
+            flushFindings(findings)
           }
         } catch (error) {
           console.warn(
             pc.yellow(
               `[taro] Existing output could not be assessed cleanly, so Taro will preserve it instead of overwriting blindly.`
             )
-          );
-          console.warn(pc.yellow(`[taro] Assessment detail: ${String(error)}`));
-          flushFindings(findings);
+          )
+          console.warn(pc.yellow(`[taro] Assessment detail: ${String(error)}`))
+          flushFindings(findings)
         }
       }
 
-      logScore(scoreResult);
-      emitMarkerCoverageSection(scoreResult);
-      emitRecoveredMarkerDiagnostics(hydratedSuitePlan);
-      emitMarkerPlacementCorrections(hydratedSuitePlan);
-      emitUnresolvedMarkerWarnings(hydratedSuitePlan);
+      logScore(scoreResult)
+      emitMarkerCoverageSection(scoreResult)
+      emitRecoveredMarkerDiagnostics(hydratedSuitePlan)
+      emitMarkerPlacementCorrections(hydratedSuitePlan)
+      emitUnresolvedMarkerWarnings(hydratedSuitePlan)
       for (const warning of boundaryPolicyWarnings) {
-        console.warn(pc.yellow(`[taro] Boundary policy: ${warning}`));
+        console.warn(pc.yellow(`[taro] Boundary policy: ${warning}`))
       }
       if (boundarySupportPlan.requiresReview) {
         console.warn(
           pc.yellow(
-            "[taro] Boundary support requires manual review because one or more collaborators were scaffolded with generic defaults."
+            '[taro] Boundary support requires manual review because one or more collaborators were scaffolded with generic defaults.'
           )
-        );
+        )
       }
-      emitLowConfidenceBanner(scoreResult);
-      emitScoreHints(
-        scoreResult,
-        resolvedJsGeneration?.queryResults ?? [],
-        boundaryIssues
-      );
+      emitLowConfidenceBanner(scoreResult)
+      emitScoreHints(scoreResult, resolvedJsGeneration?.queryResults ?? [], boundaryIssues)
 
       try {
-        await materializeBoundarySupport(boundarySupportPlan);
+        await materializeBoundarySupport(boundarySupportPlan)
         const result = await writeTestFile(generated.code, outputPath, {
           createDir: true,
           overwriteExisting: shouldOverwriteExistingOutput,
-        });
+        })
         await finalizeGeneratedOutput({
           code: generated.code,
           outputPath: result.filePath,
@@ -3223,17 +2978,15 @@ export function createGenerateCommand(
           recordingFile: filePath,
           scoreResult,
           packageProfile,
-        });
-        const action = result.overwritten
-          ? pc.yellow("Updated")
-          : pc.green("Created");
-        log(`${action}: ${pc.bold(result.filePath)}`);
+        })
+        const action = result.overwritten ? pc.yellow('Updated') : pc.green('Created')
+        log(`${action}: ${pc.bold(result.filePath)}`)
       } catch (err) {
-        process.stderr.write(pc.red("Error:") + ` ${String(err)}` + "\n");
-        process.exit(2);
+        process.stderr.write(pc.red('Error:') + ` ${String(err)}` + '\n')
+        process.exit(2)
       }
-      flushFindings(findings);
-    });
+      flushFindings(findings)
+    })
 
-  return generate;
+  return generate
 }

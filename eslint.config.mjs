@@ -30,18 +30,34 @@ export default [
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
-      globals: { ...globals.node, JSX: "readonly", NodeJS: "readonly" },
+      globals: {
+        ...globals.node,
+        JSX: "readonly",
+        NodeJS: "readonly",
+      },
     },
-    rules: { "no-unused-vars": "off", "no-useless-escape": "warn" },
+    rules: {
+      "no-unused-vars": "off",
+      "no-useless-escape": "warn",
+    },
   },
   {
     files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
       parser: tsParser,
-      parserOptions: { ecmaVersion: "latest", sourceType: "module" },
-      globals: { ...globals.node, JSX: "readonly", NodeJS: "readonly" },
+      parserOptions: {
+        ecmaVersion: "latest",
+        sourceType: "module",
+      },
+      globals: {
+        ...globals.node,
+        JSX: "readonly",
+        NodeJS: "readonly",
+      },
     },
-    plugins: { "@typescript-eslint": tseslint },
+    plugins: {
+      "@typescript-eslint": tseslint,
+    },
     rules: {
       ...tseslint.configs.recommended.rules,
       "@typescript-eslint/no-unused-vars": [
@@ -66,7 +82,9 @@ export default [
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "commonjs",
-      globals: { ...globals.node },
+      globals: {
+        ...globals.node,
+      },
     },
   },
   {
@@ -87,6 +105,8 @@ export default [
         NodeJS: "readonly",
       },
     },
-    rules: { "@typescript-eslint/no-non-null-assertion": "off" },
+    rules: {
+      "@typescript-eslint/no-non-null-assertion": "off",
+    },
   },
 ];

@@ -12,7 +12,7 @@ Invoke this skill with `$@taro-test/rtl-conventions`.
 Taro reads `.taro/state.json` on generation and resolves a package-scoped profile for the target recording/output path. Key learned signals include:
 
 | Field | Values | Effect |
-| --- | --- | --- |
+|-------|--------|--------|
 | `packages.<path>.importStyle` | `"esm"` / `"cjs"` | Controls `import` vs `require` in generated tests |
 | `packages.<path>.runner` | `"vitest"` / `"jest"` / `"unknown"` | Controls runner-aware imports such as `@testing-library/jest-dom/vitest` |
 | `packages.<path>.renderHelpers[]` | learned from repo | Taro can reuse existing render wrapper functions instead of writing `render(...)` directly |

@@ -1,35 +1,44 @@
 /**
  * Noise event filter - removes irrelevant events from recordings
- *
+ * 
  * Filters out:
  * - dblClick events (double clicks)
  * - mousemove/mouseover/mouseout (cursor wandering)
  * - Accidental scroll events (scroll with no action within 2s)
- *
+ * 
  * Preserves:
  * - click, fill, select, change, navigate, keyPress, assert
  */
 
-import type { RecordingStep, StepType } from "../../types/recording.js";
+import type { RecordingStep, StepType } from '../../types/recording.js';
 
 const INTENTIONAL_SCROLL_THRESHOLD_MS = 2000;
 
 /**
  * Step types that are considered noise and should be filtered
  */
-const NOISE_STEP_TYPES: StepType[] = ["doubleClick"];
+const NOISE_STEP_TYPES: StepType[] = [
+  'doubleClick',
+];
 
 /**
  * Step types that are definitely intentional (never noise)
  */
 const INTENTIONAL_STEP_TYPES: StepType[] = [
-  "click",
-  "fill",
-  "select",
-  "assert",
-  "waitForSelector",
-  "keyDown",
-  "navigate",
+  'click',
+  'fill',
+  'select',
+  'assert',
+  'waitForSelector',
+  'keyDown',
+  'navigate',
+];
+
+/**
+ * Step types that might be noise depending on context
+ */
+const POTENTIALLY_NOISE_STEP_TYPES: StepType[] = [
+  'scroll',
 ];
 
 /**
@@ -43,13 +52,13 @@ function isNoiseStepType(step: RecordingStep): boolean {
  * Check if step is cursor-related noise
  */
 function isCursorNoise(step: RecordingStep): boolean {
-  const action = step.action?.toLowerCase() || "";
+  const action = step.action?.toLowerCase() || '';
   return (
-    action === "mousemove" ||
-    action === "mouseover" ||
-    action === "mouseout" ||
-    action === "mouseenter" ||
-    action === "mouseleave"
+    action === 'mousemove' ||
+    action === 'mouseover' ||
+    action === 'mouseout' ||
+    action === 'mouseenter' ||
+    action === 'mouseleave'
   );
 }
 
@@ -57,20 +66,17 @@ function isCursorNoise(step: RecordingStep): boolean {
  * Check if step is scroll-related
  */
 function isScrollStep(step: RecordingStep): boolean {
-  return step.type === "scroll" || step.action?.toLowerCase() === "scroll";
+  return step.type === 'scroll' || step.action?.toLowerCase() === 'scroll';
 }
 
 /**
  * Check if there's any intentional action after the scroll within the threshold
- *
+ * 
  * @param scrollIndex - Index of the scroll step in the array
  * @param steps - All steps
  * @returns true if there's an intentional action within 2s after the scroll
  */
-function hasIntentionalActionAfter(
-  scrollIndex: number,
-  steps: RecordingStep[]
-): boolean {
+function hasIntentionalActionAfter(scrollIndex: number, steps: RecordingStep[]): boolean {
   const scrollStep = steps[scrollIndex];
   const scrollTime = scrollStep.timestamp || 0;
 
@@ -95,10 +101,7 @@ function hasIntentionalActionAfter(
 /**
  * Determine if a scroll step is noise (accidental scroll with no subsequent action)
  */
-function isAccidentalScroll(
-  scrollIndex: number,
-  steps: RecordingStep[]
-): boolean {
+function isAccidentalScroll(scrollIndex: number, steps: RecordingStep[]): boolean {
   // If there's no timestamp, we can't determine - keep it to be safe
   if (steps[scrollIndex].timestamp === undefined) {
     return false;
@@ -110,7 +113,7 @@ function isAccidentalScroll(
 
 /**
  * Filter noise events from recording steps
- *
+ * 
  * @param steps - Array of recording steps
  * @returns Filtered array with noise events removed
  */
@@ -129,17 +132,17 @@ export function filterNoiseSteps(steps: RecordingStep[]): RecordingStep[] {
     // Check for explicit noise types
     if (isNoiseStepType(step)) {
       shouldKeep = false;
-      reason = "dblClick filtered";
+      reason = 'dblClick filtered';
     }
     // Check for cursor noise
     else if (isCursorNoise(step)) {
       shouldKeep = false;
-      reason = "cursor movement filtered";
+      reason = 'cursor movement filtered';
     }
     // Check for accidental scroll
     else if (isScrollStep(step) && isAccidentalScroll(i, steps)) {
       shouldKeep = false;
-      reason = "accidental scroll filtered";
+      reason = 'accidental scroll filtered';
     }
 
     if (shouldKeep) {

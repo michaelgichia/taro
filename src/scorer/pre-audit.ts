@@ -2,7 +2,8 @@
  * Pre-write audit for test files - validates structure before file creation
  */
 
-import { evaluateQualityGates } from "./quality-gates.js";
+import { parse } from '@typescript-eslint/typescript-estree';
+import { evaluateQualityGates, StructureRules, QueryRules } from './quality-gates.js';
 
 export interface AuditResult {
   valid: boolean;
@@ -37,14 +38,10 @@ export function preWriteAudit(code: string): AuditResult {
 
   // Run quality gates first for detailed analysis
   const qualityResult = evaluateQualityGates(code);
-
+  
   // Extract blocking issues from quality gates (errors only)
-  const qualityErrors = qualityResult.issues.filter(
-    (i) => i.severity === "error"
-  );
-  const qualityWarnings = qualityResult.issues.filter(
-    (i) => i.severity === "warning"
-  );
+  const qualityErrors = qualityResult.issues.filter(i => i.severity === 'error');
+  const qualityWarnings = qualityResult.issues.filter(i => i.severity === 'warning');
 
   // Add quality gate errors as blocking issues
   for (const error of qualityErrors) {
@@ -68,73 +65,57 @@ export function preWriteAudit(code: string): AuditResult {
     valid,
     blocking,
     warnings,
-    qualityScore: valid
-      ? {
-          overall: qualityResult.overall,
-          criteria: qualityResult.criteria,
-          issues: qualityResult.issues.map((i) => ({
-            type: i.type,
-            severity: i.severity,
-            message: i.message,
-            suggestion: i.suggestion,
-          })),
-          passed: qualityResult.passed,
-        }
-      : undefined,
+    qualityScore: valid ? {
+      overall: qualityResult.overall,
+      criteria: qualityResult.criteria,
+      issues: qualityResult.issues.map(i => ({
+        type: i.type,
+        severity: i.severity,
+        message: i.message,
+        suggestion: i.suggestion
+      })),
+      passed: qualityResult.passed
+    } : undefined
   };
 }
 
 /**
  * Perform additional structural validation checks
  */
-function performStructuralChecks(code: string): {
-  blocking: string[];
-  warnings: string[];
-} {
+function performStructuralChecks(code: string): { blocking: string[]; warnings: string[] } {
   const blocking: string[] = [];
   const warnings: string[] = [];
 
   // Check for required imports
   const hasTestingLibrary = /@testing-library\/react/.test(code);
-  const hasDescribe =
-    /import\s+.*\bdescribe\b/.test(code) ||
-    code.includes("describe('") ||
-    code.includes('describe("');
+  const hasDescribe = /import\s+.*\bdescribe\b/.test(code) || code.includes("describe('") || code.includes('describe("');
   const hasIt = /\bit\(|\btest\(/.test(code);
   const hasExpect = /\bexpect\(/.test(code);
 
   // Blocking: Missing essential imports
-  if (!hasTestingLibrary && !code.includes("render(")) {
-    blocking.push("Missing @testing-library/react import or render() call");
+  if (!hasTestingLibrary && !code.includes('render(')) {
+    blocking.push('Missing @testing-library/react import or render() call');
   }
 
   // Blocking: No test structure
   if (!hasDescribe) {
-    blocking.push(
-      "Missing describe block - tests must be organized in describe()"
-    );
+    blocking.push('Missing describe block - tests must be organized in describe()');
   }
 
   // Blocking: No test cases
   if (!hasIt) {
-    blocking.push("Missing test case - need it() or test() blocks");
+    blocking.push('Missing test case - need it() or test() blocks');
   }
 
   // Blocking: No assertions
   if (!hasExpect) {
-    blocking.push("Missing expect statements - tests must have assertions");
+    blocking.push('Missing expect statements - tests must have assertions');
   }
 
   // Warnings: Check for fragile queries
   const fragileQueryPatterns = [
-    {
-      pattern: /getByTestId|queryByTestId|findByTestId/,
-      message: "Using getByTestId - consider semantic queries",
-    },
-    {
-      pattern: /querySelector/,
-      message: "Using querySelector - consider Testing Library queries",
-    },
+    { pattern: /getByTestId|queryByTestId|findByTestId/, message: 'Using getByTestId - consider semantic queries' },
+    { pattern: /querySelector/, message: 'Using querySelector - consider Testing Library queries' }
   ];
 
   for (const { pattern, message } of fragileQueryPatterns) {
@@ -144,24 +125,19 @@ function performStructuralChecks(code: string): {
   }
 
   // Warnings: Missing common matchers
-  const hasCommonMatchers =
-    /toBe|toEqual|toContain|toHaveLength|toBeTruthy|toBeFalsy/.test(code);
+  const hasCommonMatchers = /toBe|toEqual|toContain|toHaveLength|toBeTruthy|toBeFalsy/.test(code);
   if (hasExpect && !hasCommonMatchers) {
-    warnings.push(
-      "Consider using more specific matchers (toBe, toEqual, toContain)"
-    );
+    warnings.push('Consider using more specific matchers (toBe, toEqual, toContain)');
   }
 
   // Warnings: Check for async without findBy
-  const hasAsync = code.includes("async") || code.includes("await");
+  const hasAsync = code.includes('async') || code.includes('await');
   const hasFindBy = /findBy/.test(code);
   if (hasAsync && !hasFindBy) {
-    warnings.push(
-      "Async operations detected - consider using findBy* queries for async elements"
-    );
+    warnings.push('Async operations detected - consider using findBy* queries for async elements');
   }
 
   return { blocking, warnings };
 }
 
-export type { StructureRules, QueryRules } from "./quality-gates.js";
+export type { StructureRules, QueryRules } from './quality-gates.js';

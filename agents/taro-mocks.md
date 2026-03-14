@@ -26,11 +26,9 @@ Invoke this skill with `$@taro-test/rtl-mocks`.
 Taro detects and flags two instability patterns:
 
 **`recreated-factory`** — `vi.mock()` or `jest.mock()` is declared inside `it()`/`test()` bodies. This recreates the module factory on every test run and produces inconsistent state.
-
 - Fix: move `vi.mock('...')` to module scope (outside all test callbacks).
 
 **`per-test-churn`** — `clearAllMocks`/`resetAllMocks` is called repeatedly alongside many `mockReturnValue`/`mockResolvedValue` calls, which means mock configuration is torn down and rebuilt per test.
-
 - Fix: consolidate shared mock state in `beforeEach`, use `mockReturnValueOnce` for per-test overrides only.
 
 ## Mutation Lifecycle Coverage
@@ -38,7 +36,7 @@ Taro detects and flags two instability patterns:
 When the recorded flow involves a mutation (submit, save, create, update, delete), the generated test should cover all three stages:
 
 | Stage | What to assert | Mock setup |
-| --- | --- | --- |
+|-------|----------------|------------|
 | `loading` | Submit button is disabled, spinner/pending indicator visible | Before `mockResolvedValue` resolves |
 | `success` | Success message, redirect, or updated value visible | `mockResolvedValue(...)` |
 | `error` | `role="alert"` error message visible | `mockRejectedValue(new Error(...))` |

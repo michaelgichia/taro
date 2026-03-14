@@ -1,119 +1,113 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { scanConventions, findTestFiles, readConventions } from "./scanner.js";
-import { DEFAULT_CONVENTIONS } from "../types/conventions.js";
-import { mkdir, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { scanConventions, findTestFiles, readConventions } from './scanner.js'
+import { DEFAULT_CONVENTIONS } from '../types/conventions.js'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 
-let testDir: string;
+let testDir: string
 
 beforeEach(async () => {
-  testDir = join(tmpdir(), `taro-test-${Date.now()}`);
-  await mkdir(testDir, { recursive: true });
-});
+  testDir = join(tmpdir(), `taro-test-${Date.now()}`)
+  await mkdir(testDir, { recursive: true })
+})
 
 afterEach(async () => {
-  await rm(testDir, { recursive: true, force: true });
-});
+  await rm(testDir, { recursive: true, force: true })
+})
 
-describe("findTestFiles", () => {
-  it("finds .test.ts files recursively", async () => {
-    const subDir = join(testDir, "src", "components");
-    await mkdir(subDir, { recursive: true });
-    await writeFile(join(subDir, "Button.test.ts"), "// test");
-    const files = await findTestFiles(testDir);
-    expect(files).toHaveLength(1);
-    expect(files[0]).toContain("Button.test.ts");
-  });
+describe('findTestFiles', () => {
+  it('finds .test.ts files recursively', async () => {
+    const subDir = join(testDir, 'src', 'components')
+    await mkdir(subDir, { recursive: true })
+    await writeFile(join(subDir, 'Button.test.ts'), '// test')
+    const files = await findTestFiles(testDir)
+    expect(files).toHaveLength(1)
+    expect(files[0]).toContain('Button.test.ts')
+  })
 
-  it("finds .spec.tsx files", async () => {
-    await writeFile(join(testDir, "App.spec.tsx"), "// spec");
-    const files = await findTestFiles(testDir);
-    expect(files.some((f) => f.endsWith("App.spec.tsx"))).toBe(true);
-  });
+  it('finds .spec.tsx files', async () => {
+    await writeFile(join(testDir, 'App.spec.tsx'), '// spec')
+    const files = await findTestFiles(testDir)
+    expect(files.some(f => f.endsWith('App.spec.tsx'))).toBe(true)
+  })
 
-  it("skips node_modules directory", async () => {
-    const nodeModulesDir = join(testDir, "node_modules", "pkg");
-    await mkdir(nodeModulesDir, { recursive: true });
+  it('skips node_modules directory', async () => {
+    const nodeModulesDir = join(testDir, 'node_modules', 'pkg')
+    await mkdir(nodeModulesDir, { recursive: true })
+    await writeFile(join(nodeModulesDir, 'index.test.ts'), '// should be skipped')
+    const files = await findTestFiles(testDir)
+    expect(files).toHaveLength(0)
+  })
+})
+
+describe('scanConventions', () => {
+  it('returns DEFAULT_CONVENTIONS with projectRoot set when no test files found', async () => {
+    const result = await scanConventions(testDir)
+    expect(result.testFiles).toHaveLength(0)
+    expect(result.projectRoot).toBe(testDir)
+    expect(result.importStyle).toBe('esm')
+  })
+
+  it('detects ESM import style from test file', async () => {
     await writeFile(
-      join(nodeModulesDir, "index.test.ts"),
-      "// should be skipped"
-    );
-    const files = await findTestFiles(testDir);
-    expect(files).toHaveLength(0);
-  });
-});
-
-describe("scanConventions", () => {
-  it("returns DEFAULT_CONVENTIONS with projectRoot set when no test files found", async () => {
-    const result = await scanConventions(testDir);
-    expect(result.testFiles).toHaveLength(0);
-    expect(result.projectRoot).toBe(testDir);
-    expect(result.importStyle).toBe("esm");
-  });
-
-  it("detects ESM import style from test file", async () => {
-    await writeFile(
-      join(testDir, "App.test.ts"),
+      join(testDir, 'App.test.ts'),
       `import { render } from '@testing-library/react'\ndescribe("x", () => { it("y", () => {}) })`
-    );
-    const result = await scanConventions(testDir);
-    expect(result.importStyle).toBe("esm");
-  });
+    )
+    const result = await scanConventions(testDir)
+    expect(result.importStyle).toBe('esm')
+  })
 
-  it("detects CJS require style from test file", async () => {
+  it('detects CJS require style from test file', async () => {
     await writeFile(
-      join(testDir, "App.test.js"),
+      join(testDir, 'App.test.js'),
       `const { render } = require('@testing-library/react')\ndescribe("x", () => { it("y", () => {}) })`
-    );
-    const result = await scanConventions(testDir);
-    expect(result.importStyle).toBe("cjs");
-  });
+    )
+    const result = await scanConventions(testDir)
+    expect(result.importStyle).toBe('cjs')
+  })
 
-  it("detects vi.mock pattern", async () => {
+  it('detects vi.mock pattern', async () => {
     await writeFile(
-      join(testDir, "App.test.ts"),
+      join(testDir, 'App.test.ts'),
       `import { render } from '@testing-library/react'\nvi.mock('./foo')\ndescribe("x", () => { it("y", () => {}) })`
-    );
-    const result = await scanConventions(testDir);
-    expect(result.mockPattern).toBe("vi.mock");
-  });
+    )
+    const result = await scanConventions(testDir)
+    expect(result.mockPattern).toBe('vi.mock')
+  })
 
-  it("flags helpers that contain expect() statements (TEST-02)", async () => {
+  it('flags helpers that contain expect() statements (TEST-02)', async () => {
     await writeFile(
-      join(testDir, "helpers.test.ts"),
+      join(testDir, 'helpers.test.ts'),
       `function renderHelper() { expect(screen.getByText('hi')).toBeInTheDocument() }\ndescribe("x", () => { it("y", () => {}) })`
-    );
-    const result = await scanConventions(testDir);
-    const flagged = result.testFiles.find((f) => f.hasHelperWithExpect);
-    expect(flagged).toBeDefined();
-  });
+    )
+    const result = await scanConventions(testDir)
+    const flagged = result.testFiles.find(f => f.hasHelperWithExpect)
+    expect(flagged).toBeDefined()
+  })
 
-  it("persists result to .taro/state.json (CTX-05)", async () => {
-    const { readFile } = await import("node:fs/promises");
-    await scanConventions(testDir);
-    const content = await readFile(
-      join(testDir, ".taro", "state.json"),
-      "utf-8"
-    );
-    const parsed = JSON.parse(content);
-    expect(parsed.packages).toEqual({});
-  });
+  it('persists result to .taro/state.json (CTX-05)', async () => {
+    const { readFile } = await import('node:fs/promises')
+    await scanConventions(testDir)
+    const content = await readFile(join(testDir, '.taro', 'state.json'), 'utf-8')
+    const parsed = JSON.parse(content)
+    expect(parsed.packages).toEqual({})
+  })
 
-  it("reads compatibility conventions.json from .taro when state.json is missing", async () => {
-    await mkdir(join(testDir, ".taro"), { recursive: true });
+  it('reads compatibility conventions.json from .taro when state.json is missing', async () => {
+    await mkdir(join(testDir, '.taro'), { recursive: true })
     await writeFile(
-      join(testDir, ".taro", "conventions.json"),
+      join(testDir, '.taro', 'conventions.json'),
       JSON.stringify({
         ...DEFAULT_CONVENTIONS,
         projectRoot: testDir,
         scannedAt: new Date().toISOString(),
       }),
-      "utf-8"
-    );
+      'utf-8'
+    )
 
-    const result = await readConventions(testDir);
+    const result = await readConventions(testDir)
 
-    expect(result?.projectRoot).toBe(testDir);
-  });
-});
+    expect(result?.projectRoot).toBe(testDir)
+  })
+})

@@ -1,1 +1,5 @@
-{ "recommendations": ["sst-dev.opencode"] }
+{
+  "recommendations": [
+    "sst-dev.opencode"
+  ]
+}

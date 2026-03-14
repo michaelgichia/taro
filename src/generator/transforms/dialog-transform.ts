@@ -1,20 +1,20 @@
 /**
  * Dialog transform - converts dialog flows into optimized test code
- *
+ * 
  * This module transforms detected DialogFlow objects into cleaner,
  * more maintainable test code with helper functions.
- *
+ * 
  * Output:
  * - openDialog() helper function
  * - Test steps that call helper + fill fields
  * - Optional close verification
  */
 
-import type { RecordingStep } from "../../types/recording.js";
-import type { DialogFlow } from "../../parser/steps/dialog-detector.js";
+import type { RecordingStep } from '../../types/recording.js';
+import type { DialogFlow, DialogType } from '../../parser/steps/dialog-detector.js';
 
 export interface TransformedStep {
-  type: "helper" | "action" | "assertion";
+  type: 'helper' | 'action' | 'assertion';
   code: string;
   description: string;
 }
@@ -26,20 +26,65 @@ export interface DialogTestTemplate {
 }
 
 /**
+ * Generate selector query code from a recording step
+ */
+function generateSelectorQuery(step: RecordingStep): string {
+  const selector = step.selector || step.target || '';
+  
+  if (!selector) {
+    return 'screen.getByRole("button")';
+  }
+
+  // Handle different selector types
+  if (selector.startsWith('#')) {
+    // ID selector
+    const id = selector.slice(1);
+    return `screen.getByRole("button", { name: /${id}/i })`;
+  }
+
+  if (selector.startsWith('.')) {
+    // Class selector - use getByTestId or find by text
+    const className = selector.slice(1).replace(/\./g, ' ');
+    return `screen.getByText(/${className}/i)`;
+  }
+
+  if (selector.includes('[data-testid=')) {
+    // data-testid selector
+    const match = selector.match(/\[data-testid=["']([^"']+)["']\]/);
+    if (match) {
+      return `screen.getByTestId("${match[1]}")`;
+    }
+  }
+
+  if (selector.includes('[')) {
+    // Attribute selector
+    const match = selector.match(/\[([^=]+)=["']([^"']+)["']\]/);
+    if (match) {
+      const attr = match[1];
+      const value = match[2];
+      return `screen.getByRole("button", { name: /${value}/i })`;
+    }
+  }
+
+  // Default: try to find by text content
+  const readableName = selector.split(/[#.\s]/).pop() || 'button';
+  return `screen.getByRole("button", { name: /${readableName}/i })`;
+}
+
+/**
  * Generate the openDialog helper function
  */
 function generateOpenDialogHelper(flow: DialogFlow): string {
-  const triggerSelector =
-    flow.triggerStep.selector || flow.triggerStep.target || "";
-  const triggerName = triggerSelector.split(/[#.\s]/).pop() || "open";
-
+  const triggerSelector = flow.triggerStep.selector || flow.triggerStep.target || '';
+  const triggerName = triggerSelector.split(/[#.\s]/).pop() || 'open';
+  
   // Build selector query
-  let triggerQuery = "";
-
-  if (triggerSelector.startsWith("#")) {
+  let triggerQuery = '';
+  
+  if (triggerSelector.startsWith('#')) {
     const id = triggerSelector.slice(1);
     triggerQuery = `screen.getByRole('button', { name: /${id}/i })`;
-  } else if (triggerSelector.includes("[data-testid=")) {
+  } else if (triggerSelector.includes('[data-testid=')) {
     const match = triggerSelector.match(/\[data-testid=["']([^"']+)["']\]/);
     if (match) {
       triggerQuery = `screen.getByTestId("${match[1]}")`;
@@ -49,18 +94,18 @@ function generateOpenDialogHelper(flow: DialogFlow): string {
   }
 
   // Determine dialog wait condition based on type
-  let waitCondition = "";
+  let waitCondition = '';
   switch (flow.type) {
-    case "modal":
+    case 'modal':
       waitCondition = `await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())`;
       break;
-    case "drawer":
+    case 'drawer':
       waitCondition = `await waitFor(() => expect(screen.getByTestId('drawer')).toBeInTheDocument())`;
       break;
-    case "popover":
+    case 'popover':
       waitCondition = `await waitFor(() => expect(screen.getByRole('tooltip')).toBeInTheDocument())`;
       break;
-    case "confirm":
+    case 'confirm':
       waitCondition = `await waitFor(() => expect(screen.getByRole('alertdialog')).toBeInTheDocument())`;
       break;
     default:
@@ -77,23 +122,23 @@ function generateOpenDialogHelper(flow: DialogFlow): string {
  * Generate field fill code from fill/select steps
  */
 function generateFillCode(step: RecordingStep): string {
-  const selector = step.selector || step.target || "";
-  const value = step.value || "";
-
+  const selector = step.selector || step.target || '';
+  const value = step.value || '';
+  
   // Build query for the field
-  let fieldQuery = "";
-
-  if (selector.includes("[data-testid=")) {
+  let fieldQuery = '';
+  
+  if (selector.includes('[data-testid=')) {
     const match = selector.match(/\[data-testid=["']([^"']+)["']\]/);
     if (match) {
       fieldQuery = `screen.getByTestId("${match[1]}")`;
     }
-  } else if (selector.includes("[aria-label=")) {
+  } else if (selector.includes('[aria-label=')) {
     const match = selector.match(/\[aria-label=["']([^"']+)["']\]/);
     if (match) {
       fieldQuery = `screen.getByLabelText(/${match[1]}/i)`;
     }
-  } else if (selector.includes("[name=")) {
+  } else if (selector.includes('[name=')) {
     const match = selector.match(/\[name=["']([^"']+)["']\]/);
     if (match) {
       fieldQuery = `screen.getByRole('textbox', { name: /${match[1]}/i })`;
@@ -108,21 +153,47 @@ function generateFillCode(step: RecordingStep): string {
     }
   }
 
-  if (step.type === "fill") {
+  if (step.type === 'fill') {
     return `await userEvent.type(${fieldQuery}, '${value}');`;
   }
 
-  if (step.type === "select") {
+  if (step.type === 'select') {
     return `await userEvent.selectOptions(${fieldQuery}, '${value}');`;
   }
 
-  return "";
+  return '';
+}
+
+/**
+ * Generate submit button click code
+ */
+function generateSubmitCode(step: RecordingStep): string {
+  const selector = step.selector || step.target || '';
+  
+  let submitQuery = '';
+  
+  if (selector.includes('[data-testid=')) {
+    const match = selector.match(/\[data-testid=["']([^"']+)["']\]/);
+    if (match) {
+      submitQuery = `screen.getByTestId("${match[1]}")`;
+    }
+  } else {
+    // Try to find submit button
+    const submitPatterns = ['submit', 'save', 'confirm', 'apply'];
+    const pattern = submitPatterns.find(p => selector.toLowerCase().includes(p)) || 'submit';
+    submitQuery = `screen.getByRole('button', { name: /${pattern}/i })`;
+  }
+
+  return `await userEvent.click(${submitQuery});`;
 }
 
 /**
  * Generate close dialog code
  */
-function generateCloseCode(): string {
+function generateCloseCode(step?: RecordingStep): string {
+  // Try to find close button
+  const closePatterns = ['close', 'cancel', 'dismiss', 'esc'];
+  
   return `await userEvent.keyboard('{Escape}');`;
 }
 
@@ -130,17 +201,17 @@ function generateCloseCode(): string {
  * Generate assertion code
  */
 function generateAssertionCode(step: RecordingStep): string {
-  const selector = step.selector || step.target || "";
-
+  const selector = step.selector || step.target || '';
+  
   // Build query for assertion target
-  let assertQuery = "";
-
-  if (selector.includes("[data-testid=")) {
+  let assertQuery = '';
+  
+  if (selector.includes('[data-testid=')) {
     const match = selector.match(/\[data-testid=["']([^"']+)["']\]/);
     if (match) {
       assertQuery = `screen.getByTestId("${match[1]}")`;
     }
-  } else if (selector.includes("[role=")) {
+  } else if (selector.includes('[role=')) {
     const match = selector.match(/\[role=["']([^"']+)["']\]/);
     if (match) {
       assertQuery = `screen.getByRole('${match[1]}')`;
@@ -150,15 +221,15 @@ function generateAssertionCode(step: RecordingStep): string {
     assertQuery = `screen.getByText(/.+/)`;
   }
 
-  if (step.type === "assert") {
+  if (step.type === 'assert') {
     return `await waitFor(() => expect(${assertQuery}).toBeInTheDocument());`;
   }
 
-  if (step.type === "waitForSelector") {
+  if (step.type === 'waitForSelector') {
     return `await waitFor(() => expect(${assertQuery}).toBeInTheDocument());`;
   }
 
-  return "";
+  return '';
 }
 
 /**
@@ -171,18 +242,18 @@ function transformSingleFlow(flow: DialogFlow): DialogTestTemplate {
 
   // Generate openDialog helper
   helpers.push({
-    type: "helper",
+    type: 'helper',
     code: generateOpenDialogHelper(flow),
     description: `Helper to open ${flow.type} dialog`,
   });
 
   // Generate test steps
-
+  
   // 1. Call openDialog helper
   testSteps.push({
-    type: "action",
-    code: "await openDialog();",
-    description: "Open the dialog",
+    type: 'action',
+    code: 'await openDialog();',
+    description: 'Open the dialog',
   });
 
   // 2. Fill form fields in order
@@ -190,7 +261,7 @@ function transformSingleFlow(flow: DialogFlow): DialogTestTemplate {
     const fillCode = generateFillCode(fillStep);
     if (fillCode) {
       testSteps.push({
-        type: "action",
+        type: 'action',
         code: fillCode,
         description: `Fill ${fillStep.type} field`,
       });
@@ -199,30 +270,30 @@ function transformSingleFlow(flow: DialogFlow): DialogTestTemplate {
 
   // 3. Submit (if there's a click after filling)
   const lastContentStep = flow.contentSteps[flow.contentSteps.length - 1];
-  if (lastContentStep && lastContentStep.type === "fill") {
+  if (lastContentStep && lastContentStep.type === 'fill') {
     // Generate a submit button click
     testSteps.push({
-      type: "action",
+      type: 'action',
       code: "await userEvent.click(screen.getByRole('button', { name: /submit/i }));",
-      description: "Submit the dialog",
+      description: 'Submit the dialog',
     });
   }
 
   // 4. Close dialog (if not already closed by submit)
   if (flow.closeStep) {
     cleanup.push({
-      type: "action",
-      code: generateCloseCode(),
-      description: "Close the dialog",
+      type: 'action',
+      code: generateCloseCode(flow.closeStep),
+      description: 'Close the dialog',
     });
   }
 
   // 5. Assertion (if present)
   if (flow.assertionStep) {
     testSteps.push({
-      type: "assertion",
+      type: 'assertion',
       code: generateAssertionCode(flow.assertionStep),
-      description: "Verify dialog state",
+      description: 'Verify dialog state',
     });
   }
 
@@ -231,13 +302,11 @@ function transformSingleFlow(flow: DialogFlow): DialogTestTemplate {
 
 /**
  * Transform dialog flows into optimized test code
- *
+ * 
  * @param flows - Array of detected dialog flows
  * @returns Transformed steps ready for code generation
  */
-export function transformDialogFlows(
-  flows: DialogFlow[]
-): DialogTestTemplate[] {
+export function transformDialogFlows(flows: DialogFlow[]): DialogTestTemplate[] {
   if (!flows || flows.length === 0) {
     return [];
   }
@@ -254,7 +323,7 @@ export function generateDialogTestCode(template: DialogTestTemplate): string {
   // Add helpers
   for (const helper of template.helpers) {
     lines.push(helper.code);
-    lines.push("");
+    lines.push('');
   }
 
   // Add test steps
@@ -264,13 +333,13 @@ export function generateDialogTestCode(template: DialogTestTemplate): string {
 
   // Add cleanup
   if (template.cleanup && template.cleanup.length > 0) {
-    lines.push("");
+    lines.push('');
     for (const step of template.cleanup) {
       lines.push(step.code);
     }
   }
 
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 export default transformDialogFlows;

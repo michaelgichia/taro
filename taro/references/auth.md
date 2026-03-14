@@ -1,10 +1,16 @@
 # Authentication Checkpoint (Provider-Agnostic)
 
-Purpose: Enable optional browser-based screenshot capture on authenticated routes.
+Purpose:
+Enable optional browser-based screenshot capture on authenticated routes.
 
-Important: Authentication must never block test generation. Secrets are never stored in state. Only non-secret identifiers such as relative file paths or environment variable NAMES are stored.
+Important:
+Authentication must never block test generation.
+Secrets are never stored in state.
+Only non-secret identifiers such as relative file paths or environment variable NAMES are stored.
 
-Current v1 status: Taro can persist non-secret Playwright auth metadata in `.taro/state.json`. Today this supports:
+Current v1 status:
+Taro can persist non-secret Playwright auth metadata in `.taro/state.json`.
+Today this supports:
 
 - detected Playwright `storageState` files from common repo patterns and Playwright config
 - explicit `--auth <storageState.json>` paths provided during `generate`

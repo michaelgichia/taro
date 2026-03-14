@@ -1,6 +1,7 @@
 # Test Quality Scoring (Taro)
 
-Purpose: Provide a deterministic, explainable score for each generated test file so Taro can:
+Purpose:
+Provide a deterministic, explainable score for each generated test file so Taro can:
 
 - measure whether changes improve quality,
 - avoid regressions,
@@ -38,20 +39,20 @@ Each generated test must produce:
     "hasMarkerDerivedAssertions": true,
     "hasDeterministicFixtures": true,
     "hasProviderWrapper": true,
-    "hasUiLibraryReimplementation": false,
+    "hasUiLibraryReimplementation": false
   },
   "reasons": [
     {
       "dimension": "robustness",
       "delta": -8,
-      "reason": "Uses brittle CSS selectors for primary queries.",
+      "reason": "Uses brittle CSS selectors for primary queries."
     },
     {
       "dimension": "assertionStrength",
       "delta": +6,
-      "reason": "Asserts user-visible success outcome (toast/dialog close).",
-    },
-  ],
+      "reason": "Asserts user-visible success outcome (toast/dialog close)."
+    }
+  ]
 }
 ```
 
@@ -125,7 +126,10 @@ Subtract:
 - -6: mocks don’t reflect actual dependency contract (false positives)
 - -4: mocks rely on global state without reset
 - -3: mixes shared reset utilities with additional ad hoc `.mockClear()` calls in the same suite
-- -4: uses mutable shared state in `beforeEach` to steer mock behavior across tests (a hoisted object's fields are reset in `beforeEach` and mutated in test bodies — the mock's behavior is no longer co-located with the test that depends on it, and missed resets cause cross-test state leakage)
+- -4: uses mutable shared state in `beforeEach` to steer mock behavior across tests
+  (a hoisted object's fields are reset in `beforeEach` and mutated in test
+  bodies — the mock's behavior is no longer co-located with the test that
+  depends on it, and missed resets cause cross-test state leakage)
 - -20: UI-library component reimplementation detected (policy violation)
 
 Cap 20.

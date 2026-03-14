@@ -1,4 +1,4 @@
-import { chromium, type Browser, type Page } from "playwright";
+import { chromium, type Browser, type Page } from 'playwright';
 
 /**
  * Element information extracted from the DOM
@@ -27,11 +27,11 @@ export async function launchBrowser(): Promise<Browser> {
  * @param page - The Playwright page object
  * @param path - The file path to save the screenshot
  */
-export async function captureScreenshot(
-  page: Page,
-  path: string
-): Promise<void> {
-  await page.screenshot({ path, fullPage: true });
+export async function captureScreenshot(page: Page, path: string): Promise<void> {
+  await page.screenshot({
+    path,
+    fullPage: true,
+  });
 }
 
 /**
@@ -46,7 +46,7 @@ export async function inspectElement(
 ): Promise<ElementInfo | null> {
   try {
     const element = await page.$(selector);
-
+    
     if (!element) {
       return null;
     }
@@ -54,46 +54,33 @@ export async function inspectElement(
     // Extract element properties
     const elementInfo = await element.evaluate((el: Element) => {
       const computedStyle = window.getComputedStyle(el);
-      const isVisible =
-        computedStyle.display !== "none" &&
-        computedStyle.visibility !== "hidden" &&
-        computedStyle.opacity !== "0";
-
+      const isVisible = computedStyle.display !== 'none' && 
+                        computedStyle.visibility !== 'hidden' && 
+                        computedStyle.opacity !== '0';
+      
       // Handle className (can be string or SVGAnimatedString)
       let classes: string[] = [];
       const className = el.className;
-      if (typeof className === "string") {
-        classes = className.split(" ").filter((c) => c.trim().length > 0);
-      } else if (
-        className &&
-        typeof className === "object" &&
-        "baseVal" in className
-      ) {
-        classes = (className as SVGAnimatedString).baseVal
-          .split(" ")
-          .filter((c) => c.trim().length > 0);
+      if (typeof className === 'string') {
+        classes = className.split(' ').filter(c => c.trim().length > 0);
+      } else if (className && typeof className === 'object' && 'baseVal' in className) {
+        classes = (className as SVGAnimatedString).baseVal.split(' ').filter(c => c.trim().length > 0);
       }
-
+      
       // Check if element is disabled
       let isDisabled = false;
       const htmlEl = el as unknown as { disabled?: boolean; tagName: string };
-      if (
-        htmlEl.disabled !== undefined &&
-        (htmlEl.tagName === "INPUT" ||
-          htmlEl.tagName === "BUTTON" ||
-          htmlEl.tagName === "SELECT" ||
-          htmlEl.tagName === "TEXTAREA")
-      ) {
+      if (htmlEl.disabled !== undefined && (htmlEl.tagName === 'INPUT' || htmlEl.tagName === 'BUTTON' || htmlEl.tagName === 'SELECT' || htmlEl.tagName === 'TEXTAREA')) {
         isDisabled = Boolean(htmlEl.disabled);
       }
-
+      
       return {
         tagName: el.tagName.toLowerCase(),
-        textContent: el.textContent?.trim() || "",
-        ariaRole: el.getAttribute("role") || undefined,
-        ariaLabel: el.getAttribute("aria-label") || undefined,
-        nameAttr: el.getAttribute("name") || undefined,
-        id: el.id || "",
+        textContent: el.textContent?.trim() || '',
+        ariaRole: el.getAttribute('role') || undefined,
+        ariaLabel: el.getAttribute('aria-label') || undefined,
+        nameAttr: el.getAttribute('name') || undefined,
+        id: el.id || '',
         classes,
         isVisible,
         isDisabled,
@@ -101,7 +88,7 @@ export async function inspectElement(
     });
 
     return elementInfo;
-  } catch {
+  } catch (error) {
     // Element not found - return null as per spec
     return null;
   }
@@ -120,12 +107,12 @@ export async function navigateToUrl(
   timeout: number = 30000
 ): Promise<boolean> {
   try {
-    await page.goto(url, { timeout, waitUntil: "domcontentloaded" });
+    await page.goto(url, { timeout, waitUntil: 'domcontentloaded' });
     return true;
-  } catch {
+  } catch (error) {
     throw new Error(
       `Failed to load URL "${url}" after ${timeout}ms. ` +
-        "Ensure the app is running and the URL is correct."
+      'Ensure the app is running and the URL is correct.'
     );
   }
 }

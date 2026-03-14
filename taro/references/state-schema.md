@@ -1,15 +1,14 @@
 # State Schema
 
 Stored at:
-
 - `.taro/state.json`
 - `.taro/summary.md`
 
 Optional companion file:
-
 - `.taro/overrides.json`
 
-Purpose: Persist bounded, package-scoped test knowledge that Taro can reuse across `init`, `refresh`, and `generate`.
+Purpose:
+Persist bounded, package-scoped test knowledge that Taro can reuse across `init`, `refresh`, and `generate`.
 
 ## Rules
 
@@ -34,7 +33,7 @@ Purpose: Persist bounded, package-scoped test knowledge that Taro can reuse acro
   "meta": {
     "createdAt": "ISO-8601",
     "updatedAt": "ISO-8601",
-    "taroVersion": "string",
+    "taroVersion": "string"
   },
   "packages": {
     ".": {
@@ -48,32 +47,32 @@ Purpose: Persist bounded, package-scoped test knowledge that Taro can reuse acro
         "mockPattern": "vi.mock",
         "testFiles": [],
         "folderPattern": "colocated",
-        "fileExtension": "ts",
+        "fileExtension": "ts"
       },
       "importStyle": {
         "value": "esm",
         "confidence": "high",
-        "evidence": ["src/foo.test.tsx"],
+        "evidence": ["src/foo.test.tsx"]
       },
       "runner": {
         "value": "vitest | jest | unknown",
         "confidence": "high | medium | low",
-        "evidence": ["vitest.config.ts present"],
+        "evidence": ["vitest.config.ts present"]
       },
       "mockPattern": {
         "value": "vi.mock | jest.mock | none",
         "confidence": "high | medium | low",
-        "evidence": ["src/foo.test.tsx"],
+        "evidence": ["src/foo.test.tsx"]
       },
       "folderPattern": {
         "value": "colocated | __tests__ | mixed | unknown",
         "confidence": "high | low",
-        "evidence": ["src/foo.test.tsx"],
+        "evidence": ["src/foo.test.tsx"]
       },
       "fileExtension": {
         "value": "ts | tsx | js | jsx | mixed",
         "confidence": "high | medium | low",
-        "evidence": ["src/foo.test.tsx"],
+        "evidence": ["src/foo.test.tsx"]
       },
       "renderHelpers": [
         {
@@ -82,15 +81,15 @@ Purpose: Persist bounded, package-scoped test knowledge that Taro can reuse acro
           "importKind": "named | default",
           "sourceTestFile": "src/foo.test.tsx",
           "usageCount": 4,
-          "usesWithin": true,
-        },
+          "usesWithin": true
+        }
       ],
       "providerWrappers": [
         {
           "name": "QueryClientProvider",
           "importPath": "@/tests/renderWithProviders",
-          "sourceTestFile": "src/foo.test.tsx",
-        },
+          "sourceTestFile": "src/foo.test.tsx"
+        }
       ],
       "renderTargets": [
         {
@@ -98,23 +97,23 @@ Purpose: Persist bounded, package-scoped test knowledge that Taro can reuse acro
           "importPath": "./FeatureModule",
           "sourceTestFile": "src/feature.test.tsx",
           "helperNames": ["openFeatureDialog"],
-          "usesWithin": true,
-        },
+          "usesWithin": true
+        }
       ],
       "repeatedMockTargets": [
         {
           "target": "@/modules/orders/api",
           "files": ["src/a.test.tsx", "src/b.test.tsx"],
-          "count": 2,
-        },
+          "count": 2
+        }
       ],
       "sharedMockFactories": [
         {
           "target": "mockOrdersApi",
           "importPath": "@/tests/mocks/orders",
           "files": ["src/a.test.tsx"],
-          "count": 1,
-        },
+          "count": 1
+        }
       ],
       "boundaryProfiles": [
         {
@@ -128,37 +127,28 @@ Purpose: Persist bounded, package-scoped test knowledge that Taro can reuse acro
             "resetExport": "resetOrdersApiMock | null",
             "overrideExports": ["useCreateOrderMutationMock"],
             "spyExports": ["createOrderMutate"],
-            "fixtureExports": ["mockOrder"],
+            "fixtureExports": ["mockOrder"]
           },
           "payloadSource": "mock-store | fixtures | typed-defaults | exemplar-only | manual | unknown",
           "confidence": "high | medium | low",
           "files": ["src/feature-module.test.tsx"],
-          "evidence": [
-            "src/feature-module.test.tsx: mock target @/features/orders/api",
-          ],
+          "evidence": ["src/feature-module.test.tsx: mock target @/features/orders/api"],
           "conflictTargets": ["inline-safe"],
-          "lowConfidenceScaffold": false,
-        },
+          "lowConfidenceScaffold": false
+        }
       ],
       "boundaryExemplars": [
         {
           "file": "src/feature-module.test.tsx",
           "renderBoundary": "module | component | unknown",
-          "boundaryTargets": [
-            "@/features/orders/api",
-            "@/tests/renderWithProviders",
-          ],
+          "boundaryTargets": ["@/features/orders/api", "@/tests/renderWithProviders"],
           "boundaryKinds": ["data-module", "local-child"],
           "usesProviderWrapper": true,
           "usesCentralBoundarySupport": true,
           "hasMutationLifecycle": true,
           "overrideStyle": "stable-handles | inline-reconfigure | none",
-          "tags": [
-            "provider-wrapper",
-            "central-boundary-support",
-            "mutation-lifecycle",
-          ],
-        },
+          "tags": ["provider-wrapper", "central-boundary-support", "mutation-lifecycle"]
+        }
       ],
       "inlineSafeMockTargets": ["next/navigation"],
       "mutationLifecycles": [],
@@ -168,23 +158,23 @@ Purpose: Persist bounded, package-scoped test knowledge that Taro can reuse acro
         {
           "path": "src/tests/mock-store",
           "kind": "mock-store | mocks | fixtures | factories",
-          "source": "directory | import",
-        },
+          "source": "directory | import"
+        }
       ],
       "exemplars": [
         {
           "file": "src/feature.test.tsx",
-          "tags": ["render-helper", "mutation"],
-        },
+          "tags": ["render-helper", "mutation"]
+        }
       ],
       "playwrightAuth": {
         "strategy": "storageState | instructions",
         "path": "playwright/.auth/user.json",
         "detectedAt": "init | refresh | generate",
-        "source": "detected | manual",
+        "source": "detected | manual"
       },
-      "warnings": [],
-    },
+      "warnings": []
+    }
   },
   "mockStore": {
     "rootDir": "src/tests/mock-store | null",
@@ -194,9 +184,9 @@ Purpose: Persist bounded, package-scoped test knowledge that Taro can reuse acro
         "name": "orders.ts",
         "file": "src/tests/mock-store/orders.ts",
         "exports": ["ORDER_001"],
-        "updatedAt": "ISO-8601",
-      },
-    ],
+        "updatedAt": "ISO-8601"
+      }
+    ]
   },
   "generatedTests": [
     {
@@ -211,7 +201,7 @@ Purpose: Persist bounded, package-scoped test knowledge that Taro can reuse acro
           "queryQuality": 90,
           "assertionSpecificity": 80,
           "testStructure": 75,
-          "boundaryIsolation": 85,
+          "boundaryIsolation": 85
         },
         "signals": {
           "queryCheckpointCount": 0,
@@ -222,13 +212,13 @@ Purpose: Persist bounded, package-scoped test knowledge that Taro can reuse acro
           "boundaryWarningCount": 0,
           "boundaryIssueCount": 0,
           "placeholderRenderTarget": false,
-          "multipleTestBlocks": false,
+          "multipleTestBlocks": false
         },
-        "reasons": [],
+        "reasons": []
       },
-      "requiresReview": false,
-    },
-  ],
+      "requiresReview": false
+    }
+  ]
 }
 ```
 
@@ -245,23 +235,23 @@ Implemented shape:
       "runner": "vitest | jest",
       "renderHelper": {
         "name": "renderDashboard",
-        "importPath": "@/tests/renderDashboard",
+        "importPath": "@/tests/renderDashboard"
       },
       "forbidMocks": ["@/components/ui-kit"],
       "preferredSharedMocks": {
-        "@/features/orders/api": "@/tests/mocks/orders-api",
+        "@/features/orders/api": "@/tests/mocks/orders-api"
       },
       "boundaryPolicies": {
         "@/features/orders/api": "shared-module-factory",
-        "@/tests/renderWithProviders": "provider-wrapper",
+        "@/tests/renderWithProviders": "provider-wrapper"
       },
       "preferredBoundaryImplementations": {
-        "@/features/orders/api": "@/tests/mocks/orders-api",
+        "@/features/orders/api": "@/tests/mocks/orders-api"
       },
       "forbidBoundaryTargets": ["@/components/ui-kit"],
-      "queryHookPolicy": "avoid | allow-centralized | allow-when-needed",
-    },
-  },
+      "queryHookPolicy": "avoid | allow-centralized | allow-when-needed"
+    }
+  }
 }
 ```
 

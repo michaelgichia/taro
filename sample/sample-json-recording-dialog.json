@@ -1,13 +1,38 @@
 {
   "title": "JSON dialog sale flow",
-  "settings": { "url": "http://localhost:3000/sales" },
+  "settings": {
+    "url": "http://localhost:3000/sales"
+  },
   "steps": [
-    { "type": "click", "target": "Open Add Sale dialog" },
-    { "type": "doubleClick", "target": "Open Add Sale dialog" },
-    { "type": "assertElementVisible", "target": "Add Sale dialog" },
-    { "type": "fill", "target": "Customer Name", "value": "Acme Ltd" },
-    { "type": "fill", "target": "Reference", "value": "INV-16" },
-    { "type": "click", "target": "Save draft" },
-    { "type": "assertElementVisible", "target": "Draft saved" }
+    {
+      "type": "click",
+      "target": "Open Add Sale dialog"
+    },
+    {
+      "type": "doubleClick",
+      "target": "Open Add Sale dialog"
+    },
+    {
+      "type": "assertElementVisible",
+      "target": "Add Sale dialog"
+    },
+    {
+      "type": "fill",
+      "target": "Customer Name",
+      "value": "Acme Ltd"
+    },
+    {
+      "type": "fill",
+      "target": "Reference",
+      "value": "INV-16"
+    },
+    {
+      "type": "click",
+      "target": "Save draft"
+    },
+    {
+      "type": "assertElementVisible",
+      "target": "Draft saved"
+    }
   ]
 }

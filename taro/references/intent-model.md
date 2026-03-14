@@ -1,13 +1,15 @@
 # Interaction Intent Model
 
-Purpose: Convert Puppeteer Replay `runStep` objects into semantic user-level intents that can drive:
+Purpose:
+Convert Puppeteer Replay `runStep` objects into semantic user-level intents that can drive:
 
 - component discovery hints
 - robust RTL query generation
 - user-visible assertion extraction from marker actions
 - screenshot milestone selection
 
-This model must remain project-agnostic. It stores intent + evidence + confidence.
+This model must remain project-agnostic.
+It stores intent + evidence + confidence.
 
 ---
 
@@ -44,7 +46,10 @@ type QueryHint =
   | { kind: "text"; text: string }
   | { kind: "css"; selector: string };
 
-type Evidence = { kind: "selector" | "value" | "stepType"; detail: string };
+type Evidence = {
+  kind: "selector" | "value" | "stepType";
+  detail: string;
+};
 
 type InteractionIntent = {
   index: number;
@@ -101,7 +106,8 @@ Key principle:
 - `click` → intent.type = "click"
 - `change` (or typing-like step) → intent.type = "type", intent.value = step.value
 - If step indicates option selection (if detectable) → intent.type = "select"
-- Semantic `dblClick` marker on a visible proof target may emit `intent.type = "assertExists"` when marker rules match.
+- Semantic `dblClick` marker on a visible proof target may emit
+  `intent.type = "assertExists"` when marker rules match.
 
 If the step type is unknown:
 
@@ -124,7 +130,9 @@ Deterministic interpretation rules:
 3. If a semantic selector (`aria/` or `text/`) exists on that target, create:
    - `intent.type = "assertExists"`
    - query hint derived from that semantic selector
-4. If the recorder only captured partial visible text, Taro may recover the canonical user-visible copy from nearby app source when the match is unique and confidence is high.
+4. If the recorder only captured partial visible text, Taro may recover the
+   canonical user-visible copy from nearby app source when the match is unique
+   and confidence is high.
 5. If no semantic selector exists, do not invent one:
    - fallback to conservative text query only when the recording includes visible text evidence
    - otherwise skip marker conversion and log low-confidence evidence
@@ -132,7 +140,8 @@ Deterministic interpretation rules:
 Notes:
 
 - Marker conversion is additive and never blocks normal intent extraction.
-- Marker gaps stay warning-only, but unresolved markers keep the result in draft/manual-review state.
+- Marker gaps stay warning-only, but unresolved markers keep the result in
+  draft/manual-review state.
 
 ---
 
@@ -203,7 +212,9 @@ For every ParsedStep (except setViewport):
   - evidence[]
   - queryHints[] (may include css as last resort)
 
-Never emit an intent with empty queryHints for click/type/select. For assertion intents (`assertExists`/`assertNotExists`), queryHints must include at least one non-css hint when possible. If nothing is available, set:
+Never emit an intent with empty queryHints for click/type/select.
+For assertion intents (`assertExists`/`assertNotExists`), queryHints must include at least one non-css hint when possible.
+If nothing is available, set:
 
 - queryHints = [{ kind: "css", selector: "<unknown>" }]
 - confidence = 0.1

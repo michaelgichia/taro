@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { evaluateQualityGates } from "./quality-gates.js";
+import { describe, expect, it } from 'vitest'
+import { evaluateQualityGates } from './quality-gates.js'
 
-describe("evaluateQualityGates", () => {
-  it("flags repo-disallowed matcher and fragility patterns", () => {
+describe('evaluateQualityGates', () => {
+  it('flags repo-disallowed matcher and fragility patterns', () => {
     const result = evaluateQualityGates(`
       import { render, screen, cleanup } from '@testing-library/react'
       import { beforeEach, afterEach, describe, expect, it, vi, waitFor } from 'vitest'
@@ -32,38 +32,36 @@ describe("evaluateQualityGates", () => {
           expect(screen.getByText(/saved/i)).toBeInTheDocument()
         })
       })
-    `);
+    `)
 
-    expect(result.passed).toBe(true);
+    expect(result.passed).toBe(true)
     expect(result.issues).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          type: "matchers",
-          message: "RTL query results are wrapped in .toBeDefined()",
+          type: 'matchers',
+          message: 'RTL query results are wrapped in .toBeDefined()',
         }),
         expect.objectContaining({
-          type: "matchers",
-          message:
-            "Mutation payload assertions use loose expect.any/expect.anything matchers",
+          type: 'matchers',
+          message: 'Mutation payload assertions use loose expect.any/expect.anything matchers',
         }),
         expect.objectContaining({
-          type: "matchers",
-          message:
-            "Mock call count and payload assertions are split across an async boundary",
+          type: 'matchers',
+          message: 'Mock call count and payload assertions are split across an async boundary',
         }),
         expect.objectContaining({
-          type: "fragility",
-          message: "Setup helper contains assertions",
+          type: 'fragility',
+          message: 'Setup helper contains assertions',
         }),
         expect.objectContaining({
-          type: "fragility",
-          message: "Shared mutable state is controlling mock behavior",
+          type: 'fragility',
+          message: 'Shared mutable state is controlling mock behavior',
         }),
         expect.objectContaining({
-          type: "fragility",
-          message: "Teardown compensates for leaked document.body side effects",
+          type: 'fragility',
+          message: 'Teardown compensates for leaked document.body side effects',
         }),
       ])
-    );
-  });
-});
+    )
+  })
+})
