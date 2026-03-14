@@ -24,6 +24,7 @@
     "build": "node scripts/build-hooks.js && tsc",
     "build:claude": "npm run build && node scripts/build-claude.js",
     "build:codex": "npm run build && node scripts/build-codex.js",
+    "changelog": "node scripts/generate-changelog.cjs",
     "start": "node bin/install.js",
     "dev": "tsc && node dist/index.js",
     "pack:check": "npm pack --json --dry-run",

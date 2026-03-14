@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- added a GitHub Actions publish workflow so tagged releases run install, test, build, and npm publish in CI with provenance
+- switched release automation from token-based npm publishing to npm Trusted Publishing on GitHub Actions
+
 ## v1.5.1
 
 - renamed the published package and runtime entrypoints from `@taro-dev/rtl` to `@taro-test/rtl`

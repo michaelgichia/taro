@@ -125,6 +125,31 @@ The tarball flow is the closest match to what end users get from npm.
 
 That reinstalls the Codex skill surface only. It does not place a global `taro` binary on your shell `PATH`; the installed Codex skills call this checkout's `dist/index.js` directly. When you move or replace the checkout, rerun `npm run build:codex` so the launcher paths stay current.
 
+## Publishing Releases
+
+Taro publishes from GitHub Actions when a `v*` tag is pushed. The publish job installs dependencies with `npm ci`, runs `npm test`, builds with `npm run build --if-present`, and publishes from GitHub Actions via npm Trusted Publishing.
+
+Local release flow:
+
+```bash
+npm version patch
+git push
+git push --tags
+```
+
+Use `minor` or `major` instead of `patch` when needed. `npm version` updates `package.json`, creates the matching git tag, and the tag push triggers [`.github/workflows/publish.yml`](./.github/workflows/publish.yml).
+
+One-time setup:
+
+1. In npm package settings for `@taro-test/rtl`, add GitHub Actions as a Trusted Publisher
+2. Use the GitHub repository `michaelgichia/taro`
+3. Set the workflow filename to `publish.yml`
+4. Leave the environment name blank unless you intentionally protect releases with a GitHub Actions environment
+
+Trusted publishing requires GitHub-hosted runners plus a current Node/npm toolchain. The release workflow uses Node `22.14.0` so npm can exchange the GitHub OIDC identity for a publish grant without storing a long-lived `NPM_TOKEN`.
+
+Because publishing only runs from tagged commits in CI, the package version, git tag, workflow run, and published artifact stay tied to the same source revision.
+
 ## Generate RTL Tests
 
 After installation and a first `init` run, use the runtime-native installed generate command or skill for your agent:
