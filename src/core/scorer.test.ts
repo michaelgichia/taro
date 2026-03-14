@@ -4,17 +4,17 @@ import { calculateStructureScore, scoreGeneratedTest } from './scorer.js'
 describe('calculateStructureScore', () => {
   it('penalizes placeholder render targets and unresolved boundary warnings', () => {
     const baseline = `
-describe('sale flow', () => {
-  it('saves a sale', async () => {
-    render(<SalesModule />)
+describe('example flow', () => {
+  it('completes an example flow', async () => {
+    render(<FeatureModule />)
   })
 })
 `
 
     const placeholder = `
 // taro-boundary-warning: Prefer a repo-local module/container render boundary for this flow instead of targeting a leaf form component directly.
-describe('sale flow', () => {
-  it('saves a sale', async () => {
+describe('example flow', () => {
+  it('completes an example flow', async () => {
     render(<App />)
   })
 })
@@ -30,8 +30,8 @@ describe('scoreGeneratedTest', () => {
   it('adds deterministic low-confidence signals, reasons, and blockers for draft output', () => {
     const draft = `
 // taro-boundary-warning: Taro could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.
-describe('sale flow', () => {
-  it('saves a sale', async () => {
+describe('example flow', () => {
+  it('completes an example flow', async () => {
     render(<App />)
     // taro-query-checkpoint: click step requires manual RTL query recovery
     expect(screen.getByText('Saved')).toBeInTheDocument()
@@ -62,6 +62,11 @@ describe('sale flow', () => {
       failing: false,
       message: 'No semantic markers were detected in this run.',
     })
+    expect(score.markerDiagnostics).toEqual({
+      canonicalRecoveries: 0,
+      placementConflicts: 0,
+      placementCorrections: 0,
+    })
     expect(score.reasons).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -78,15 +83,15 @@ describe('sale flow', () => {
 
   it('keeps stronger repo-aware output out of draft mode when blockers are absent', () => {
     const stable = `
-describe('sale flow', () => {
-  it('saves a sale', async () => {
-    render(<SalesModule />)
+describe('example flow', () => {
+  it('completes an example flow', async () => {
+    render(<FeatureModule />)
     expect(screen.getByRole('status')).toHaveTextContent('Saved')
   })
 
   it('shows review state', async () => {
-    render(<SalesModule />)
-    expect(screen.getByRole('heading', { name: 'Review Sale' })).toBeVisible()
+    render(<FeatureModule />)
+    expect(screen.getByRole('heading', { name: 'Review Example' })).toBeVisible()
   })
 })
 `
@@ -95,7 +100,7 @@ describe('sale flow', () => {
       { method: 'getByRole', query: "screen.getByRole('status')", quality: 'excellent' },
       {
         method: 'getByRole',
-        query: "screen.getByRole('heading', { name: 'Review Sale' })",
+        query: "screen.getByRole('heading', { name: 'Review Example' })",
         quality: 'excellent',
       },
     ])
@@ -137,6 +142,63 @@ describe('sale flow', () => {
       failing: false,
       message: 'No semantic markers were detected in this run.',
     })
+    expect(score.markerDiagnostics).toEqual({
+      canonicalRecoveries: 0,
+      placementConflicts: 0,
+      placementCorrections: 0,
+    })
+  })
+
+  it('marks repo-contract smells as draft blockers even when the suite has multiple tests', () => {
+    const draft = `
+describe('stock flow', () => {
+  const setup = async () => {
+    render(<FeatureModule />)
+    expect(await screen.findByText('Ready')).toBeDefined()
+  }
+
+  const mockState = { shouldFail: false }
+
+  beforeEach(() => {
+    resetDataLayerMock()
+    save.mockReset()
+    mockState.shouldFail = false
+  })
+
+  afterEach(() => {
+    cleanup()
+    document.body.removeAttribute('style')
+  })
+
+  it('submits values', async () => {
+    await setup()
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+    expect(save).toHaveBeenCalledWith({ symbol: expect.any(String) })
+    expect(screen.getByText(/saved/i)).toBeInTheDocument()
+  })
+
+  it('shows review state', async () => {
+    render(<FeatureModule />)
+    expect(screen.getByRole('heading', { name: 'Review' })).toBeVisible()
+  })
+})
+`
+
+    const score = scoreGeneratedTest(draft, [
+      { method: 'findByText', query: "screen.findByText('Ready')", quality: 'good' },
+      { method: 'getByRole', query: "screen.getByRole('heading', { name: 'Review' })", quality: 'excellent' },
+    ])
+
+    expect(score.requiresReview).toBe(true)
+    expect(score.reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'helper-assertions', impact: 'negative' }),
+        expect.objectContaining({ code: 'query-to-be-defined', impact: 'negative' }),
+        expect.objectContaining({ code: 'loose-payload-matchers', impact: 'negative' }),
+        expect.objectContaining({ code: 'shared-mutable-mock-state', impact: 'negative' }),
+        expect.objectContaining({ code: 'mixed-reset-boundary', impact: 'negative' }),
+      ])
+    )
   })
 
   it('returns normalized marker coverage and deterministic marker gate metadata when context is provided', () => {
@@ -154,17 +216,21 @@ describe('sale flow', () => {
       unresolved: 2,
     })
     expect(withCoverage.markerQualityGate).toEqual({
-      status: 'pass',
-      reason: 'markers-converted',
-      failing: false,
-      message: 'Marker-derived assertions were emitted for this run.',
+      status: 'warn',
+      reason: 'markers-partially-converted',
+      failing: true,
+      message: 'Marker-derived assertions were emitted, but unresolved semantic markers remain.',
     })
+    expect(withCoverage.requiresReview).toBe(true)
 
     const zeroConversion = scoreGeneratedTest("test('flow', () => expect(true).toBe(true))", {
       markerCoverage: {
         detected: 3,
         emitted: 0,
         unresolved: 1,
+      },
+      markerDiagnostics: {
+        placementCorrections: 1,
       },
     })
 
@@ -174,10 +240,15 @@ describe('sale flow', () => {
       unresolved: 1,
     })
     expect(zeroConversion.markerQualityGate).toEqual({
-      status: 'fail',
+      status: 'warn',
       reason: 'zero-marker-conversion',
       failing: true,
       message: 'Semantic markers were detected, but no marker-derived assertions were emitted.',
+    })
+    expect(zeroConversion.markerDiagnostics).toEqual({
+      canonicalRecoveries: 0,
+      placementConflicts: 0,
+      placementCorrections: 1,
     })
     expect(zeroConversion.reasons).toEqual(
       expect.arrayContaining([
@@ -185,10 +256,14 @@ describe('sale flow', () => {
           code: 'marker-quality-gate-fail',
           impact: 'negative',
         }),
+        expect.objectContaining({
+          code: 'marker-placement-corrections',
+          impact: 'negative',
+        }),
       ])
     )
     expect(zeroConversion.blockers).toContain(
-      'QUAL-02 failed: Semantic markers were detected, but no marker-derived assertions were emitted.'
+      'QUAL-02 warning: Semantic markers were detected, but no marker-derived assertions were emitted.'
     )
     expect(zeroConversion.requiresReview).toBe(true)
   })

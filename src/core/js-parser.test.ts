@@ -7,11 +7,18 @@ describe('classifyQuery', () => {
   it('rates getByRole as excellent', () => {
     expect(classifyQuery('getByRole')).toBe('excellent')
   })
+  it('rates findByRole and getAllByRole using the same family quality', () => {
+    expect(classifyQuery('findByRole')).toBe('excellent')
+    expect(classifyQuery('getAllByRole')).toBe('excellent')
+  })
   it('rates getByLabelText as excellent', () => {
     expect(classifyQuery('getByLabelText')).toBe('excellent')
   })
   it('rates getByText as good', () => {
     expect(classifyQuery('getByText')).toBe('good')
+  })
+  it('rates queryByTitle as acceptable', () => {
+    expect(classifyQuery('queryByTitle')).toBe('acceptable')
   })
   it('rates getByPlaceholderText as acceptable', () => {
     expect(classifyQuery('getByPlaceholderText')).toBe('acceptable')
@@ -34,13 +41,13 @@ describe('segmentIntoItGroups', () => {
   it('splits into two groups at modal boundary (click button + heading same name)', () => {
     const steps = [
       { action: 'navigate', target: 'http://localhost:3000', value: undefined, originalType: 'navigate' },
-      { action: 'click', target: 'Add Sale', value: undefined, originalType: 'click' },
-      { action: 'assert', target: 'Add Sale', value: undefined, originalType: 'waitForElement' },
+      { action: 'click', target: 'Open Example Flow', value: undefined, originalType: 'click' },
+      { action: 'assert', target: 'Open Example Flow', value: undefined, originalType: 'waitForElement' },
       { action: 'fill', target: 'Customer', value: 'Acme', originalType: 'change' },
     ]
     const groups = segmentIntoItGroups(steps as any)
     expect(groups).toHaveLength(2)
-    expect(groups[1].name).toContain('Add Sale')
+    expect(groups[1].name).toContain('Open Example Flow')
   })
 })
 
@@ -125,6 +132,34 @@ describe('parseJsRecording', () => {
       }),
     ])
     expect(recording.semanticMarkerCandidates).toEqual([])
+  })
+
+  it('parses supported RTL query variants without collapsing them to getBy-only assumptions', async () => {
+    const recording = await parseJsRecording(`
+      test('Recorder Flow', async () => {
+        await userEvent.click(screen.queryByText('Save'))
+        await userEvent.click(await screen.findByRole('button', {name: 'Continue'}))
+        screen.getAllByRole('listitem')
+      })
+    `)
+
+    expect(recording.queries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          method: 'queryByText',
+          target: 'Save',
+        }),
+        expect.objectContaining({
+          method: 'findByRole',
+          role: 'button',
+          name: 'Continue',
+        }),
+        expect.objectContaining({
+          method: 'getAllByRole',
+          role: 'listitem',
+        }),
+      ])
+    )
   })
 
   it('recovers the real sample recorder fixture without fake action targets', async () => {
@@ -266,7 +301,7 @@ describe('parseJsRecording', () => {
   it('keeps field-label dblClick steps distinguishable as unresolved non-proof candidates', async () => {
     const recording = await parseJsRecording(`
       test('Recorder Flow', async () => {
-        await userEvent.dblClick(screen.getByText('Customer PIN'))
+        await userEvent.dblClick(screen.getByText('Customer Reference'))
       })
     `)
 
@@ -274,15 +309,15 @@ describe('parseJsRecording', () => {
       expect.objectContaining({
         action: 'click',
         originalType: 'dblClick',
-        target: 'Customer PIN',
+        target: 'Customer Reference',
         semanticMarkerCandidate: expect.objectContaining({
           status: 'unresolved',
           originalGesture: 'dblClick',
           proofSubject: 'field-label',
-          proofText: 'Customer PIN',
+          proofText: 'Customer Reference',
           query: expect.objectContaining({
             method: 'getByText',
-            target: 'Customer PIN',
+            target: 'Customer Reference',
           }),
         }),
       })
@@ -291,7 +326,7 @@ describe('parseJsRecording', () => {
       expect.objectContaining({
         status: 'unresolved',
         proofSubject: 'field-label',
-        proofText: 'Customer PIN',
+        proofText: 'Customer Reference',
       }),
     ])
   })

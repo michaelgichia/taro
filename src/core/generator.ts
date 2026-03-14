@@ -3,7 +3,8 @@
  * Converts NormalizedRecording into valid React Testing Library test code.
  *
  * Query priority (accessibility-first):
- *   getByRole > getByLabelText > getByText > getByPlaceholderText > getByTestId
+ *   getByRole > getByLabelText > getByPlaceholderText > getByText >
+ *   getByAltText > getByTitle > getByDisplayValue > getByTestId
  */
 
 import type {
@@ -24,10 +25,17 @@ import {
   importBlock,
   describeBlock,
   markerAssertionTemplate,
+  markerAssertionTemplateSync,
+  waitForAssertionBlock,
   stepTemplate,
   describeBlockMultiIt,
 } from '../templates/test-template.js'
 import pc from 'picocolors'
+import {
+  getUnsupportedSelectorReason,
+  isRoleQueryMethod,
+  isSupportedTestingLibraryQueryMethod,
+} from './query-policy.js'
 
 export interface GeneratorOptions {
   outputPath?: string
@@ -40,7 +48,7 @@ export interface GeneratedTest {
 }
 
 /** Convert a CSS selector to an RTL screen query string. */
-function selectorToQuery(selector: string | undefined): string {
+export function selectorToQuery(selector: string | undefined): string {
   if (!selector) return 'document.body'
 
   // data-testid attribute
@@ -57,6 +65,10 @@ function selectorToQuery(selector: string | undefined): string {
   }
 
   // Element-level role inference
+  const placeholderMatch = selector.match(/\[placeholder=['"]?([^'"[\]]+)['"]?\]/)
+  const hasInputTag = /(?:^|[\s>])input(?:[^a-z]|$)/.test(selector)
+  const hasTextareaTag = /(?:^|[\s>])textarea(?:[^a-z]|$)/.test(selector)
+
   if (/(?:^|[\s>])button(?:[^a-z]|$)|\[type=['"]?(?:button|submit)['"]?\]/.test(selector)) {
     return `screen.getByRole('button')`
   }
@@ -72,18 +84,53 @@ function selectorToQuery(selector: string | undefined): string {
   if (/(?:^|[\s>])select(?:[^a-z]|$)/.test(selector)) {
     return `screen.getByRole('combobox')`
   }
-  if (/(?:^|[\s>])input(?:[^a-z]|$)|\[type=['"]?(?:text|email|password|search|tel|url)['"]?\]/.test(selector)) {
-    return `screen.getByRole('textbox')`
+
+  // password inputs have no implicit ARIA role — best query is getByLabelText
+  if (hasInputTag && /\[type=['"]?password['"]?\]/.test(selector)) {
+    if (placeholderMatch) {
+      return `screen.getByPlaceholderText('${placeholderMatch[1]}')`
+    }
+    return `screen.getByLabelText(/* TODO: password input has no implicit role — use the associated <label> text */ '')`
   }
-  if (/(?:^|[\s>])textarea(?:[^a-z]|$)/.test(selector)) {
-    return `screen.getByRole('textbox')`
+
+  // search inputs have their own ARIA role: searchbox (not textbox)
+  if (hasInputTag && /\[type=['"]?search['"]?\]/.test(selector)) {
+    if (placeholderMatch) {
+      return `screen.getByPlaceholderText('${placeholderMatch[1]}')`
+    }
+    return `screen.getByRole('searchbox') /* TODO: add { name } — ambiguous without accessible name */`
   }
+
+  // text-like inputs: require both input tag AND a text-entry type (excludes search, password)
+  const isTextLikeInput =
+    hasInputTag && /\[type=['"]?(?:text|email|tel|url)['"]?\]/.test(selector)
+
+  if (hasTextareaTag || isTextLikeInput) {
+    if (placeholderMatch) {
+      return `screen.getByPlaceholderText('${placeholderMatch[1]}')`
+    }
+    return `screen.getByRole('textbox') /* TODO: add { name } — ambiguous without accessible name */`
+  }
+
   if (/(?:^|[\s>])h[1-6](?:[^a-z]|$)/.test(selector)) {
     return `screen.getByRole('heading')`
   }
   if (/(?:^|[\s>])img(?:[^a-z]|$)/.test(selector)) {
     return `screen.getByRole('img')`
   }
+
+  // placeholder fallback when no tag-level role can be inferred
+  if (placeholderMatch) return `screen.getByPlaceholderText('${placeholderMatch[1]}')`
+
+  // alt/title/display-value attributes
+  const altMatch = selector.match(/\[alt=['"]?([^'"[\]]+)['"]?\]/)
+  if (altMatch) return `screen.getByAltText('${altMatch[1]}')`
+
+  const titleMatch = selector.match(/\[title=['"]?([^'"[\]]+)['"]?\]/)
+  if (titleMatch) return `screen.getByTitle('${titleMatch[1]}')`
+
+  const valueMatch = selector.match(/\[value=['"]?([^'"[\]]+)['"]?\]/)
+  if (valueMatch) return `screen.getByDisplayValue('${valueMatch[1]}')`
 
   // Last resort: escape the selector and use as getByTestId placeholder
   const escaped = selector.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
@@ -92,6 +139,10 @@ function selectorToQuery(selector: string | undefined): string {
 
 function isQueryExpression(target: string): boolean {
   return /^(screen|document)\./.test(target)
+}
+
+function escapeSingleQuote(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
 }
 
 function looksLikeCssSelector(target: string): boolean {
@@ -112,6 +163,44 @@ function getRecoveredQuery(step: NormalizedStep): string | undefined {
     query.raw.length > 0
   ) {
     return query.raw
+  }
+
+  return undefined
+}
+
+function buildExactQueryFromDescriptor(step: NormalizedStep): string | undefined {
+  const descriptor = step.metadata?.query
+  if (
+    !descriptor ||
+    typeof descriptor !== 'object' ||
+    !('method' in descriptor) ||
+    typeof descriptor.method !== 'string' ||
+    !('queryRoot' in descriptor) ||
+    descriptor.queryRoot !== 'screen' ||
+    !('target' in descriptor) ||
+    typeof descriptor.target !== 'string'
+  ) {
+    return undefined
+  }
+
+  const target = escapeSingleQuote(descriptor.target)
+  if (/ByRole$/u.test(descriptor.method)) {
+    const role = 'role' in descriptor && typeof descriptor.role === 'string' ? descriptor.role : undefined
+    if (!role) {
+      return undefined
+    }
+
+    if (descriptor.target === role) {
+      return `screen.${descriptor.method}('${escapeSingleQuote(role)}')`
+    }
+
+    return `screen.${descriptor.method}('${escapeSingleQuote(role)}', { name: '${target}' })`
+  }
+
+  if (
+    /By(?:Text|LabelText|PlaceholderText|DisplayValue|AltText|Title)$/u.test(descriptor.method)
+  ) {
+    return `screen.${descriptor.method}('${target}')`
   }
 
   return undefined
@@ -162,7 +251,8 @@ function reconstructQuery(
     return `within(screen.getByRole('dialog')).getByRole('button', { name: /^${target.toLowerCase()}$/i })`
   }
 
-  const recoveredQuery = getRecoveredQuery(step)
+  const recoveredQuery =
+    step.action === 'assert' ? buildExactQueryFromDescriptor(step) ?? getRecoveredQuery(step) : getRecoveredQuery(step)
   if (recoveredQuery) {
     return recoveredQuery
   }
@@ -171,9 +261,13 @@ function reconstructQuery(
     return target
   }
 
-  if (step.source === 'js' && step.action === 'assert' && step.originalType.startsWith('getBy')) {
+  if (
+    step.source === 'js' &&
+    step.action === 'assert' &&
+    isSupportedTestingLibraryQueryMethod(step.originalType)
+  ) {
     const escapedTarget = target.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
-    return step.originalType === 'getByRole'
+    return isRoleQueryMethod(step.originalType)
       ? `screen.getByRole('${escapedTarget}')`
       : `screen.${step.originalType}('${escapedTarget}')`
   }
@@ -200,8 +294,11 @@ function getSelectorCheckpoint(step: NormalizedStep): { reason: string; selector
 
   const selector = getSelectorDescriptor(step)?.selector ?? step.target
   if (step.source === 'js' && selector && looksLikeCssSelector(selector)) {
+    const unsupportedSelectorReason = getUnsupportedSelectorReason(selector)
     return {
-      reason: 'No trustworthy RTL query evidence was recovered for this selector.',
+      reason:
+        unsupportedSelectorReason ??
+        'No trustworthy RTL query evidence was recovered for this selector.',
       selector,
     }
   }
@@ -275,9 +372,9 @@ export function emitQuerySummary(queryResults: QueryResult[]): void {
       quality === 'fragile' && lines.length > 0
         ? ` — see line${lines.length > 1 ? 's' : ''} ${lines.join(', ')}`
         : ''
-    console.log(
+    process.stderr.write(
       pc.dim('[taro]') +
-        ` ${count} ${method} (${quality}${lineInfo})`
+        ` ${count} ${method} (${quality}${lineInfo})` + '\n'
     )
   }
 }
@@ -349,52 +446,31 @@ function buildHelperStepLines(
   })
 }
 
-function getMarkerAssertionProofRank(markerAssertion: PlannedMarkerAssertion): number {
-  switch (markerAssertion.assertion.proofKind) {
-    case 'role-name':
-      return 0
-    case 'visible-text':
-    case 'visible-value':
-      return 1
-    case 'label-text':
-      return 2
-    case 'placeholder-text':
-      return 3
-  }
-}
-
-function selectStrongestMarkerAssertions(
+function dedupeMarkerAssertions(
   markerAssertions: PlannedMarkerAssertion[]
 ): PlannedMarkerAssertion[] {
-  const strongestByAnchor = new Map<
-    string,
-    {
-      markerAssertion: PlannedMarkerAssertion
-      proofRank: number
-      sourceOrder: number
-    }
-  >()
+  const seen = new Set<string>()
+  const deduped: PlannedMarkerAssertion[] = []
 
-  for (const [sourceOrder, markerAssertion] of markerAssertions.entries()) {
-    const proofRank = getMarkerAssertionProofRank(markerAssertion)
-    const existing = strongestByAnchor.get(markerAssertion.anchorStepId)
-
-    if (
-      !existing ||
-      proofRank < existing.proofRank ||
-      (proofRank === existing.proofRank && sourceOrder < existing.sourceOrder)
-    ) {
-      strongestByAnchor.set(markerAssertion.anchorStepId, {
-        markerAssertion,
-        proofRank,
-        sourceOrder,
-      })
+  for (const markerAssertion of markerAssertions) {
+    const placementKey =
+      markerAssertion.placement.kind === 'after-helper'
+        ? `after-helper:${markerAssertion.placement.helperName}:${markerAssertion.placement.stepId}`
+        : `after-step:${markerAssertion.placement.stepId}`
+    const key = [
+      placementKey,
+      markerAssertion.assertion.queryExpression.replace(/\s+/g, ' ').trim(),
+      markerAssertion.assertion.matcher,
+    ].join('|')
+    if (seen.has(key)) {
+      continue
     }
+
+    seen.add(key)
+    deduped.push(markerAssertion)
   }
 
-  return [...strongestByAnchor.values()]
-    .sort((left, right) => left.sourceOrder - right.sourceOrder)
-    .map((entry) => entry.markerAssertion)
+  return deduped
 }
 
 function renderMarkerAssertion(markerAssertion: PlannedMarkerAssertion): string {
@@ -402,6 +478,55 @@ function renderMarkerAssertion(markerAssertion: PlannedMarkerAssertion): string 
     queryExpression: markerAssertion.assertion.queryExpression,
     matcher: markerAssertion.assertion.matcher,
   })
+}
+
+function renderMarkerAssertionSync(markerAssertion: PlannedMarkerAssertion): string {
+  return markerAssertionTemplateSync({
+    queryExpression: markerAssertion.assertion.queryExpression,
+    matcher: markerAssertion.assertion.matcher,
+  })
+}
+
+/**
+ * Render a list of marker assertions, wrapping 2+ assertions
+ * in a single waitFor block for atomic async verification.
+ * Returns { lines, usedWaitFor }.
+ */
+function renderMarkerAssertionGroup(
+  markerAssertions: PlannedMarkerAssertion[]
+): { lines: string[]; usedWaitFor: boolean } {
+  if (markerAssertions.length === 0) {
+    return { lines: [], usedWaitFor: false }
+  }
+
+  if (markerAssertions.length === 1) {
+    return {
+      lines: [renderMarkerAssertion(markerAssertions[0]!)],
+      usedWaitFor: false,
+    }
+  }
+
+  const syncAssertions = markerAssertions.map((ma) => renderMarkerAssertionSync(ma))
+  return {
+    lines: [waitForAssertionBlock(syncAssertions)],
+    usedWaitFor: true,
+  }
+}
+
+function inferAssertionMatcher(step: NormalizedStep, query: string, matcher?: string): string | undefined {
+  if (matcher) {
+    return matcher
+  }
+
+  if (step.action !== 'assert') {
+    return undefined
+  }
+
+  if (/\.(?:get|find|query)(?:All)?By(?:Role|Text|LabelText|PlaceholderText|DisplayValue|AltText|Title)\s*\(/u.test(query)) {
+    return '.toBeVisible()'
+  }
+
+  return '.toBeInTheDocument()'
 }
 
 export function generateTestFromGroups(
@@ -481,12 +606,11 @@ export function generateTestFromGroups(
           .map((step) => [step.id, helperName] as const)
       )
     )
-    const markerAssertions = selectStrongestMarkerAssertions(scenario.markerAssertions ?? [])
-    const markerAssertionsAfterStep = new Map<string, string[]>()
-    const markerAssertionsAfterHelper = new Map<string, string[]>()
+    const markerAssertions = dedupeMarkerAssertions([...(scenario.markerAssertions ?? [])])
+    const markerAssertionsAfterStep = new Map<string, PlannedMarkerAssertion[]>()
+    const markerAssertionsAfterHelper = new Map<string, PlannedMarkerAssertion[]>()
 
     for (const markerAssertion of markerAssertions) {
-      const renderedAssertion = renderMarkerAssertion(markerAssertion)
       const helperPlacementName =
         markerAssertion.placement.kind === 'after-helper'
           ? markerAssertion.placement.helperName
@@ -494,15 +618,17 @@ export function generateTestFromGroups(
 
       if (helperPlacementName) {
         const existing = markerAssertionsAfterHelper.get(helperPlacementName) ?? []
-        existing.push(renderedAssertion)
+        existing.push(markerAssertion)
         markerAssertionsAfterHelper.set(helperPlacementName, existing)
         continue
       }
 
       const existing = markerAssertionsAfterStep.get(markerAssertion.placement.stepId) ?? []
-      existing.push(renderedAssertion)
+      existing.push(markerAssertion)
       markerAssertionsAfterStep.set(markerAssertion.placement.stepId, existing)
     }
+
+    let scenarioNeedsWaitFor = false
 
     const bodyLines = scenario.steps.flatMap((step) => {
       if (step.action !== 'assert' && helperStepSet.has(step)) {
@@ -528,8 +654,8 @@ export function generateTestFromGroups(
         }
       }
 
-      const matcher = step.action === 'assert' && query ? matcherMap.get(query) : undefined
-      const stepLines = [
+      const matcher = query ? inferAssertionMatcher(step, query, matcherMap.get(query)) : undefined
+      const lines = [
         stepTemplate({
           action: step.action,
           query: query ?? 'document.body',
@@ -539,17 +665,28 @@ export function generateTestFromGroups(
       ]
 
       if (step.id) {
-        stepLines.push(...(markerAssertionsAfterStep.get(step.id) ?? []))
+        const stepMarkers = markerAssertionsAfterStep.get(step.id) ?? []
+        const { lines: assertionLines, usedWaitFor } = renderMarkerAssertionGroup(stepMarkers)
+        lines.push(...assertionLines)
+        if (usedWaitFor) {
+          scenarioNeedsWaitFor = true
+        }
       }
 
-      return stepLines
+      return lines
     })
 
+    const annotationLines = (scenario.annotations ?? []).map((annotation) => `// ${annotation}`)
     const stepLines = [
-      ...helperRefs.flatMap((helperName) => [
-        `await ${helperName}(user)`,
-        ...(markerAssertionsAfterHelper.get(helperName) ?? []),
-      ]),
+      ...annotationLines,
+      ...helperRefs.flatMap((helperName) => {
+        const helperMarkers = markerAssertionsAfterHelper.get(helperName) ?? []
+        const { lines: assertionLines, usedWaitFor } = renderMarkerAssertionGroup(helperMarkers)
+        if (usedWaitFor) {
+          scenarioNeedsWaitFor = true
+        }
+        return [`await ${helperName}(user)`, ...assertionLines]
+      }),
       ...bodyLines,
     ]
 
@@ -557,8 +694,11 @@ export function generateTestFromGroups(
       name: scenario.name,
       stepLines,
       hasUserEvents: hasUserEvents || helperRefs.length > 0,
+      needsWaitFor: scenarioNeedsWaitFor,
     }
   })
+
+  const globalNeedsWaitFor = itBlocks.some((block) => block.needsWaitFor)
 
   const imports = importBlock(globalHasUserEvents, importStyle, {
     renderTarget: renderTarget
@@ -576,6 +716,7 @@ export function generateTestFromGroups(
       : null,
     jestDomImportPath,
     needsWithin: renderTarget?.usesWithin ?? false,
+    needsWaitFor: globalNeedsWaitFor,
   })
   const describeCode = describeBlockMultiIt(title, itBlocks, {
     renderExpression: renderTarget ? `<${renderTarget.symbol} />` : '<App />',

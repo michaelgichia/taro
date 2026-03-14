@@ -4,10 +4,12 @@ Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex, run the runtime-n
 
 Taro ships as an installer-first package. The package entrypoint bootstraps runtime-native commands or skills into your agent environment, and those runtime entrypoints run Taro's internal JS-only init, refresh, and generation flows.
 
+For the current strict-order runtime generation path, see [docs/PIPELINE.md](./docs/PIPELINE.md).
+
 ## Getting Started
 
 ```bash
-npx @tayo-dev/rtl@latest
+npx @taro-dev/rtl@latest
 ```
 
 The installer prompts you to choose:
@@ -17,36 +19,36 @@ The installer prompts you to choose:
 
 After installation or reinstall, run the runtime-native `init` entrypoint:
 
-- Claude Code: `/@tayo-dev/rtl:init`
-- Gemini CLI: `/@tayo-dev/rtl:init`
-- OpenCode: `/@tayo-dev/rtl-init`
-- Codex: `$@tayo-dev/rtl-init`
+- Claude Code: `/@taro-dev/rtl:init`
+- Gemini CLI: `/@taro-dev/rtl:init`
+- OpenCode: `/@taro-dev/rtl-init`
+- Codex: `$@taro-dev/rtl-init`
 
-Check the installed package version with `tayo version` or `tayo --version`.
+The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `npx @taro-dev/rtl@latest --version`.
 
 Use the runtime-native help entrypoint when you want routing guidance:
 
-- Claude Code: `/@tayo-dev/rtl:help`
-- Gemini CLI: `/@tayo-dev/rtl:help`
-- OpenCode: `/@tayo-dev/rtl-help`
-- Codex: `$@tayo-dev/rtl-help`
+- Claude Code: `/@taro-dev/rtl:help`
+- Gemini CLI: `/@taro-dev/rtl:help`
+- OpenCode: `/@taro-dev/rtl-help`
+- Codex: `$@taro-dev/rtl-help`
 
 > [!NOTE]
-> Codex installation uses skills under `skills/@tayo-dev/rtl-*/SKILL.md`, not prompt files.
+> Codex installation uses skills under `skills/@taro-dev/rtl-*/SKILL.md`, not prompt files.
 
 ## Staying Updated
 
 Use the runtime-native `refresh` entrypoint for maintenance after Taro is already installed:
 
-- Claude Code: `/@tayo-dev/rtl:refresh`
-- Gemini CLI: `/@tayo-dev/rtl:refresh`
-- OpenCode: `/@tayo-dev/rtl-refresh`
-- Codex: `$@tayo-dev/rtl-refresh`
+- Claude Code: `/@taro-dev/rtl:refresh`
+- Gemini CLI: `/@taro-dev/rtl:refresh`
+- OpenCode: `/@taro-dev/rtl-refresh`
+- Codex: `$@taro-dev/rtl-refresh`
 
 If you need a newer package version first, rerun the installer package:
 
 ```bash
-npx @tayo-dev/rtl@latest
+npx @taro-dev/rtl@latest
 ```
 
 After updating the package, run the runtime-native `refresh` entrypoint. Refresh is the maintenance path for owned assets: it restores missing owned files and protects manual edits instead of overwriting them silently.
@@ -57,24 +59,24 @@ Use runtime flags plus exactly one location flag to skip prompts:
 
 ```bash
 # Claude Code
-npx @tayo-dev/rtl@latest --claude --global
-npx @tayo-dev/rtl@latest --claude --local
+npx @taro-dev/rtl@latest --claude --global
+npx @taro-dev/rtl@latest --claude --local
 
 # OpenCode
-npx @tayo-dev/rtl@latest --opencode --global
-npx @tayo-dev/rtl@latest --opencode --local
+npx @taro-dev/rtl@latest --opencode --global
+npx @taro-dev/rtl@latest --opencode --local
 
 # Gemini CLI
-npx @tayo-dev/rtl@latest --gemini --global
-npx @tayo-dev/rtl@latest --gemini --local
+npx @taro-dev/rtl@latest --gemini --global
+npx @taro-dev/rtl@latest --gemini --local
 
 # Codex
-npx @tayo-dev/rtl@latest --codex --global
-npx @tayo-dev/rtl@latest --codex --local
+npx @taro-dev/rtl@latest --codex --global
+npx @taro-dev/rtl@latest --codex --local
 
 # All runtimes
-npx @tayo-dev/rtl@latest --all --global
-npx @tayo-dev/rtl@latest --all --local
+npx @taro-dev/rtl@latest --all --global
+npx @taro-dev/rtl@latest --all --local
 ```
 
 Local installs write to hidden runtime directories in the current project:
@@ -102,8 +104,8 @@ npm run build:codex
 node dist/index.js --all --local
 
 # Or verify the publish boundary with a tarball
-env NPM_CONFIG_CACHE=/tmp/tayo-npm-cache npm pack --pack-destination /tmp/tayo-pack
-npx /tmp/tayo-pack/tayo-dev-rtl-1.0.0.tgz --codex --local
+env NPM_CONFIG_CACHE=/tmp/taro-npm-cache npm pack --pack-destination /tmp/taro-pack
+npx /tmp/taro-pack/taro-dev-rtl-1.0.0.tgz --codex --local
 ```
 
 The tarball flow is the closest match to what end users get from npm.
@@ -112,23 +114,29 @@ The tarball flow is the closest match to what end users get from npm.
 
 1. builds the package
 2. installs Claude commands into this repo's `./.claude/`
-3. deletes the existing global Taro Claude command directory at `~/.claude/commands/@tayo-dev/rtl` and reinstalls it cleanly
+3. deletes the existing global Taro Claude command directory at `~/.claude/commands/@taro-dev/rtl` and reinstalls it cleanly
 
 `npm run build:codex` performs the Codex equivalent:
 
 1. builds the package
 2. installs Codex skills into this repo's `./.codex/`
-3. deletes the existing global Taro Codex skill directories plus `~/.codex/@tayo-dev-rtl-manifest.json`
+3. deletes the existing global Taro Codex skill directories plus `~/.codex/@taro-dev-rtl-manifest.json`
 4. reinstalls the global Codex surface cleanly
+
+That reinstalls the Codex skill surface only. It does not place a global `taro` binary on your shell `PATH`; the installed Codex skills call this checkout's `dist/index.js` directly. When you move or replace the checkout, rerun `npm run build:codex` so the launcher paths stay current.
 
 ## Generate RTL Tests
 
 After installation and a first `init` run, use the runtime-native installed generate command or skill for your agent:
 
-- Claude Code: `/@tayo-dev/rtl:generate`
-- Gemini CLI: `/@tayo-dev/rtl:generate`
-- OpenCode: `/@tayo-dev/rtl-generate`
-- Codex: `$@tayo-dev/rtl-generate`
+- Claude Code: `/@taro-dev/rtl:generate`
+- Claude Code: `/@taro-dev/rtl:generate-i`
+- Gemini CLI: `/@taro-dev/rtl:generate`
+- Gemini CLI: `/@taro-dev/rtl:generate-i`
+- OpenCode: `/@taro-dev/rtl-generate`
+- OpenCode: `/@taro-dev/rtl-generate-i`
+- Codex: `$@taro-dev/rtl-generate`
+- Codex: `$@taro-dev/rtl-generate-i`
 
 ### Prerequisites
 
@@ -146,7 +154,7 @@ Taro supports one export path:
 
 ### Generate the test
 
-Run your runtime-native generate entrypoint against `recording.js`. Taro writes `recording.test.tsx` next to the recording and refuses to overwrite an existing file, so rename or delete the previous generated file before rerunning.
+Run your runtime-native generate entrypoint against `recording.js`. When Taro infers the owning render target, it must write the generated test next to the inferred component and refuses to overwrite an existing file. If it cannot infer a render target, the fallback boundary-draft output is written next to the recording instead.
 
 Expected output:
 
@@ -158,6 +166,8 @@ Created: src/components/MyComponent.test.tsx
 ```
 
 On subsequent runs in the same project, Taro reads `.taro/state.json` package profiles to match your test style automatically. If `.taro/state.json` is missing, `generate` performs a light bootstrap, but `init` remains the recommended first step for brownfield repos.
+
+For the exact module execution order behind `__generate`, see [docs/PIPELINE.md](./docs/PIPELINE.md).
 
 ### Draft-quality output is explicit
 
@@ -246,8 +256,8 @@ After installation, each runtime gets a namespaced help entrypoint plus `init`, 
 
 ### Tips
 
-- Taro writes the generated test next to the recording file using the same basename
-- If you re-record a flow, rename or delete the old generated test before running Taro again
+- When Taro infers the owning render target, it writes the generated test next to that component using the same basename
+- If you re-record a flow, Taro now compares the existing generated test against the new Recorder flow and only overwrites when coverage or quality improves
 - If you record multiple flows, run Taro on each to build up package state in `.taro/state.json` — later runs benefit from earlier ones
 - Commit `.taro/state.json` when you want learned package profiles to persist across teammates and CI
 - Add `.taro/overrides.json` when you need to pin runner, render helper, or shared mock policy for a package

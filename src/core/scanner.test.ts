@@ -94,10 +94,10 @@ describe('scanConventions', () => {
     expect(parsed.packages).toEqual({})
   })
 
-  it('reads legacy .tayo conventions before the project is migrated', async () => {
-    await mkdir(join(testDir, '.tayo'), { recursive: true })
+  it('reads compatibility conventions.json from .taro when state.json is missing', async () => {
+    await mkdir(join(testDir, '.taro'), { recursive: true })
     await writeFile(
-      join(testDir, '.tayo', 'conventions.json'),
+      join(testDir, '.taro', 'conventions.json'),
       JSON.stringify({
         ...DEFAULT_CONVENTIONS,
         projectRoot: testDir,

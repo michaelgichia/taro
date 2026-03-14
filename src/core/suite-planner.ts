@@ -3,13 +3,16 @@ import { resolveSemanticMarkerAssertion } from './resolver.js'
 import type {
   AnalyzedRecording,
   ItGroup,
+  JsDetectedInteractionContract,
   JsHelperPlan,
+  JsInteractionCompanionState,
   PlannedMarkerAssertion,
+  PlannedMarkerAssertionDiagnostics,
   JsScenarioPlan,
   JsStateSafetyAssessment,
   NormalizedRecording,
   NormalizedStep,
-  SemanticMarkerAssertionProofKind,
+  SemanticMarkerCandidate,
   StepId,
   UnresolvedSemanticMarker,
   UnresolvedSemanticMarkerAssertionResolution,
@@ -30,6 +33,7 @@ export interface JsSuitePlan {
   itGroups: ItGroup[]
   scenarios: JsScenarioPlan[]
   helpers: JsHelperPlan[]
+  contracts: JsDetectedInteractionContract[]
   stateSafety: JsStateSafetyAssessment
   renderBoundary: RenderBoundaryAssessment
   warnings: string[]
@@ -103,7 +107,9 @@ function buildFallbackGroups(
   ]
 }
 
-function getSemanticMarkerCandidate(step: NormalizedStep) {
+function getSemanticMarkerCandidate(
+  step: NormalizedStep
+): SemanticMarkerCandidate | undefined {
   const metadataCandidate = step.metadata?.semanticMarkerCandidate
 
   if (
@@ -112,7 +118,7 @@ function getSemanticMarkerCandidate(step: NormalizedStep) {
     'stepId' in metadataCandidate &&
     typeof metadataCandidate.stepId === 'string'
   ) {
-    return metadataCandidate
+    return metadataCandidate as SemanticMarkerCandidate
   }
 
   return step.semanticMarkerCandidate
@@ -180,85 +186,95 @@ function getHelperPlacement(params: {
   return null
 }
 
-function collectScenarioMarkerState(params: {
-  group: ItGroup
-  helperRefs: string[]
-  helperStepsByName: Map<string, Set<string>>
-}) {
-  const { group, helperRefs, helperStepsByName } = params
-  const strongestMarkerAssertionsByAnchor = new Map<
-    StepId,
-    {
-      markerAssertion: PlannedMarkerAssertion
-      proofRank: number
-      sourceOrder: number
-    }
-  >()
-  const unresolvedMarkerAssertions: UnresolvedSemanticMarkerAssertionResolution[] = []
+function normalizeMarkerAssertionKey(markerAssertion: PlannedMarkerAssertion): string {
+  const placementKey =
+    markerAssertion.placement.kind === 'after-helper'
+      ? `after-helper:${markerAssertion.placement.helperName}:${markerAssertion.placement.stepId}`
+      : `after-step:${markerAssertion.placement.stepId}`
 
-  for (const [sourceOrder, step] of group.steps.entries()) {
-    if (!isManagedSemanticMarkerStep(step)) {
-      continue
-    }
+  return [
+    placementKey,
+    markerAssertion.assertion.queryExpression.replace(/\s+/g, ' ').trim(),
+    markerAssertion.assertion.matcher,
+  ].join('|')
+}
 
-    const resolution = resolveSemanticMarkerAssertion(step)
-    if (resolution.status === 'unresolved') {
-      unresolvedMarkerAssertions.push(resolution)
-      continue
-    }
+function dedupeMarkerAssertions(
+  markerAssertions: Array<{
+    markerAssertion: PlannedMarkerAssertion
+    sourceOrder: number
+  }>
+): PlannedMarkerAssertion[] {
+  const seen = new Set<string>()
 
-    const placement =
-      getHelperPlacement({
-        anchorStepId: resolution.anchorStepId,
-        helperRefs,
-        helperStepsByName,
-      }) ?? {
-        kind: 'after-step' as const,
-        stepId: resolution.anchorStepId,
+  return markerAssertions
+    .sort((left, right) => left.sourceOrder - right.sourceOrder)
+    .flatMap(({ markerAssertion }) => {
+      const key = normalizeMarkerAssertionKey(markerAssertion)
+      if (seen.has(key)) {
+        return []
       }
 
-    const markerAssertion = {
-      markerStepId: resolution.markerStepId,
-      anchorStepId: resolution.anchorStepId,
-      placement,
-      assertion: resolution.assertion,
-    }
-    const proofRank = getSemanticMarkerProofRank(resolution.assertion.proofKind)
-    const existing = strongestMarkerAssertionsByAnchor.get(resolution.anchorStepId)
+      seen.add(key)
+      return [markerAssertion]
+    })
+}
 
-    if (
-      !existing ||
-      proofRank < existing.proofRank ||
-      (proofRank === existing.proofRank && sourceOrder < existing.sourceOrder)
-    ) {
-      strongestMarkerAssertionsByAnchor.set(resolution.anchorStepId, {
-        markerAssertion,
-        proofRank,
-        sourceOrder,
-      })
+function toBoundaryPlacementConflict(params: {
+  conflictingScenarioNames: string[]
+  resolution:
+    | ReturnType<typeof resolveSemanticMarkerAssertion>
+    | UnresolvedSemanticMarkerAssertionResolution
+  step: NormalizedStep
+}): UnresolvedSemanticMarkerAssertionResolution {
+  const { conflictingScenarioNames, resolution, step } = params
+  if (resolution.status === 'unresolved') {
+    return {
+      ...resolution,
+      reason: 'boundary-placement-conflict',
+      conflictingScenarioNames,
     }
   }
 
   return {
-    markerAssertions: [...strongestMarkerAssertionsByAnchor.values()]
-      .sort((left, right) => left.sourceOrder - right.sourceOrder)
-      .map((entry) => entry.markerAssertion),
-    unresolvedMarkerAssertions,
+    status: 'unresolved',
+    markerStepId: resolution.markerStepId,
+    anchorStepId: resolution.anchorStepId,
+    relation: resolution.assertion.relation,
+    reason: 'boundary-placement-conflict',
+    proofSubject: resolution.assertion.proofSubject,
+    target: resolution.assertion.target ?? step.target,
+    proofText: resolution.assertion.proofText,
+    line: resolution.assertion.line ?? step.line,
+    sourceContext: resolution.assertion.sourceContext,
+    query: resolution.assertion.query,
+    conflictingScenarioNames,
   }
 }
 
-function getSemanticMarkerProofRank(proofKind: SemanticMarkerAssertionProofKind): number {
-  switch (proofKind) {
-    case 'role-name':
-      return 0
-    case 'visible-text':
-    case 'visible-value':
-      return 1
-    case 'label-text':
-      return 2
-    case 'placeholder-text':
-      return 3
+function collectPlannedMarkerDiagnostics(
+  params: {
+    fromScenarioName: string
+    step: NormalizedStep
+    toScenarioName: string
   }
+): PlannedMarkerAssertionDiagnostics | undefined {
+  const { fromScenarioName, step, toScenarioName } = params
+  const candidate = getSemanticMarkerCandidate(step)
+  const diagnostics: PlannedMarkerAssertionDiagnostics = {}
+
+  if (candidate?.canonicalRecovery) {
+    diagnostics.canonicalRecovery = candidate.canonicalRecovery
+  }
+
+  if (fromScenarioName !== toScenarioName) {
+    diagnostics.placementCorrection = {
+      fromScenarioName,
+      toScenarioName,
+    }
+  }
+
+  return Object.keys(diagnostics).length > 0 ? diagnostics : undefined
 }
 
 function sanitizeIdentifierPart(value: string): string {
@@ -296,19 +312,216 @@ function inferScenarioGoal(groupName: string): JsScenarioPlan['goal'] {
   return 'flow'
 }
 
+function isSubmitLikeStep(step: NormalizedStep): boolean {
+  if (step.action !== 'click') {
+    return false
+  }
+
+  return /(save|submit|create|update|add|delete|confirm|finish)/i.test(step.target ?? '')
+}
+
+function findSubmitStepIndex(steps: NormalizedStep[]): number {
+  for (let index = steps.length - 1; index >= 0; index -= 1) {
+    if (isSubmitLikeStep(steps[index]!)) {
+      return index
+    }
+  }
+
+  return -1
+}
+
+function detectInteractionContracts(params: {
+  recording: NormalizedRecording
+  mockAnalysis: MockAnalysis | null
+}): JsDetectedInteractionContract[] {
+  const { recording, mockAnalysis } = params
+  if (!mockAnalysis || mockAnalysis.companionPolicy === 'off') {
+    return []
+  }
+
+  if (!mockAnalysis.enabledContractFamilies.includes('mutation-form')) {
+    return []
+  }
+
+  const hasFormInput = recording.steps.some((step) => step.action === 'fill' || step.action === 'select')
+  if (!hasFormInput || findSubmitStepIndex(recording.steps) === -1) {
+    return []
+  }
+
+  const repoContracts = mockAnalysis.interactionContracts.filter(
+    (contract) => contract.kind === 'mutation-form' && contract.states.length > 0
+  )
+  const companionStates = [
+    ...new Set(
+      repoContracts.length > 0
+        ? repoContracts.flatMap((contract) => contract.states)
+        : mockAnalysis.mutationLifecycles.flatMap((lifecycle) => [
+            lifecycle.stages.includes('loading') ? ('in-flight' as const) : null,
+            lifecycle.stages.includes('error') ? ('failed-completion' as const) : null,
+          ]).filter((state): state is JsInteractionCompanionState => state !== null)
+    ),
+  ]
+
+  if (companionStates.length === 0) {
+    return []
+  }
+
+  if (repoContracts.length > 0) {
+    const highConfidence = repoContracts.some((contract) => contract.confidence === 'high')
+    const mediumConfidence = highConfidence || repoContracts.some((contract) => contract.confidence === 'medium')
+
+    return [
+      {
+        kind: 'mutation-form',
+        source: 'repo-contract',
+        confidence: highConfidence ? 'high' : mediumConfidence ? 'medium' : 'low',
+        companionStates,
+        evidence: [
+          `${repoContracts.length} learned mutation-form contract(s)`,
+          ...repoContracts[0]!.evidence.slice(0, 2),
+        ],
+      },
+    ]
+  }
+
+  const hasSharedBoundarySupport =
+    mockAnalysis.repeatedTargets.length > 0 ||
+    mockAnalysis.boundaryProfiles.some((profile) =>
+      ['shared-module-factory', 'provider-wrapper', 'scaffolded-module-factory'].includes(
+        profile.strategy
+      )
+    )
+
+  return [
+    {
+      kind: 'mutation-form',
+      source: 'repo-signal',
+      confidence: hasSharedBoundarySupport ? 'medium' : 'low',
+      companionStates,
+      evidence: [
+        `${mockAnalysis.mutationLifecycles.length} mutation lifecycle signal(s)`,
+        hasSharedBoundarySupport
+          ? 'shared boundary support signals detected'
+          : 'no stable shared boundary support detected',
+      ],
+    },
+  ]
+}
+
+function buildCompanionAnnotations(state: JsInteractionCompanionState): string[] {
+  if (state === 'in-flight') {
+    return [
+      'Override the shared mutation boundary so the submit action stays unresolved before asserting the in-flight UI.',
+      'Keep this test focused on the observable in-flight state instead of the eventual success path.',
+    ]
+  }
+
+  return [
+    'Override the shared mutation boundary so submit resolves with a failure before asserting the error UI.',
+    'Keep this test focused on the observable failure state instead of replaying the happy path assertions.',
+  ]
+}
+
+function buildCompanionScenarioName(params: {
+  baseName: string
+  state: JsInteractionCompanionState
+}): string {
+  const { baseName, state } = params
+  return state === 'in-flight' ? `${baseName} shows in-flight UI` : `${baseName} shows failure UI`
+}
+
+function synthesizeContractCompanionScenarios(params: {
+  scenarios: JsScenarioPlan[]
+  contracts: JsDetectedInteractionContract[]
+}): {
+  scenarios: JsScenarioPlan[]
+  warnings: string[]
+} {
+  const { scenarios, contracts } = params
+  const warnings: string[] = []
+  const mutationContract = contracts.find((contract) => contract.kind === 'mutation-form')
+
+  if (!mutationContract) {
+    return { scenarios, warnings }
+  }
+
+  if (mutationContract.confidence === 'low') {
+    warnings.push(
+      'Taro detected a possible mutation-backed contract but companion scaffolds were suppressed because repo control seams are not stable enough yet.'
+    )
+    return { scenarios, warnings }
+  }
+
+  const primaryScenarioIndex = [...scenarios.keys()]
+    .reverse()
+    .find((index) => findSubmitStepIndex(scenarios[index]!.steps) !== -1)
+
+  if (primaryScenarioIndex === undefined) {
+    warnings.push(
+      'Taro detected a mutation-backed contract but could not find a submit scenario to use as the companion scaffold anchor.'
+    )
+    return { scenarios, warnings }
+  }
+
+  const primaryScenario = scenarios[primaryScenarioIndex]!
+  const submitStepIndex = findSubmitStepIndex(primaryScenario.steps)
+  const primarySteps =
+    submitStepIndex >= 0 ? primaryScenario.steps.slice(0, submitStepIndex + 1) : primaryScenario.steps
+
+  const synthesized = mutationContract.companionStates.map((state) => ({
+    ...primaryScenario,
+    name: buildCompanionScenarioName({
+      baseName: primaryScenario.name,
+      state,
+    }),
+    steps: primarySteps,
+    provenance: 'synthesized-companion' as const,
+    contractKind: mutationContract.kind,
+    companionState: state,
+    annotations: buildCompanionAnnotations(state),
+    markerAssertions: [],
+    unresolvedMarkerAssertions: [],
+  }))
+
+  if (synthesized.length > 0) {
+    warnings.push(
+      `Synthesized ${synthesized.length} companion scenario(s) for the ${mutationContract.kind} contract.`
+    )
+  }
+
+  return {
+    scenarios: [...scenarios, ...synthesized],
+    warnings,
+  }
+}
+
 function hasMutationSignals(mockAnalysis: MockAnalysis | null): boolean {
   if (!mockAnalysis) {
     return false
   }
 
+  const boundaryProfiles = mockAnalysis.boundaryProfiles ?? []
+
   return (
+    mockAnalysis.interactionContracts.length > 0 ||
     mockAnalysis.mutationLifecycles.length > 0 ||
-    mockAnalysis.repeatedTargets.length > 0
+    mockAnalysis.repeatedTargets.length > 0 ||
+    boundaryProfiles.some((profile) =>
+      ['shared-module-factory', 'provider-wrapper', 'scaffolded-module-factory'].includes(
+        profile.strategy
+      )
+    )
   )
 }
 
 function findRepeatedMockTarget(mockAnalysis: MockAnalysis | null): string | null {
-  return mockAnalysis?.recommendations[0]?.target ?? null
+  return (
+    mockAnalysis?.boundaryProfiles?.find((profile) =>
+      ['shared-module-factory', 'scaffolded-module-factory'].includes(profile.strategy)
+    )?.target ??
+    mockAnalysis?.recommendations[0]?.target ??
+    null
+  )
 }
 
 function isWizardFlow(recording: NormalizedRecording): boolean {
@@ -323,7 +536,9 @@ function isWizardFlow(recording: NormalizedRecording): boolean {
     return /^(continue|save|submit)$/i.test(step.target) || /(review|dialog)/i.test(step.target)
   })
   const hasFormInput = recording.steps.some((step) => step.action === 'fill' || step.action === 'select')
-  const hasReviewLanguage = recording.steps.some((step) => /(review|invoice|details)/i.test(step.target ?? ''))
+  const hasReviewLanguage = recording.steps.some((step) =>
+    /(review|summary|confirm|details|step\s+\d+|next step)/i.test(step.target ?? '')
+  )
 
   return actionableSteps.length >= 6 && hasFormInput && (milestoneClicks.length >= 2 || hasReviewLanguage)
 }
@@ -338,17 +553,17 @@ function assessStateSafety(params: {
 
   if (wizardFlow && hasMutationSignals(mockAnalysis)) {
     return {
-      status: 'single-flow-required',
+      status: 'setup-replay-required',
       reason:
-        'This flow spans multiple wizard steps and repo evidence shows mutation-driven state, so downstream tests should share one coordinated flow unless setup recreation is proven.',
+        'This flow spans multiple wizard steps and repo evidence shows mutation-driven state, so each scenario should replay the prerequisite setup instead of bundling multiple contracts into one test.',
     }
   }
 
   if (wizardFlow) {
     return {
-      status: 'unknown',
+      status: 'setup-replay-required',
       reason:
-        'This flow looks stateful, but repo evidence is not strong enough yet to prove whether multi-test recreation is safe.',
+        'This flow looks stateful, so later scenarios should rebuild prerequisite UI state with helpers instead of relying on one broad end-to-end test.',
     }
   }
 
@@ -382,9 +597,15 @@ export function assessRenderBoundary(params: {
   if (mockAnalysis?.mutationLifecycles.length) {
     signals.push('existing tests model mutation lifecycle states')
   }
+  if (mockAnalysis?.interactionContracts.length) {
+    signals.push('repo already learns stateful interaction contracts')
+  }
 
   if (mockAnalysis?.repeatedTargets.length) {
     signals.push('repo already shares repeated mock targets')
+  }
+  if ((mockAnalysis?.boundaryProfiles?.length ?? 0) > 0) {
+    signals.push('repo already documents boundary support patterns')
   }
 
   if (wizardFlow && mutationSignals) {
@@ -428,6 +649,7 @@ export function planJsSuite(params: {
   const { recording, analyzedRecording, mockAnalysis, fallbackTitle } = params
   const renderBoundary = assessRenderBoundary({ recording, mockAnalysis })
   const stateSafety = assessStateSafety({ recording, analyzedRecording, mockAnalysis })
+  const contracts = detectInteractionContracts({ recording, mockAnalysis })
   const warnings: string[] = []
   const stepsById = new Map(
     analyzedRecording.steps
@@ -450,19 +672,12 @@ export function planJsSuite(params: {
   const repeatedTarget = findRepeatedMockTarget(mockAnalysis)
   if (repeatedTarget) {
     warnings.push(
-      `Reuse shared mocks for repeated targets such as "${repeatedTarget}" instead of re-mocking internal query hooks inline.`
+      `Reuse learned boundary support for collaborators such as "${repeatedTarget}" instead of re-mocking internal query hooks inline.`
     )
   }
 
   const baseGroups = enrichGroupSteps(
-    renderBoundary.kind === 'module'
-      ? [
-          {
-            name: fallbackTitle || 'complete recorded flow',
-            steps: analyzedRecording.steps,
-          },
-        ]
-      : buildFallbackGroups(analyzedRecording, fallbackTitle),
+    buildFallbackGroups(analyzedRecording, fallbackTitle),
     stepsById
   )
 
@@ -485,18 +700,20 @@ export function planJsSuite(params: {
     ])
   )
 
-  const scenarios = baseGroups.map((group, index) => {
+  const scenarios = baseGroups.map((group) => {
+    const matchingHelperIndexes = helpers.flatMap((helper, index) =>
+      sharesAnyStep(group.steps, helper.steps) ? [index] : []
+    )
     const helperRefs =
-      stateSafety.status === 'safe-multi-it'
-        ? helpers
+      stateSafety.status === 'setup-replay-required'
+        ? matchingHelperIndexes.length > 0
+          ? helpers
+              .slice(0, matchingHelperIndexes.at(-1)! + 1)
+              .map((helper) => helper.name)
+          : []
+        : helpers
             .filter((helper) => sharesAnyStep(group.steps, helper.steps))
             .map((helper) => helper.name)
-        : []
-    const markerState = collectScenarioMarkerState({
-      group,
-      helperRefs,
-      helperStepsByName,
-    })
 
     return {
       name: group.name,
@@ -504,21 +721,129 @@ export function planJsSuite(params: {
       steps: filterManagedSemanticMarkerSteps(group.steps),
       helperRefs,
       requiresFreshRender: true,
-      markerAssertions: markerState.markerAssertions,
-      unresolvedMarkerAssertions: markerState.unresolvedMarkerAssertions,
+      provenance: 'recorded' as const,
+      markerAssertions: [] as PlannedMarkerAssertion[],
+      unresolvedMarkerAssertions: [] as UnresolvedSemanticMarkerAssertionResolution[],
     }
   })
 
-  if (stateSafety.status !== 'safe-multi-it' && baseGroups.length > 1) {
+  const scenarioOwnersByStepId = new Map<StepId, number[]>()
+  for (const [scenarioIndex, group] of baseGroups.entries()) {
+    for (const step of group.steps) {
+      if (!step.id) {
+        continue
+      }
+
+      const owners = scenarioOwnersByStepId.get(step.id) ?? []
+      owners.push(scenarioIndex)
+      scenarioOwnersByStepId.set(step.id, owners)
+    }
+  }
+
+  const markerAssertionsByScenario = scenarios.map(
+    () => [] as Array<{ markerAssertion: PlannedMarkerAssertion; sourceOrder: number }>
+  )
+  const unresolvedMarkersByScenario = scenarios.map(
+    () => [] as Array<{ markerAssertion: UnresolvedSemanticMarkerAssertionResolution; sourceOrder: number }>
+  )
+  let markerSourceOrder = 0
+
+  for (const [groupIndex, group] of baseGroups.entries()) {
+    for (const step of group.steps) {
+      if (!isManagedSemanticMarkerStep(step)) {
+        continue
+      }
+
+      const resolution = resolveSemanticMarkerAssertion(step)
+      const sourceOrder = markerSourceOrder++
+      const anchorOwners =
+        resolution.anchorStepId ? (scenarioOwnersByStepId.get(resolution.anchorStepId) ?? []) : []
+
+      if (resolution.status === 'unresolved') {
+        const targetScenarioIndex = anchorOwners.length === 1 ? anchorOwners[0]! : groupIndex
+        const markerAssertion =
+          resolution.anchorStepId && anchorOwners.length !== 1
+            ? toBoundaryPlacementConflict({
+                conflictingScenarioNames: anchorOwners.map((index) => scenarios[index]!.name),
+                resolution,
+                step,
+              })
+            : resolution
+        unresolvedMarkersByScenario[targetScenarioIndex]!.push({
+          markerAssertion,
+          sourceOrder,
+        })
+        continue
+      }
+
+      if (anchorOwners.length !== 1) {
+        unresolvedMarkersByScenario[groupIndex]!.push({
+          markerAssertion: toBoundaryPlacementConflict({
+            conflictingScenarioNames: anchorOwners.map((index) => scenarios[index]!.name),
+            resolution,
+            step,
+          }),
+          sourceOrder,
+        })
+        continue
+      }
+
+      const targetScenarioIndex = anchorOwners[0]!
+      const targetScenario = scenarios[targetScenarioIndex]!
+      const placement =
+        getHelperPlacement({
+          anchorStepId: resolution.anchorStepId,
+          helperRefs: targetScenario.helperRefs,
+          helperStepsByName,
+        }) ?? {
+          kind: 'after-step' as const,
+          stepId: resolution.anchorStepId,
+        }
+      const diagnostics = collectPlannedMarkerDiagnostics({
+        fromScenarioName: scenarios[groupIndex]!.name,
+        step,
+        toScenarioName: targetScenario.name,
+      })
+
+      markerAssertionsByScenario[targetScenarioIndex]!.push({
+        markerAssertion: {
+          markerStepId: resolution.markerStepId,
+          anchorStepId: resolution.anchorStepId,
+          placement,
+          assertion: resolution.assertion,
+          ...(diagnostics ? { diagnostics } : {}),
+        },
+        sourceOrder,
+      })
+    }
+  }
+
+  for (const [scenarioIndex, scenario] of scenarios.entries()) {
+    scenario.markerAssertions = dedupeMarkerAssertions(
+      markerAssertionsByScenario[scenarioIndex] ?? []
+    )
+    scenario.unresolvedMarkerAssertions = (unresolvedMarkersByScenario[scenarioIndex] ?? [])
+      .sort((left, right) => left.sourceOrder - right.sourceOrder)
+      .map((entry) => entry.markerAssertion)
+  }
+
+  if (stateSafety.status === 'setup-replay-required' && baseGroups.length > 1) {
     warnings.push(
-      'Keep this flow in a single end-to-end scenario until Taro can prove that downstream state can be recreated safely per test.'
+      'Replay prerequisite setup inside each scenario helper instead of collapsing multiple contracts into one broad end-to-end test.'
     )
   }
 
+  const synthesizedCompanions = synthesizeContractCompanionScenarios({
+    scenarios,
+    contracts,
+  })
+  warnings.push(...synthesizedCompanions.warnings)
+
   return {
     itGroups: baseGroups,
-    scenarios,
+    scenarios: synthesizedCompanions.scenarios,
     helpers,
+    contracts,
     stateSafety,
     renderBoundary,
     warnings,

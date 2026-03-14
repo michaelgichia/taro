@@ -14,7 +14,7 @@ import type {
 
 function createRecording(steps: NormalizedRecording['steps']): NormalizedRecording {
   return {
-    title: 'Add sale flow',
+    title: 'Example flow',
     rawStepCount: steps.length,
     steps,
   }
@@ -23,8 +23,8 @@ function createRecording(steps: NormalizedRecording['steps']): NormalizedRecordi
 function createAnalyzedRecording(
   recording: NormalizedRecording,
   intentGroups: ItGroup[] = [
-    { name: 'open sale dialog', steps: recording.steps.slice(0, 2) },
-    { name: 'complete sale wizard', steps: recording.steps.slice(2) },
+    { name: 'open example dialog', steps: recording.steps.slice(0, 2) },
+    { name: 'complete example wizard', steps: recording.steps.slice(2) },
   ]
 ): AnalyzedRecording {
   return {
@@ -44,36 +44,53 @@ function createAnalyzedRecording(
 function createMockAnalysis(): MockAnalysis {
   return {
     conventions: null,
-    packagePath: 'packages/dashboard',
+    packagePath: 'packages/example-app',
     source: 'package-profile',
     recommendations: [
       {
         count: 3,
-        files: ['src/modules/kenya/sales/SalesModule.test.tsx'],
+        files: ['src/features/FeatureFlow.test.tsx'],
         kind: 'extract',
         reason: 'Mock target appears in multiple tests and should be shared',
-        target: '@digitax/data-layer',
+        target: '@repo/data-client',
       },
     ],
     repeatedTargets: [
       {
         count: 3,
-        files: ['src/modules/kenya/sales/SalesModule.test.tsx'],
-        target: '@digitax/data-layer',
+        files: ['src/features/FeatureFlow.test.tsx'],
+        target: '@repo/data-client',
       },
     ],
     mutationLifecycles: [
       {
-        file: 'src/modules/kenya/sales/SalesModule.test.tsx',
+        file: 'src/features/FeatureFlow.test.tsx',
         stages: ['loading', 'success', 'error'],
         evidence: ['loading cues detected', 'success cues detected', 'error cues detected'],
       },
     ],
+    interactionContracts: [
+      {
+        file: 'src/features/FeatureFlow.test.tsx',
+        kind: 'mutation-form',
+        states: ['in-flight', 'failed-completion'],
+        supportTargets: ['@repo/data-client'],
+        overrideStyle: 'stable-handles',
+        confidence: 'high',
+        evidence: ['loading cues detected', 'error cues detected'],
+      },
+    ],
     instabilityWarnings: [],
     sharedMockFactories: [],
+    boundaryProfiles: [],
     inlineSafeMockTargets: [],
     preferredSharedMocks: {},
     forbidMocks: [],
+    preferredBoundaryImplementations: {},
+    forbidBoundaryTargets: [],
+    queryHookPolicy: 'avoid',
+    companionPolicy: 'heuristic',
+    enabledContractFamilies: ['mutation-form'],
   }
 }
 
@@ -84,15 +101,15 @@ describe('planJsSuite', () => {
       status: 'qualified',
       originalGesture: 'dblClick',
       proofSubject: 'heading',
-      proofText: 'Review Sale',
-      target: 'Review Sale',
+      proofText: 'Review Example',
+      target: 'Review Example',
       query: {
         stepId: 'js-step-2',
         method: 'getByRole',
         queryRoot: 'screen',
         role: 'heading',
-        raw: "screen.getByRole('heading', { name: 'Review Sale' })",
-        target: 'Review Sale',
+        raw: "screen.getByRole('heading', { name: 'Review Example' })",
+        target: 'Review Example',
       },
       anchor: {
         anchorStepId: 'js-step-1',
@@ -107,8 +124,8 @@ describe('planJsSuite', () => {
       anchorStepId: 'js-step-1',
       relation: 'precedes',
       proofSubject: 'heading',
-      proofText: 'Review Sale',
-      target: 'Review Sale',
+      proofText: 'Review Example',
+      target: 'Review Example',
       sourceContext: {
         originalType: 'dblClick',
       },
@@ -118,8 +135,8 @@ describe('planJsSuite', () => {
       stepId: 'js-step-4',
       reason: 'ambiguous-field-context',
       proofSubject: 'field-label',
-      proofText: 'Customer PIN',
-      target: 'Customer PIN',
+      proofText: 'Customer Reference',
+      target: 'Customer Reference',
       line: 27,
       sourceContext: {
         line: 27,
@@ -133,8 +150,8 @@ describe('planJsSuite', () => {
         stepId: 'js-step-3',
         method: 'getByText',
         queryRoot: 'screen',
-        raw: "screen.getByText('Customer PIN')",
-        target: 'Customer PIN',
+        raw: "screen.getByText('Customer Reference')",
+        target: 'Customer Reference',
       },
     }
 
@@ -144,14 +161,14 @@ describe('planJsSuite', () => {
         {
           id: 'js-step-1',
           action: 'click',
-          target: 'Open Sale Dialog',
+          target: 'Open Example Dialog',
           originalType: 'click',
           source: 'js',
         },
         {
           id: 'js-step-2',
           action: 'click',
-          target: 'Review Sale',
+          target: 'Review Example',
           originalType: 'dblClick',
           source: 'js',
           metadata: {
@@ -162,14 +179,14 @@ describe('planJsSuite', () => {
         {
           id: 'js-step-3',
           action: 'assert',
-          target: 'Sale dialog',
+          target: 'Example dialog',
           originalType: 'assert',
           source: 'js',
         },
         {
           id: 'js-step-4',
           action: 'click',
-          target: 'Customer PIN',
+          target: 'Customer Reference',
           originalType: 'dblClick',
           source: 'js',
           metadata: {
@@ -184,7 +201,7 @@ describe('planJsSuite', () => {
         },
       ]),
       baseline: {
-        environmentUrl: 'http://localhost:3001/sales',
+        environmentUrl: 'http://localhost:3001/example',
         queries: [],
         selectors: [],
         assertions: [],
@@ -198,7 +215,7 @@ describe('planJsSuite', () => {
         ],
         itGroups: [
           {
-            name: 'open sale dialog',
+            name: 'open example dialog',
             steps: [],
           },
         ],
@@ -211,7 +228,7 @@ describe('planJsSuite', () => {
         ...parsedInput.baseline,
         itGroups: [
           {
-            name: 'open sale dialog',
+            name: 'open example dialog',
             steps: parsedInput.recording.steps.map((step) => ({
               ...step,
               semanticMarkerCandidate: undefined,
@@ -223,7 +240,7 @@ describe('planJsSuite', () => {
       },
     })
     const intentGroups: ItGroup[] = [
-      { name: 'open sale dialog', steps: normalized.steps },
+      { name: 'open example dialog', steps: normalized.steps },
     ]
 
     const plan = planJsSuite({
@@ -242,7 +259,7 @@ describe('planJsSuite', () => {
       unresolvedSemanticMarker,
     })
     expect(plan.helpers[0]).toMatchObject({
-      name: 'planOpenSaleDialog',
+      name: 'planOpenExampleDialog',
       assertionPolicy: 'sync-only',
     })
     expect(plan.helpers[0]?.steps.map((step) => step.id)).toEqual([
@@ -253,14 +270,14 @@ describe('planJsSuite', () => {
       'js-step-1',
       'js-step-3',
     ])
-    expect(plan.scenarios[0]?.helperRefs).toEqual(['planOpenSaleDialog'])
+    expect(plan.scenarios[0]?.helperRefs).toEqual(['planOpenExampleDialog'])
     expect(plan.scenarios[0]?.markerAssertions).toHaveLength(1)
     expect(plan.scenarios[0]?.markerAssertions?.[0]).toMatchObject({
       markerStepId: 'js-step-2',
       anchorStepId: 'js-step-1',
       placement: {
         kind: 'after-helper',
-        helperName: 'planOpenSaleDialog',
+        helperName: 'planOpenExampleDialog',
         stepId: 'js-step-1',
       },
       assertion: {
@@ -282,7 +299,7 @@ describe('planJsSuite', () => {
     })
   })
 
-  it('keeps only the strongest resolved marker proof per anchor while preserving scenario coverage', () => {
+  it('keeps distinct resolved marker proof on the same anchor while still tracking unresolved gaps', () => {
     const recording = createRecording([
       {
         id: 'js-step-1',
@@ -294,7 +311,7 @@ describe('planJsSuite', () => {
       {
         id: 'js-step-2',
         action: 'click',
-        target: 'Review Sale',
+        target: 'Review Example',
         originalType: 'dblClick',
         source: 'js',
         semanticMarkerCandidate: {
@@ -302,8 +319,8 @@ describe('planJsSuite', () => {
           status: 'qualified',
           originalGesture: 'dblClick',
           proofSubject: 'visible-message',
-          proofText: 'Review Sale',
-          target: 'Review Sale',
+          proofText: 'Review Example',
+          target: 'Review Example',
           sourceContext: {
             originalType: 'dblClick',
           },
@@ -311,8 +328,8 @@ describe('planJsSuite', () => {
             stepId: 'js-step-2',
             method: 'getByText',
             queryRoot: 'screen',
-            raw: "screen.getByText('Review Sale')",
-            target: 'Review Sale',
+            raw: "screen.getByText('Review Example')",
+            target: 'Review Example',
           },
           anchor: {
             anchorStepId: 'js-step-1',
@@ -323,7 +340,7 @@ describe('planJsSuite', () => {
       {
         id: 'js-step-3',
         action: 'click',
-        target: 'Review Sale',
+        target: 'Review Example',
         originalType: 'dblClick',
         source: 'js',
         semanticMarkerCandidate: {
@@ -331,8 +348,8 @@ describe('planJsSuite', () => {
           status: 'qualified',
           originalGesture: 'dblClick',
           proofSubject: 'heading',
-          proofText: 'Review Sale',
-          target: 'Review Sale',
+          proofText: 'Review Example',
+          target: 'Review Example',
           sourceContext: {
             originalType: 'dblClick',
           },
@@ -341,8 +358,8 @@ describe('planJsSuite', () => {
             method: 'getByRole',
             queryRoot: 'screen',
             role: 'heading',
-            raw: "screen.getByRole('heading', { name: 'Review Sale' })",
-            target: 'Review Sale',
+            raw: "screen.getByRole('heading', { name: 'Review Example' })",
+            target: 'Review Example',
           },
           anchor: {
             anchorStepId: 'js-step-1',
@@ -360,7 +377,7 @@ describe('planJsSuite', () => {
       {
         id: 'js-step-5',
         action: 'click',
-        target: 'Review Sale',
+        target: 'Review Example',
         originalType: 'dblClick',
         source: 'js',
         semanticMarkerCandidate: {
@@ -368,8 +385,8 @@ describe('planJsSuite', () => {
           status: 'unresolved',
           originalGesture: 'dblClick',
           proofSubject: 'field-label',
-          proofText: 'Review Sale',
-          target: 'Review Sale',
+          proofText: 'Review Example',
+          target: 'Review Example',
           sourceContext: {
             originalType: 'dblClick',
           },
@@ -377,8 +394,8 @@ describe('planJsSuite', () => {
             stepId: 'js-step-5',
             method: 'getByText',
             queryRoot: 'screen',
-            raw: "screen.getByText('Review Sale')",
-            target: 'Review Sale',
+            raw: "screen.getByText('Review Example')",
+            target: 'Review Example',
           },
           anchor: {
             anchorStepId: 'js-step-1',
@@ -389,8 +406,8 @@ describe('planJsSuite', () => {
           stepId: 'js-step-5',
           reason: 'ambiguous-field-context',
           proofSubject: 'field-label',
-          proofText: 'Review Sale',
-          target: 'Review Sale',
+          proofText: 'Review Example',
+          target: 'Review Example',
           sourceContext: {
             originalType: 'dblClick',
           },
@@ -398,8 +415,8 @@ describe('planJsSuite', () => {
             stepId: 'js-step-5',
             method: 'getByText',
             queryRoot: 'screen',
-            raw: "screen.getByText('Review Sale')",
-            target: 'Review Sale',
+            raw: "screen.getByText('Review Example')",
+            target: 'Review Example',
           },
           anchor: {
             anchorStepId: 'js-step-1',
@@ -410,7 +427,7 @@ describe('planJsSuite', () => {
     ])
 
     const intentGroups: ItGroup[] = [
-      { name: 'review sale', steps: recording.steps },
+      { name: 'review example', steps: recording.steps },
     ]
 
     const plan = planJsSuite({
@@ -429,20 +446,33 @@ describe('planJsSuite', () => {
       'js-step-1',
       'js-step-4',
     ])
-    expect(plan.scenarios[0]?.markerAssertions).toHaveLength(1)
+    expect(plan.scenarios[0]?.markerAssertions).toHaveLength(2)
     expect(plan.scenarios[0]?.markerAssertions?.[0]).toMatchObject({
+      markerStepId: 'js-step-2',
+      anchorStepId: 'js-step-1',
+      placement: {
+        kind: 'after-helper',
+        helperName: 'planReviewExample',
+        stepId: 'js-step-1',
+      },
+      assertion: {
+        proofKind: 'visible-text',
+      },
+    })
+    expect(plan.scenarios[0]?.markerAssertions?.[0]?.assertion.query.method).toBe('findByText')
+    expect(plan.scenarios[0]?.markerAssertions?.[1]).toMatchObject({
       markerStepId: 'js-step-3',
       anchorStepId: 'js-step-1',
       placement: {
         kind: 'after-helper',
-        helperName: 'planReviewSale',
+        helperName: 'planReviewExample',
         stepId: 'js-step-1',
       },
       assertion: {
         proofKind: 'role-name',
       },
     })
-    expect(plan.scenarios[0]?.markerAssertions?.[0]?.assertion.query.method).toBe('findByRole')
+    expect(plan.scenarios[0]?.markerAssertions?.[1]?.assertion.query.method).toBe('findByRole')
     expect(plan.scenarios[0]?.unresolvedMarkerAssertions).toHaveLength(1)
     expect(plan.scenarios[0]?.unresolvedMarkerAssertions?.[0]).toMatchObject({
       markerStepId: 'js-step-5',
@@ -450,35 +480,119 @@ describe('planJsSuite', () => {
     })
   })
 
-  it('marks multi-step mutation-heavy flows as module-boundary drafts', () => {
+  it('moves resolved marker assertions into the scenario that owns the anchor step', () => {
     const recording = createRecording([
-      { action: 'click', target: 'Add Sale (Invoice)', originalType: 'click', source: 'js' },
+      {
+        id: 'js-step-1',
+        action: 'click',
+        target: 'Open Example Dialog',
+        originalType: 'click',
+        source: 'js',
+      },
+      {
+        id: 'js-step-2',
+        action: 'click',
+        target: 'Review Example',
+        originalType: 'dblClick',
+        source: 'js',
+        semanticMarkerCandidate: {
+          stepId: 'js-step-2',
+          status: 'qualified',
+          originalGesture: 'dblClick',
+          proofSubject: 'heading',
+          proofText: 'Review Example',
+          target: 'Review Example',
+          sourceContext: {
+            originalType: 'dblClick',
+          },
+          query: {
+            stepId: 'js-step-2',
+            method: 'getByRole',
+            queryRoot: 'screen',
+            role: 'heading',
+            name: 'Review Example',
+            raw: "screen.getByRole('heading', { name: 'Review Example' })",
+            target: 'Review Example',
+          },
+          anchor: {
+            anchorStepId: 'js-step-1',
+            relation: 'precedes',
+          },
+        },
+      },
+      {
+        id: 'js-step-3',
+        action: 'click',
+        target: 'Submit',
+        originalType: 'click',
+        source: 'js',
+      },
+    ])
+
+    const plan = planJsSuite({
+      recording,
+      analyzedRecording: createAnalyzedRecording(recording, [
+        { name: 'open example dialog', steps: [recording.steps[0]!, recording.steps[2]!] },
+        { name: 'validation follow-up', steps: [recording.steps[1]!] },
+      ]),
+      mockAnalysis: null,
+      fallbackTitle: recording.title,
+    })
+
+    expect(plan.scenarios[0]?.markerAssertions).toHaveLength(1)
+    expect(plan.scenarios[0]?.markerAssertions?.[0]).toMatchObject({
+      markerStepId: 'js-step-2',
+      anchorStepId: 'js-step-1',
+      diagnostics: {
+        placementCorrection: {
+          fromScenarioName: 'validation follow-up',
+          toScenarioName: 'open example dialog',
+        },
+      },
+    })
+    expect(plan.scenarios[1]?.markerAssertions).toEqual([])
+  })
+
+  it('marks multi-step mutation-heavy flows as module-boundary drafts while replaying setup per contract', () => {
+    const recording = createRecording([
+      { action: 'click', target: 'Open Example Wizard', originalType: 'click', source: 'js' },
       { action: 'fill', target: 'Quantity', value: '4', originalType: 'fill', source: 'js' },
-      { action: 'select', target: 'Customer PIN / Name', value: 'John Doe', originalType: 'select', source: 'js' },
-      { action: 'fill', target: 'General Invoice Details', value: 'Hello world', originalType: 'fill', source: 'js' },
+      { action: 'select', target: 'Customer', value: 'John Doe', originalType: 'select', source: 'js' },
+      { action: 'fill', target: 'Example Details', value: 'Hello world', originalType: 'fill', source: 'js' },
       { action: 'click', target: 'Continue', originalType: 'click', source: 'js' },
-      { action: 'click', target: 'Review Sale (Invoice)', originalType: 'click', source: 'js' },
+      { action: 'click', target: 'Review Example', originalType: 'click', source: 'js' },
       { action: 'click', target: 'Save', originalType: 'click', source: 'js' },
     ])
 
     const plan = planJsSuite({
       recording,
       analyzedRecording: createAnalyzedRecording(recording),
-      mockAnalysis: createMockAnalysis(),
+      mockAnalysis: {
+        ...createMockAnalysis(),
+        companionPolicy: 'off',
+      },
       fallbackTitle: recording.title,
     })
 
     expect(plan.renderBoundary.kind).toBe('module')
     expect(plan.renderBoundary.reason).toContain('container/module boundary')
-    expect(plan.stateSafety.status).toBe('single-flow-required')
-    expect(plan.itGroups).toHaveLength(1)
-    expect(plan.scenarios).toHaveLength(1)
+    expect(plan.stateSafety.status).toBe('setup-replay-required')
+    expect(plan.itGroups).toHaveLength(2)
+    expect(plan.scenarios).toHaveLength(2)
     expect(plan.helpers).toHaveLength(2)
+    expect(plan.scenarios[0]?.helperRefs).toEqual(['planOpenExampleDialog'])
+    expect(plan.scenarios[1]?.helperRefs).toEqual([
+      'planOpenExampleDialog',
+      'planCompleteExampleWizard',
+    ])
     expect(plan.helpers.every((helper) => helper.assertionPolicy === 'sync-only')).toBe(true)
     expect(plan.warnings).toContain(
       'Prefer a repo-local module/container render boundary for this flow instead of targeting a leaf form component directly.'
     )
-    expect(plan.warnings.some((warning) => warning.includes('@digitax/data-layer'))).toBe(true)
+    expect(plan.warnings.some((warning) => warning.includes('@repo/data-client'))).toBe(true)
+    expect(plan.warnings).toContain(
+      'Replay prerequisite setup inside each scenario helper instead of collapsing multiple contracts into one broad end-to-end test.'
+    )
   })
 
   it('keeps simple flows at component scope without boundary warnings', () => {
@@ -548,14 +662,14 @@ describe('planJsSuite', () => {
     expect(plan.helpers.every((helper) => helper.assertionPolicy === 'sync-only')).toBe(true)
   })
 
-  it('keeps stateful wizard flows explicit when the owning render target is still unresolved', () => {
+  it('keeps stateful wizard flows explicit by replaying setup when the owning render target is still unresolved', () => {
     const recording = createRecording([
-      { action: 'click', target: 'Open invoice wizard', originalType: 'click', source: 'js' },
+      { action: 'click', target: 'Open example wizard', originalType: 'click', source: 'js' },
       { action: 'fill', target: 'Customer', value: 'Jane', originalType: 'fill', source: 'js' },
       { action: 'fill', target: 'Email', value: 'jane@example.com', originalType: 'fill', source: 'js' },
       { action: 'click', target: 'Continue', originalType: 'click', source: 'js' },
       { action: 'fill', target: 'Notes', value: 'hello', originalType: 'fill', source: 'js' },
-      { action: 'click', target: 'Review Invoice', originalType: 'click', source: 'js' },
+      { action: 'click', target: 'Review Example', originalType: 'click', source: 'js' },
       { action: 'click', target: 'Save', originalType: 'click', source: 'js' },
     ])
 
@@ -567,10 +681,98 @@ describe('planJsSuite', () => {
     })
 
     expect(plan.renderBoundary.kind).toBe('unknown')
-    expect(plan.stateSafety.status).toBe('unknown')
+    expect(plan.stateSafety.status).toBe('setup-replay-required')
+    expect(plan.scenarios).toHaveLength(2)
+    expect(plan.scenarios[0]?.helperRefs).toEqual(['planOpenExampleDialog'])
+    expect(plan.scenarios[1]?.helperRefs).toEqual([
+      'planOpenExampleDialog',
+      'planCompleteExampleWizard',
+    ])
     expect(plan.renderBoundary.resolvedTarget).toBeNull()
     expect(plan.warnings).toContain(
       'Taro could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.'
+    )
+    expect(plan.warnings).toContain(
+      'Replay prerequisite setup inside each scenario helper instead of collapsing multiple contracts into one broad end-to-end test.'
+    )
+  })
+
+  it('synthesizes mutation-form companion scenarios when repo contracts are high confidence', () => {
+    const recording = createRecording([
+      { action: 'click', target: 'Add profile', originalType: 'click', source: 'js' },
+      { action: 'fill', target: 'Profile name', value: 'Acme', originalType: 'fill', source: 'js' },
+      { action: 'select', target: 'Country', value: 'Kenya', originalType: 'select', source: 'js' },
+      { action: 'click', target: 'Save profile', originalType: 'click', source: 'js' },
+      { action: 'assert', target: 'Profile saved', originalType: 'assert', source: 'js' },
+    ])
+
+    const intentGroups: ItGroup[] = [{ name: 'create profile', steps: recording.steps }]
+    const plan = planJsSuite({
+      recording,
+      analyzedRecording: createAnalyzedRecording(recording, intentGroups),
+      mockAnalysis: createMockAnalysis(),
+      fallbackTitle: recording.title,
+    })
+
+    expect(plan.contracts).toEqual([
+      expect.objectContaining({
+        kind: 'mutation-form',
+        confidence: 'high',
+        companionStates: ['in-flight', 'failed-completion'],
+      }),
+    ])
+    expect(plan.scenarios.map((scenario) => scenario.name)).toEqual([
+      'create profile',
+      'create profile shows in-flight UI',
+      'create profile shows failure UI',
+    ])
+    expect(plan.scenarios[0]?.provenance).toBe('recorded')
+    expect(plan.scenarios[1]).toMatchObject({
+      provenance: 'synthesized-companion',
+      contractKind: 'mutation-form',
+      companionState: 'in-flight',
+      annotations: expect.arrayContaining([expect.stringContaining('stays unresolved')]),
+    })
+    expect(plan.scenarios[1]?.steps).toHaveLength(4)
+    expect(plan.scenarios[2]).toMatchObject({
+      provenance: 'synthesized-companion',
+      contractKind: 'mutation-form',
+      companionState: 'failed-completion',
+    })
+    expect(plan.warnings).toContain(
+      'Synthesized 2 companion scenario(s) for the mutation-form contract.'
+    )
+  })
+
+  it('suppresses mutation-form companion scenarios when support seams are only low confidence', () => {
+    const recording = createRecording([
+      { action: 'fill', target: 'Name', value: 'Acme', originalType: 'fill', source: 'js' },
+      { action: 'click', target: 'Save', originalType: 'click', source: 'js' },
+    ])
+    const lowConfidenceAnalysis: MockAnalysis = {
+      ...createMockAnalysis(),
+      interactionContracts: [],
+      repeatedTargets: [],
+      boundaryProfiles: [],
+      preferredSharedMocks: {},
+    }
+
+    const plan = planJsSuite({
+      recording,
+      analyzedRecording: createAnalyzedRecording(recording, [{ name: 'save profile', steps: recording.steps }]),
+      mockAnalysis: lowConfidenceAnalysis,
+      fallbackTitle: recording.title,
+    })
+
+    expect(plan.contracts).toEqual([
+      expect.objectContaining({
+        kind: 'mutation-form',
+        confidence: 'low',
+      }),
+    ])
+    expect(plan.scenarios).toHaveLength(1)
+    expect(plan.warnings).toContain(
+      'Taro detected a possible mutation-backed contract but companion scaffolds were suppressed because repo control seams are not stable enough yet.'
     )
   })
 })

@@ -61,6 +61,9 @@ export interface RuntimeDefinition {
 export interface ResolvedInstallTarget extends RuntimeDefinition {
   location: InstallLocation
   destinationDirectory: string
+  runtimeNodePath: string
+  runtimeEntrypointPath: string
+  runtimeCommand: string
 }
 
 export interface InstallOwnedFile {
@@ -78,6 +81,7 @@ export interface InstallFileOperation {
   relativeDestinationPath: string
   targetPath: string
   entrypoint?: string
+  renderedContent?: string
 }
 
 export interface PlannedInstallTarget extends ResolvedInstallTarget {
@@ -86,13 +90,19 @@ export interface PlannedInstallTarget extends ResolvedInstallTarget {
 
 export interface RuntimeVerificationResult {
   verificationCommand: string
-  status: 'verified' | 'missing-entrypoint' | 'missing-installed-assets'
+  status:
+    | 'verified'
+    | 'missing-entrypoint'
+    | 'missing-installed-assets'
+    | 'runtime-check-failed'
   checkedPath?: string
+  launcherCommand?: string
+  errorMessage?: string
   missingPaths: string[]
 }
 
 export interface InstallOwnershipManifest {
-  packageName: '@tayo-dev/rtl'
+  packageName: '@taro-dev/rtl'
   runtime: RuntimeTarget
   location: InstallLocation
   manifestVersion: 1
@@ -112,8 +122,8 @@ export interface InstallAssetConflict {
 }
 
 export interface InstallPlan {
-  packageName: '@tayo-dev/rtl'
-  commandName: 'tayo'
+  packageName: '@taro-dev/rtl'
+  commandName: 'taro'
   stage: 'prewrite-preview' | 'ready-to-write'
   source: InstallSelectionSource
   mode: 'interactive' | 'non-interactive'
@@ -134,7 +144,7 @@ export interface RuntimeInstallResult {
 }
 
 export interface InstallExecutionResult {
-  packageName: '@tayo-dev/rtl'
+  packageName: '@taro-dev/rtl'
   status: 'installed' | 'partial' | 'blocked'
   targets: RuntimeInstallResult[]
 }

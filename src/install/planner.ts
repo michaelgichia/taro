@@ -28,8 +28,8 @@ export function buildInstallPlan(
   context: BuildInstallPlanContext = {}
 ): InstallPlan {
   return {
-    packageName: '@tayo-dev/rtl',
-    commandName: 'tayo',
+    packageName: '@taro-dev/rtl',
+    commandName: 'taro',
     stage: 'ready-to-write',
     source: selection.source,
     mode: selection.mode,

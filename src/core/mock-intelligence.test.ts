@@ -14,7 +14,7 @@ import { scanConventions } from './scanner.js'
 let testDir: string
 
 beforeEach(async () => {
-  testDir = join(tmpdir(), `tayo-mock-intel-${Date.now()}`)
+  testDir = join(tmpdir(), `taro-mock-intel-${Date.now()}`)
   await mkdir(testDir, { recursive: true })
 })
 
@@ -106,17 +106,20 @@ describe('analyzeMocks', () => {
       })
     )
     expect(analysis.mutationLifecycles).toEqual([])
+    expect(analysis.interactionContracts).toEqual([])
     expect(analysis.instabilityWarnings).toEqual([])
     expect(analysis.sharedMockFactories).toEqual([])
     expect(analysis.preferredSharedMocks).toEqual({})
     expect(analysis.forbidMocks).toEqual([])
+    expect(analysis.companionPolicy).toBe('heuristic')
+    expect(analysis.enabledContractFamilies).toEqual(['mutation-form'])
   })
 
   it('uses the resolved package profile when provided', async () => {
     const analysis = await analyzeMocks(testDir, {
       packageProfile: {
-        packagePath: 'packages/dashboard',
-        packageName: '@repo/dashboard',
+        packagePath: 'packages/example-app',
+        packageName: '@repo/example-app',
         scannedAt: new Date().toISOString(),
         testFileCount: 2,
         conventions: {
@@ -139,12 +142,12 @@ describe('analyzeMocks', () => {
         repeatedMockTargets: [
           {
             target: '@/modules/orders/api',
-            files: ['packages/dashboard/src/a.test.tsx', 'packages/dashboard/src/b.test.tsx'],
+            files: ['packages/example-app/src/a.test.tsx', 'packages/example-app/src/b.test.tsx'],
             count: 2,
           },
           {
-            target: '@digitax/components',
-            files: ['packages/dashboard/src/a.test.tsx'],
+            target: '@repo/ui-kit',
+            files: ['packages/example-app/src/a.test.tsx'],
             count: 1,
           },
         ],
@@ -152,11 +155,12 @@ describe('analyzeMocks', () => {
           {
             target: 'mockOrdersApi',
             importPath: '@/tests/mocks/orders',
-            files: ['packages/dashboard/src/a.test.tsx'],
+            files: ['packages/example-app/src/a.test.tsx'],
             count: 1,
           },
         ],
         inlineSafeMockTargets: ['next/navigation'],
+        interactionContracts: [],
         mutationLifecycles: [],
         instabilityWarnings: [],
         mockRecommendations: [
@@ -164,7 +168,7 @@ describe('analyzeMocks', () => {
             target: '@/modules/orders/api',
             kind: 'extract',
             reason: 'Mock target appears in multiple tests and should be shared',
-            files: ['packages/dashboard/src/a.test.tsx', 'packages/dashboard/src/b.test.tsx'],
+            files: ['packages/example-app/src/a.test.tsx', 'packages/example-app/src/b.test.tsx'],
             count: 2,
           },
         ],
@@ -174,19 +178,25 @@ describe('analyzeMocks', () => {
         appliedOverrides: ['preferredSharedMocks', 'forbidMocks'],
         effectiveRunner: 'vitest',
         effectiveRenderHelper: null,
-        forbidMocks: ['@digitax/components'],
+        forbidMocks: ['@repo/ui-kit'],
         preferredSharedMocks: {
           '@/modules/orders/api': '@/tests/mocks/orders',
         },
+        boundaryPolicies: {},
+        preferredBoundaryImplementations: {},
+        forbidBoundaryTargets: [],
+        effectiveQueryHookPolicy: 'avoid',
+        effectiveCompanionPolicy: 'heuristic',
+        enabledContractFamilies: ['mutation-form'],
       },
     })
 
     expect(analysis.source).toBe('package-profile')
-    expect(analysis.packagePath).toBe('packages/dashboard')
+    expect(analysis.packagePath).toBe('packages/example-app')
     expect(analysis.repeatedTargets).toEqual([
       {
         target: '@/modules/orders/api',
-        files: ['packages/dashboard/src/a.test.tsx', 'packages/dashboard/src/b.test.tsx'],
+        files: ['packages/example-app/src/a.test.tsx', 'packages/example-app/src/b.test.tsx'],
         count: 2,
       },
     ])
@@ -197,10 +207,12 @@ describe('analyzeMocks', () => {
         reason: 'Shared mock preference pinned to @/tests/mocks/orders',
       })
     )
-    expect(analysis.forbidMocks).toEqual(['@digitax/components'])
+    expect(analysis.forbidMocks).toEqual(['@repo/ui-kit'])
     expect(analysis.preferredSharedMocks).toEqual({
       '@/modules/orders/api': '@/tests/mocks/orders',
     })
+    expect(analysis.companionPolicy).toBe('heuristic')
+    expect(analysis.enabledContractFamilies).toEqual(['mutation-form'])
   })
 })
 

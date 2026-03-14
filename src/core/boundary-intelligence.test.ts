@@ -26,7 +26,7 @@ describe('analyzeBoundaryIsolation', () => {
     expect(calculateBoundaryIsolationScore(code)).toBeLessThan(40)
   })
 
-  it('treats the gold-standard sales module sample as boundary-safe', async () => {
+  it('treats the gold-standard repo-aware module sample as boundary-safe', async () => {
     const code = await readSample('sample/sample-add-sale-test.tsx')
 
     expect(analyzeBoundaryIsolation(code)).toEqual([])
@@ -35,14 +35,14 @@ describe('analyzeBoundaryIsolation', () => {
 
   it('treats repo-aware generated module output as boundary-safe', () => {
     const generated = generateTestFromGroups(
-      'Add Sale Flow',
+      'Example Flow',
       [
         {
-          name: 'save sale',
+          name: 'complete example flow',
           steps: [
             {
               action: 'click',
-              target: 'Add Sale (Invoice)',
+              target: 'Open Example Flow',
               originalType: 'click',
               source: 'js',
             },
@@ -54,7 +54,7 @@ describe('analyzeBoundaryIsolation', () => {
             },
             {
               action: 'assert',
-              target: 'Review Sale (Invoice)',
+              target: 'Review Example Flow',
               originalType: 'getByText',
               source: 'js',
             },
@@ -64,14 +64,14 @@ describe('analyzeBoundaryIsolation', () => {
       {
         helpers: [
           {
-            name: 'planOpenSaleDialog',
-            sourceGroup: 'open sale dialog',
-            purpose: 'Navigate to the add sale dialog.',
+            name: 'planOpenExampleDialog',
+            sourceGroup: 'open example dialog',
+            purpose: 'Navigate to the example dialog.',
             assertionPolicy: 'sync-only',
             steps: [
               {
                 action: 'click',
-                target: 'Add Sale (Invoice)',
+                target: 'Open Example Flow',
                 originalType: 'click',
                 source: 'js',
               },
@@ -86,12 +86,12 @@ describe('analyzeBoundaryIsolation', () => {
         ],
         scenarios: [
           {
-            name: 'save sale',
+            name: 'complete example flow',
             goal: 'flow',
             steps: [
               {
                 action: 'click',
-                target: 'Add Sale (Invoice)',
+                target: 'Open Example Flow',
                 originalType: 'click',
                 source: 'js',
               },
@@ -103,20 +103,20 @@ describe('analyzeBoundaryIsolation', () => {
               },
               {
                 action: 'assert',
-                target: 'Review Sale (Invoice)',
+                target: 'Review Example Flow',
                 originalType: 'getByText',
                 source: 'js',
               },
             ],
-            helperRefs: ['planOpenSaleDialog'],
+            helperRefs: ['planOpenExampleDialog'],
             requiresFreshRender: true,
           },
         ],
         renderTarget: {
-          symbol: 'SalesModule',
-          importPath: './SalesModule',
+          symbol: 'FeatureModule',
+          importPath: './FeatureModule',
           sourceTestFile: 'sample/sample-add-sale-test.tsx',
-          helperNames: ['openAddSaleDialog'],
+          helperNames: ['openExampleDialog'],
           usesWithin: true,
         },
       }
@@ -124,5 +124,32 @@ describe('analyzeBoundaryIsolation', () => {
 
     expect(analyzeBoundaryIsolation(generated.code)).toEqual([])
     expect(calculateBoundaryIsolationScore(generated.code)).toBe(100)
+  })
+
+  it('flags mocked repo-owned UI wrapper boundaries', () => {
+    const code = `
+      import { describe, expect, it, vi } from 'vitest'
+      import type { ReactNode } from 'react'
+
+      vi.mock('@/components/library/Modal', () => ({
+        Dialog: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+        DialogContent: ({ children }: { children: ReactNode }) => (
+          <div role="dialog">{children}</div>
+        ),
+      }))
+
+      describe('example', () => {
+        it('renders', () => {
+          expect(true).toBe(true)
+        })
+      })
+    `
+
+    expect(analyzeBoundaryIsolation(code)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: 'protected-ui-boundary-mock' }),
+      ])
+    )
+    expect(calculateBoundaryIsolationScore(code)).toBeLessThan(100)
   })
 })

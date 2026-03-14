@@ -12,17 +12,17 @@ describe('RUNTIME_REGISTRY', () => {
     expect(RUNTIME_REGISTRY.opencode.localDirectoryName).toBe('.opencode')
   })
 
-  it('keeps prompt runtimes fully namespaced to @tayo-dev/rtl', () => {
-    expect(RUNTIME_REGISTRY.claude.packageContainerSegments).toContain('@tayo-dev')
+  it('keeps prompt runtimes fully namespaced to @taro-dev/rtl', () => {
+    expect(RUNTIME_REGISTRY.claude.packageContainerSegments).toContain('@taro-dev')
     expect(RUNTIME_REGISTRY.gemini.packageContainerSegments).toContain('rtl')
-    expect(RUNTIME_REGISTRY.opencode.verificationCommand).toBe('/@tayo-dev/rtl-help')
+    expect(RUNTIME_REGISTRY.opencode.verificationCommand).toBe('/@taro-dev/rtl-help')
   })
 })
 
 describe('resolveAssetSource', () => {
   it('resolves authored install sources from the package root', () => {
-    expect(resolveAssetSource(['commands', 'claude', '@tayo-dev', 'rtl', 'help.md'])).toContain(
-      '/commands/claude/@tayo-dev/rtl/help.md'
+    expect(resolveAssetSource(['commands', 'claude', '@taro-dev', 'rtl', 'help.md'])).toContain(
+      '/commands/claude/@taro-dev/rtl/help.md'
     )
   })
 })

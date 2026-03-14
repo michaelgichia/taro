@@ -6,10 +6,10 @@ import { detectInputSource, loadInput } from './input-loader.js'
 
 const tempDirs: string[] = []
 const envOptionsLine = ` * @jest-environment${'-options'} {"url":"http://localhost:3000"}`
-const dashboardEnvOptionsLine = ` * @jest-environment${'-options'} {"url":"http://localhost:3000/dashboard"}`
+const nestedEnvOptionsLine = ` * @jest-environment${'-options'} {"url":"http://localhost:3000/workspace"}`
 
 async function writeTempFile(name: string, content: string): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), 'tayo-input-loader-'))
+  const directory = await mkdtemp(join(tmpdir(), 'taro-input-loader-'))
   tempDirs.push(directory)
   const filePath = join(directory, name)
   await writeFile(filePath, content, 'utf-8')
@@ -78,8 +78,8 @@ describe('loadInput', () => {
       'recording.js',
       [
         '/**',
-        ' * Add sale flow',
-        dashboardEnvOptionsLine,
+        ' * Example flow',
+        nestedEnvOptionsLine,
         ' */',
         "test('recording', async () => {",
         "  await userEvent.click(screen.getByRole('button', {name: 'Save'}))",
@@ -92,7 +92,7 @@ describe('loadInput', () => {
     const parsed = await loadInput(filePath)
 
     expect(parsed.source).toBe('js')
-    expect(parsed.recording.url).toBe('http://localhost:3000/dashboard')
+    expect(parsed.recording.url).toBe('http://localhost:3000/workspace')
     expect(parsed.recording.steps[0]).toEqual(
       expect.objectContaining({
         id: 'js-step-1',
@@ -130,8 +130,8 @@ describe('loadInput', () => {
       'recording.js',
       [
         '/**',
-        ' * Add sale flow',
-        dashboardEnvOptionsLine,
+        ' * Example flow',
+        nestedEnvOptionsLine,
         ' */',
         "test('recording', async () => {",
         "  await userEvent.click(screen.getByRole('button', {name: 'Save'}))",
@@ -159,13 +159,13 @@ describe('loadInput', () => {
       'recording.js',
       [
         '/**',
-        ' * Review sale flow',
-        dashboardEnvOptionsLine,
+        ' * Review example flow',
+        nestedEnvOptionsLine,
         ' */',
         "test('recording', async () => {",
-        "  await userEvent.dblClick(screen.getByRole('heading', {name: 'Review Sale'}))",
-        "  await userEvent.dblClick(screen.getByText('Customer PIN'))",
-        "  await userEvent.dblClick(screen.getByText('KES 4,800.00'))",
+        "  await userEvent.dblClick(screen.getByRole('heading', {name: 'Review Example'}))",
+        "  await userEvent.dblClick(screen.getByText('Customer Reference'))",
+        "  await userEvent.dblClick(screen.getByText('USD 4,800.00'))",
         '})',
       ].join('\n')
     )
@@ -180,7 +180,7 @@ describe('loadInput', () => {
           semanticMarkerCandidate: expect.objectContaining({
             status: 'unresolved',
             proofSubject: 'heading',
-            proofText: 'Review Sale',
+            proofText: 'Review Example',
           }),
         }),
         expect.objectContaining({
@@ -188,7 +188,7 @@ describe('loadInput', () => {
           semanticMarkerCandidate: expect.objectContaining({
             status: 'unresolved',
             proofSubject: 'field-label',
-            proofText: 'Customer PIN',
+            proofText: 'Customer Reference',
           }),
         }),
         expect.objectContaining({
@@ -196,7 +196,7 @@ describe('loadInput', () => {
           semanticMarkerCandidate: expect.objectContaining({
             status: 'unresolved',
             proofSubject: 'concrete-value',
-            proofText: 'KES 4,800.00',
+            proofText: 'USD 4,800.00',
           }),
         }),
       ])
@@ -206,17 +206,17 @@ describe('loadInput', () => {
         expect.objectContaining({
           status: 'unresolved',
           proofSubject: 'heading',
-          proofText: 'Review Sale',
+          proofText: 'Review Example',
         }),
         expect.objectContaining({
           status: 'unresolved',
           proofSubject: 'field-label',
-          proofText: 'Customer PIN',
+          proofText: 'Customer Reference',
         }),
         expect.objectContaining({
           status: 'unresolved',
           proofSubject: 'concrete-value',
-          proofText: 'KES 4,800.00',
+          proofText: 'USD 4,800.00',
         }),
       ])
     )

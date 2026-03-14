@@ -10,6 +10,11 @@ import type {
   SemanticMarkerProofSubject,
   UnresolvedSemanticMarker,
 } from '../types/recording.js'
+import {
+  isLabelTextQueryMethod,
+  isPlaceholderTextQueryMethod,
+  isTextQueryMethod,
+} from './query-policy.js'
 
 export interface VisualCaptureCandidate {
   groupName: string
@@ -141,12 +146,12 @@ function getSemanticMarkerCandidate(
   return step.semanticMarkerCandidate
 }
 
-function isJsSemanticMarkerGesture(step: NormalizedStep): boolean {
+function isSemanticMarkerGesture(step: NormalizedStep): boolean {
+  const candidate = getSemanticMarkerCandidate(step)
   return (
-    step.source === 'js' &&
     step.action === 'click' &&
     isDoubleClickVariant(step) &&
-    getSemanticMarkerCandidate(step) !== undefined
+    candidate?.originalGesture === 'dblClick'
   )
 }
 
@@ -198,7 +203,7 @@ function isMajorTransitionStep(step: NormalizedStep): boolean {
     return false
   }
 
-  if (isJsSemanticMarkerGesture(step)) {
+  if (isSemanticMarkerGesture(step)) {
     return false
   }
 
@@ -381,16 +386,16 @@ function isResolvableFieldContextCandidate(
     return false
   }
 
-  if (queryMethod === 'getByLabelText' || queryMethod === 'getByPlaceholderText') {
+  if (isLabelTextQueryMethod(queryMethod) || isPlaceholderTextQueryMethod(queryMethod)) {
     return true
   }
 
-  return queryMethod === 'getByText' && FIELD_LABEL_HINT_PATTERN.test(proofText)
+  return isTextQueryMethod(queryMethod) && FIELD_LABEL_HINT_PATTERN.test(proofText)
 }
 
 function annotateSemanticMarkers(steps: NormalizedStep[]): NormalizedStep[] {
   return steps.map((step, index) => {
-    if (!isJsSemanticMarkerGesture(step)) {
+    if (!isSemanticMarkerGesture(step)) {
       return step
     }
 
@@ -486,32 +491,35 @@ function deriveIntentLabel(steps: NormalizedStep[]): string {
     return navigateStep.target ? `navigate to ${navigateStep.target}` : 'navigation flow'
   }
 
+  const assertionStep = [...meaningfulSteps]
+    .reverse()
+    .find((step) => step.action === 'assert' && normalizedTarget(step.target))
+  if (assertionStep?.target) {
+    return `shows ${assertionStep.target}`
+  }
+
   const submitStep = meaningfulSteps.find(
     (step) =>
       step.action === 'click' &&
       /save|submit|confirm|continue|done|create|update/i.test(step.target ?? '')
   )
   if (submitStep?.target) {
-    return `submit ${submitStep.target}`
+    return `supports ${submitStep.target}`
   }
 
   const fillStep = meaningfulSteps.find(
     (step) => step.action === 'fill' || step.action === 'select'
   )
   if (fillStep?.target) {
-    return `edit ${fillStep.target}`
+    return `accepts ${fillStep.target}`
   }
 
   const clickStep = meaningfulSteps.find((step) => step.action === 'click')
-  if (clickStep?.target && meaningfulSteps.some((step) => step.action === 'assert')) {
-    return `confirm ${clickStep.target}`
-  }
-
   if (clickStep?.target) {
-    return `interact with ${clickStep.target}`
+    return `shows ${clickStep.target}`
   }
 
-  return 'recorded flow'
+  return 'supports the recorded behavior'
 }
 
 function isDialogLikeText(value?: string): boolean {
@@ -644,7 +652,7 @@ export function filterNoiseSteps(steps: NormalizedStep[]): NoiseFilterResult {
       index = nextIndex
     }
 
-    const markerGestures = cluster.filter((candidate) => isJsSemanticMarkerGesture(candidate))
+    const markerGestures = cluster.filter((candidate) => isSemanticMarkerGesture(candidate))
     const preservedMarkers = cluster.filter((candidate) =>
       isPreservedSemanticMarkerStep(candidate)
     )
@@ -670,7 +678,7 @@ export function filterNoiseSteps(steps: NormalizedStep[]): NoiseFilterResult {
           continue
         }
 
-        if (isJsSemanticMarkerGesture(candidate)) {
+        if (isSemanticMarkerGesture(candidate)) {
           seenMarkerGesture = true
           removedDoubleClickNoise += 1
           continue

@@ -21,6 +21,7 @@ export interface ImportBlockOptions {
   renderHelper?: RenderHelperImport | null
   jestDomImportPath?: string
   needsWithin?: boolean
+  needsWaitFor?: boolean
 }
 
 export function importBlock(
@@ -29,6 +30,9 @@ export function importBlock(
   options: ImportBlockOptions = {}
 ): string {
   const testingLibraryMembers = ['screen']
+  if (options.needsWaitFor) {
+    testingLibraryMembers.push('waitFor')
+  }
   if (options.needsWithin) {
     testingLibraryMembers.push('within')
   }
@@ -115,6 +119,10 @@ function normalizeAssertionMatcher(matcher: string): string {
   return /\)\s*$/u.test(matcher) ? `.${matcher}` : `.${matcher}()`
 }
 
+function needsAsyncAssertion(query: string): boolean {
+  return /\.(?:find|findAll)By[A-Za-z]+\s*\(/u.test(query)
+}
+
 export function stepTemplate(opts: StepTemplateOptions): string {
   const { action, query, value = '' } = opts
   const escapedValue = escapeSingleQuote(value)
@@ -145,7 +153,9 @@ export function stepTemplate(opts: StepTemplateOptions): string {
       return `${query}.scrollIntoView()`
 
     case 'assert':
-      return `expect(${query})${opts.matcher ?? '.toBeInTheDocument()'}`
+      return needsAsyncAssertion(query)
+        ? `expect(await ${query})${opts.matcher ?? '.toBeInTheDocument()'}`
+        : `expect(${query})${opts.matcher ?? '.toBeInTheDocument()'}`
 
     case 'navigate':
       return `// navigate: ${value || query}`
@@ -166,6 +176,21 @@ export function markerAssertionTemplate(opts: {
   return `expect(await ${opts.queryExpression})${normalizeAssertionMatcher(opts.matcher ?? 'toBeVisible')}`
 }
 
+/** Synchronous variant for use inside waitFor callbacks — uses getBy instead of findBy. */
+export function markerAssertionTemplateSync(opts: {
+  queryExpression: string
+  matcher?: string
+}): string {
+  const syncQuery = opts.queryExpression.replace(/\.findBy/g, '.getBy').replace(/\.findAllBy/g, '.getAllBy')
+  return `expect(${syncQuery})${normalizeAssertionMatcher(opts.matcher ?? 'toBeVisible')}`
+}
+
+/** Wrap 2+ assertions in a single waitFor callback for atomic async verification. */
+export function waitForAssertionBlock(assertions: string[]): string {
+  const indented = assertions.map((a) => `  ${a}`).join('\n')
+  return `await waitFor(() => {\n${indented}\n})`
+}
+
 export function describeBlock(
   name: string,
   bodyLines: string[],
@@ -176,7 +201,7 @@ export function describeBlock(
   const setupLine = hasUserEvents ? `    const user = userEvent.setup()\n` : ''
   return [
     `describe('${escapeSingleQuote(name)}', () => {`,
-    `  it('should complete the recorded flow', async () => {`,
+    `  it('${escapeSingleQuote(name)}', async () => {`,
     `${setupLine}`,
     indented,
     `  })`,
@@ -217,19 +242,24 @@ export function describeBlockMultiIt(
   const renderExpression = options.renderExpression ?? '<App />'
   const renderFunctionName = options.renderFunctionName ?? 'render'
   const helperBlocks = (options.helpers ?? []).map((block) => helperBlock(block))
+  const hasAnyUserEvents = itBlocks.some((block) => block.hasUserEvents)
+  const setupBlock = [
+    `const setup = () => {`,
+    ...(hasAnyUserEvents ? [`  const user = userEvent.setup()`] : []),
+    `  const renderResult = ${renderFunctionName}(${renderExpression})`,
+    hasAnyUserEvents ? `  return { user, ...renderResult }` : `  return { ...renderResult }`,
+    `}`,
+  ].join('\n')
   const blocks = itBlocks.map((block) => {
-    const setup = block.hasUserEvents
-      ? `    const user = userEvent.setup()\n`
-      : ''
+    const setupLine = block.hasUserEvents ? `    const { user } = setup()\n` : `    setup()\n`
     const indented = indentLines(block.stepLines.join('\n'), 4)
     return [
       `  it('${escapeSingleQuote(block.name)}', async () => {`,
-      `    ${renderFunctionName}(${renderExpression})`,
-      setup,
+      setupLine.trimEnd(),
       indented,
       `  })`,
     ].join('\n')
   })
 
-  return [`describe('${escapedName}', () => {`, ...helperBlocks, ...blocks, `})`].join('\n\n')
+  return [`describe('${escapedName}', () => {`, setupBlock, ...helperBlocks, ...blocks, `})`].join('\n\n')
 }

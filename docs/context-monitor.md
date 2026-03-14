@@ -2,8 +2,9 @@
 
 Taro keeps its generation context local to each project. The primary state lives in:
 
-- `.taro/state.json` for learned package profiles, render helpers, runner preference, repeated mock targets, fixture roots, and generated-test history
-- `.taro/overrides.json` for manual package-level policy overrides such as runner, render helper, or preferred shared mocks
+- `.taro/state.json` for learned package profiles, boundary profiles, boundary exemplars, render helpers, runner preference, fixture roots, and generated-test history
+- `.taro/summary.md` for a human-readable snapshot of learned boundary strategy, collaborator categories, confidence, and low-confidence scaffolds
+- `.taro/overrides.json` for manual package-level policy overrides such as runner, render helper, boundary policies, and preferred boundary implementations
 - `.taro/visual/` for optional screenshots or visual debugging artifacts
 
 The repository includes lightweight helpers for checking that state:

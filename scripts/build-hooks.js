@@ -22,4 +22,4 @@ for (const relativePath of scaffoldDirectories) {
   await mkdir(join(root, relativePath), { recursive: true })
 }
 
-console.log('[tayo] Structural scaffold verified.')
+console.log('[taro] Structural scaffold verified.')

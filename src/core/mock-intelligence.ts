@@ -2,6 +2,7 @@ import { relative } from 'node:path'
 import { readConventions, readTestFiles } from './scanner.js'
 import type {
   ConventionsSchema,
+  InteractionContractKind,
   MockInstabilityWarning,
   MockRecommendation,
   MockRecommendationKind,
@@ -9,7 +10,13 @@ import type {
   MutationLifecyclePattern,
   MutationLifecycleStage,
 } from '../types/conventions.js'
-import type { ResolvedTaroPackageProfile, TaroSharedMockFactoryProfile } from '../types/state.js'
+import type {
+  ResolvedTaroPackageProfile,
+  TaroBoundaryProfile,
+  TaroInteractionContractProfile,
+  TaroQueryHookPolicy,
+  TaroSharedMockFactoryProfile,
+} from '../types/state.js'
 import type { TestFileContent } from './scanner.js'
 
 export interface MockAnalysis {
@@ -19,11 +26,18 @@ export interface MockAnalysis {
   recommendations: MockRecommendation[]
   repeatedTargets: MockTargetUsage[]
   mutationLifecycles: MutationLifecyclePattern[]
+  interactionContracts: TaroInteractionContractProfile[]
   instabilityWarnings: MockInstabilityWarning[]
   sharedMockFactories: TaroSharedMockFactoryProfile[]
+  boundaryProfiles: TaroBoundaryProfile[]
   inlineSafeMockTargets: string[]
   preferredSharedMocks: Record<string, string>
   forbidMocks: string[]
+  preferredBoundaryImplementations: Record<string, string>
+  forbidBoundaryTargets: string[]
+  queryHookPolicy: TaroQueryHookPolicy
+  companionPolicy: ResolvedTaroPackageProfile['effectiveCompanionPolicy']
+  enabledContractFamilies: InteractionContractKind[]
 }
 
 const MOCK_TARGET_REGEX = /(?:vi|jest)\.mock\(\s*['"`]([^'"`]+)['"`]/g
@@ -107,6 +121,35 @@ function analyzeMutationLifecycleInFiles(
     })
     .filter((entry): entry is MutationLifecyclePattern => entry !== null)
     .sort((left, right) => left.file.localeCompare(right.file))
+}
+
+function deriveInteractionContracts(
+  mutationLifecycles: MutationLifecyclePattern[]
+): TaroInteractionContractProfile[] {
+  const contracts: TaroInteractionContractProfile[] = []
+
+  for (const lifecycle of mutationLifecycles) {
+    const states = [
+      lifecycle.stages.includes('loading') ? 'in-flight' : null,
+      lifecycle.stages.includes('error') ? 'failed-completion' : null,
+    ].filter((state): state is TaroInteractionContractProfile['states'][number] => state !== null)
+
+    if (states.length === 0) {
+      continue
+    }
+
+    contracts.push({
+      file: lifecycle.file,
+      kind: 'mutation-form',
+      states,
+      supportTargets: [],
+      overrideStyle: 'none',
+      confidence: 'low',
+      evidence: lifecycle.evidence,
+    })
+  }
+
+  return contracts.sort((left, right) => left.file.localeCompare(right.file))
 }
 
 function detectMockInstabilityInFiles(
@@ -228,11 +271,18 @@ export async function analyzeMocks(
       ],
       repeatedTargets,
       mutationLifecycles: packageProfile.mutationLifecycles,
+      interactionContracts: packageProfile.interactionContracts,
       instabilityWarnings: packageProfile.instabilityWarnings,
       sharedMockFactories: packageProfile.sharedMockFactories,
+      boundaryProfiles: packageProfile.boundaryProfiles,
       inlineSafeMockTargets: packageProfile.inlineSafeMockTargets,
       preferredSharedMocks: packageProfile.preferredSharedMocks,
       forbidMocks: packageProfile.forbidMocks,
+      preferredBoundaryImplementations: packageProfile.preferredBoundaryImplementations,
+      forbidBoundaryTargets: packageProfile.forbidBoundaryTargets,
+      queryHookPolicy: packageProfile.effectiveQueryHookPolicy,
+      companionPolicy: packageProfile.effectiveCompanionPolicy,
+      enabledContractFamilies: packageProfile.enabledContractFamilies,
     }
   }
 
@@ -240,6 +290,7 @@ export async function analyzeMocks(
   const [conventions] = await Promise.all([readConventions(projectRoot)])
   const targets = scanMockTargetsInFiles(projectRoot, testFiles)
   const mutationLifecycles = analyzeMutationLifecycleInFiles(projectRoot, testFiles)
+  const interactionContracts = deriveInteractionContracts(mutationLifecycles)
   const instabilityWarnings = detectMockInstabilityInFiles(projectRoot, testFiles)
 
   return {
@@ -249,10 +300,17 @@ export async function analyzeMocks(
     recommendations: deriveMockRecommendations(targets),
     repeatedTargets: targets.filter((target) => target.count > 1),
     mutationLifecycles,
+    interactionContracts,
     instabilityWarnings,
     sharedMockFactories: [],
+    boundaryProfiles: [],
     inlineSafeMockTargets: [],
     preferredSharedMocks: {},
     forbidMocks: [],
+    preferredBoundaryImplementations: {},
+    forbidBoundaryTargets: [],
+    queryHookPolicy: 'avoid',
+    companionPolicy: 'heuristic',
+    enabledContractFamilies: ['mutation-form'],
   }
 }

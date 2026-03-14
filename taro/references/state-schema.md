@@ -2,6 +2,7 @@
 
 Stored at:
 - `.taro/state.json`
+- `.taro/summary.md`
 
 Optional companion file:
 - `.taro/overrides.json`
@@ -92,10 +93,10 @@ Persist bounded, package-scoped test knowledge that Taro can reuse across `init`
       ],
       "renderTargets": [
         {
-          "symbol": "SalesModule",
-          "importPath": "./SalesModule",
-          "sourceTestFile": "src/sales.test.tsx",
-          "helperNames": ["openSaleDialog"],
+          "symbol": "FeatureModule",
+          "importPath": "./FeatureModule",
+          "sourceTestFile": "src/feature.test.tsx",
+          "helperNames": ["openFeatureDialog"],
           "usesWithin": true
         }
       ],
@@ -114,6 +115,41 @@ Persist bounded, package-scoped test knowledge that Taro can reuse across `init`
           "count": 1
         }
       ],
+      "boundaryProfiles": [
+        {
+          "target": "@/features/orders/api",
+          "kind": "data-module | server-action | network-client | auth | router | feature-flag | env | local-child | unknown",
+          "strategy": "shared-module-factory | scaffolded-module-factory | provider-wrapper | inline-safe | forbid | real-runtime",
+          "supportImportPath": "@/tests/mocks/orders-api | null",
+          "supportPath": "src/tests/mocks/orders-api.mock.ts | null",
+          "supportExports": {
+            "factoryExport": "createOrdersApiMock | null",
+            "resetExport": "resetOrdersApiMock | null",
+            "overrideExports": ["useCreateOrderMutationMock"],
+            "spyExports": ["createOrderMutate"],
+            "fixtureExports": ["mockOrder"]
+          },
+          "payloadSource": "mock-store | fixtures | typed-defaults | exemplar-only | manual | unknown",
+          "confidence": "high | medium | low",
+          "files": ["src/feature-module.test.tsx"],
+          "evidence": ["src/feature-module.test.tsx: mock target @/features/orders/api"],
+          "conflictTargets": ["inline-safe"],
+          "lowConfidenceScaffold": false
+        }
+      ],
+      "boundaryExemplars": [
+        {
+          "file": "src/feature-module.test.tsx",
+          "renderBoundary": "module | component | unknown",
+          "boundaryTargets": ["@/features/orders/api", "@/tests/renderWithProviders"],
+          "boundaryKinds": ["data-module", "local-child"],
+          "usesProviderWrapper": true,
+          "usesCentralBoundarySupport": true,
+          "hasMutationLifecycle": true,
+          "overrideStyle": "stable-handles | inline-reconfigure | none",
+          "tags": ["provider-wrapper", "central-boundary-support", "mutation-lifecycle"]
+        }
+      ],
       "inlineSafeMockTargets": ["next/navigation"],
       "mutationLifecycles": [],
       "instabilityWarnings": [],
@@ -127,10 +163,16 @@ Persist bounded, package-scoped test knowledge that Taro can reuse across `init`
       ],
       "exemplars": [
         {
-          "file": "src/sales.test.tsx",
+          "file": "src/feature.test.tsx",
           "tags": ["render-helper", "mutation"]
         }
       ],
+      "playwrightAuth": {
+        "strategy": "storageState | instructions",
+        "path": "playwright/.auth/user.json",
+        "detectedAt": "init | refresh | generate",
+        "source": "detected | manual"
+      },
       "warnings": []
     }
   },
@@ -151,7 +193,7 @@ Persist bounded, package-scoped test knowledge that Taro can reuse across `init`
       "createdAt": "ISO-8601",
       "packagePath": "packages/dashboard",
       "recordingFile": "/abs/path/recording.js",
-      "testFile": "/abs/path/recording.test.tsx",
+      "testFile": "/abs/path/packages/dashboard/src/features/FeatureFlow.test.tsx",
       "quality": {
         "overall": 82,
         "grade": "B",
@@ -195,14 +237,33 @@ Implemented shape:
         "name": "renderDashboard",
         "importPath": "@/tests/renderDashboard"
       },
-      "forbidMocks": ["@digitax/components"],
+      "forbidMocks": ["@/components/ui-kit"],
       "preferredSharedMocks": {
-        "@digitax/data-layer": "@/tests/mocks/digitax-data-layer"
-      }
+        "@/features/orders/api": "@/tests/mocks/orders-api"
+      },
+      "boundaryPolicies": {
+        "@/features/orders/api": "shared-module-factory",
+        "@/tests/renderWithProviders": "provider-wrapper"
+      },
+      "preferredBoundaryImplementations": {
+        "@/features/orders/api": "@/tests/mocks/orders-api"
+      },
+      "forbidBoundaryTargets": ["@/components/ui-kit"],
+      "queryHookPolicy": "avoid | allow-centralized | allow-when-needed"
     }
   }
 }
 ```
+
+## Human-Readable Summary
+
+`.taro/summary.md` is regenerated whenever state is written. It documents:
+
+- preferred render boundary tendency per package
+- collaborator categories and canonical support modules
+- learned boundary profiles with confidence and conflicts
+- exemplar tests Taro can derive future structure from
+- low-confidence scaffolds that still need corroboration
 
 ## Legacy Migration
 
@@ -210,7 +271,7 @@ When present, Taro reads and migrates these legacy files into `state.json`:
 
 - `.taro/conventions.json`
 - `.taro/history.json`
-- `.tayo/conventions.json`
-- `.tayo/history.json`
+- `.taro/conventions.json`
+- `.taro/history.json`
 
 After migration, `state.json` is the primary persisted store.

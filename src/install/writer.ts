@@ -32,7 +32,7 @@ async function readOwnershipManifest(
     const manifestContent = await readFile(manifestPath, 'utf8')
     const manifest = JSON.parse(manifestContent) as InstallOwnershipManifest
 
-    return manifest.packageName === '@tayo-dev/rtl' ? manifest : null
+    return manifest.packageName === '@taro-dev/rtl' ? manifest : null
   } catch (error) {
     const fsError = error as NodeJS.ErrnoException
 
@@ -111,9 +111,13 @@ export async function writeInstallPlan(
 
   for (const operation of target.operations) {
     await mkdir(dirname(operation.targetPath), { recursive: true })
-    await copyFile(operation.sourcePath, operation.targetPath)
+    if (operation.renderedContent != null) {
+      await writeFile(operation.targetPath, operation.renderedContent)
+    } else {
+      await copyFile(operation.sourcePath, operation.targetPath)
+    }
 
-    const writtenContent = await readFile(operation.sourcePath, 'utf8')
+    const writtenContent = operation.renderedContent ?? (await readFile(operation.sourcePath, 'utf8'))
     ownedFiles.push(
       createOwnedFile({
         relativePath: operation.relativeDestinationPath,

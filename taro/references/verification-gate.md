@@ -2,7 +2,7 @@
 
 Goal:
 Prevent Taro from claiming success unless the generated test is demonstrably runnable
-and compliant with mock-boundary policy.
+and compliant with boundary policy.
 
 Rules:
 
@@ -12,16 +12,39 @@ Rules:
 
 ---
 
-## Static Mock Audit (Required)
+## Static Boundary Audit (Required)
 
 Run an AST/text audit on the generated test before typecheck/test/lint.
 
 Detect:
 
 - `vi.mock(...)` / `jest.mock(...)` blocks that replace UI-library modules
-  (for example design-system packages such as `@digitax/components`).
-- Broad object-return replacement patterns that provide custom component
-  implementations for UI libraries.
+  (for example design-system packages such as `@/components/ui-kit`).
+- broad object-return replacement patterns that provide custom component
+  implementations for UI libraries
+- inline collaborator implementations when a learned shared/scaffolded boundary support module exists
+- generated tests that bypass a learned provider-wrapper boundary and fall back to raw `render(...)`
+- tests that bundle multiple user-visible contracts into one `it(...)`
+- test names that describe actions instead of the protected behavior
+- setup helpers that contain `expect(...)` calls
+- `.toBeDefined()` assertions on RTL query results
+- loose `expect.any(...)` / `expect.anything()` payload assertions for known user-driven values
+- mutable shared objects that are reset in `beforeEach` to steer mock behavior
+  (hoisted state objects whose fields are mutated per-test to alter mock
+  behavior — for example `vi.hoisted(() => ({ outcome: "success" }))` with
+  `beforeEach` resetting fields and test bodies mutating them).
+  Flag this because the behavior is split across multiple locations, the
+  reset logic can silently drift from the object shape, and the `vi.mock`
+  factory is no longer self-contained. Correct pattern: hoist plain
+  `vi.fn()` mocks, keep `vi.mock` factories shape-only, set a default
+  happy-path `mockImplementation` in `beforeEach`, and override with a
+  complete `mockImplementation` inside each test that needs a different
+  scenario.
+- manual DOM cleanup that clears `document.body.innerHTML`
+- `afterEach` teardown that combines `cleanup()` with manual `document.body` mutation repair
+- mixed reset boundaries that combine a reset helper with extra suite-local `.mockClear()` churn
+- mock call count assertions inside `waitFor` with payload assertions outside it
+- regex text matchers used where the generated assertion is supposed to verify an exact rendered contract
 
 Allowed:
 
@@ -43,7 +66,7 @@ If forbidden replacement is detected:
 
 ## Preferred Checks (in order)
 
-1. Static mock audit (required)
+1. Static boundary audit (required)
 2. Typecheck (if tsconfig exists and command discoverable)
 3. Run test for the generated file (framework-aware)
 4. Lint the generated file (eslint if available)
@@ -76,6 +99,7 @@ If verification fails:
   - add missing await for userEvent
   - fix obvious import alias mismatch based on conventions signals
   - add lightweight env polyfill for browser gaps (for example `ResizeObserver`)
+- if a low-confidence collaborator scaffold was generated, surface the draft warning but do not inline repo-local query-hook bodies as a repair
 - rerun verification once
 
 Never loop indefinitely.

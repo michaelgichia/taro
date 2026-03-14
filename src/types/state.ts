@@ -1,5 +1,7 @@
 import type {
   ConventionsSchema,
+  InteractionContractKind,
+  InteractionContractPattern,
   ImportStyle,
   MockInstabilityWarning,
   MockPattern,
@@ -18,6 +20,36 @@ export type TaroTestRunner = 'vitest' | 'jest' | 'unknown'
 export type TaroFolderPattern = 'colocated' | '__tests__' | 'mixed' | 'unknown'
 export type TaroFileExtension = 'ts' | 'tsx' | 'js' | 'jsx' | 'mixed'
 export type TaroFixtureRootKind = 'mock-store' | 'mocks' | 'fixtures' | 'factories'
+export type TaroPlaywrightAuthStrategy = 'storageState' | 'instructions'
+export type TaroPlaywrightAuthSource = 'detected' | 'manual'
+export type TaroPlaywrightAuthDetectedAt = 'init' | 'refresh' | 'generate'
+export type TaroBoundaryKind =
+  | 'data-module'
+  | 'server-action'
+  | 'network-client'
+  | 'auth'
+  | 'router'
+  | 'feature-flag'
+  | 'env'
+  | 'local-child'
+  | 'unknown'
+export type TaroBoundaryStrategy =
+  | 'shared-module-factory'
+  | 'scaffolded-module-factory'
+  | 'provider-wrapper'
+  | 'inline-safe'
+  | 'forbid'
+  | 'real-runtime'
+export type TaroBoundaryPayloadSource =
+  | 'mock-store'
+  | 'fixtures'
+  | 'typed-defaults'
+  | 'exemplar-only'
+  | 'manual'
+  | 'unknown'
+export type TaroBoundaryGuardrailReason = 'repo-owned-ui-wrapper' | 'ui-package'
+export type TaroQueryHookPolicy = 'avoid' | 'allow-centralized' | 'allow-when-needed'
+export type TaroCompanionPolicy = 'heuristic' | 'off'
 
 export interface TaroSignal<T> {
   value: T
@@ -31,6 +63,7 @@ export interface RepoRenderTargetCandidate {
   sourceTestFile: string
   helperNames: string[]
   usesWithin: boolean
+  evidenceTerms?: string[]
 }
 
 export interface TaroRenderHelperProfile {
@@ -55,6 +88,30 @@ export interface TaroSharedMockFactoryProfile {
   count: number
 }
 
+export interface TaroBoundarySupportExports {
+  factoryExport: string | null
+  resetExport: string | null
+  overrideExports: string[]
+  spyExports: string[]
+  fixtureExports: string[]
+}
+
+export interface TaroBoundaryProfile {
+  target: string
+  kind: TaroBoundaryKind
+  strategy: TaroBoundaryStrategy
+  guardrailReason: TaroBoundaryGuardrailReason | null
+  supportImportPath: string | null
+  supportPath: string | null
+  supportExports: TaroBoundarySupportExports
+  payloadSource: TaroBoundaryPayloadSource
+  confidence: TaroStateConfidence
+  files: string[]
+  evidence: string[]
+  conflictTargets: string[]
+  lowConfidenceScaffold: boolean
+}
+
 export interface TaroFixtureRootProfile {
   path: string
   kind: TaroFixtureRootKind
@@ -64,6 +121,31 @@ export interface TaroFixtureRootProfile {
 export interface TaroExemplarProfile {
   file: string
   tags: string[]
+}
+
+export interface TaroBoundaryExemplarProfile {
+  file: string
+  renderBoundary: 'module' | 'component' | 'unknown'
+  boundaryTargets: string[]
+  boundaryKinds: TaroBoundaryKind[]
+  usesProviderWrapper: boolean
+  usesCentralBoundarySupport: boolean
+  hasMutationLifecycle: boolean
+  overrideStyle: 'stable-handles' | 'inline-reconfigure' | 'none'
+  tags: string[]
+}
+
+export interface TaroInteractionContractProfile extends InteractionContractPattern {
+  supportTargets: string[]
+  overrideStyle: 'stable-handles' | 'inline-reconfigure' | 'none'
+  confidence: TaroStateConfidence
+}
+
+export interface TaroPlaywrightAuthProfile {
+  strategy: TaroPlaywrightAuthStrategy
+  path: string
+  detectedAt: TaroPlaywrightAuthDetectedAt
+  source: TaroPlaywrightAuthSource
 }
 
 export interface TaroPackageProfile {
@@ -82,12 +164,16 @@ export interface TaroPackageProfile {
   renderTargets: RepoRenderTargetCandidate[]
   repeatedMockTargets: MockTargetUsage[]
   sharedMockFactories: TaroSharedMockFactoryProfile[]
+  boundaryProfiles: TaroBoundaryProfile[]
+  boundaryExemplars: TaroBoundaryExemplarProfile[]
+  interactionContracts: TaroInteractionContractProfile[]
   inlineSafeMockTargets: string[]
   mutationLifecycles: MutationLifecyclePattern[]
   instabilityWarnings: MockInstabilityWarning[]
   mockRecommendations: MockRecommendation[]
   fixtureRoots: TaroFixtureRootProfile[]
   exemplars: TaroExemplarProfile[]
+  playwrightAuth: TaroPlaywrightAuthProfile | null
   warnings: string[]
 }
 
@@ -137,6 +223,12 @@ export interface TaroPackageOverrides {
   }
   forbidMocks?: string[]
   preferredSharedMocks?: Record<string, string>
+  boundaryPolicies?: Record<string, TaroBoundaryStrategy>
+  preferredBoundaryImplementations?: Record<string, string>
+  forbidBoundaryTargets?: string[]
+  queryHookPolicy?: TaroQueryHookPolicy
+  companionPolicy?: TaroCompanionPolicy
+  enabledContractFamilies?: InteractionContractKind[]
 }
 
 export interface TaroOverrides {
@@ -149,6 +241,12 @@ export interface ResolvedTaroPackageProfile extends TaroPackageProfile {
   effectiveRenderHelper: TaroRenderHelperProfile | null
   forbidMocks: string[]
   preferredSharedMocks: Record<string, string>
+  boundaryPolicies: Record<string, TaroBoundaryStrategy>
+  preferredBoundaryImplementations: Record<string, string>
+  forbidBoundaryTargets: string[]
+  effectiveQueryHookPolicy: TaroQueryHookPolicy
+  effectiveCompanionPolicy: TaroCompanionPolicy
+  enabledContractFamilies: InteractionContractKind[]
 }
 
 export interface TaroStateSummaryPackage {
@@ -157,6 +255,8 @@ export interface TaroStateSummaryPackage {
   scannedAt: string
   renderHelperCount: number
   repeatedMockTargetCount: number
+  boundaryProfileCount: number
+  lowConfidenceBoundaryCount: number
   fixtureRootCount: number
   warnings: string[]
 }
@@ -165,6 +265,8 @@ export interface TaroStateSummary {
   packageCount: number
   renderHelperCount: number
   repeatedMockTargetCount: number
+  boundaryProfileCount: number
+  lowConfidenceBoundaryCount: number
   fixtureRootCount: number
   migratedLegacyState: boolean
   overridePackageCount: number

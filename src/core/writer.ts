@@ -8,6 +8,7 @@ import { dirname, extname, resolve } from 'node:path'
 
 export interface WriteOptions {
   createDir?: boolean
+  overwriteExisting?: boolean
 }
 
 export interface WriteResult {
@@ -31,7 +32,7 @@ export async function writeTestFile(
   outputPath: string,
   options: WriteOptions = {}
 ): Promise<WriteResult> {
-  const { createDir = true } = options
+  const { createDir = true, overwriteExisting = false } = options
   const resolvedPath = resolve(outputPath)
 
   if (!isValidTestPath(resolvedPath)) {
@@ -54,7 +55,7 @@ export async function writeTestFile(
     // ENOENT — file does not exist, proceed
   }
 
-  if (fileExists) {
+  if (fileExists && !overwriteExisting) {
     throw new Error(
       `Output file already exists: ${resolvedPath}\nDelete or rename it before generating again.`
     )

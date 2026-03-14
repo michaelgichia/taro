@@ -1,10 +1,10 @@
 {
-  "name": "@tayo-dev/rtl",
-  "version": "1.4.2",
+  "name": "@taro-dev/rtl",
+  "version": "1.5.0",
   "description": "Generate high-quality React Testing Library tests from Recorder exports",
   "type": "module",
   "bin": {
-    "tayo": "bin/install.js"
+    "taro": "bin/install.js"
   },
   "files": [
     "dist",
@@ -39,11 +39,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/michaelgichia/tayo.git"
+    "url": "git+https://github.com/michaelgichia/taro.git"
   },
-  "homepage": "https://github.com/michaelgichia/tayo#readme",
+  "homepage": "https://github.com/michaelgichia/taro#readme",
   "bugs": {
-    "url": "https://github.com/michaelgichia/tayo/issues"
+    "url": "https://github.com/michaelgichia/taro/issues"
   },
   "keywords": [
     "testing",

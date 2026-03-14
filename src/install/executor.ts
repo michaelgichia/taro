@@ -28,8 +28,7 @@ export async function executeInstallPlan(
 
   const hasSuccessfulWrites = targets.some((target) => target.status !== 'blocked')
   const hasFailures = targets.some(
-    (target) =>
-      target.status === 'blocked' || target.verification?.status === 'missing-installed-assets'
+    (target) => target.status === 'blocked' || target.verification?.status !== 'verified'
   )
 
   return {

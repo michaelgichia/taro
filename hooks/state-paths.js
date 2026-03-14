@@ -1,7 +1,7 @@
 import { access } from 'node:fs/promises'
 import { join } from 'node:path'
 
-const STATE_DIRS = ['.taro', '.tayo']
+const STATE_DIRS = ['.taro']
 
 export async function findReadableStatePath(projectRoot, ...segments) {
   for (const stateDir of STATE_DIRS) {

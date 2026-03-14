@@ -1,6 +1,5 @@
-import { join } from 'node:path'
-import { resolveAssetSource } from '../assets.js'
 import { TARO_REFERENCE_FILES } from '../reference-files.js'
+import { buildRuntimeOperationsFromAssets } from '../runtime-launcher.js'
 import type {
   InstallFileOperation,
   ResolvedInstallTarget,
@@ -15,96 +14,117 @@ const PROMPT_RUNTIME_ASSETS: Record<PromptRuntimeTarget, RuntimeAssetDefinition[
     {
       id: 'help',
       kind: 'command',
-      sourceSegments: ['commands', 'claude', '@tayo-dev', 'rtl', 'help.md'],
-      destinationSegments: ['commands', '@tayo-dev', 'rtl', 'help.md'],
-      entrypoint: '/@tayo-dev/rtl:help',
+      sourceSegments: ['commands', 'claude', '@taro-dev', 'rtl', 'help.md'],
+      destinationSegments: ['commands', '@taro-dev', 'rtl', 'help.md'],
+      entrypoint: '/@taro-dev/rtl:help',
     },
     {
       id: 'init',
       kind: 'command',
-      sourceSegments: ['commands', 'claude', '@tayo-dev', 'rtl', 'init.md'],
-      destinationSegments: ['commands', '@tayo-dev', 'rtl', 'init.md'],
-      entrypoint: '/@tayo-dev/rtl:init',
+      sourceSegments: ['commands', 'claude', '@taro-dev', 'rtl', 'init.md'],
+      destinationSegments: ['commands', '@taro-dev', 'rtl', 'init.md'],
+      entrypoint: '/@taro-dev/rtl:init',
     },
     {
       id: 'generate',
       kind: 'command',
-      sourceSegments: ['commands', 'claude', '@tayo-dev', 'rtl', 'generate.md'],
-      destinationSegments: ['commands', '@tayo-dev', 'rtl', 'generate.md'],
-      entrypoint: '/@tayo-dev/rtl:generate',
+      sourceSegments: ['commands', 'claude', '@taro-dev', 'rtl', 'generate.md'],
+      destinationSegments: ['commands', '@taro-dev', 'rtl', 'generate.md'],
+      entrypoint: '/@taro-dev/rtl:generate',
+    },
+    {
+      id: 'generate-i',
+      kind: 'command',
+      sourceSegments: ['commands', 'claude', '@taro-dev', 'rtl', 'generate-i.md'],
+      destinationSegments: ['commands', '@taro-dev', 'rtl', 'generate-i.md'],
+      entrypoint: '/@taro-dev/rtl:generate-i',
     },
     {
       id: 'refresh',
       kind: 'command',
-      sourceSegments: ['commands', 'claude', '@tayo-dev', 'rtl', 'refresh.md'],
-      destinationSegments: ['commands', '@tayo-dev', 'rtl', 'refresh.md'],
-      entrypoint: '/@tayo-dev/rtl:refresh',
+      sourceSegments: ['commands', 'claude', '@taro-dev', 'rtl', 'refresh.md'],
+      destinationSegments: ['commands', '@taro-dev', 'rtl', 'refresh.md'],
+      entrypoint: '/@taro-dev/rtl:refresh',
     },
     ...TARO_REFERENCE_FILES.map((fileName) => ({
       id: `generate-reference-${fileName.replace(/\.md$/, '')}`,
       kind: 'command' as const,
       sourceSegments: ['taro', 'references', fileName],
-      destinationSegments: ['commands', '@tayo-dev', 'rtl', 'references', fileName],
+      destinationSegments: ['commands', '@taro-dev', 'rtl', 'references', fileName],
     })),
   ],
   gemini: [
     {
       id: 'help',
       kind: 'command',
-      sourceSegments: ['commands', 'gemini', '@tayo-dev', 'rtl', 'help.toml'],
-      destinationSegments: ['commands', '@tayo-dev', 'rtl', 'help.toml'],
-      entrypoint: '/@tayo-dev/rtl:help',
+      sourceSegments: ['commands', 'gemini', '@taro-dev', 'rtl', 'help.toml'],
+      destinationSegments: ['commands', '@taro-dev', 'rtl', 'help.toml'],
+      entrypoint: '/@taro-dev/rtl:help',
     },
     {
       id: 'init',
       kind: 'command',
-      sourceSegments: ['commands', 'gemini', '@tayo-dev', 'rtl', 'init.toml'],
-      destinationSegments: ['commands', '@tayo-dev', 'rtl', 'init.toml'],
-      entrypoint: '/@tayo-dev/rtl:init',
+      sourceSegments: ['commands', 'gemini', '@taro-dev', 'rtl', 'init.toml'],
+      destinationSegments: ['commands', '@taro-dev', 'rtl', 'init.toml'],
+      entrypoint: '/@taro-dev/rtl:init',
     },
     {
       id: 'generate',
       kind: 'command',
-      sourceSegments: ['commands', 'gemini', '@tayo-dev', 'rtl', 'generate.toml'],
-      destinationSegments: ['commands', '@tayo-dev', 'rtl', 'generate.toml'],
-      entrypoint: '/@tayo-dev/rtl:generate',
+      sourceSegments: ['commands', 'gemini', '@taro-dev', 'rtl', 'generate.toml'],
+      destinationSegments: ['commands', '@taro-dev', 'rtl', 'generate.toml'],
+      entrypoint: '/@taro-dev/rtl:generate',
+    },
+    {
+      id: 'generate-i',
+      kind: 'command',
+      sourceSegments: ['commands', 'gemini', '@taro-dev', 'rtl', 'generate-i.toml'],
+      destinationSegments: ['commands', '@taro-dev', 'rtl', 'generate-i.toml'],
+      entrypoint: '/@taro-dev/rtl:generate-i',
     },
     {
       id: 'refresh',
       kind: 'command',
-      sourceSegments: ['commands', 'gemini', '@tayo-dev', 'rtl', 'refresh.toml'],
-      destinationSegments: ['commands', '@tayo-dev', 'rtl', 'refresh.toml'],
-      entrypoint: '/@tayo-dev/rtl:refresh',
+      sourceSegments: ['commands', 'gemini', '@taro-dev', 'rtl', 'refresh.toml'],
+      destinationSegments: ['commands', '@taro-dev', 'rtl', 'refresh.toml'],
+      entrypoint: '/@taro-dev/rtl:refresh',
     },
   ],
   opencode: [
     {
       id: 'help',
       kind: 'command',
-      sourceSegments: ['commands', 'opencode', '@tayo-dev', 'rtl-help.md'],
-      destinationSegments: ['commands', '@tayo-dev', 'rtl-help.md'],
-      entrypoint: '/@tayo-dev/rtl-help',
+      sourceSegments: ['commands', 'opencode', '@taro-dev', 'rtl-help.md'],
+      destinationSegments: ['commands', '@taro-dev', 'rtl-help.md'],
+      entrypoint: '/@taro-dev/rtl-help',
     },
     {
       id: 'init',
       kind: 'command',
-      sourceSegments: ['commands', 'opencode', '@tayo-dev', 'rtl-init.md'],
-      destinationSegments: ['commands', '@tayo-dev', 'rtl-init.md'],
-      entrypoint: '/@tayo-dev/rtl-init',
+      sourceSegments: ['commands', 'opencode', '@taro-dev', 'rtl-init.md'],
+      destinationSegments: ['commands', '@taro-dev', 'rtl-init.md'],
+      entrypoint: '/@taro-dev/rtl-init',
     },
     {
       id: 'generate',
       kind: 'command',
-      sourceSegments: ['commands', 'opencode', '@tayo-dev', 'rtl-generate.md'],
-      destinationSegments: ['commands', '@tayo-dev', 'rtl-generate.md'],
-      entrypoint: '/@tayo-dev/rtl-generate',
+      sourceSegments: ['commands', 'opencode', '@taro-dev', 'rtl-generate.md'],
+      destinationSegments: ['commands', '@taro-dev', 'rtl-generate.md'],
+      entrypoint: '/@taro-dev/rtl-generate',
+    },
+    {
+      id: 'generate-i',
+      kind: 'command',
+      sourceSegments: ['commands', 'opencode', '@taro-dev', 'rtl-generate-i.md'],
+      destinationSegments: ['commands', '@taro-dev', 'rtl-generate-i.md'],
+      entrypoint: '/@taro-dev/rtl-generate-i',
     },
     {
       id: 'refresh',
       kind: 'command',
-      sourceSegments: ['commands', 'opencode', '@tayo-dev', 'rtl-refresh.md'],
-      destinationSegments: ['commands', '@tayo-dev', 'rtl-refresh.md'],
-      entrypoint: '/@tayo-dev/rtl-refresh',
+      sourceSegments: ['commands', 'opencode', '@taro-dev', 'rtl-refresh.md'],
+      destinationSegments: ['commands', '@taro-dev', 'rtl-refresh.md'],
+      entrypoint: '/@taro-dev/rtl-refresh',
     },
   ],
 }
@@ -121,18 +141,5 @@ export function buildPromptRuntimeOperations(
     throw new Error(`Prompt runtime operations do not support ${target.id}.`)
   }
 
-  return PROMPT_RUNTIME_ASSETS[target.id].map((asset) => {
-    const relativeDestinationPath = join(...asset.destinationSegments)
-
-    return {
-      assetId: asset.id,
-      runtime: target.id,
-      location: target.location,
-      kind: asset.kind,
-      sourcePath: resolveAssetSource(asset.sourceSegments, fromModuleUrl),
-      relativeDestinationPath,
-      targetPath: join(target.destinationDirectory, relativeDestinationPath),
-      entrypoint: asset.entrypoint,
-    }
-  })
+  return buildRuntimeOperationsFromAssets(target, PROMPT_RUNTIME_ASSETS[target.id], fromModuleUrl)
 }

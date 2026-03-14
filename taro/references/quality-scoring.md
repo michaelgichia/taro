@@ -83,8 +83,11 @@ Start at 10. Adjust:
 - +3: helper functions are used for repeated flows (setup/fill/submit)
 - +2: test names align with domain behavior (create organisation, etc.)
 - +2: clear Arrange/Act/Assert separation
+- +2: each test isolates a single behavior or contract instead of bundling multiple concerns
 - -4: confusing naming mismatch ("profile" vs "organisation")
 - -3: large monolithic tests with repeated code
+- -4: test name describes user actions instead of the behavior under protection
+- -4: setup helpers contain assertions, obscuring which contract actually failed
 
 Cap 15.
 
@@ -102,6 +105,9 @@ Subtract:
 
 - -8: only asserts mock called (no user-visible assertion)
 - -6: asserts internal implementation details only
+- -4: wraps RTL query results in `.toBeDefined()` instead of relying on query throws or explicit DOM matchers
+- -4: splits related async call assertions across `waitFor` and non-`waitFor` boundaries
+- -4: uses `expect.any(...)` or `expect.anything()` for deterministic payload fields
 
 Cap 20.
 
@@ -119,6 +125,11 @@ Subtract:
 - -8: random/inline fixtures created ad hoc each run
 - -6: mocks don’t reflect actual dependency contract (false positives)
 - -4: mocks rely on global state without reset
+- -3: mixes shared reset utilities with additional ad hoc `.mockClear()` calls in the same suite
+- -4: uses mutable shared state in `beforeEach` to steer mock behavior across tests
+  (a hoisted object's fields are reset in `beforeEach` and mutated in test
+  bodies — the mock's behavior is no longer co-located with the test that
+  depends on it, and missed resets cause cross-test state leakage)
 - -20: UI-library component reimplementation detected (policy violation)
 
 Cap 20.
@@ -137,6 +148,9 @@ Subtract:
 - -6: hardcoded selectors tied to layout/CSS
 - -4: missing shared fixtures; repeated data creation
 - -4: reruns regenerate different data or duplicate files
+- -3: generates redundant manual DOM cleanup that conflicts with RTL lifecycle management
+- -3: uses regex text matchers where an exact user-visible contract should be asserted
+- -4: patches leaked `document.body` state in `afterEach` instead of relying on component unmount cleanup
 - -10: replaces design-system/UI-library modules with custom stand-ins
 
 Cap 20.
@@ -171,6 +185,8 @@ To score, Taro inspects the generated test file text and checks for patterns:
 - Marker-derived assertions: inline marker comments or explicit checkpoint assertion helpers
 - Mock store usage: imports from detected mock-store path
 - Mock reset: `beforeEach`, `afterEach`, `cleanup`, `vi.clearAllMocks`, etc.
+- Helper assertions: shared `setup`/`plan*` helpers containing `expect(...)` calls
+- Loose payloads: `toHaveBeenCalledWith(...)` combined with `expect.any(...)` or `expect.anything()` for deterministic fields
 - UI-library reimplementation:
   - `vi.mock`/`jest.mock` targeting known UI-library modules and returning replacement component objects/functions.
 

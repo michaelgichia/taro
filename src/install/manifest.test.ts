@@ -8,7 +8,7 @@ import {
 describe('createOwnershipManifest', () => {
   it('creates a Taro-owned manifest with hashed files', () => {
     const file = createOwnedFile({
-      relativePath: 'commands/@tayo-dev/rtl/help.md',
+      relativePath: 'commands/@taro-dev/rtl/help.md',
       kind: 'command',
       content: 'help asset',
     })
@@ -19,7 +19,7 @@ describe('createOwnershipManifest', () => {
       generatedAt: '2026-03-07T16:20:00Z',
     })
 
-    expect(manifest.packageName).toBe('@tayo-dev/rtl')
+    expect(manifest.packageName).toBe('@taro-dev/rtl')
     expect(manifest.files[0]?.checksum).toBeTruthy()
     expect(manifest.generatedAt).toBe('2026-03-07T16:20:00Z')
   })

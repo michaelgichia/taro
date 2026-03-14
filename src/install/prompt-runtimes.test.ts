@@ -1,4 +1,4 @@
-import { access, copyFile, mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { access, copyFile, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { mkdir } from 'node:fs/promises'
@@ -34,7 +34,7 @@ function createSelection(runtime: RuntimeTarget, location: InstallLocation): Ins
 }
 
 async function createInstallContext(): Promise<{ cwd: string; home: string }> {
-  const root = await mkdtemp(join(tmpdir(), 'tayo-install-'))
+  const root = await mkdtemp(join(tmpdir(), 'taro-install-'))
   const cwd = join(root, 'project')
   const home = join(root, 'home')
 
@@ -48,7 +48,11 @@ async function createInstallContext(): Promise<{ cwd: string; home: string }> {
 async function materializeOperations(operations: InstallFileOperation[]): Promise<void> {
   for (const operation of operations) {
     await mkdir(dirname(operation.targetPath), { recursive: true })
-    await copyFile(operation.sourcePath, operation.targetPath)
+    if (operation.renderedContent != null) {
+      await writeFile(operation.targetPath, operation.renderedContent)
+    } else {
+      await copyFile(operation.sourcePath, operation.targetPath)
+    }
   }
 }
 
@@ -75,23 +79,24 @@ describe('prompt runtime install builders', () => {
     const operations = buildClaudeRuntimeOperations(target)
     await materializeOperations(operations)
 
-    const helpPath = join(home, '.claude', 'commands', '@tayo-dev', 'rtl', 'help.md')
+    const helpPath = join(home, '.claude', 'commands', '@taro-dev', 'rtl', 'help.md')
     const helpContent = await expectFile(helpPath)
     const initContent = await expectFile(
-      join(home, '.claude', 'commands', '@tayo-dev', 'rtl', 'init.md')
+      join(home, '.claude', 'commands', '@taro-dev', 'rtl', 'init.md')
     )
     const refreshContent = await expectFile(
-      join(home, '.claude', 'commands', '@tayo-dev', 'rtl', 'refresh.md')
+      join(home, '.claude', 'commands', '@taro-dev', 'rtl', 'refresh.md')
     )
 
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@tayo-dev/rtl:help')
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@tayo-dev/rtl:init')
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@tayo-dev/rtl:refresh')
-    expect(helpContent).toContain('/@tayo-dev/rtl:help')
-    expect(initContent).toContain('tayo __init')
-    expect(refreshContent).toContain('tayo __refresh')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl:help')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl:init')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl:generate-i')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl:refresh')
+    expect(helpContent).toContain('/@taro-dev/rtl:help')
+    expect(initContent).toContain(`${target.runtimeCommand} __init`)
+    expect(refreshContent).toContain(`${target.runtimeCommand} __refresh`)
     expect(operations.map((operation) => operation.relativeDestinationPath)).toContain(
-      'commands/@tayo-dev/rtl/references/assertion-markers.md'
+      'commands/@taro-dev/rtl/references/assertion-markers.md'
     )
   })
 
@@ -102,13 +107,19 @@ describe('prompt runtime install builders', () => {
     await materializeOperations(buildClaudeRuntimeOperations(target))
 
     const generateContent = await expectFile(
-      join(cwd, '.claude', 'commands', '@tayo-dev', 'rtl', 'generate.md')
+      join(cwd, '.claude', 'commands', '@taro-dev', 'rtl', 'generate.md')
+    )
+    const interactiveGenerateContent = await expectFile(
+      join(cwd, '.claude', 'commands', '@taro-dev', 'rtl', 'generate-i.md')
     )
     expect(generateContent).toContain('allowed-tools:')
     expect(generateContent).toContain('references/assertion-markers.md')
+    expect(interactiveGenerateContent).toContain(
+      `${target.runtimeCommand} __generate -i <recording-file>`
+    )
 
     const installedGenerateReferences = (
-      await readdir(join(cwd, '.claude', 'commands', '@tayo-dev', 'rtl', 'references'))
+      await readdir(join(cwd, '.claude', 'commands', '@taro-dev', 'rtl', 'references'))
     ).sort()
     expect(installedGenerateReferences).toEqual([...TARO_REFERENCE_FILES])
   })
@@ -121,21 +132,22 @@ describe('prompt runtime install builders', () => {
     await materializeOperations(operations)
 
     const helpContent = await expectFile(
-      join(home, '.gemini', 'commands', '@tayo-dev', 'rtl', 'help.toml')
+      join(home, '.gemini', 'commands', '@taro-dev', 'rtl', 'help.toml')
     )
     const initContent = await expectFile(
-      join(home, '.gemini', 'commands', '@tayo-dev', 'rtl', 'init.toml')
+      join(home, '.gemini', 'commands', '@taro-dev', 'rtl', 'init.toml')
     )
     const refreshContent = await expectFile(
-      join(home, '.gemini', 'commands', '@tayo-dev', 'rtl', 'refresh.toml')
+      join(home, '.gemini', 'commands', '@taro-dev', 'rtl', 'refresh.toml')
     )
 
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@tayo-dev/rtl:help')
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@tayo-dev/rtl:init')
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@tayo-dev/rtl:refresh')
-    expect(helpContent).toContain('/@tayo-dev/rtl:help')
-    expect(initContent).toContain('`tayo __init`')
-    expect(refreshContent).toContain('`tayo __refresh`')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl:help')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl:init')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl:generate-i')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl:refresh')
+    expect(helpContent).toContain('/@taro-dev/rtl:help')
+    expect(initContent).toContain(`\`${target.runtimeCommand} __init\``)
+    expect(refreshContent).toContain(`\`${target.runtimeCommand} __refresh\``)
   })
 
   it('installs Gemini CLI assets into the local .gemini command namespace', async () => {
@@ -145,9 +157,15 @@ describe('prompt runtime install builders', () => {
     await materializeOperations(buildGeminiRuntimeOperations(target))
 
     const generateContent = await expectFile(
-      join(cwd, '.gemini', 'commands', '@tayo-dev', 'rtl', 'generate.toml')
+      join(cwd, '.gemini', 'commands', '@taro-dev', 'rtl', 'generate.toml')
     )
-    expect(generateContent).toContain('`tayo __generate <recording-file>`')
+    const interactiveGenerateContent = await expectFile(
+      join(cwd, '.gemini', 'commands', '@taro-dev', 'rtl', 'generate-i.toml')
+    )
+    expect(generateContent).toContain(`\`${target.runtimeCommand} __generate <recording-file>\``)
+    expect(interactiveGenerateContent).toContain(
+      `\`${target.runtimeCommand} __generate -i <recording-file>\``
+    )
     expect(generateContent).not.toContain('--dry-run')
   })
 
@@ -159,21 +177,22 @@ describe('prompt runtime install builders', () => {
     await materializeOperations(operations)
 
     const helpContent = await expectFile(
-      join(home, '.config', 'opencode', 'commands', '@tayo-dev', 'rtl-help.md')
+      join(home, '.config', 'opencode', 'commands', '@taro-dev', 'rtl-help.md')
     )
     const initContent = await expectFile(
-      join(home, '.config', 'opencode', 'commands', '@tayo-dev', 'rtl-init.md')
+      join(home, '.config', 'opencode', 'commands', '@taro-dev', 'rtl-init.md')
     )
     const refreshContent = await expectFile(
-      join(home, '.config', 'opencode', 'commands', '@tayo-dev', 'rtl-refresh.md')
+      join(home, '.config', 'opencode', 'commands', '@taro-dev', 'rtl-refresh.md')
     )
 
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@tayo-dev/rtl-help')
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@tayo-dev/rtl-init')
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@tayo-dev/rtl-refresh')
-    expect(helpContent).toContain('/@tayo-dev/rtl-help')
-    expect(initContent).toContain('tayo __init')
-    expect(refreshContent).toContain('tayo __refresh')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl-help')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl-init')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl-generate-i')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl-refresh')
+    expect(helpContent).toContain('/@taro-dev/rtl-help')
+    expect(initContent).toContain(`${target.runtimeCommand} __init`)
+    expect(refreshContent).toContain(`${target.runtimeCommand} __refresh`)
   })
 
   it('installs OpenCode assets into the local .opencode command namespace', async () => {
@@ -183,9 +202,15 @@ describe('prompt runtime install builders', () => {
     await materializeOperations(buildOpenCodeRuntimeOperations(target))
 
     const generateContent = await expectFile(
-      join(cwd, '.opencode', 'commands', '@tayo-dev', 'rtl-generate.md')
+      join(cwd, '.opencode', 'commands', '@taro-dev', 'rtl-generate.md')
     )
-    expect(generateContent).toContain('`tayo __generate <recording-file>`')
+    const interactiveGenerateContent = await expectFile(
+      join(cwd, '.opencode', 'commands', '@taro-dev', 'rtl-generate-i.md')
+    )
+    expect(generateContent).toContain(`\`${target.runtimeCommand} __generate <recording-file>\``)
+    expect(interactiveGenerateContent).toContain(
+      `\`${target.runtimeCommand} __generate -i <recording-file>\``
+    )
     expect(generateContent).not.toContain('--dry-run')
   })
 })

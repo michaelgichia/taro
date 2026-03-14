@@ -1,4 +1,4 @@
-import { access, copyFile, mkdir, mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { access, copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -12,12 +12,13 @@ import type {
 } from './types.js'
 
 const EXPECTED_SKILLS = [
-  '@tayo-dev/rtl-conventions',
-  '@tayo-dev/rtl-generate',
-  '@tayo-dev/rtl-help',
-  '@tayo-dev/rtl-init',
-  '@tayo-dev/rtl-mocks',
-  '@tayo-dev/rtl-refresh',
+  '@taro-dev/rtl-conventions',
+  '@taro-dev/rtl-generate',
+  '@taro-dev/rtl-generate-i',
+  '@taro-dev/rtl-help',
+  '@taro-dev/rtl-init',
+  '@taro-dev/rtl-mocks',
+  '@taro-dev/rtl-refresh',
 ] as const
 const EXPECTED_GENERATE_REFERENCES = [
   'assertion-markers.md',
@@ -50,7 +51,7 @@ function createSelection(location: InstallLocation): InstallSelection {
 }
 
 async function createSandbox(label: string) {
-  const rootPath = await mkdtemp(join(tmpdir(), `tayo-${label}-`))
+  const rootPath = await mkdtemp(join(tmpdir(), `taro-${label}-`))
   sandboxRoots.push(rootPath)
 
   const homePath = join(rootPath, 'home')
@@ -65,7 +66,11 @@ async function createSandbox(label: string) {
 async function materializeOperations(operations: InstallFileOperation[]): Promise<void> {
   for (const operation of operations) {
     await mkdir(dirname(operation.targetPath), { recursive: true })
-    await copyFile(operation.sourcePath, operation.targetPath)
+    if (operation.renderedContent != null) {
+      await writeFile(operation.targetPath, operation.renderedContent)
+    } else {
+      await copyFile(operation.sourcePath, operation.targetPath)
+    }
   }
 }
 
@@ -89,18 +94,19 @@ describe('buildCodexOperations', () => {
 
     expect(target.destinationDirectory).toBe(join(sandbox.homePath, '.codex'))
 
-    const installedSkills = (await readdir(join(target.destinationDirectory, 'skills', '@tayo-dev'))).sort()
+    const installedSkills = (await readdir(join(target.destinationDirectory, 'skills', '@taro-dev'))).sort()
     expect(installedSkills).toEqual([...EXPECTED_SKILL_DIRECTORIES])
 
     const helpSkill = await readFile(
-      join(target.destinationDirectory, 'skills', '@tayo-dev', 'rtl-help', 'SKILL.md'),
+      join(target.destinationDirectory, 'skills', '@taro-dev', 'rtl-help', 'SKILL.md'),
       'utf8'
     )
-    expect(helpSkill).toContain('$@tayo-dev/rtl-help')
+    expect(helpSkill).toContain('$@taro-dev/rtl-help')
     expect(helpSkill).toContain('## Routing guide')
-    expect(operations.map((operation) => operation.entrypoint)).toContain('$@tayo-dev/rtl-help')
-    expect(operations.map((operation) => operation.entrypoint)).toContain('$@tayo-dev/rtl-init')
-    expect(operations.map((operation) => operation.entrypoint)).toContain('$@tayo-dev/rtl-refresh')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('$@taro-dev/rtl-help')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('$@taro-dev/rtl-init')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('$@taro-dev/rtl-generate-i')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('$@taro-dev/rtl-refresh')
   })
 
   it('installs the same packaged skill surface into a local .codex directory', async () => {
@@ -112,30 +118,39 @@ describe('buildCodexOperations', () => {
 
     expect(target.destinationDirectory).toBe(join(sandbox.projectPath, '.codex'))
 
-    const installedSkills = (await readdir(join(target.destinationDirectory, 'skills', '@tayo-dev'))).sort()
+    const installedSkills = (await readdir(join(target.destinationDirectory, 'skills', '@taro-dev'))).sort()
     expect(installedSkills).toEqual([...EXPECTED_SKILL_DIRECTORIES])
 
     const helpSkill = await readFile(
-      join(target.destinationDirectory, 'skills', '@tayo-dev', 'rtl-help', 'SKILL.md'),
+      join(target.destinationDirectory, 'skills', '@taro-dev', 'rtl-help', 'SKILL.md'),
       'utf8'
     )
-    expect(helpSkill).toContain('Invoke this skill with `$@tayo-dev/rtl-help`.')
+    expect(helpSkill).toContain('Invoke this skill with `$@taro-dev/rtl-help`.')
     expect(helpSkill).toContain('Return:')
 
     const generateSkill = await readFile(
-      join(target.destinationDirectory, 'skills', '@tayo-dev', 'rtl-generate', 'SKILL.md'),
+      join(target.destinationDirectory, 'skills', '@taro-dev', 'rtl-generate', 'SKILL.md'),
       'utf8'
     )
     expect(generateSkill).toContain('## Reference Map')
-    expect(generateSkill).toContain('Run `tayo __generate <recording-file>`')
+    expect(generateSkill).toContain(`Run \`${target.runtimeCommand} __generate <recording-file>\``)
+
+    const interactiveGenerateSkill = await readFile(
+      join(target.destinationDirectory, 'skills', '@taro-dev', 'rtl-generate-i', 'SKILL.md'),
+      'utf8'
+    )
+    expect(interactiveGenerateSkill).toContain('$@taro-dev/rtl-generate-i')
+    expect(interactiveGenerateSkill).toContain(
+      `Run \`${target.runtimeCommand} __generate -i <recording-file>\``
+    )
 
     const installedGenerateReferences = (
-      await readdir(join(target.destinationDirectory, 'skills', '@tayo-dev', 'rtl-generate', 'references'))
+      await readdir(join(target.destinationDirectory, 'skills', '@taro-dev', 'rtl-generate', 'references'))
     ).sort()
     expect(installedGenerateReferences).toEqual([...EXPECTED_GENERATE_REFERENCES])
 
     const conventionsSkill = await readFile(
-      join(target.destinationDirectory, 'skills', '@tayo-dev', 'rtl-conventions', 'SKILL.md'),
+      join(target.destinationDirectory, 'skills', '@taro-dev', 'rtl-conventions', 'SKILL.md'),
       'utf8'
     )
     expect(conventionsSkill).toContain('## Investigation Workflow')
@@ -143,7 +158,7 @@ describe('buildCodexOperations', () => {
     const mocksSkillPath = join(
       target.destinationDirectory,
       'skills',
-      '@tayo-dev',
+      '@taro-dev',
       'rtl-mocks',
       'SKILL.md'
     )
@@ -152,15 +167,15 @@ describe('buildCodexOperations', () => {
     expect(mocksSkill).toContain('## Boundary Review Workflow')
 
     const initSkill = await readFile(
-      join(target.destinationDirectory, 'skills', '@tayo-dev', 'rtl-init', 'SKILL.md'),
+      join(target.destinationDirectory, 'skills', '@taro-dev', 'rtl-init', 'SKILL.md'),
       'utf8'
     )
-    expect(initSkill).toContain('$@tayo-dev/rtl-init')
+    expect(initSkill).toContain('$@taro-dev/rtl-init')
 
     const refreshSkill = await readFile(
-      join(target.destinationDirectory, 'skills', '@tayo-dev', 'rtl-refresh', 'SKILL.md'),
+      join(target.destinationDirectory, 'skills', '@taro-dev', 'rtl-refresh', 'SKILL.md'),
       'utf8'
     )
-    expect(refreshSkill).toContain('$@tayo-dev/rtl-refresh')
+    expect(refreshSkill).toContain('$@taro-dev/rtl-refresh')
   })
 })

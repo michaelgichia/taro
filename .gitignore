@@ -1,4 +1,6 @@
-.tayo/
+.taro/
 .taro/
 dist/
 node_modules/
+.codex/
+.claude/

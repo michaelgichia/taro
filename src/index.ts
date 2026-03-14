@@ -31,9 +31,9 @@ if (process.argv[2] === '__generate') {
   applyInstallOptions(program)
 
   program
-    .name('tayo')
+    .name('taro')
     .description(
-      `${pc.bold('@tayo-dev/rtl')} — Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex`
+      `${pc.bold('@taro-dev/rtl')} — Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex`
     )
     .version(TARO_VERSION, '-v, --version', 'Output the current version')
     .helpOption('-h, --help', 'Display help for command')

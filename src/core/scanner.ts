@@ -59,7 +59,7 @@ export async function readConventions(projectRoot: string): Promise<ConventionsS
 export async function scanConventions(projectRoot: string): Promise<ConventionsSchema> {
   const { state, summary } = await initTaroState(projectRoot)
   if (summary.packageCount === 0) {
-    console.log(pc.yellow('[taro] CTX: No test files found — using defaults'))
+    process.stderr.write(pc.yellow('[taro] CTX: No test files found — using defaults') + '\n')
     return defaultConventions(projectRoot)
   }
 
@@ -122,12 +122,16 @@ export async function persistConventions(
     renderTargets: [],
     repeatedMockTargets: [],
     sharedMockFactories: [],
+    boundaryProfiles: [],
+    boundaryExemplars: [],
+    interactionContracts: [],
     inlineSafeMockTargets: [],
     mutationLifecycles: [],
     instabilityWarnings: [],
     mockRecommendations: [],
     fixtureRoots: [],
     exemplars: [],
+    playwrightAuth: null,
     warnings: ['Persisted from compatibility conventions interface'],
   }
   state.meta.updatedAt = new Date().toISOString()

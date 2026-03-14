@@ -19,6 +19,14 @@ import {
   type SemanticMarkerProofSubject,
   type SelectorDescriptor,
 } from '../types/recording.js'
+import {
+  classifySupportedQueryMethod,
+  isDisplayValueQueryMethod,
+  isLabelTextQueryMethod,
+  isRoleQueryMethod,
+  isSupportedTestingLibraryQueryMethod,
+  isTextQueryMethod,
+} from './query-policy.js'
 
 // ESM interop for @babel/traverse
 const traverse = (_traverse as any).default ?? _traverse
@@ -36,26 +44,12 @@ interface RecoveredAssertionDescriptor extends AssertionDescriptor {
 }
 
 /**
- * Quality classification map for RTL query methods
- */
-const QUERY_QUALITY_MAP: Record<string, QueryQuality> = {
-  getByRole: 'excellent',
-  getByLabelText: 'excellent',
-  getByAltText: 'excellent',
-  getByTitle: 'acceptable',
-  getByText: 'good',
-  getByDisplayValue: 'acceptable',
-  getByPlaceholderText: 'acceptable',
-  getByTestId: 'fragile',
-}
-
-/**
  * Classifies a Testing Library query method by quality tier.
  * @param method - The RTL query method name (e.g., 'getByRole', 'getByText')
  * @returns QueryQuality tier
  */
 export function classifyQuery(method: string): QueryQuality {
-  return QUERY_QUALITY_MAP[method] ?? 'fragile'
+  return classifySupportedQueryMethod(method)
 }
 
 /**
@@ -280,7 +274,7 @@ function isScreenQueryCall(node: t.CallExpression): boolean {
   return (
     t.isMemberExpression(node.callee) &&
     t.isIdentifier(node.callee.property) &&
-    node.callee.property.name.startsWith('getBy') &&
+    isSupportedTestingLibraryQueryMethod(node.callee.property.name) &&
     ((t.isIdentifier(node.callee.object, { name: 'screen' }) ||
       (t.isCallExpression(node.callee.object) &&
         t.isIdentifier(node.callee.object.callee, { name: 'within' }))) ||
@@ -354,7 +348,7 @@ function extractQueryDescriptor(
   const primaryTarget = extractLiteralValue(node.arguments[0])
   const options = extractPlainObject(node.arguments[1])
   const name = typeof options?.name === 'string' ? options.name : undefined
-  const role = method === 'getByRole' ? primaryTarget : undefined
+  const role = isRoleQueryMethod(method) ? primaryTarget : undefined
 
   return {
     stepId,
@@ -400,6 +394,10 @@ function resolveTarget(
 ): ResolvedTargetDetails {
   if (!node || !t.isExpression(node)) {
     return {}
+  }
+
+  if (t.isAwaitExpression(node)) {
+    return resolveTarget(code, node.argument, stepId)
   }
 
   if (t.isCallExpression(node)) {
@@ -485,7 +483,7 @@ function classifySemanticMarkerProofSubject(
     return 'visible-message'
   }
 
-  if (resolvedTarget.query?.method === 'getByDisplayValue' || looksLikeConcreteValue(proofText)) {
+  if (isDisplayValueQueryMethod(resolvedTarget.query?.method) || looksLikeConcreteValue(proofText)) {
     return 'concrete-value'
   }
 
@@ -497,7 +495,10 @@ function classifySemanticMarkerProofSubject(
     return 'selector-target'
   }
 
-  if (resolvedTarget.query?.method === 'getByText' || resolvedTarget.query?.method === 'getByLabelText') {
+  if (
+    isTextQueryMethod(resolvedTarget.query?.method) ||
+    isLabelTextQueryMethod(resolvedTarget.query?.method)
+  ) {
     return 'field-label'
   }
 

@@ -1,5 +1,9 @@
+import { execFile } from 'node:child_process'
 import { access } from 'node:fs/promises'
+import { promisify } from 'node:util'
 import type { PlannedInstallTarget, RuntimeVerificationResult } from './types.js'
+
+const execFileAsync = promisify(execFile)
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -34,10 +38,45 @@ export async function verifyInstalledRuntime(
     }
   }
 
+  if (!(await pathExists(target.runtimeEntrypointPath))) {
+    missingPaths.push(target.runtimeEntrypointPath)
+  }
+
+  if (missingPaths.length > 0) {
+    return {
+      verificationCommand: target.verificationCommand,
+      status: 'missing-installed-assets',
+      checkedPath: target.runtimeEntrypointPath,
+      launcherCommand: target.runtimeCommand,
+      missingPaths,
+    }
+  }
+
+  try {
+    await execFileAsync(target.runtimeNodePath, [target.runtimeEntrypointPath, '--version'])
+  } catch (error) {
+    const runtimeError = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string }
+    const errorMessage =
+      runtimeError.stderr?.trim() ||
+      runtimeError.stdout?.trim() ||
+      runtimeError.message ||
+      'Runtime verification failed.'
+
+    return {
+      verificationCommand: target.verificationCommand,
+      status: 'runtime-check-failed',
+      checkedPath: target.runtimeEntrypointPath,
+      launcherCommand: target.runtimeCommand,
+      errorMessage,
+      missingPaths: [],
+    }
+  }
+
   return {
     verificationCommand: target.verificationCommand,
-    status: missingPaths.length > 0 ? 'missing-installed-assets' : 'verified',
-    checkedPath: entrypointOperation.targetPath,
-    missingPaths,
+    status: 'verified',
+    checkedPath: target.runtimeEntrypointPath,
+    launcherCommand: target.runtimeCommand,
+    missingPaths: [],
   }
 }

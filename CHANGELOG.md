@@ -2,10 +2,16 @@
 
 ## Unreleased
 
+## v1.5.0
+
+- added findings reporting with envelope flush, blocking gates, and clearer exit-code semantics for generation failures
+- improved generator logging by routing internal progress output to stderr and preserving stdout for generated artifacts and machine-readable flows
+- tightened generation behavior with updated generator logic, restored sample fixtures required by tests, and broader Playwright/runtime integration refinements
+
 ## v1.4.2
 
 - added persistent `.taro/state.json` learning with package-scoped runner, render-helper, mock, fixture, and exemplar profiles
-- added explicit `init` and `refresh` runtime commands across supported runtimes, plus state/override migration from legacy `.taro` and `.tayo` learning files
+- added explicit `init` and `refresh` runtime commands across supported runtimes, plus state/override migration from legacy `.taro` and `.taro` learning files
 - hardened generation and mock planning with package-aware state loading, override precedence, stale-state detection, atomic state writes, and validation for state and override files
 
 ## v1.4.1
@@ -16,6 +22,6 @@
 
 ## v1.3.0-alpha.0
 
-- made Testing Library Recorder `.js` exports first-class inputs in the shared `tayo generate` flow
+- made Testing Library Recorder `.js` exports first-class inputs in the shared `taro generate` flow
 - preserved baseline query and assertion evidence recovered from recorder JS
 - added regression coverage for CLI parity, intent grouping, JSON non-regression, and selector-boundary behavior

@@ -31,11 +31,18 @@ export interface MarkerCoverageTotals {
   unresolved: number
 }
 
-export type MarkerQualityGateStatus = 'pass' | 'fail'
+export interface MarkerReviewDiagnostics {
+  canonicalRecoveries: number
+  placementConflicts: number
+  placementCorrections: number
+}
+
+export type MarkerQualityGateStatus = 'pass' | 'warn'
 
 export type MarkerQualityGateReason =
   | 'no-markers-detected'
-  | 'markers-converted'
+  | 'markers-fully-converted'
+  | 'markers-partially-converted'
   | 'zero-marker-conversion'
 
 export interface MarkerQualityGateState {
@@ -54,6 +61,7 @@ export interface ScoreResult {
   blockers: string[]
   requiresReview: boolean
   markerCoverage: MarkerCoverageTotals
+  markerDiagnostics: MarkerReviewDiagnostics
   markerQualityGate: MarkerQualityGateState
 }
 
