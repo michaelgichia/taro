@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
 import { executeInstallPlan } from "./executor.js";
@@ -81,25 +81,27 @@ describe("verifyInstalledRuntime", () => {
 });
 
 describe("package smoke proof", () => {
-  it("packs dist, authored runtime sources, and docs into the npm tarball", async () => {
+  it("packs dist, authored runtime sources, and docs into the package tarball", async () => {
     const { root } = await createSandbox("pack");
     const packDir = join(root, "pack");
-    const cacheDir = join(root, "npm-cache");
 
     await mkdir(packDir, { recursive: true });
-    await mkdir(cacheDir, { recursive: true });
 
     const { stdout } = await execFileAsync(
-      "npm",
+      "pnpm",
       ["pack", "--json", "--pack-destination", packDir],
-      {
-        cwd: process.cwd(),
-        env: { ...process.env, NPM_CONFIG_CACHE: cacheDir },
-      }
+      { cwd: process.cwd() }
     );
 
-    const packResult = JSON.parse(stdout) as Array<{ filename: string }>;
-    const tarballPath = join(packDir, packResult[0]!.filename);
+    const parsedPackResult = JSON.parse(stdout) as
+      | { filename: string }
+      | Array<{ filename: string }>;
+    const packResult = Array.isArray(parsedPackResult)
+      ? parsedPackResult[0]
+      : parsedPackResult;
+    const tarballPath = isAbsolute(packResult.filename)
+      ? packResult.filename
+      : join(packDir, packResult.filename);
     const tarList = await execFileAsync("tar", ["-tf", tarballPath], {
       cwd: process.cwd(),
     });

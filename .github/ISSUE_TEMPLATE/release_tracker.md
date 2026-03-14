@@ -13,19 +13,19 @@ assignees: ""
 ## Pre-Release Checklist
 
 - [ ] All PRs for this version are merged into `main`.
-- [ ] Local tests pass (`npm test`).
+- [ ] Local tests pass (`pnpm test`).
 - [ ] Documentation/README updated (if applicable).
-- [ ] Version bumped via `npm version`.
+- [ ] Version bumped via `pnpm version`.
 
 ## Deployment
 
 - [ ] Tag pushed to GitHub (`git push origin main --tags`).
-- [ ] GitHub Action "Publish to npm" completed successfully.
+- [ ] GitHub Action "Publish package" completed successfully.
 - [ ] Verified package is live on [npmjs.com](https://www.npmjs.com/).
 
 ## Changelog Summary
 
-Use `npm run changelog` to generate a Markdown summary from commits since the last tag, then edit for final release notes.
+Use `pnpm run changelog` to generate a Markdown summary from commits since the last tag, then edit for final release notes.
 
 ### Added
 

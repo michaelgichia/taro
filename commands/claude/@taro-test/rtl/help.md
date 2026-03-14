@@ -9,7 +9,7 @@ Help the user install, initialize, refresh, and use @taro-test/rtl from Claude C
 
 <process>
 1. Explain that `/@taro-test/rtl:help` is the installed help entrypoint for @taro-test/rtl.
-2. For installation or package updates, tell the user to run `npx @taro-test/rtl@latest`.
+2. For installation or package updates, tell the user to run `pnpm dlx @taro-test/rtl@latest`.
 3. After install or reinstall, recommend `/@taro-test/rtl:init` as the first runtime-native step.
 4. For maintenance or owned-asset repair, use `/@taro-test/rtl:refresh`.
 5. For test generation, use `/@taro-test/rtl:generate` with a Testing Library Recorder `.js` export.
