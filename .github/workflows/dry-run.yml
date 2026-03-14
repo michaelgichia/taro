@@ -1,0 +1,56 @@
+name: Release Dry Run
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build package
+        run: npm run build --if-present
+
+      - name: Verify changelog generation
+        run: npm run changelog
+
+      - name: Verify package publish payload
+        run: npm publish --dry-run --access public
+
+      - name: Summary
+        run: |
+          {
+            echo "## Dry run successful"
+            echo
+            echo "- Tests passed"
+            echo "- Build completed"
+            echo "- Changelog generated"
+            echo "- Publish payload verified with npm dry-run"
+            echo "- Trusted publishing workflow is ready on GitHub-hosted runners"
+          } >> "$GITHUB_STEP_SUMMARY"
