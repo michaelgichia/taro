@@ -1,4 +1,4 @@
-import { readFile, rm } from 'node:fs/promises'
+import { readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mkdtemp, mkdir } from 'node:fs/promises'
@@ -19,12 +19,18 @@ async function createSandbox(label: string) {
   const root = await mkdtemp(join(tmpdir(), `taro-cli-${label}-`))
   const cwd = join(root, 'project')
   const home = join(root, 'home')
+  const packageRoot = join(root, 'package')
 
   sandboxRoots.push(root)
   await mkdir(cwd, { recursive: true })
   await mkdir(home, { recursive: true })
+  await mkdir(join(packageRoot, 'dist'), { recursive: true })
+  await writeFile(
+    join(packageRoot, 'dist', 'index.js'),
+    "if (process.argv.includes('--version')) process.stdout.write('0.0.0\\n')\n"
+  )
 
-  return { cwd, home }
+  return { cwd, home, packageRoot }
 }
 
 function createLogger() {
@@ -51,6 +57,7 @@ describe('runInstallCommand', () => {
       {
         cwd: sandbox.cwd,
         home: sandbox.home,
+        packageRoot: sandbox.packageRoot,
         logger,
       }
     )
@@ -65,7 +72,7 @@ describe('runInstallCommand', () => {
 
     const runtimeCommand = buildRuntimeCommand(
       process.execPath,
-      join(process.cwd(), 'dist', 'index.js')
+      join(sandbox.packageRoot, 'dist', 'index.js')
     )
 
     await expect(
@@ -98,6 +105,7 @@ describe('runInstallCommand', () => {
       {
         cwd: sandbox.cwd,
         home: sandbox.home,
+        packageRoot: sandbox.packageRoot,
         logger: firstRun.logger,
       }
     )
@@ -109,6 +117,7 @@ describe('runInstallCommand', () => {
       {
         cwd: sandbox.cwd,
         home: sandbox.home,
+        packageRoot: sandbox.packageRoot,
         logger: secondRun.logger,
       }
     )
@@ -129,6 +138,7 @@ describe('runInstallCommand', () => {
       {
         cwd: sandbox.cwd,
         home: sandbox.home,
+        packageRoot: sandbox.packageRoot,
         logger: firstRun.logger,
       }
     )
@@ -143,6 +153,7 @@ describe('runInstallCommand', () => {
       {
         cwd: sandbox.cwd,
         home: sandbox.home,
+        packageRoot: sandbox.packageRoot,
         logger: secondRun.logger,
       }
     )

@@ -20,12 +20,18 @@ async function createSandbox(label: string) {
   const root = await mkdtemp(join(tmpdir(), `taro-${label}-`))
   const cwd = join(root, 'project')
   const home = join(root, 'home')
+  const packageRoot = join(root, 'package')
 
   sandboxRoots.push(root)
   await mkdir(cwd, { recursive: true })
   await mkdir(home, { recursive: true })
+  await mkdir(join(packageRoot, 'dist'), { recursive: true })
+  await writeFile(
+    join(packageRoot, 'dist', 'index.js'),
+    "if (process.argv.includes('--version')) process.stdout.write('0.0.0\\n')\n"
+  )
 
-  return { cwd, home }
+  return { cwd, home, packageRoot }
 }
 
 function createSelection(
@@ -44,10 +50,10 @@ function createSelection(
 
 describe('executeInstallPlan', () => {
   it('writes all supported runtimes and ownership markers for --all --global', async () => {
-    const { cwd, home } = await createSandbox('all-global')
+    const { cwd, home, packageRoot } = await createSandbox('all-global')
     const plan = buildInstallPlan(
       createSelection(['claude', 'opencode', 'gemini', 'codex'], 'global'),
-      { cwd, home }
+      { cwd, home, packageRoot }
     )
 
     const result = await executeInstallPlan(plan, { generatedAt: FIXED_GENERATED_AT })
@@ -89,8 +95,12 @@ describe('executeInstallPlan', () => {
 
 describe('writeInstallPlan conflict handling', () => {
   it('refreshes unchanged installer-owned assets on rerun without manual cleanup', async () => {
-    const { cwd, home } = await createSandbox('replace-confirm')
-    const plan = buildInstallPlan(createSelection(['claude'], 'global'), { cwd, home })
+    const { cwd, home, packageRoot } = await createSandbox('replace-confirm')
+    const plan = buildInstallPlan(createSelection(['claude'], 'global'), {
+      cwd,
+      home,
+      packageRoot,
+    })
     const target = plan.targets[0]!
 
     await writeInstallPlan(target, { generatedAt: FIXED_GENERATED_AT })
@@ -100,8 +110,12 @@ describe('writeInstallPlan conflict handling', () => {
   })
 
   it('repairs missing owned assets when the manifest proves ownership', async () => {
-    const { cwd, home } = await createSandbox('repair-missing')
-    const plan = buildInstallPlan(createSelection(['gemini'], 'global'), { cwd, home })
+    const { cwd, home, packageRoot } = await createSandbox('repair-missing')
+    const plan = buildInstallPlan(createSelection(['gemini'], 'global'), {
+      cwd,
+      home,
+      packageRoot,
+    })
     const target = plan.targets[0]!
     const helpPath = join(home, '.gemini', 'commands', '@taro-test', 'rtl', 'help.toml')
 
@@ -115,8 +129,12 @@ describe('writeInstallPlan conflict handling', () => {
   })
 
   it('protects user-edited installer assets instead of overwriting them', async () => {
-    const { cwd, home } = await createSandbox('manual-edit')
-    const plan = buildInstallPlan(createSelection(['claude'], 'global'), { cwd, home })
+    const { cwd, home, packageRoot } = await createSandbox('manual-edit')
+    const plan = buildInstallPlan(createSelection(['claude'], 'global'), {
+      cwd,
+      home,
+      packageRoot,
+    })
     const target = plan.targets[0]!
     const helpPath = join(home, '.claude', 'commands', '@taro-test', 'rtl', 'help.md')
 
@@ -131,8 +149,12 @@ describe('writeInstallPlan conflict handling', () => {
   })
 
   it('blocks colliding non-Taro files without mutating them', async () => {
-    const { cwd, home } = await createSandbox('external-collision')
-    const plan = buildInstallPlan(createSelection(['opencode'], 'global'), { cwd, home })
+    const { cwd, home, packageRoot } = await createSandbox('external-collision')
+    const plan = buildInstallPlan(createSelection(['opencode'], 'global'), {
+      cwd,
+      home,
+      packageRoot,
+    })
     const target = plan.targets[0]!
     const helpPath = join(home, '.config', 'opencode', 'commands', '@taro-test', 'rtl-help.md')
 
