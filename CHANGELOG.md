@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v1.5.0
+
+- added findings reporting with envelope flush, blocking gates, and clearer exit-code semantics for generation failures
+- improved generator logging by routing internal progress output to stderr and preserving stdout for generated artifacts and machine-readable flows
+- tightened generation behavior with updated generator logic, restored sample fixtures required by tests, and broader Playwright/runtime integration refinements
+
 ## v1.4.2
 
 - added persistent `.taro/state.json` learning with package-scoped runner, render-helper, mock, fixture, and exemplar profiles

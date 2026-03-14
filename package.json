@@ -1,6 +1,6 @@
 {
   "name": "@taro-dev/rtl",
-  "version": "1.4.2",
+  "version": "1.5.0",
   "description": "Generate high-quality React Testing Library tests from Recorder exports",
   "type": "module",
   "bin": {
