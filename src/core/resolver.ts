@@ -65,8 +65,8 @@ const PLAYWRIGHT_CAPTURE_FAILURE_PREFIX = 'Playwright visual capture failed.'
 const PLAYWRIGHT_SELECTOR_INSPECTION_ERROR_PREFIX = 'Playwright selector inspection failed.'
 const PLAYWRIGHT_AUTH_RECOVERY_POLL_MS = 1000
 const PLAYWRIGHT_PAGE_CONFIRMATION_POLL_MS = 250
-const PLAYWRIGHT_OPEN_RETRY_LIMIT = 2
-const PLAYWRIGHT_OPEN_RETRY_DELAY_MS = 250
+const PLAYWRIGHT_OPEN_RETRY_LIMIT = 3
+const PLAYWRIGHT_OPEN_RETRY_DELAY_MS = 2000
 
 /**
  * Escapes single quotes in strings for use in generated query code.
@@ -1296,6 +1296,8 @@ async function attemptAuthRecovery(params: {
   const { context, expected, initialInterrupt, page, reason, recovery, selector, url } = params
   const startedAt = new Date().toISOString()
   const deadline = Date.now() + recovery.timeoutMs
+  const AUTH_RECOVERY_HEARTBEAT_MS = 30_000
+  let lastHeartbeatAt = Date.now()
   let retryToExpectedUrl:
     | {
         attempted: true
@@ -1305,10 +1307,30 @@ async function attemptAuthRecovery(params: {
         targetUrl: string
       }
     | undefined
+  // Tracks whether a navigation to the expected URL is allowed.
+  // Reset to true each time an auth interrupt is detected so that after
+  // the user re-authenticates, Taro can navigate to the expected URL again.
+  let canNavigateToExpectedUrl = true
 
   try {
     while (Date.now() <= deadline) {
       const snapshot = await inspectVisualPage(page, { expected, selector })
+
+      const now = Date.now()
+      if (now - lastHeartbeatAt >= AUTH_RECOVERY_HEARTBEAT_MS) {
+        const remainingSec = Math.max(0, Math.round((deadline - now) / 1000))
+        console.log(
+          pc.dim('[taro]') + ` Still waiting for sign-in… ${remainingSec}s remaining.`
+        )
+        lastHeartbeatAt = now
+      }
+
+      if (snapshot.authCheckpoint.interrupt) {
+        // User is back at an auth page (e.g. navigation redirected to login).
+        // Allow navigation again so the next successful auth triggers a retry.
+        canNavigateToExpectedUrl = true
+      }
+
       if (
         isStartingPointConfirmed({
           expected,
@@ -1354,7 +1376,7 @@ async function attemptAuthRecovery(params: {
       }
 
       if (
-        !retryToExpectedUrl &&
+        canNavigateToExpectedUrl &&
         shouldRetryExpectedUrlDuringAuthRecovery({
           expected,
           snapshot,
@@ -1365,6 +1387,7 @@ async function attemptAuthRecovery(params: {
           continue
         }
 
+        canNavigateToExpectedUrl = false
         try {
           await page.goto(targetUrl, {
             timeout: Math.max(1, deadline - Date.now()),
@@ -1502,6 +1525,11 @@ export async function captureVisualState(
       })
 
       if (options.authRecovery?.enabled) {
+        const timeoutSec = Math.round((options.authRecovery.timeoutMs ?? 0) / 1000)
+        console.log(
+          pc.dim('[taro]') +
+            ` Auth required — complete sign-in in the browser window. Waiting up to ${timeoutSec}s.`
+        )
         return await attemptAuthRecovery({
           auth: options.auth,
           context: captureSession.context,
