@@ -32,7 +32,7 @@ async function readOwnershipManifest(
     const manifestContent = await readFile(manifestPath, 'utf8')
     const manifest = JSON.parse(manifestContent) as InstallOwnershipManifest
 
-    return manifest.packageName === '@taro-dev/rtl' ? manifest : null
+    return manifest.packageName === '@taro-test/rtl' ? manifest : null
   } catch (error) {
     const fsError = error as NodeJS.ErrnoException
 

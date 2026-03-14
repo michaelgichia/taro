@@ -1,11 +1,11 @@
 ---
-name: "@taro-dev/rtl-generate"
+name: "@taro-test/rtl-generate"
 description: "Generate deterministic, repository-aware React Testing Library tests from Testing Library Recorder JS exports with Taro. Use when a user provides a Recorder `.js` file, asks to turn a recorded flow into an RTL test, needs render-boundary or mock strategy guidance, or needs score and verification output interpreted precisely."
 ---
 
 # Taro Generate
 
-Invoke this skill with `$@taro-dev/rtl-generate`.
+Invoke this skill with `$@taro-test/rtl-generate`.
 
 ## Purpose
 

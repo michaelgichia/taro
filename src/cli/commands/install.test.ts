@@ -59,9 +59,9 @@ describe('runInstallCommand', () => {
 
     expect(process.exitCode).toBeUndefined()
     expect(output).toContain('Install complete.')
-    expect(output).toContain('/@taro-dev/rtl:help (verified at')
-    expect(output).toContain('/@taro-dev/rtl-help (verified at')
-    expect(output).toContain('$@taro-dev/rtl-help (verified at')
+    expect(output).toContain('/@taro-test/rtl:help (verified at')
+    expect(output).toContain('/@taro-test/rtl-help (verified at')
+    expect(output).toContain('$@taro-test/rtl-help (verified at')
 
     const runtimeCommand = buildRuntimeCommand(
       process.execPath,
@@ -69,23 +69,23 @@ describe('runInstallCommand', () => {
     )
 
     await expect(
-      readFile(join(sandbox.home, '.codex', 'skills', '@taro-dev', 'rtl-help', 'SKILL.md'), 'utf8')
-    ).resolves.toContain('$@taro-dev/rtl-help')
+      readFile(join(sandbox.home, '.codex', 'skills', '@taro-test', 'rtl-help', 'SKILL.md'), 'utf8')
+    ).resolves.toContain('$@taro-test/rtl-help')
     await expect(
-      readFile(join(sandbox.home, '.claude', 'commands', '@taro-dev', 'rtl', 'init.md'), 'utf8')
+      readFile(join(sandbox.home, '.claude', 'commands', '@taro-test', 'rtl', 'init.md'), 'utf8')
     ).resolves.toContain(`${runtimeCommand} __init`)
     await expect(
-      readFile(join(sandbox.home, '.claude', 'commands', '@taro-dev', 'rtl', 'refresh.md'), 'utf8')
+      readFile(join(sandbox.home, '.claude', 'commands', '@taro-test', 'rtl', 'refresh.md'), 'utf8')
     ).resolves.toContain(`${runtimeCommand} __refresh`)
     await expect(
-      readFile(join(sandbox.home, '.codex', 'skills', '@taro-dev', 'rtl-init', 'SKILL.md'), 'utf8')
-    ).resolves.toContain('$@taro-dev/rtl-init')
+      readFile(join(sandbox.home, '.codex', 'skills', '@taro-test', 'rtl-init', 'SKILL.md'), 'utf8')
+    ).resolves.toContain('$@taro-test/rtl-init')
     await expect(
       readFile(
-        join(sandbox.home, '.codex', 'skills', '@taro-dev', 'rtl-refresh', 'SKILL.md'),
+        join(sandbox.home, '.codex', 'skills', '@taro-test', 'rtl-refresh', 'SKILL.md'),
         'utf8'
       )
-    ).resolves.toContain('$@taro-dev/rtl-refresh')
+    ).resolves.toContain('$@taro-test/rtl-refresh')
   })
 
   it('reports update results on rerun in non-interactive mode', async () => {
@@ -133,7 +133,7 @@ describe('runInstallCommand', () => {
       }
     )
 
-    await rm(join(sandbox.home, '.gemini', 'commands', '@taro-dev', 'rtl', 'help.toml'), {
+    await rm(join(sandbox.home, '.gemini', 'commands', '@taro-test', 'rtl', 'help.toml'), {
       force: true,
     })
     process.exitCode = undefined

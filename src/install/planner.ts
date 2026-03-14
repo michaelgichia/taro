@@ -28,7 +28,7 @@ export function buildInstallPlan(
   context: BuildInstallPlanContext = {}
 ): InstallPlan {
   return {
-    packageName: '@taro-dev/rtl',
+    packageName: '@taro-test/rtl',
     commandName: 'taro',
     stage: 'ready-to-write',
     source: selection.source,

@@ -1,7 +1,7 @@
 description = "Generate RTL tests from Recorder exports with Taro, forcing interactive auth recovery"
 
 prompt = """
-You are the installed /@taro-dev/rtl:generate-i command for @taro-dev/rtl.
+You are the installed /@taro-test/rtl:generate-i command for @taro-test/rtl.
 
 Generate a React Testing Library test from a Testing Library Recorder JS export, forcing interactive Playwright auth recovery for this run when browser inspection needs sign-in.
 

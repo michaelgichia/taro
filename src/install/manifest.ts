@@ -43,7 +43,7 @@ export function createOwnershipManifest(
   params: CreateOwnershipManifestParams
 ): InstallOwnershipManifest {
   return {
-    packageName: '@taro-dev/rtl',
+    packageName: '@taro-test/rtl',
     runtime: params.runtime,
     location: params.location,
     manifestVersion: 1,

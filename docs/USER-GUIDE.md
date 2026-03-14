@@ -7,24 +7,24 @@ For the current strict-order runtime pipeline, see [PIPELINE.md](./PIPELINE.md).
 ## Install
 
 ```bash
-npx @taro-dev/rtl@latest
+npx @taro-test/rtl@latest
 ```
 
 Use runtime flags plus one location flag to skip prompts:
 
 ```bash
-npx @taro-dev/rtl@latest --codex --local
-npx @taro-dev/rtl@latest --all --global
+npx @taro-test/rtl@latest --codex --local
+npx @taro-test/rtl@latest --all --global
 ```
 
 After install or reinstall, run the runtime-native `init` entrypoint:
 
-- Claude Code: `/@taro-dev/rtl:init`
-- Gemini CLI: `/@taro-dev/rtl:init`
-- OpenCode: `/@taro-dev/rtl-init`
-- Codex: `$@taro-dev/rtl-init`
+- Claude Code: `/@taro-test/rtl:init`
+- Gemini CLI: `/@taro-test/rtl:init`
+- OpenCode: `/@taro-test/rtl-init`
+- Codex: `$@taro-test/rtl-init`
 
-The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `npx @taro-dev/rtl@latest --version`.
+The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `npx @taro-test/rtl@latest --version`.
 
 For Claude Code local testing from this repo, run:
 
@@ -44,21 +44,21 @@ That command builds Taro, installs the Codex skill surface into this repo's `./.
 
 ## Runtime Entrypoints
 
-- Claude Code: `/@taro-dev/rtl:help`, `/@taro-dev/rtl:init`, `/@taro-dev/rtl:refresh`, `/@taro-dev/rtl:generate`, `/@taro-dev/rtl:generate-i`
-- Gemini CLI: `/@taro-dev/rtl:help`, `/@taro-dev/rtl:init`, `/@taro-dev/rtl:refresh`, `/@taro-dev/rtl:generate`, `/@taro-dev/rtl:generate-i`
-- OpenCode: `/@taro-dev/rtl-help`, `/@taro-dev/rtl-init`, `/@taro-dev/rtl-refresh`, `/@taro-dev/rtl-generate`, `/@taro-dev/rtl-generate-i`
-- Codex: `$@taro-dev/rtl-help`, `$@taro-dev/rtl-init`, `$@taro-dev/rtl-refresh`, `$@taro-dev/rtl-generate`, `$@taro-dev/rtl-generate-i`
+- Claude Code: `/@taro-test/rtl:help`, `/@taro-test/rtl:init`, `/@taro-test/rtl:refresh`, `/@taro-test/rtl:generate`, `/@taro-test/rtl:generate-i`
+- Gemini CLI: `/@taro-test/rtl:help`, `/@taro-test/rtl:init`, `/@taro-test/rtl:refresh`, `/@taro-test/rtl:generate`, `/@taro-test/rtl:generate-i`
+- OpenCode: `/@taro-test/rtl-help`, `/@taro-test/rtl-init`, `/@taro-test/rtl-refresh`, `/@taro-test/rtl-generate`, `/@taro-test/rtl-generate-i`
+- Codex: `$@taro-test/rtl-help`, `$@taro-test/rtl-init`, `$@taro-test/rtl-refresh`, `$@taro-test/rtl-generate`, `$@taro-test/rtl-generate-i`
 
 ## Refresh Maintenance
 
 Use the runtime-native `refresh` entrypoint when Taro is already installed and you want to refresh owned assets or repair missing ones:
 
-- Claude Code: `/@taro-dev/rtl:refresh`
-- Gemini CLI: `/@taro-dev/rtl:refresh`
-- OpenCode: `/@taro-dev/rtl-refresh`
-- Codex: `$@taro-dev/rtl-refresh`
+- Claude Code: `/@taro-test/rtl:refresh`
+- Gemini CLI: `/@taro-test/rtl:refresh`
+- OpenCode: `/@taro-test/rtl-refresh`
+- Codex: `$@taro-test/rtl-refresh`
 
-If you need a newer package version first, rerun `npx @taro-dev/rtl@latest` and then run the runtime-native `refresh` entrypoint.
+If you need a newer package version first, rerun `npx @taro-test/rtl@latest` and then run the runtime-native `refresh` entrypoint.
 
 ## Generation Rules
 

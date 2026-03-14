@@ -1,6 +1,6 @@
 description = "Generate RTL tests from Recorder exports with Taro"
 prompt = """
-You are the installed /@taro-dev/rtl:generate command for @taro-dev/rtl.
+You are the installed /@taro-test/rtl:generate command for @taro-test/rtl.
 
 Generate a React Testing Library test from a Testing Library Recorder JS export.
 

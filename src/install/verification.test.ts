@@ -57,10 +57,10 @@ describe('verifyInstalledRuntime', () => {
     const results = await Promise.all(plan.targets.map((target) => verifyInstalledRuntime(target)))
 
     expect(results.map((result) => result.verificationCommand)).toEqual([
-      '/@taro-dev/rtl:help',
-      '/@taro-dev/rtl-help',
-      '/@taro-dev/rtl:help',
-      '$@taro-dev/rtl-help',
+      '/@taro-test/rtl:help',
+      '/@taro-test/rtl-help',
+      '/@taro-test/rtl:help',
+      '$@taro-test/rtl-help',
     ])
     expect(results.every((result) => result.status === 'verified')).toBe(true)
     expect(results.map((result) => result.checkedPath)).toEqual(
@@ -101,9 +101,9 @@ describe('package smoke proof', () => {
 
     expect(tarList.stdout).toContain('package/dist/index.js')
     expect(tarList.stdout).toContain('package/bin/install.js')
-    expect(tarList.stdout).toContain('package/commands/claude/@taro-dev/rtl/help.md')
-    expect(tarList.stdout).toContain('package/commands/gemini/@taro-dev/rtl/help.toml')
-    expect(tarList.stdout).toContain('package/commands/opencode/@taro-dev/rtl-help.md')
+    expect(tarList.stdout).toContain('package/commands/claude/@taro-test/rtl/help.md')
+    expect(tarList.stdout).toContain('package/commands/gemini/@taro-test/rtl/help.toml')
+    expect(tarList.stdout).toContain('package/commands/opencode/@taro-test/rtl-help.md')
     expect(tarList.stdout).toContain('package/agents/taro-help.md')
     expect(tarList.stdout).toContain('package/taro/references/quality-scoring.md')
     expect(tarList.stdout).toContain('package/docs/USER-GUIDE.md')

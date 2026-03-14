@@ -60,17 +60,17 @@ describe('executeInstallPlan', () => {
       'codex',
     ])
 
-    await expect(readFile(join(home, '.claude', 'commands', '@taro-dev', 'rtl', 'help.md'), 'utf8'))
-      .resolves.toContain('/@taro-dev/rtl:help')
+    await expect(readFile(join(home, '.claude', 'commands', '@taro-test', 'rtl', 'help.md'), 'utf8'))
+      .resolves.toContain('/@taro-test/rtl:help')
     await expect(
-      readFile(join(home, '.gemini', 'commands', '@taro-dev', 'rtl', 'help.toml'), 'utf8')
-    ).resolves.toContain('/@taro-dev/rtl:help')
+      readFile(join(home, '.gemini', 'commands', '@taro-test', 'rtl', 'help.toml'), 'utf8')
+    ).resolves.toContain('/@taro-test/rtl:help')
     await expect(
-      readFile(join(home, '.config', 'opencode', 'commands', '@taro-dev', 'rtl-help.md'), 'utf8')
-    ).resolves.toContain('/@taro-dev/rtl-help')
+      readFile(join(home, '.config', 'opencode', 'commands', '@taro-test', 'rtl-help.md'), 'utf8')
+    ).resolves.toContain('/@taro-test/rtl-help')
     await expect(
-      readFile(join(home, '.codex', 'skills', '@taro-dev', 'rtl-help', 'SKILL.md'), 'utf8')
-    ).resolves.toContain('$@taro-dev/rtl-help')
+      readFile(join(home, '.codex', 'skills', '@taro-test', 'rtl-help', 'SKILL.md'), 'utf8')
+    ).resolves.toContain('$@taro-test/rtl-help')
 
     await expect(readFile(join(home, '.claude', 'install-manifest.json'), 'utf8')).resolves.toContain(
       FIXED_GENERATED_AT
@@ -82,7 +82,7 @@ describe('executeInstallPlan', () => {
       readFile(join(home, '.config', 'opencode', 'install-manifest.json'), 'utf8')
     ).resolves.toContain(FIXED_GENERATED_AT)
     await expect(
-      readFile(join(home, '.codex', '@taro-dev-rtl-manifest.json'), 'utf8')
+      readFile(join(home, '.codex', '@taro-test-rtl-manifest.json'), 'utf8')
     ).resolves.toContain(FIXED_GENERATED_AT)
   })
 })
@@ -103,7 +103,7 @@ describe('writeInstallPlan conflict handling', () => {
     const { cwd, home } = await createSandbox('repair-missing')
     const plan = buildInstallPlan(createSelection(['gemini'], 'global'), { cwd, home })
     const target = plan.targets[0]!
-    const helpPath = join(home, '.gemini', 'commands', '@taro-dev', 'rtl', 'help.toml')
+    const helpPath = join(home, '.gemini', 'commands', '@taro-test', 'rtl', 'help.toml')
 
     await writeInstallPlan(target, { generatedAt: FIXED_GENERATED_AT })
     await rm(helpPath, { force: true })
@@ -111,14 +111,14 @@ describe('writeInstallPlan conflict handling', () => {
     const result = await writeInstallPlan(target, { generatedAt: FIXED_GENERATED_AT })
 
     expect(result.status).toBe('repaired')
-    await expect(readFile(helpPath, 'utf8')).resolves.toContain('/@taro-dev/rtl:help')
+    await expect(readFile(helpPath, 'utf8')).resolves.toContain('/@taro-test/rtl:help')
   })
 
   it('protects user-edited installer assets instead of overwriting them', async () => {
     const { cwd, home } = await createSandbox('manual-edit')
     const plan = buildInstallPlan(createSelection(['claude'], 'global'), { cwd, home })
     const target = plan.targets[0]!
-    const helpPath = join(home, '.claude', 'commands', '@taro-dev', 'rtl', 'help.md')
+    const helpPath = join(home, '.claude', 'commands', '@taro-test', 'rtl', 'help.md')
 
     await writeInstallPlan(target, { generatedAt: FIXED_GENERATED_AT })
     await writeFile(helpPath, 'manual edit\n')
@@ -134,9 +134,9 @@ describe('writeInstallPlan conflict handling', () => {
     const { cwd, home } = await createSandbox('external-collision')
     const plan = buildInstallPlan(createSelection(['opencode'], 'global'), { cwd, home })
     const target = plan.targets[0]!
-    const helpPath = join(home, '.config', 'opencode', 'commands', '@taro-dev', 'rtl-help.md')
+    const helpPath = join(home, '.config', 'opencode', 'commands', '@taro-test', 'rtl-help.md')
 
-    await mkdir(join(home, '.config', 'opencode', 'commands', '@taro-dev'), {
+    await mkdir(join(home, '.config', 'opencode', 'commands', '@taro-test'), {
       recursive: true,
     })
     await writeFile(helpPath, 'external file\n')
