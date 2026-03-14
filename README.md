@@ -9,7 +9,7 @@ For the current strict-order runtime generation path, see [docs/PIPELINE.md](./d
 ## Getting Started
 
 ```bash
-npx @taro-test/rtl@latest
+pnpm dlx @taro-test/rtl@latest
 ```
 
 The installer prompts you to choose:
@@ -24,7 +24,7 @@ After installation or reinstall, run the runtime-native `init` entrypoint:
 - OpenCode: `/@taro-test/rtl-init`
 - Codex: `$@taro-test/rtl-init`
 
-The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `npx @taro-test/rtl@latest --version`.
+The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `pnpm dlx @taro-test/rtl@latest --version`.
 
 Use the runtime-native help entrypoint when you want routing guidance:
 
@@ -48,7 +48,7 @@ Use the runtime-native `refresh` entrypoint for maintenance after Taro is alread
 If you need a newer package version first, rerun the installer package:
 
 ```bash
-npx @taro-test/rtl@latest
+pnpm dlx @taro-test/rtl@latest
 ```
 
 After updating the package, run the runtime-native `refresh` entrypoint. Refresh is the maintenance path for owned assets: it restores missing owned files and protects manual edits instead of overwriting them silently.
@@ -59,24 +59,24 @@ Use runtime flags plus exactly one location flag to skip prompts:
 
 ```bash
 # Claude Code
-npx @taro-test/rtl@latest --claude --global
-npx @taro-test/rtl@latest --claude --local
+pnpm dlx @taro-test/rtl@latest --claude --global
+pnpm dlx @taro-test/rtl@latest --claude --local
 
 # OpenCode
-npx @taro-test/rtl@latest --opencode --global
-npx @taro-test/rtl@latest --opencode --local
+pnpm dlx @taro-test/rtl@latest --opencode --global
+pnpm dlx @taro-test/rtl@latest --opencode --local
 
 # Gemini CLI
-npx @taro-test/rtl@latest --gemini --global
-npx @taro-test/rtl@latest --gemini --local
+pnpm dlx @taro-test/rtl@latest --gemini --global
+pnpm dlx @taro-test/rtl@latest --gemini --local
 
 # Codex
-npx @taro-test/rtl@latest --codex --global
-npx @taro-test/rtl@latest --codex --local
+pnpm dlx @taro-test/rtl@latest --codex --global
+pnpm dlx @taro-test/rtl@latest --codex --local
 
 # All runtimes
-npx @taro-test/rtl@latest --all --global
-npx @taro-test/rtl@latest --all --local
+pnpm dlx @taro-test/rtl@latest --all --global
+pnpm dlx @taro-test/rtl@latest --all --local
 ```
 
 Local installs write to hidden runtime directories in the current project:
@@ -92,52 +92,52 @@ When you want to test the installer from a local checkout instead of the publish
 
 ```bash
 # Build the CLI
-npm run build
+pnpm run build
 
 # Build, install locally for this repo, then reinstall the global Claude surface cleanly
-npm run build:claude
+pnpm run build:claude
 
 # Build, install locally for this repo, then reinstall the global Codex surface cleanly
-npm run build:codex
+pnpm run build:codex
 
 # Exercise the installer from the built package entrypoint
 node dist/index.js --all --local
 
 # Or verify the publish boundary with a tarball
-env NPM_CONFIG_CACHE=/tmp/taro-npm-cache npm pack --pack-destination /tmp/taro-pack
-npx /tmp/taro-pack/taro-test-rtl-1.0.0.tgz --codex --local
+pnpm pack --pack-destination /tmp/taro-pack
+pnpm dlx /tmp/taro-pack/taro-test-rtl-1.0.0.tgz --codex --local
 ```
 
 The tarball flow is the closest match to what end users get from npm.
 
-`npm run build:claude` performs three steps:
+`pnpm run build:claude` performs three steps:
 
 1. builds the package
 2. installs Claude commands into this repo's `./.claude/`
 3. deletes the existing global Taro Claude command directory at `~/.claude/commands/@taro-test/rtl` and reinstalls it cleanly
 
-`npm run build:codex` performs the Codex equivalent:
+`pnpm run build:codex` performs the Codex equivalent:
 
 1. builds the package
 2. installs Codex skills into this repo's `./.codex/`
 3. deletes the existing global Taro Codex skill directories plus `~/.codex/@taro-test-rtl-manifest.json`
 4. reinstalls the global Codex surface cleanly
 
-That reinstalls the Codex skill surface only. It does not place a global `taro` binary on your shell `PATH`; the installed Codex skills call this checkout's `dist/index.js` directly. When you move or replace the checkout, rerun `npm run build:codex` so the launcher paths stay current.
+That reinstalls the Codex skill surface only. It does not place a global `taro` binary on your shell `PATH`; the installed Codex skills call this checkout's `dist/index.js` directly. When you move or replace the checkout, rerun `pnpm run build:codex` so the launcher paths stay current.
 
 ## Publishing Releases
 
-Taro publishes from GitHub Actions when a `v*` tag is pushed. The publish job installs dependencies with `npm ci`, runs `npm test`, builds with `npm run build --if-present`, and publishes from GitHub Actions via npm Trusted Publishing.
+Taro publishes from GitHub Actions when a `v*` tag is pushed. The publish job installs dependencies with `pnpm install --frozen-lockfile`, runs `pnpm test`, builds with `pnpm run --if-present build`, and publishes from GitHub Actions via npm Trusted Publishing.
 
 Local release flow:
 
 ```bash
-npm version patch
+pnpm version patch
 git push
 git push --tags
 ```
 
-Use `minor` or `major` instead of `patch` when needed. `npm version` updates `package.json`, creates the matching git tag, and the tag push triggers [`.github/workflows/publish.yml`](./.github/workflows/publish.yml).
+Use `minor` or `major` instead of `patch` when needed. `pnpm version` updates `package.json`, creates the matching git tag, and the tag push triggers [`.github/workflows/publish.yml`](./.github/workflows/publish.yml).
 
 One-time setup:
 
