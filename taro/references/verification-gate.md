@@ -1,8 +1,6 @@
 # Verification Gate
 
-Goal:
-Prevent Taro from claiming success unless the generated test is demonstrably runnable
-and compliant with boundary policy.
+Goal: Prevent Taro from claiming success unless the generated test is demonstrably runnable and compliant with boundary policy.
 
 Rules:
 
@@ -18,10 +16,8 @@ Run an AST/text audit on the generated test before typecheck/test/lint.
 
 Detect:
 
-- `vi.mock(...)` / `jest.mock(...)` blocks that replace UI-library modules
-  (for example design-system packages such as `@/components/ui-kit`).
-- broad object-return replacement patterns that provide custom component
-  implementations for UI libraries
+- `vi.mock(...)` / `jest.mock(...)` blocks that replace UI-library modules (for example design-system packages such as `@/components/ui-kit`).
+- broad object-return replacement patterns that provide custom component implementations for UI libraries
 - inline collaborator implementations when a learned shared/scaffolded boundary support module exists
 - generated tests that bypass a learned provider-wrapper boundary and fall back to raw `render(...)`
 - tests that bundle multiple user-visible contracts into one `it(...)`
@@ -29,17 +25,7 @@ Detect:
 - setup helpers that contain `expect(...)` calls
 - `.toBeDefined()` assertions on RTL query results
 - loose `expect.any(...)` / `expect.anything()` payload assertions for known user-driven values
-- mutable shared objects that are reset in `beforeEach` to steer mock behavior
-  (hoisted state objects whose fields are mutated per-test to alter mock
-  behavior — for example `vi.hoisted(() => ({ outcome: "success" }))` with
-  `beforeEach` resetting fields and test bodies mutating them).
-  Flag this because the behavior is split across multiple locations, the
-  reset logic can silently drift from the object shape, and the `vi.mock`
-  factory is no longer self-contained. Correct pattern: hoist plain
-  `vi.fn()` mocks, keep `vi.mock` factories shape-only, set a default
-  happy-path `mockImplementation` in `beforeEach`, and override with a
-  complete `mockImplementation` inside each test that needs a different
-  scenario.
+- mutable shared objects that are reset in `beforeEach` to steer mock behavior (hoisted state objects whose fields are mutated per-test to alter mock behavior — for example `vi.hoisted(() => ({ outcome: "success" }))` with `beforeEach` resetting fields and test bodies mutating them). Flag this because the behavior is split across multiple locations, the reset logic can silently drift from the object shape, and the `vi.mock` factory is no longer self-contained. Correct pattern: hoist plain `vi.fn()` mocks, keep `vi.mock` factories shape-only, set a default happy-path `mockImplementation` in `beforeEach`, and override with a complete `mockImplementation` inside each test that needs a different scenario.
 - manual DOM cleanup that clears `document.body.innerHTML`
 - `afterEach` teardown that combines `cleanup()` with manual `document.body` mutation repair
 - mixed reset boundaries that combine a reset helper with extra suite-local `.mockClear()` churn
@@ -102,8 +88,7 @@ If verification fails:
 - if a low-confidence collaborator scaffold was generated, surface the draft warning but do not inline repo-local query-hook bodies as a repair
 - rerun verification once
 
-Never loop indefinitely.
-Never claim success if still failing.
+Never loop indefinitely. Never claim success if still failing.
 
 ---
 

@@ -1,8 +1,6 @@
 # Assertion Markers (Taro)
 
-Purpose:
-Allow non-technical users to mark "this should be asserted" during recording
-without opening advanced Recorder assertion settings.
+Purpose: Allow non-technical users to mark "this should be asserted" during recording without opening advanced Recorder assertion settings.
 
 ---
 
@@ -16,10 +14,8 @@ User action pattern:
 Interpretation:
 
 - Taro treats semantic `dblClick` events as mandatory `assertExists` markers.
-- Marker assertions are generated as explicit RTL expectations in the closest
-  relevant test block.
-- `dblClick` is a semantic checkpoint only; it must not be replayed as a user
-  action in generated RTL code.
+- Marker assertions are generated as explicit RTL expectations in the closest relevant test block.
+- `dblClick` is a semantic checkpoint only; it must not be replayed as a user action in generated RTL code.
 
 ---
 
@@ -31,20 +27,14 @@ Interpretation:
    - role + name (if `aria/` evidence exists)
    - text (if `text/` evidence exists)
    - label/placeholder (if input context is explicit)
-4. If the recorder only captured partial visible copy, Taro may upgrade that
-   marker to canonical user-visible copy from nearby app source when the match
-   is unique and confidence is high.
-5. If only CSS evidence exists, skip marker-to-assertion conversion and log
-   the limitation.
+4. If the recorder only captured partial visible copy, Taro may upgrade that marker to canonical user-visible copy from nearby app source when the match is unique and confidence is high.
+5. If only CSS evidence exists, skip marker-to-assertion conversion and log the limitation.
 
 Important reliability note:
 
-- DblClick markers on generic targets like modal containers, table rows, icons
-  (`svg/path`), or dynamic radix/css selectors are often ambiguous.
-- These ambiguous markers should be reported as unresolved rather than silently
-  converted into weak assertions.
-- Unresolved markers stay warning-only, but they keep the run in draft/manual
-  review status.
+- DblClick markers on generic targets like modal containers, table rows, icons (`svg/path`), or dynamic radix/css selectors are often ambiguous.
+- These ambiguous markers should be reported as unresolved rather than silently converted into weak assertions.
+- Unresolved markers stay warning-only, but they keep the run in draft/manual review status.
 
 ---
 
@@ -64,5 +54,4 @@ Important reliability note:
 - Marker assertions are additive; they do not replace required happy/validation/failure tests.
 - Never generate assertions from screenshots.
 - Never infer hidden/internal implementation details from marker actions.
-- If marker conversion fails due to ambiguous selectors, emit a clear warning
-  with unresolved marker line references.
+- If marker conversion fails due to ambiguous selectors, emit a clear warning with unresolved marker line references.

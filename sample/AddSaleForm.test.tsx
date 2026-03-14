@@ -66,7 +66,9 @@ vi.mock("@digitax/data-layer", async (importOriginal) => {
     ) => {
       const response = { kraItems: { edges: [mockKraSaleItem] } };
       return {
-        data: options?.select ? options.select(response) : response.kraItems.edges,
+        data: options?.select
+          ? options.select(response)
+          : response.kraItems.edges,
         isFetching: false,
       };
     },
@@ -85,7 +87,11 @@ vi.mock("@digitax/data-layer", async (importOriginal) => {
       mutate: createCustomerMutate,
       isPending: false,
     }),
-    useKraCreateSaleMutation: ({ onSuccess, onError, onSettled }: any = {}) => ({
+    useKraCreateSaleMutation: ({
+      onSuccess,
+      onError,
+      onSettled,
+    }: any = {}) => ({
       mutate: (args: any) => {
         createSaleMutate(args);
         if (control.createShouldFail) {
@@ -128,7 +134,9 @@ const setup = () => {
 const openEntryPathDialog = async (
   user: ReturnType<typeof userEvent.setup>
 ) => {
-  await user.click(screen.getByRole("button", { name: /add sale \(invoice\)/i }));
+  await user.click(
+    screen.getByRole("button", { name: /add sale \(invoice\)/i })
+  );
 
   // Marker-derived checkpoint from recording line 5.
   expect(
@@ -176,9 +184,7 @@ const openReviewDialog = async (user: ReturnType<typeof userEvent.setup>) => {
   );
   await user.click(await screen.findByText(CUSTOMER_LABEL));
 
-  const serviceChargeInput = screen.getByPlaceholderText(
-    "Enter rate (0-100)%"
-  );
+  const serviceChargeInput = screen.getByPlaceholderText("Enter rate (0-100)%");
   await user.clear(serviceChargeInput);
   await user.type(serviceChargeInput, "1");
 
@@ -217,9 +223,9 @@ describe("AddSaleForm", () => {
       within(reviewDialog).getByText(new RegExp(MOCK_KRA_SALE_ITEM_NAME, "i"))
     ).toBeDefined();
     expect(within(reviewDialog).getByText("x 4")).toBeDefined();
-    expect(
-      within(reviewDialog).getAllByText(/KES\s*4,800\.00/i)
-    ).toHaveLength(2);
+    expect(within(reviewDialog).getAllByText(/KES\s*4,800\.00/i)).toHaveLength(
+      2
+    );
     expect(
       within(reviewDialog).getByText("General Invoice Details")
     ).toBeDefined();

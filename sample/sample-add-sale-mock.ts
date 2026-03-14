@@ -62,7 +62,9 @@ const defaultCreateSaleMutationImpl = ({ onSuccess, onSettled }: any = {}) => ({
   isPending: false,
 });
 
-export const useKraCreateSaleMutationMock = vi.fn(defaultCreateSaleMutationImpl);
+export const useKraCreateSaleMutationMock = vi.fn(
+  defaultCreateSaleMutationImpl
+);
 
 // ---------------------------------------------------------------------------
 // Factory
@@ -72,7 +74,11 @@ export function createDataLayerMock() {
   return {
     useBusinessQuery: (
       _args: unknown,
-      options?: { select?: (data: { business: { id: string; logoUrl: string; features: unknown[] } }) => unknown }
+      options?: {
+        select?: (data: {
+          business: { id: string; logoUrl: string; features: unknown[] };
+        }) => unknown;
+      }
     ) => {
       const response = {
         business: { id: MOCK_KRA_SALE_BUSINESS_ID, logoUrl: "", features: [] },
@@ -108,28 +114,46 @@ export function createDataLayerMock() {
 
     useKraItemsQuery: (
       _args: unknown,
-      options?: { select?: (data: { kraItems: { edges: UseKraItemsQueryResult[] } }) => unknown }
+      options?: {
+        select?: (data: {
+          kraItems: { edges: UseKraItemsQueryResult[] };
+        }) => unknown;
+      }
     ) => {
       const response = { kraItems: { edges: [mockKraSaleItem] } };
       return {
-        data: options?.select ? options.select(response) : response.kraItems.edges,
+        data: options?.select
+          ? options.select(response)
+          : response.kraItems.edges,
         isFetching: false,
       };
     },
 
     useKraCustomersQuery: (
       _args: unknown,
-      options?: { select?: (data: { kraCustomers: { edges: UseKraCustomersQueryResult[] } }) => unknown }
+      options?: {
+        select?: (data: {
+          kraCustomers: { edges: UseKraCustomersQueryResult[] };
+        }) => unknown;
+      }
     ) => {
       const response = { kraCustomers: { edges: [mockKraSaleCustomer] } };
       return {
-        data: options?.select ? options.select(response) : response.kraCustomers.edges,
+        data: options?.select
+          ? options.select(response)
+          : response.kraCustomers.edges,
       };
     },
 
     useKraCreateCustomerMutation: () => ({ mutate: vi.fn(), isPending: false }),
-    useUploadBusinessLogoMutation: () => ({ mutate: vi.fn(), isPending: false }),
-    useRemoveBusinessLogoMutation: () => ({ mutate: vi.fn(), isPending: false }),
+    useUploadBusinessLogoMutation: () => ({
+      mutate: vi.fn(),
+      isPending: false,
+    }),
+    useRemoveBusinessLogoMutation: () => ({
+      mutate: vi.fn(),
+      isPending: false,
+    }),
 
     useKraCreateSaleMutation: useKraCreateSaleMutationMock,
 
@@ -151,5 +175,7 @@ export function resetDataLayerMock() {
   createSaleMutate.mockReset();
   createSaleReportMutate.mockReset();
   useKraCreateSaleMutationMock.mockReset();
-  useKraCreateSaleMutationMock.mockImplementation(defaultCreateSaleMutationImpl);
+  useKraCreateSaleMutationMock.mockImplementation(
+    defaultCreateSaleMutationImpl
+  );
 }

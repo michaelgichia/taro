@@ -1,36 +1,46 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { resolveAssetSource, resolvePackageRoot } from './assets.js'
-import type { InstallFileOperation, ResolvedInstallTarget, RuntimeAssetDefinition } from './types.js'
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { resolveAssetSource, resolvePackageRoot } from "./assets.js";
+import type {
+  InstallFileOperation,
+  ResolvedInstallTarget,
+  RuntimeAssetDefinition,
+} from "./types.js";
 
-export const TARO_RUNTIME_COMMAND_PLACEHOLDER = '{{TARO_RUNTIME_COMMAND}}'
+export const TARO_RUNTIME_COMMAND_PLACEHOLDER = "{{TARO_RUNTIME_COMMAND}}";
 
 interface RuntimeLauncherContext {
-  packageRoot?: string
+  packageRoot?: string;
 }
 
 function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, `'\\''`)}'`
+  return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
 export function resolveRuntimeEntrypointPath(
   context: RuntimeLauncherContext = {},
   fromModuleUrl: string = import.meta.url
 ): string {
-  const packageRoot = context.packageRoot ?? resolvePackageRoot(fromModuleUrl)
-  return join(packageRoot, 'dist', 'index.js')
+  const packageRoot = context.packageRoot ?? resolvePackageRoot(fromModuleUrl);
+  return join(packageRoot, "dist", "index.js");
 }
 
-export function buildRuntimeCommand(nodePath: string, entrypointPath: string): string {
-  return `${shellQuote(nodePath)} ${shellQuote(entrypointPath)}`
+export function buildRuntimeCommand(
+  nodePath: string,
+  entrypointPath: string
+): string {
+  return `${shellQuote(nodePath)} ${shellQuote(entrypointPath)}`;
 }
 
-function renderRuntimeCommand(template: string, runtimeCommand: string): string | undefined {
+function renderRuntimeCommand(
+  template: string,
+  runtimeCommand: string
+): string | undefined {
   if (!template.includes(TARO_RUNTIME_COMMAND_PLACEHOLDER)) {
-    return undefined
+    return undefined;
   }
 
-  return template.split(TARO_RUNTIME_COMMAND_PLACEHOLDER).join(runtimeCommand)
+  return template.split(TARO_RUNTIME_COMMAND_PLACEHOLDER).join(runtimeCommand);
 }
 
 export function buildRuntimeOperationsFromAssets(
@@ -39,9 +49,12 @@ export function buildRuntimeOperationsFromAssets(
   fromModuleUrl: string = import.meta.url
 ): InstallFileOperation[] {
   return assets.map((asset) => {
-    const sourcePath = resolveAssetSource(asset.sourceSegments, fromModuleUrl)
-    const relativeDestinationPath = join(...asset.destinationSegments)
-    const renderedContent = renderRuntimeCommand(readFileSync(sourcePath, 'utf8'), target.runtimeCommand)
+    const sourcePath = resolveAssetSource(asset.sourceSegments, fromModuleUrl);
+    const relativeDestinationPath = join(...asset.destinationSegments);
+    const renderedContent = renderRuntimeCommand(
+      readFileSync(sourcePath, "utf8"),
+      target.runtimeCommand
+    );
 
     return {
       assetId: asset.id,
@@ -53,6 +66,6 @@ export function buildRuntimeOperationsFromAssets(
       targetPath: join(target.destinationDirectory, relativeDestinationPath),
       entrypoint: asset.entrypoint,
       renderedContent,
-    }
-  })
+    };
+  });
 }

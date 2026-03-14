@@ -1,21 +1,21 @@
 /**
  * Dialog flow detector - detects and groups multi-step dialog interactions
- * 
+ *
  * This module identifies dialog open/close flows and other multi-step interactions
  * as logical units, improving test readability and reducing redundant assertions.
- * 
+ *
  * Detection patterns:
  * - Open dialog: click on modal trigger → dialog appears
  * - Fill dialog: fill form fields in dialog
  * - Submit dialog: click submit/confirm in dialog
  * - Close dialog: click close/ESC/cancel outside
- * 
+ *
  * Time window: related steps within 30s are grouped
  */
 
-import type { RecordingStep, StepType } from '../../types/recording.js';
+import type { RecordingStep } from "../../types/recording.js";
 
-export type DialogType = 'modal' | 'drawer' | 'popover' | 'confirm' | 'form';
+export type DialogType = "modal" | "drawer" | "popover" | "confirm" | "form";
 
 export interface DialogFlow {
   id: string;
@@ -37,7 +37,7 @@ const DIALOG_TRIGGER_SELECTORS = [
   '[data-testid*="dialog"]',
   '[data-testid*="drawer"]',
   '[data-testid*="popover"]',
-  '[aria-haspopup]',
+  "[aria-haspopup]",
   '[role="dialog"]',
   '[role="dialog"][aria-modal="true"]',
 ];
@@ -46,7 +46,7 @@ const DIALOG_TRIGGER_SELECTORS = [
  * Selectors that indicate a dialog close action
  */
 const DIALOG_CLOSE_SELECTORS = [
-  '.close',
+  ".close",
   '[class*="close"]',
   '[aria-label="Close"]',
   '[aria-label="close"]',
@@ -75,19 +75,26 @@ const DIALOG_CONTENT_SELECTORS = [
  * Check if a selector is a dialog trigger
  */
 function isDialogTrigger(step: RecordingStep): boolean {
-  const selector = step.selector || step.target || '';
+  const selector = step.selector || step.target || "";
   const lowerSelector = selector.toLowerCase();
-  
+
   // Check explicit selectors
   for (const triggerSelector of DIALOG_TRIGGER_SELECTORS) {
     if (selectorMatches(selector, triggerSelector)) {
       return true;
     }
   }
-  
+
   // Check for common trigger patterns in selector
-  const triggerPatterns = ['modal', 'dialog', 'drawer', 'popover', 'open', 'show'];
-  return triggerPatterns.some(pattern => lowerSelector.includes(pattern));
+  const triggerPatterns = [
+    "modal",
+    "dialog",
+    "drawer",
+    "popover",
+    "open",
+    "show",
+  ];
+  return triggerPatterns.some((pattern) => lowerSelector.includes(pattern));
 }
 
 /**
@@ -95,12 +102,12 @@ function isDialogTrigger(step: RecordingStep): boolean {
  */
 function selectorMatches(selector: string, pattern: string): boolean {
   if (!selector || !pattern) return false;
-  
+
   // Handle attribute selectors
-  if (pattern.startsWith('[')) {
+  if (pattern.startsWith("[")) {
     return selector.includes(pattern);
   }
-  
+
   // Simple substring match for class/ID selectors
   return selector.includes(pattern);
 }
@@ -109,46 +116,56 @@ function selectorMatches(selector: string, pattern: string): boolean {
  * Check if a step is a dialog close action
  */
 function isDialogCloseAction(step: RecordingStep): boolean {
-  const action = step.action?.toLowerCase() || '';
-  const selector = step.selector || step.target || '';
+  const action = step.action?.toLowerCase() || "";
+  const selector = step.selector || step.target || "";
   const lowerSelector = selector.toLowerCase();
-  
+
   // Check explicit close selectors
   for (const closeSelector of DIALOG_CLOSE_SELECTORS) {
     if (selectorMatches(selector, closeSelector)) {
       return true;
     }
   }
-  
+
   // Check for cancel/close in action or selector
-  const closePatterns = ['close', 'cancel', 'dismiss', 'esc', 'escape'];
-  if (closePatterns.some(pattern => action.includes(pattern) || lowerSelector.includes(pattern))) {
+  const closePatterns = ["close", "cancel", "dismiss", "esc", "escape"];
+  if (
+    closePatterns.some(
+      (pattern) => action.includes(pattern) || lowerSelector.includes(pattern)
+    )
+  ) {
     return true;
   }
-  
+
   // Check for ESC key press
-  if (step.type === 'keyDown' && (step.value === 'Escape' || step.value === 'Esc')) {
+  if (
+    step.type === "keyDown" &&
+    (step.value === "Escape" || step.value === "Esc")
+  ) {
     return true;
   }
-  
+
   return false;
 }
 
 /**
  * Check if a step is a click on the dialog overlay (outside the dialog content)
  */
-function isDialogOverlayClick(step: RecordingStep, dialogOpen: boolean): boolean {
+function isDialogOverlayClick(
+  step: RecordingStep,
+  dialogOpen: boolean
+): boolean {
   if (!dialogOpen) return false;
-  
+
   // Click on body or html typically means clicking outside dialog
-  const selector = step.selector || step.target || '';
+  const selector = step.selector || step.target || "";
   const lowerSelector = selector.toLowerCase();
-  
+
   return (
-    selector === 'body' ||
-    selector === 'html' ||
-    lowerSelector.includes('overlay') ||
-    lowerSelector.includes('backdrop')
+    selector === "body" ||
+    selector === "html" ||
+    lowerSelector.includes("overlay") ||
+    lowerSelector.includes("backdrop")
   );
 }
 
@@ -157,22 +174,22 @@ function isDialogOverlayClick(step: RecordingStep, dialogOpen: boolean): boolean
  */
 function isDialogContentStep(step: RecordingStep): boolean {
   // Fill, select, or keyDown in form elements
-  if (step.type === 'fill' || step.type === 'select') {
+  if (step.type === "fill" || step.type === "select") {
     return true;
   }
-  
+
   // KeyDown for typing in input fields
-  if (step.type === 'keyDown') {
-    const selector = step.selector || step.target || '';
+  if (step.type === "keyDown") {
+    const selector = step.selector || step.target || "";
     const lowerSelector = selector.toLowerCase();
     // Input, textarea, or contentEditable elements
     return (
-      lowerSelector.includes('input') ||
-      lowerSelector.includes('textarea') ||
-      lowerSelector.includes('contenteditable')
+      lowerSelector.includes("input") ||
+      lowerSelector.includes("textarea") ||
+      lowerSelector.includes("contenteditable")
     );
   }
-  
+
   return false;
 }
 
@@ -180,23 +197,30 @@ function isDialogContentStep(step: RecordingStep): boolean {
  * Check if step appears to be an assertion about dialog state
  */
 function isDialogAssertion(step: RecordingStep): boolean {
-  if (step.type !== 'assert' && step.type !== 'waitForSelector') {
+  if (step.type !== "assert" && step.type !== "waitForSelector") {
     return false;
   }
-  
-  const selector = step.selector || step.target || '';
+
+  const selector = step.selector || step.target || "";
   const lowerSelector = selector.toLowerCase();
-  
+
   // Check if assertion targets dialog elements
   for (const contentSelector of DIALOG_CONTENT_SELECTORS) {
     if (selectorMatches(selector, contentSelector)) {
       return true;
     }
   }
-  
+
   // Check for dialog-related keywords
-  const dialogKeywords = ['modal', 'dialog', 'drawer', 'popover', 'visible', 'open'];
-  return dialogKeywords.some(keyword => lowerSelector.includes(keyword));
+  const dialogKeywords = [
+    "modal",
+    "dialog",
+    "drawer",
+    "popover",
+    "visible",
+    "open",
+  ];
+  return dialogKeywords.some((keyword) => lowerSelector.includes(keyword));
 }
 
 /**
@@ -205,22 +229,26 @@ function isDialogAssertion(step: RecordingStep): boolean {
 function inferDialogType(steps: RecordingStep[]): DialogType {
   // Check selectors for type hints
   for (const step of steps) {
-    const selector = step.selector || step.target || '';
+    const selector = step.selector || step.target || "";
     const lowerSelector = selector.toLowerCase();
-    
-    if (lowerSelector.includes('drawer')) return 'drawer';
-    if (lowerSelector.includes('popover')) return 'popover';
-    if (lowerSelector.includes('confirm') || lowerSelector.includes('alert')) return 'confirm';
+
+    if (lowerSelector.includes("drawer")) return "drawer";
+    if (lowerSelector.includes("popover")) return "popover";
+    if (lowerSelector.includes("confirm") || lowerSelector.includes("alert"))
+      return "confirm";
   }
-  
+
   // Default to modal
-  return 'modal';
+  return "modal";
 }
 
 /**
  * Check if two steps are within the dialog time window
  */
-function isWithinTimeWindow(step1: RecordingStep, step2: RecordingStep): boolean {
+function isWithinTimeWindow(
+  step1: RecordingStep,
+  step2: RecordingStep
+): boolean {
   if (step1.timestamp === undefined || step2.timestamp === undefined) {
     // If no timestamps, assume they could be related (conservative)
     return true;
@@ -239,7 +267,7 @@ function generateDialogId(): string {
 
 /**
  * Group recording steps into dialog flows
- * 
+ *
  * @param steps - Array of recording steps (should be after deduplication and noise filtering)
  * @returns Array of detected dialog flows
  */
@@ -256,12 +284,21 @@ export function groupDialogSteps(steps: RecordingStep[]): DialogFlow[] {
     const step = steps[i];
 
     // Skip if not a relevant step type
-    if (!['click', 'fill', 'select', 'keyDown', 'assert', 'waitForSelector'].includes(step.type)) {
+    if (
+      ![
+        "click",
+        "fill",
+        "select",
+        "keyDown",
+        "assert",
+        "waitForSelector",
+      ].includes(step.type)
+    ) {
       continue;
     }
 
     // Case 1: Dialog trigger click - start a new dialog flow
-    if (step.type === 'click' && isDialogTrigger(step)) {
+    if (step.type === "click" && isDialogTrigger(step)) {
       // Close any existing dialog flow
       if (currentDialog) {
         dialogFlows.push(currentDialog);
@@ -305,7 +342,7 @@ export function groupDialogSteps(steps: RecordingStep[]): DialogFlow[] {
       }
 
       // Case 5: Non-dialog click - might close dialog and end flow
-      if (step.type === 'click' && !isDialogTrigger(step)) {
+      if (step.type === "click" && !isDialogTrigger(step)) {
         // Check if this might be closing the dialog
         if (dialogOpen) {
           currentDialog.closeStep = step;

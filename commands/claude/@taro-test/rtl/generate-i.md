@@ -12,6 +12,7 @@ argument-instructions: |
   Example: /@taro-test/rtl:generate-i path/to/recording.js
   Stop if the input is missing or does not end in `.js`.
 ---
+
 Run the same workflow as `/@taro-test/rtl:generate`, but force interactive Playwright auth recovery by running `{{TARO_RUNTIME_COMMAND}} __generate -i <recording-file>`.
 
 Report: command run, generated file path, score + grade, manual review status, top blockers, and whether interactive auth recovery was triggered.

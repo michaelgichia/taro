@@ -33,8 +33,7 @@ Use the runtime-native help entrypoint when you want routing guidance:
 - OpenCode: `/@taro-test/rtl-help`
 - Codex: `$@taro-test/rtl-help`
 
-> [!NOTE]
-> Codex installation uses skills under `skills/@taro-test/rtl-*/SKILL.md`, not prompt files.
+> [!NOTE] Codex installation uses skills under `skills/@taro-test/rtl-*/SKILL.md`, not prompt files.
 
 ## Staying Updated
 
@@ -214,17 +213,23 @@ That draft banner is advisory. Taro does not block writes, but it does tell you 
 Here is a typical Testing Library Recorder export capturing a login flow.
 
 ```js
-import { screen } from '@testing-library/dom'
-import userEvent from '@testing-library/user-event'
+import { screen } from "@testing-library/dom";
+import userEvent from "@testing-library/user-event";
 
-test('login flow', async () => {
-  await userEvent.click(screen.getByRole('textbox', { name: 'Email address' }))
-  await userEvent.type(screen.getByRole('textbox', { name: 'Email address' }), 'user@example.com')
-  await userEvent.click(screen.getByRole('textbox', { name: 'Password' }))
-  await userEvent.type(screen.getByRole('textbox', { name: 'Password' }), 'secret123')
-  await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
-  await userEvent.click(screen.getByText('Welcome back'))
-})
+test("login flow", async () => {
+  await userEvent.click(screen.getByRole("textbox", { name: "Email address" }));
+  await userEvent.type(
+    screen.getByRole("textbox", { name: "Email address" }),
+    "user@example.com"
+  );
+  await userEvent.click(screen.getByRole("textbox", { name: "Password" }));
+  await userEvent.type(
+    screen.getByRole("textbox", { name: "Password" }),
+    "secret123"
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+  await userEvent.click(screen.getByText("Welcome back"));
+});
 ```
 
 ### Runtime command

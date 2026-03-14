@@ -2,9 +2,9 @@
  * Convention analyzer - extracts patterns from test files using AST analysis
  */
 
-import { parse } from '@typescript-eslint/typescript-estree';
-import * as fs from 'fs';
-import * as path from 'path';
+import { parse } from "@typescript-eslint/typescript-estree";
+import * as fs from "fs";
+import * as path from "path";
 import {
   TestConvention,
   NamingConventions,
@@ -13,8 +13,8 @@ import {
   MatcherConventions,
   ImportConventions,
   NamingPattern,
-  createEmptyConvention
-} from './types.js';
+  createEmptyConvention,
+} from "./types.js";
 
 interface ASTNode {
   type: string;
@@ -40,8 +40,8 @@ interface ParsedAST {
  * Analyze a single test file and extract conventions
  */
 export function analyzeTestFile(filePath: string): Partial<TestConvention> {
-  const code = fs.readFileSync(filePath, 'utf-8');
-  
+  const code = fs.readFileSync(filePath, "utf-8");
+
   let ast: ParsedAST;
   try {
     ast = parse(code, {
@@ -49,7 +49,7 @@ export function analyzeTestFile(filePath: string): Partial<TestConvention> {
       range: true,
       jsx: true,
       ecmaVersion: 2020,
-      sourceType: 'module'
+      sourceType: "module",
     }) as unknown as ParsedAST;
   } catch (error) {
     console.warn(`Failed to parse ${filePath}:`, error);
@@ -62,37 +62,38 @@ export function analyzeTestFile(filePath: string): Partial<TestConvention> {
   const imports = extractImports(ast);
   const structure = extractStructurePatterns(code, ast);
 
-  return {
-    naming,
-    structure,
-    queries,
-    matchers,
-    imports
-  };
+  return { naming, structure, queries, matchers, imports };
 }
 
 /**
  * Extract naming patterns from describe blocks
  */
-function extractNamingPatterns(code: string, ast: ParsedAST): NamingConventions {
+function extractNamingPatterns(
+  code: string,
+  ast: ParsedAST
+): NamingConventions {
   const describeNames: string[] = [];
   const itNames: string[] = [];
 
   function traverse(node: ASTNode | undefined) {
     if (!node) return;
 
-    if (node.type === 'CallExpression' && node.callee) {
+    if (node.type === "CallExpression" && node.callee) {
       const calleeName = getCalleeName(node.callee);
-      if (calleeName === 'describe' && node.arguments && node.arguments[0]) {
+      if (calleeName === "describe" && node.arguments && node.arguments[0]) {
         const firstArg = node.arguments[0];
-        if (firstArg.type === 'Literal' || firstArg.type === 'StringLiteral') {
-          describeNames.push(String(firstArg.value || ''));
+        if (firstArg.type === "Literal" || firstArg.type === "StringLiteral") {
+          describeNames.push(String(firstArg.value || ""));
         }
       }
-      if ((calleeName === 'it' || calleeName === 'test') && node.arguments && node.arguments[0]) {
+      if (
+        (calleeName === "it" || calleeName === "test") &&
+        node.arguments &&
+        node.arguments[0]
+      ) {
         const firstArg = node.arguments[0];
-        if (firstArg.type === 'Literal' || firstArg.type === 'StringLiteral') {
-          itNames.push(String(firstArg.value || ''));
+        if (firstArg.type === "Literal" || firstArg.type === "StringLiteral") {
+          itNames.push(String(firstArg.value || ""));
         }
       }
     }
@@ -105,7 +106,7 @@ function extractNamingPatterns(code: string, ast: ParsedAST): NamingConventions 
   function traverseArray(arr: ASTNode | ASTNode[] | undefined) {
     if (Array.isArray(arr)) {
       arr.forEach(traverse);
-    } else if (arr && typeof arr === 'object') {
+    } else if (arr && typeof arr === "object") {
       traverse(arr);
     }
   }
@@ -117,51 +118,47 @@ function extractNamingPatterns(code: string, ast: ParsedAST): NamingConventions 
   const describePrefix = extractDescribePrefix(describeNames);
   const itTemplate = extractItTemplate(itNames);
 
-  return {
-    pattern,
-    describePrefix,
-    itTemplate
-  };
+  return { pattern, describePrefix, itTemplate };
 }
 
 /**
  * Detect naming pattern (camelCase, kebab-case, snake_case)
  */
 function detectNamingPattern(names: string[]): NamingPattern {
-  if (names.length === 0) return 'camelCase';
+  if (names.length === 0) return "camelCase";
 
   const sample = names[0];
-  
+
   // Check for kebab-case (has hyphens but not underscores)
-  if (sample.includes('-') && !sample.includes('_')) {
-    return 'kebab-case';
-  }
-  
-  // Check for snake_case (has underscores)
-  if (sample.includes('_') && !sample.includes('-')) {
-    return 'snake_case';
-  }
-  
-  // Check for camelCase (has uppercase letters)
-  if (/[a-z][A-Z]/.test(sample)) {
-    return 'camelCase';
+  if (sample.includes("-") && !sample.includes("_")) {
+    return "kebab-case";
   }
 
-  return 'camelCase';
+  // Check for snake_case (has underscores)
+  if (sample.includes("_") && !sample.includes("-")) {
+    return "snake_case";
+  }
+
+  // Check for camelCase (has uppercase letters)
+  if (/[a-z][A-Z]/.test(sample)) {
+    return "camelCase";
+  }
+
+  return "camelCase";
 }
 
 /**
  * Extract common describe block prefix
  */
 function extractDescribePrefix(names: string[]): string {
-  if (names.length === 0) return '';
-  
+  if (names.length === 0) return "";
+
   // Find common prefix among all describe names
   const sorted = [...names].sort();
   const first = sorted[0];
   const last = sorted[sorted.length - 1];
-  
-  let prefix = '';
+
+  let prefix = "";
   for (let i = 0; i < first.length; i++) {
     if (first[i] === last[i]) {
       prefix += first[i];
@@ -169,20 +166,27 @@ function extractDescribePrefix(names: string[]): string {
       break;
     }
   }
-  
+
   // Clean up prefix (remove trailing separators)
-  return prefix.replace(/[-_ ]+$/, '');
+  return prefix.replace(/[-_ ]+$/, "");
 }
 
 /**
  * Extract test template from 'it' descriptions
  */
 function extractItTemplate(names: string[]): string {
-  if (names.length === 0) return 'should {description}';
-  
+  if (names.length === 0) return "should {description}";
+
   // Look for common patterns like "should do X", "does Y", "renders Z"
-  const patterns = ['should', 'does', 'renders', 'shows', 'displays', 'returns'];
-  
+  const patterns = [
+    "should",
+    "does",
+    "renders",
+    "shows",
+    "displays",
+    "returns",
+  ];
+
   for (const name of names) {
     for (const pattern of patterns) {
       if (name.toLowerCase().startsWith(pattern)) {
@@ -193,8 +197,8 @@ function extractItTemplate(names: string[]): string {
       }
     }
   }
-  
-  return 'should {description}';
+
+  return "should {description}";
 }
 
 /**
@@ -202,34 +206,34 @@ function extractItTemplate(names: string[]): string {
  */
 function extractQueryPreferences(code: string): QueryPreferences {
   const robustQueries = [
-    'getByRole',
-    'getByLabelText',
-    'getByText',
-    'getByPlaceholderText',
-    'getByAltText',
-    'getByTitle',
-    'findByRole',
-    'findByLabelText',
-    'findByText',
-    'queryByRole',
-    'queryByLabelText'
+    "getByRole",
+    "getByLabelText",
+    "getByText",
+    "getByPlaceholderText",
+    "getByAltText",
+    "getByTitle",
+    "findByRole",
+    "findByLabelText",
+    "findByText",
+    "queryByRole",
+    "queryByLabelText",
   ];
 
   const fragileQueries = [
-    'querySelector',
-    'getByTestId',
-    'queryByTestId',
-    'findByTestId'
+    "querySelector",
+    "getByTestId",
+    "queryByTestId",
+    "findByTestId",
   ];
 
   const preferred: string[] = [];
   const avoided: string[] = [];
 
-  robustQueries.forEach(q => {
+  robustQueries.forEach((q) => {
     if (code.includes(q)) preferred.push(q);
   });
 
-  fragileQueries.forEach(q => {
+  fragileQueries.forEach((q) => {
     if (code.includes(q)) avoided.push(q);
   });
 
@@ -242,41 +246,42 @@ function extractQueryPreferences(code: string): QueryPreferences {
 function extractMatcherPatterns(ast: ParsedAST): MatcherConventions {
   const commonMatchers = new Set<string>();
   const matcherNames = [
-    'toBe',
-    'toEqual',
-    'toContain',
-    'toHaveLength',
-    'toBeTruthy',
-    'toBeFalsy',
-    'toBeInTheDocument',
-    'toBeVisible',
-    'toHaveTextContent',
-    'toHaveValue',
-    'toHaveBeenCalled',
-    'toHaveBeenCalledWith',
-    'toBeDisabled',
-    'toBeEnabled',
-    'toBeChecked',
-    'toBeRequired',
-    'not.toBe',
-    'not.toEqual',
-    'not.toContain'
+    "toBe",
+    "toEqual",
+    "toContain",
+    "toHaveLength",
+    "toBeTruthy",
+    "toBeFalsy",
+    "toBeInTheDocument",
+    "toBeVisible",
+    "toHaveTextContent",
+    "toHaveValue",
+    "toHaveBeenCalled",
+    "toHaveBeenCalledWith",
+    "toBeDisabled",
+    "toBeEnabled",
+    "toBeChecked",
+    "toBeRequired",
+    "not.toBe",
+    "not.toEqual",
+    "not.toContain",
   ];
 
   function traverse(node: ASTNode | undefined) {
     if (!node) return;
 
     // Check for member expressions like expect(x).toBe(y)
-    if (node.type === 'MemberExpression' && node.property) {
+    if (node.type === "MemberExpression" && node.property) {
       const prop = node.property as ASTNode;
-      const propName = typeof prop.name === 'string' ? prop.name : '';
-      
+      const propName = typeof prop.name === "string" ? prop.name : "";
+
       // Handle "not.toBe" pattern
-      if (propName === 'not' && node.object) {
+      if (propName === "not" && node.object) {
         const obj = node.object as ASTNode;
-        if (obj.type === 'MemberExpression' && obj.property) {
+        if (obj.type === "MemberExpression" && obj.property) {
           const innerProp = obj.property as ASTNode;
-          const innerName = typeof innerProp.name === 'string' ? innerProp.name : '';
+          const innerName =
+            typeof innerProp.name === "string" ? innerProp.name : "";
           if (matcherNames.includes(`not.${innerName}`)) {
             commonMatchers.add(`not.${innerName}`);
           }
@@ -294,16 +299,14 @@ function extractMatcherPatterns(ast: ParsedAST): MatcherConventions {
   function traverseArray(arr: ASTNode | ASTNode[] | undefined) {
     if (Array.isArray(arr)) {
       arr.forEach(traverse);
-    } else if (arr && typeof arr === 'object') {
+    } else if (arr && typeof arr === "object") {
       traverse(arr);
     }
   }
 
   traverse(ast as unknown as ASTNode);
 
-  return {
-    common: Array.from(commonMatchers)
-  };
+  return { common: Array.from(commonMatchers) };
 }
 
 /**
@@ -315,17 +318,17 @@ function extractImports(ast: ParsedAST): ImportConventions {
   function traverse(node: ASTNode | undefined) {
     if (!node) return;
 
-    if (node.type === 'ImportDeclaration' && node.source) {
+    if (node.type === "ImportDeclaration" && node.source) {
       const source = node.source as ASTNode;
       const sourceValue = source.value as string;
-      
+
       if (sourceValue) {
         // Extract package name (before any / or @)
-        const packageName = sourceValue.startsWith('@')
-          ? sourceValue.split('/').slice(0, 2).join('/')
-          : sourceValue.split('/')[0];
-        
-        if (!packageName.startsWith('.') && !packageName.startsWith('/')) {
+        const packageName = sourceValue.startsWith("@")
+          ? sourceValue.split("/").slice(0, 2).join("/")
+          : sourceValue.split("/")[0];
+
+        if (!packageName.startsWith(".") && !packageName.startsWith("/")) {
           commonImports.add(packageName);
         }
       }
@@ -338,25 +341,27 @@ function extractImports(ast: ParsedAST): ImportConventions {
   function traverseArray(arr: ASTNode | ASTNode[] | undefined) {
     if (Array.isArray(arr)) {
       arr.forEach(traverse);
-    } else if (arr && typeof arr === 'object') {
+    } else if (arr && typeof arr === "object") {
       traverse(arr);
     }
   }
 
   traverse(ast as unknown as ASTNode);
 
-  return {
-    common: Array.from(commonImports)
-  };
+  return { common: Array.from(commonImports) };
 }
 
 /**
  * Extract structure patterns
  */
-function extractStructurePatterns(code: string, ast: ParsedAST): StructureConventions {
+function extractStructurePatterns(
+  code: string,
+  ast: ParsedAST
+): StructureConventions {
   let hasDescribePerComponent = false;
   let hasHelpersInDescribe = false;
-  let setupLocation: 'inside-describe' | 'outside-describe' | 'beforeeach' = 'inside-describe';
+  let setupLocation: "inside-describe" | "outside-describe" | "beforeeach" =
+    "inside-describe";
 
   const describeBlocks: ASTNode[] = [];
   const helperFunctions = new Set<string>();
@@ -365,13 +370,13 @@ function extractStructurePatterns(code: string, ast: ParsedAST): StructureConven
   function traverse(node: ASTNode | undefined, inDescribe = false) {
     if (!node) return;
 
-    if (node.type === 'CallExpression' && node.callee) {
+    if (node.type === "CallExpression" && node.callee) {
       const calleeName = getCalleeName(node.callee);
-      
-      if (calleeName === 'describe') {
+
+      if (calleeName === "describe") {
         describeBlocks.push(node);
         hasDescribePerComponent = true;
-        
+
         // Check what's inside the describe
         if (node.arguments && node.arguments[1]) {
           const body = node.arguments[1];
@@ -379,24 +384,29 @@ function extractStructurePatterns(code: string, ast: ParsedAST): StructureConven
         }
       }
 
-      if ((calleeName === 'beforeEach' || calleeName === 'beforeAll' || calleeName === 'afterEach' || calleeName === 'afterAll')) {
+      if (
+        calleeName === "beforeEach" ||
+        calleeName === "beforeAll" ||
+        calleeName === "afterEach" ||
+        calleeName === "afterAll"
+      ) {
         setupCalls.add(calleeName);
         if (!inDescribe) {
-          setupLocation = 'outside-describe';
+          setupLocation = "outside-describe";
         } else {
-          setupLocation = 'beforeeach';
+          setupLocation = "beforeeach";
         }
       }
 
-      if (calleeName === 'it' || calleeName === 'test') {
+      if (calleeName === "it" || calleeName === "test") {
         if (inDescribe) {
-          setupLocation = 'inside-describe';
+          setupLocation = "inside-describe";
         }
       }
     }
 
     // Detect helper functions (functions defined at top level)
-    if (node.type === 'FunctionDeclaration' && node.name && !inDescribe) {
+    if (node.type === "FunctionDeclaration" && node.name && !inDescribe) {
       helperFunctions.add(node.name as string);
     }
 
@@ -404,10 +414,13 @@ function extractStructurePatterns(code: string, ast: ParsedAST): StructureConven
     traverseArray(node.arguments, inDescribe);
   }
 
-  function traverseArray(arr: ASTNode | ASTNode[] | undefined, inDescribe: boolean) {
+  function traverseArray(
+    arr: ASTNode | ASTNode[] | undefined,
+    inDescribe: boolean
+  ) {
     if (Array.isArray(arr)) {
-      arr.forEach(n => traverse(n, inDescribe));
-    } else if (arr && typeof arr === 'object') {
+      arr.forEach((n) => traverse(n, inDescribe));
+    } else if (arr && typeof arr === "object") {
       traverse(arr, inDescribe);
     }
   }
@@ -419,7 +432,7 @@ function extractStructurePatterns(code: string, ast: ParsedAST): StructureConven
   return {
     describePerComponent: hasDescribePerComponent,
     helpersInDescribe: hasHelpersInDescribe,
-    setupLocation
+    setupLocation,
   };
 }
 
@@ -427,17 +440,17 @@ function extractStructurePatterns(code: string, ast: ParsedAST): StructureConven
  * Get the name of a callee
  */
 function getCalleeName(callee: ASTNode): string {
-  if (callee.type === 'Identifier') {
-    return (callee.name as string) || '';
+  if (callee.type === "Identifier") {
+    return (callee.name as string) || "";
   }
-  if (callee.type === 'MemberExpression' && callee.property) {
+  if (callee.type === "MemberExpression" && callee.property) {
     const prop = callee.property as ASTNode;
-    return typeof prop.name === 'string' ? prop.name : '';
+    return typeof prop.name === "string" ? prop.name : "";
   }
-  if (callee.type === 'CallExpression' && callee.callee) {
+  if (callee.type === "CallExpression" && callee.callee) {
     return getCalleeName(callee.callee);
   }
-  return '';
+  return "";
 }
 
 /**
@@ -445,17 +458,17 @@ function getCalleeName(callee: ASTNode): string {
  */
 export function extractConventions(testDir: string): TestConvention {
   const convention = createEmptyConvention();
-  
+
   // Find all test files
   const testFiles = findTestFiles(testDir);
-  
+
   if (testFiles.length === 0) {
     console.warn(`No test files found in ${testDir}`);
     return convention;
   }
 
   // Analyze each test file
-  const partials = testFiles.map(file => analyzeTestFile(file));
+  const partials = testFiles.map((file) => analyzeTestFile(file));
 
   // Merge conventions from all files
   return mergeConventions(partials);
@@ -466,16 +479,16 @@ export function extractConventions(testDir: string): TestConvention {
  */
 function findTestFiles(dir: string): string[] {
   const files: string[] = [];
-  
+
   if (!fs.existsSync(dir)) {
     return files;
   }
 
   const entries = fs.readdirSync(dir, { withFileTypes: true });
-  
+
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
-    
+
     if (entry.isDirectory()) {
       files.push(...findTestFiles(fullPath));
     } else if (entry.isFile()) {
@@ -498,16 +511,21 @@ function mergeConventions(partials: Partial<TestConvention>[]): TestConvention {
   // Merge naming - take most common pattern
   const patternCounts: Record<string, number> = {};
   const prefixCounts: Record<string, number> = {};
-  
+
   for (const partial of partials) {
     if (partial.naming) {
       if (partial.naming.pattern) {
-        patternCounts[partial.naming.pattern] = (patternCounts[partial.naming.pattern] || 0) + 1;
+        patternCounts[partial.naming.pattern] =
+          (patternCounts[partial.naming.pattern] || 0) + 1;
       }
       if (partial.naming.describePrefix) {
-        prefixCounts[partial.naming.describePrefix] = (prefixCounts[partial.naming.describePrefix] || 0) + 1;
+        prefixCounts[partial.naming.describePrefix] =
+          (prefixCounts[partial.naming.describePrefix] || 0) + 1;
       }
-      if (partial.naming.itTemplate && partial.naming.itTemplate !== 'should {description}') {
+      if (
+        partial.naming.itTemplate &&
+        partial.naming.itTemplate !== "should {description}"
+      ) {
         result.naming.itTemplate = partial.naming.itTemplate;
       }
     }
@@ -540,8 +558,8 @@ function mergeConventions(partials: Partial<TestConvention>[]): TestConvention {
       if (partial.structure.helpersInDescribe) {
         result.structure.helpersInDescribe = true;
       }
-      if (partial.structure.setupLocation === 'beforeeach') {
-        result.structure.setupLocation = 'beforeeach';
+      if (partial.structure.setupLocation === "beforeeach") {
+        result.structure.setupLocation = "beforeeach";
       }
     }
   }
@@ -549,11 +567,11 @@ function mergeConventions(partials: Partial<TestConvention>[]): TestConvention {
   // Merge queries - combine all preferred and avoided
   const preferredSet = new Set<string>();
   const avoidedSet = new Set<string>();
-  
+
   for (const partial of partials) {
     if (partial.queries) {
-      partial.queries.preferred?.forEach(q => preferredSet.add(q));
-      partial.queries.avoided?.forEach(q => avoidedSet.add(q));
+      partial.queries.preferred?.forEach((q) => preferredSet.add(q));
+      partial.queries.avoided?.forEach((q) => avoidedSet.add(q));
     }
   }
 
@@ -564,7 +582,7 @@ function mergeConventions(partials: Partial<TestConvention>[]): TestConvention {
   const matcherSet = new Set<string>();
   for (const partial of partials) {
     if (partial.matchers) {
-      partial.matchers.common?.forEach(m => matcherSet.add(m));
+      partial.matchers.common?.forEach((m) => matcherSet.add(m));
     }
   }
   result.matchers.common = Array.from(matcherSet);
@@ -573,7 +591,7 @@ function mergeConventions(partials: Partial<TestConvention>[]): TestConvention {
   const importSet = new Set<string>();
   for (const partial of partials) {
     if (partial.imports) {
-      partial.imports.common?.forEach(i => importSet.add(i));
+      partial.imports.common?.forEach((i) => importSet.add(i));
     }
   }
   result.imports.common = Array.from(importSet);

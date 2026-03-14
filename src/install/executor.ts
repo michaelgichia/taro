@@ -1,7 +1,7 @@
-import { verifyInstalledRuntime } from './verification.js'
-import { writeInstallPlan } from './writer.js'
-import type { InstallExecutionResult, InstallPlan } from './types.js'
-import type { WriteInstallPlanOptions } from './writer.js'
+import { verifyInstalledRuntime } from "./verification.js";
+import { writeInstallPlan } from "./writer.js";
+import type { InstallExecutionResult, InstallPlan } from "./types.js";
+import type { WriteInstallPlanOptions } from "./writer.js";
 
 export async function executeInstallPlan(
   plan: InstallPlan,
@@ -12,28 +12,32 @@ export async function executeInstallPlan(
       const result = await writeInstallPlan(target, {
         confirmReplace: options.confirmReplace,
         generatedAt: options.generatedAt,
-      })
+      });
 
-      if (result.status === 'blocked') {
-        return result
+      if (result.status === "blocked") {
+        return result;
       }
 
-      const verification = await verifyInstalledRuntime(target)
-      return {
-        ...result,
-        verification,
-      }
+      const verification = await verifyInstalledRuntime(target);
+      return { ...result, verification };
     })
-  )
+  );
 
-  const hasSuccessfulWrites = targets.some((target) => target.status !== 'blocked')
+  const hasSuccessfulWrites = targets.some(
+    (target) => target.status !== "blocked"
+  );
   const hasFailures = targets.some(
-    (target) => target.status === 'blocked' || target.verification?.status !== 'verified'
-  )
+    (target) =>
+      target.status === "blocked" || target.verification?.status !== "verified"
+  );
 
   return {
     packageName: plan.packageName,
-    status: hasFailures ? (hasSuccessfulWrites ? 'partial' : 'blocked') : 'installed',
+    status: hasFailures
+      ? hasSuccessfulWrites
+        ? "partial"
+        : "blocked"
+      : "installed",
     targets,
-  }
+  };
 }

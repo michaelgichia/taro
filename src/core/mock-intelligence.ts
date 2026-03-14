@@ -1,5 +1,5 @@
-import { relative } from 'node:path'
-import { readConventions, readTestFiles } from './scanner.js'
+import { relative } from "node:path";
+import { readConventions, readTestFiles } from "./scanner.js";
 import type {
   ConventionsSchema,
   InteractionContractKind,
@@ -9,48 +9,55 @@ import type {
   MockTargetUsage,
   MutationLifecyclePattern,
   MutationLifecycleStage,
-} from '../types/conventions.js'
+} from "../types/conventions.js";
 import type {
   ResolvedTaroPackageProfile,
   TaroBoundaryProfile,
   TaroInteractionContractProfile,
   TaroQueryHookPolicy,
   TaroSharedMockFactoryProfile,
-} from '../types/state.js'
-import type { TestFileContent } from './scanner.js'
+} from "../types/state.js";
+import type { TestFileContent } from "./scanner.js";
 
 export interface MockAnalysis {
-  conventions: ConventionsSchema | null
-  packagePath: string | null
-  source: 'repo-scan' | 'package-profile'
-  recommendations: MockRecommendation[]
-  repeatedTargets: MockTargetUsage[]
-  mutationLifecycles: MutationLifecyclePattern[]
-  interactionContracts: TaroInteractionContractProfile[]
-  instabilityWarnings: MockInstabilityWarning[]
-  sharedMockFactories: TaroSharedMockFactoryProfile[]
-  boundaryProfiles: TaroBoundaryProfile[]
-  inlineSafeMockTargets: string[]
-  preferredSharedMocks: Record<string, string>
-  forbidMocks: string[]
-  preferredBoundaryImplementations: Record<string, string>
-  forbidBoundaryTargets: string[]
-  queryHookPolicy: TaroQueryHookPolicy
-  companionPolicy: ResolvedTaroPackageProfile['effectiveCompanionPolicy']
-  enabledContractFamilies: InteractionContractKind[]
+  conventions: ConventionsSchema | null;
+  packagePath: string | null;
+  source: "repo-scan" | "package-profile";
+  recommendations: MockRecommendation[];
+  repeatedTargets: MockTargetUsage[];
+  mutationLifecycles: MutationLifecyclePattern[];
+  interactionContracts: TaroInteractionContractProfile[];
+  instabilityWarnings: MockInstabilityWarning[];
+  sharedMockFactories: TaroSharedMockFactoryProfile[];
+  boundaryProfiles: TaroBoundaryProfile[];
+  inlineSafeMockTargets: string[];
+  preferredSharedMocks: Record<string, string>;
+  forbidMocks: string[];
+  preferredBoundaryImplementations: Record<string, string>;
+  forbidBoundaryTargets: string[];
+  queryHookPolicy: TaroQueryHookPolicy;
+  companionPolicy: ResolvedTaroPackageProfile["effectiveCompanionPolicy"];
+  enabledContractFamilies: InteractionContractKind[];
 }
 
-const MOCK_TARGET_REGEX = /(?:vi|jest)\.mock\(\s*['"`]([^'"`]+)['"`]/g
+const MOCK_TARGET_REGEX = /(?:vi|jest)\.mock\(\s*['"`]([^'"`]+)['"`]/g;
 const MUTATION_TRIGGER_REGEX =
-  /\b(mutate|mutation|submit|save|create|update|delete)\b|mock(?:Resolved|Rejected)Value(?:Once)?\(/i
-const TEST_BLOCK_REGEX = /\b(?:it|test)\s*\(/g
-const TEST_SCOPED_MOCK_REGEX = /(?:vi|jest)\.mock\(/i
-const MOCK_RESET_REGEX = /(?:vi|jest)\.(?:clearAllMocks|resetAllMocks|restoreAllMocks)\(/g
+  /\b(mutate|mutation|submit|save|create|update|delete)\b|mock(?:Resolved|Rejected)Value(?:Once)?\(/i;
+const TEST_BLOCK_REGEX = /\b(?:it|test)\s*\(/g;
+const TEST_SCOPED_MOCK_REGEX = /(?:vi|jest)\.mock\(/i;
+const MOCK_RESET_REGEX =
+  /(?:vi|jest)\.(?:clearAllMocks|resetAllMocks|restoreAllMocks)\(/g;
 const MOCK_CONFIGURATION_REGEX =
-  /\.mock(?:ResolvedValue|RejectedValue|Implementation|ReturnValue)(?:Once)?\(/g
+  /\.mock(?:ResolvedValue|RejectedValue|Implementation|ReturnValue)(?:Once)?\(/g;
 
 const STAGE_PATTERNS: Record<MutationLifecycleStage, RegExp[]> = {
-  loading: [/\bisLoading\b/i, /\bloading\b/i, /\bpending\b/i, /\bsubmitting\b/i, /toBeDisabled\(/],
+  loading: [
+    /\bisLoading\b/i,
+    /\bloading\b/i,
+    /\bpending\b/i,
+    /\bsubmitting\b/i,
+    /toBeDisabled\(/,
+  ],
   success: [
     /mockResolvedValue(?:Once)?\(/,
     /\b(success|saved|created|updated|submitted)\b/i,
@@ -62,33 +69,36 @@ const STAGE_PATTERNS: Record<MutationLifecycleStage, RegExp[]> = {
     /\b(error|failed|failure)\b/i,
     /role:\s*['"`]alert['"`]/,
   ],
-}
+};
 
 function extractMockTargets(content: string): string[] {
-  return [...content.matchAll(MOCK_TARGET_REGEX)].map((match) => match[1]!)
+  return [...content.matchAll(MOCK_TARGET_REGEX)].map((match) => match[1]!);
 }
 
 function countMatches(content: string, pattern: RegExp): number {
-  return [...content.matchAll(new RegExp(pattern.source, pattern.flags))].length
+  return [...content.matchAll(new RegExp(pattern.source, pattern.flags))]
+    .length;
 }
 
 function findStages(content: string): MutationLifecycleStage[] {
-  return (Object.entries(STAGE_PATTERNS) as [MutationLifecycleStage, RegExp[]][])
+  return (
+    Object.entries(STAGE_PATTERNS) as [MutationLifecycleStage, RegExp[]][]
+  )
     .filter(([, patterns]) => patterns.some((pattern) => pattern.test(content)))
-    .map(([stage]) => stage)
+    .map(([stage]) => stage);
 }
 
 function scanMockTargetsInFiles(
   projectRoot: string,
   testFiles: TestFileContent[]
 ): MockTargetUsage[] {
-  const targets = new Map<string, Set<string>>()
+  const targets = new Map<string, Set<string>>();
 
   for (const file of testFiles) {
     for (const target of extractMockTargets(file.content)) {
-      const files = targets.get(target) ?? new Set<string>()
-      files.add(relative(projectRoot, file.path))
-      targets.set(target, files)
+      const files = targets.get(target) ?? new Set<string>();
+      files.add(relative(projectRoot, file.path));
+      targets.set(target, files);
     }
   }
 
@@ -98,7 +108,10 @@ function scanMockTargetsInFiles(
       files: [...files].sort(),
       count: files.size,
     }))
-    .sort((left, right) => right.count - left.count || left.target.localeCompare(right.target))
+    .sort(
+      (left, right) =>
+        right.count - left.count || left.target.localeCompare(right.target)
+    );
 }
 
 function analyzeMutationLifecycleInFiles(
@@ -108,165 +121,181 @@ function analyzeMutationLifecycleInFiles(
   return testFiles
     .filter((file) => MUTATION_TRIGGER_REGEX.test(file.content))
     .map((file) => {
-      const stages = findStages(file.content)
+      const stages = findStages(file.content);
       if (stages.length < 2) {
-        return null
+        return null;
       }
 
       return {
         file: relative(projectRoot, file.path),
         stages,
         evidence: stages.map((stage) => `${stage} cues detected`),
-      }
+      };
     })
     .filter((entry): entry is MutationLifecyclePattern => entry !== null)
-    .sort((left, right) => left.file.localeCompare(right.file))
+    .sort((left, right) => left.file.localeCompare(right.file));
 }
 
 function deriveInteractionContracts(
   mutationLifecycles: MutationLifecyclePattern[]
 ): TaroInteractionContractProfile[] {
-  const contracts: TaroInteractionContractProfile[] = []
+  const contracts: TaroInteractionContractProfile[] = [];
 
   for (const lifecycle of mutationLifecycles) {
     const states = [
-      lifecycle.stages.includes('loading') ? 'in-flight' : null,
-      lifecycle.stages.includes('error') ? 'failed-completion' : null,
-    ].filter((state): state is TaroInteractionContractProfile['states'][number] => state !== null)
+      lifecycle.stages.includes("loading") ? "in-flight" : null,
+      lifecycle.stages.includes("error") ? "failed-completion" : null,
+    ].filter(
+      (state): state is TaroInteractionContractProfile["states"][number] =>
+        state !== null
+    );
 
     if (states.length === 0) {
-      continue
+      continue;
     }
 
     contracts.push({
       file: lifecycle.file,
-      kind: 'mutation-form',
+      kind: "mutation-form",
       states,
       supportTargets: [],
-      overrideStyle: 'none',
-      confidence: 'low',
+      overrideStyle: "none",
+      confidence: "low",
       evidence: lifecycle.evidence,
-    })
+    });
   }
 
-  return contracts.sort((left, right) => left.file.localeCompare(right.file))
+  return contracts.sort((left, right) => left.file.localeCompare(right.file));
 }
 
 function detectMockInstabilityInFiles(
   projectRoot: string,
   testFiles: TestFileContent[]
 ): MockInstabilityWarning[] {
-  const warnings: MockInstabilityWarning[] = []
+  const warnings: MockInstabilityWarning[] = [];
 
   for (const file of testFiles) {
-    const relativePath = relative(projectRoot, file.path)
-    const testBodies = file.content.split(TEST_BLOCK_REGEX).slice(1)
-    const scopedMockCount = testBodies.filter((body) => TEST_SCOPED_MOCK_REGEX.test(body)).length
+    const relativePath = relative(projectRoot, file.path);
+    const testBodies = file.content.split(TEST_BLOCK_REGEX).slice(1);
+    const scopedMockCount = testBodies.filter((body) =>
+      TEST_SCOPED_MOCK_REGEX.test(body)
+    ).length;
 
     if (scopedMockCount > 0) {
       warnings.push({
         file: relativePath,
-        kind: 'recreated-factory',
-        reason: 'Mocks are declared inside test bodies and may recreate factories per test run',
-        evidence: [`${scopedMockCount} test block(s) declare vi.mock/jest.mock`],
-      })
+        kind: "recreated-factory",
+        reason:
+          "Mocks are declared inside test bodies and may recreate factories per test run",
+        evidence: [
+          `${scopedMockCount} test block(s) declare vi.mock/jest.mock`,
+        ],
+      });
     }
 
-    const resetCount = countMatches(file.content, MOCK_RESET_REGEX)
-    const configCount = countMatches(file.content, MOCK_CONFIGURATION_REGEX)
+    const resetCount = countMatches(file.content, MOCK_RESET_REGEX);
+    const configCount = countMatches(file.content, MOCK_CONFIGURATION_REGEX);
 
     if (resetCount > 0 && configCount >= 2) {
       warnings.push({
         file: relativePath,
-        kind: 'per-test-churn',
-        reason: 'Mock configuration is reset and redefined repeatedly across tests',
+        kind: "per-test-churn",
+        reason:
+          "Mock configuration is reset and redefined repeatedly across tests",
         evidence: [
           `${resetCount} resetAll/clearAll/restoreAll call(s)`,
           `${configCount} mock configuration call(s)`,
         ],
-      })
+      });
     }
   }
 
   return warnings.sort((left, right) => {
-    return left.file.localeCompare(right.file) || left.kind.localeCompare(right.kind)
-  })
+    return (
+      left.file.localeCompare(right.file) || left.kind.localeCompare(right.kind)
+    );
+  });
 }
 
 export function deriveMockRecommendations(
   targets: MockTargetUsage[]
 ): MockRecommendation[] {
   return targets.map((target) => {
-    const kind: MockRecommendationKind = target.count >= 2 ? 'extract' : 'inline'
+    const kind: MockRecommendationKind =
+      target.count >= 2 ? "extract" : "inline";
     return {
       count: target.count,
       files: target.files,
       kind,
       reason:
-        kind === 'extract'
-          ? 'Mock target appears in multiple tests and should be shared'
-          : 'Mock target appears in one place and can stay local to the test',
+        kind === "extract"
+          ? "Mock target appears in multiple tests and should be shared"
+          : "Mock target appears in one place and can stay local to the test",
       target: target.target,
-    }
-  })
+    };
+  });
 }
 
-export async function scanMockTargets(projectRoot: string): Promise<MockTargetUsage[]> {
-  const testFiles = await readTestFiles(projectRoot)
-  return scanMockTargetsInFiles(projectRoot, testFiles)
+export async function scanMockTargets(
+  projectRoot: string
+): Promise<MockTargetUsage[]> {
+  const testFiles = await readTestFiles(projectRoot);
+  return scanMockTargetsInFiles(projectRoot, testFiles);
 }
 
 export async function analyzeMutationLifecycle(
   projectRoot: string
 ): Promise<MutationLifecyclePattern[]> {
-  const testFiles = await readTestFiles(projectRoot)
-  return analyzeMutationLifecycleInFiles(projectRoot, testFiles)
+  const testFiles = await readTestFiles(projectRoot);
+  return analyzeMutationLifecycleInFiles(projectRoot, testFiles);
 }
 
 export async function detectMockInstability(
   projectRoot: string
 ): Promise<MockInstabilityWarning[]> {
-  const testFiles = await readTestFiles(projectRoot)
-  return detectMockInstabilityInFiles(projectRoot, testFiles)
+  const testFiles = await readTestFiles(projectRoot);
+  return detectMockInstabilityInFiles(projectRoot, testFiles);
 }
 
 export async function analyzeMocks(
   projectRoot: string,
-  options: {
-    packageProfile?: ResolvedTaroPackageProfile | null
-  } = {}
+  options: { packageProfile?: ResolvedTaroPackageProfile | null } = {}
 ): Promise<MockAnalysis> {
-  const packageProfile = options.packageProfile ?? null
+  const packageProfile = options.packageProfile ?? null;
   if (packageProfile) {
-    const forbiddenTargets = new Set(packageProfile.forbidMocks)
+    const forbiddenTargets = new Set(packageProfile.forbidMocks);
     const repeatedTargets = packageProfile.repeatedMockTargets.filter(
       (target) => !forbiddenTargets.has(target.target)
-    )
+    );
     const packageRecommendations = packageProfile.mockRecommendations.filter(
       (recommendation) => !forbiddenTargets.has(recommendation.target)
-    )
-    const preferredRecommendations = Object.entries(packageProfile.preferredSharedMocks).map(
-      ([target, importPath]) => {
-        const repeatedTarget = repeatedTargets.find((entry) => entry.target === target)
-        return {
-          target,
-          kind: 'extract' as const,
-          reason: `Shared mock preference pinned to ${importPath}`,
-          files: repeatedTarget?.files ?? [],
-          count: repeatedTarget?.count ?? 1,
-        }
-      }
-    )
+    );
+    const preferredRecommendations = Object.entries(
+      packageProfile.preferredSharedMocks
+    ).map(([target, importPath]) => {
+      const repeatedTarget = repeatedTargets.find(
+        (entry) => entry.target === target
+      );
+      return {
+        target,
+        kind: "extract" as const,
+        reason: `Shared mock preference pinned to ${importPath}`,
+        files: repeatedTarget?.files ?? [],
+        count: repeatedTarget?.count ?? 1,
+      };
+    });
 
     return {
       conventions: packageProfile.conventions,
       packagePath: packageProfile.packagePath,
-      source: 'package-profile',
+      source: "package-profile",
       recommendations: [
         ...preferredRecommendations,
         ...packageRecommendations.filter(
           (recommendation) =>
-            !preferredRecommendations.some((preferred) => preferred.target === recommendation.target)
+            !preferredRecommendations.some(
+              (preferred) => preferred.target === recommendation.target
+            )
         ),
       ],
       repeatedTargets,
@@ -278,25 +307,32 @@ export async function analyzeMocks(
       inlineSafeMockTargets: packageProfile.inlineSafeMockTargets,
       preferredSharedMocks: packageProfile.preferredSharedMocks,
       forbidMocks: packageProfile.forbidMocks,
-      preferredBoundaryImplementations: packageProfile.preferredBoundaryImplementations,
+      preferredBoundaryImplementations:
+        packageProfile.preferredBoundaryImplementations,
       forbidBoundaryTargets: packageProfile.forbidBoundaryTargets,
       queryHookPolicy: packageProfile.effectiveQueryHookPolicy,
       companionPolicy: packageProfile.effectiveCompanionPolicy,
       enabledContractFamilies: packageProfile.enabledContractFamilies,
-    }
+    };
   }
 
-  const testFiles = await readTestFiles(projectRoot)
-  const [conventions] = await Promise.all([readConventions(projectRoot)])
-  const targets = scanMockTargetsInFiles(projectRoot, testFiles)
-  const mutationLifecycles = analyzeMutationLifecycleInFiles(projectRoot, testFiles)
-  const interactionContracts = deriveInteractionContracts(mutationLifecycles)
-  const instabilityWarnings = detectMockInstabilityInFiles(projectRoot, testFiles)
+  const testFiles = await readTestFiles(projectRoot);
+  const [conventions] = await Promise.all([readConventions(projectRoot)]);
+  const targets = scanMockTargetsInFiles(projectRoot, testFiles);
+  const mutationLifecycles = analyzeMutationLifecycleInFiles(
+    projectRoot,
+    testFiles
+  );
+  const interactionContracts = deriveInteractionContracts(mutationLifecycles);
+  const instabilityWarnings = detectMockInstabilityInFiles(
+    projectRoot,
+    testFiles
+  );
 
   return {
     conventions,
     packagePath: null,
-    source: 'repo-scan',
+    source: "repo-scan",
     recommendations: deriveMockRecommendations(targets),
     repeatedTargets: targets.filter((target) => target.count > 1),
     mutationLifecycles,
@@ -309,8 +345,8 @@ export async function analyzeMocks(
     forbidMocks: [],
     preferredBoundaryImplementations: {},
     forbidBoundaryTargets: [],
-    queryHookPolicy: 'avoid',
-    companionPolicy: 'heuristic',
-    enabledContractFamilies: ['mutation-form'],
-  }
+    queryHookPolicy: "avoid",
+    companionPolicy: "heuristic",
+    enabledContractFamilies: ["mutation-form"],
+  };
 }

@@ -5,6 +5,7 @@ description: Show @taro-test/rtl install, initialization, refresh, and generatio
 You are the installed `/@taro-test/rtl-help` command for `@taro-test/rtl`.
 
 When the user wants help:
+
 1. Explain that `/@taro-test/rtl-help` is the runtime-native help entrypoint.
 2. For installation or package updates, tell them to run `npx @taro-test/rtl@latest`.
 3. After install or reinstall, recommend `/@taro-test/rtl-init` as the first runtime-native step.

@@ -1,20 +1,26 @@
 /**
  * Recorder parser - Main entry point for parsing Chrome Recorder exports
- * 
+ *
  * Pipeline:
  * 1. Parse JSON → NormalizedSteps
- * 2. deduplicateSteps(NormalizedSteps) → DedupedSteps  
+ * 2. deduplicateSteps(NormalizedSteps) → DedupedSteps
  * 3. filterNoiseSteps(DedupedSteps) → CleanSteps
  * 4. groupDialogSteps(CleanSteps) → DialogFlows
  * 5. Continue to generation
  */
 
-import { readFile } from 'fs/promises';
-import { resolve } from 'path';
-import type { ChromeRecorderExport, ChromeStep, NormalizedRecording, RecordingStep, StepType } from '../types/recording.js';
-import { deduplicateSteps } from './steps/deduplicator.js';
-import { filterNoiseSteps } from './steps/noise-filter.js';
-import { groupDialogSteps, type DialogFlow } from './steps/dialog-detector.js';
+import { readFile } from "fs/promises";
+import { resolve } from "path";
+import type {
+  ChromeRecorderExport,
+  ChromeStep,
+  NormalizedRecording,
+  RecordingStep,
+  StepType,
+} from "../types/recording.js";
+import { deduplicateSteps } from "./steps/deduplicator.js";
+import { filterNoiseSteps } from "./steps/noise-filter.js";
+import { groupDialogSteps, type DialogFlow } from "./steps/dialog-detector.js";
 
 let stepIdCounter = 0;
 
@@ -28,19 +34,19 @@ function generateStepId(): string {
 /**
  * Map Chrome Recorder step type to action name
  */
-function getActionName(type: StepType): RecordingStep['action'] {
-  const actionMap: Record<string, RecordingStep['action']> = {
-    click: 'click',
-    fill: 'fill',
-    select: 'select',
-    scroll: 'scroll',
-    assert: 'assert',
-    waitForSelector: 'waitForSelector',
-    doubleClick: 'doubleClick',
-    keyDown: 'keyDown',
-    navigate: 'navigate'
+function getActionName(type: StepType): RecordingStep["action"] {
+  const actionMap: Record<string, RecordingStep["action"]> = {
+    click: "click",
+    fill: "fill",
+    select: "select",
+    scroll: "scroll",
+    assert: "assert",
+    waitForSelector: "waitForSelector",
+    doubleClick: "doubleClick",
+    keyDown: "keyDown",
+    navigate: "navigate",
   };
-  return actionMap[type] || (type as RecordingStep['action']);
+  return actionMap[type] || (type as RecordingStep["action"]);
 }
 
 /**
@@ -59,16 +65,16 @@ function extractSelector(step: ChromeStep): string | undefined {
 /**
  * Normalize a single Chrome step to internal format
  */
-function normalizeStep(step: ChromeStep, index: number): RecordingStep {
+function normalizeStep(step: ChromeStep): RecordingStep {
   const normalized: RecordingStep = {
     id: generateStepId(),
     type: step.type,
     action: getActionName(step.type),
-    target: step.target || '',
+    target: step.target || "",
     originalType: step.type,
     selector: extractSelector(step),
     timestamp: step.modifiedTime,
-    metadata: {}
+    metadata: {},
   };
 
   if (step.value !== undefined) {
@@ -78,15 +84,12 @@ function normalizeStep(step: ChromeStep, index: number): RecordingStep {
   if (step.assert) {
     normalized.metadata = {
       ...normalized.metadata,
-      assertExpression: step.assert.expression
+      assertExpression: step.assert.expression,
     };
   }
 
   if (step.url) {
-    normalized.metadata = {
-      ...normalized.metadata,
-      url: step.url
-    };
+    normalized.metadata = { ...normalized.metadata, url: step.url };
   }
 
   return normalized;
@@ -94,7 +97,7 @@ function normalizeStep(step: ChromeStep, index: number): RecordingStep {
 
 /**
  * Parse Chrome Recorder JSON file and apply deduplication and noise filtering
- * 
+ *
  * @param filePath - Path to Chrome Recorder JSON export
  * @returns Normalized recording with cleaned steps
  */
@@ -102,25 +105,29 @@ export async function parseRecording(
   filePath: string
 ): Promise<NormalizedRecording & { steps: RecordingStep[] }> {
   const absolutePath = resolve(process.cwd(), filePath);
-  const content = await readFile(absolutePath, 'utf-8');
-  
+  const content = await readFile(absolutePath, "utf-8");
+
   let exportData: ChromeRecorderExport;
   try {
     exportData = JSON.parse(content);
   } catch (error) {
-    throw new Error(`Invalid JSON in ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Invalid JSON in ${filePath}: ${error instanceof Error ? error.message : "Unknown error"}`
+    );
   }
 
   if (!exportData.steps || !Array.isArray(exportData.steps)) {
-    throw new Error(`Invalid Chrome Recorder export: missing or invalid "steps" array`);
+    throw new Error(
+      `Invalid Chrome Recorder export: missing or invalid "steps" array`
+    );
   }
 
   // Reset step counter for each new recording
   stepIdCounter = 0;
 
   // Step 1: Normalize steps
-  let steps: RecordingStep[] = exportData.steps.map((step, index) => 
-    normalizeStep(step, index)
+  let steps: RecordingStep[] = exportData.steps.map((step) =>
+    normalizeStep(step)
   );
 
   // Step 2: Deduplicate rapid clicks (must run first)
@@ -130,11 +137,11 @@ export async function parseRecording(
   steps = filterNoiseSteps(steps);
 
   return {
-    title: exportData.title || 'Untitled Recording',
+    title: exportData.title || "Untitled Recording",
     steps,
     rawStepCount: exportData.steps.length,
     url: exportData.settings?.url,
-    settings: exportData.settings
+    settings: exportData.settings,
   };
 }
 
@@ -146,21 +153,23 @@ export function resetStepCounter(): void {
 }
 
 // Re-export for convenience
-export { deduplicateSteps } from './steps/deduplicator.js';
-export { filterNoiseSteps } from './steps/noise-filter.js';
-export { groupDialogSteps, resetDialogIdCounter } from './steps/dialog-detector.js';
-export type { DialogFlow, DialogType } from './steps/dialog-detector.js';
+export { deduplicateSteps } from "./steps/deduplicator.js";
+export { filterNoiseSteps } from "./steps/noise-filter.js";
+export {
+  groupDialogSteps,
+  resetDialogIdCounter,
+} from "./steps/dialog-detector.js";
+export type { DialogFlow, DialogType } from "./steps/dialog-detector.js";
 
 /**
  * Parse recording and extract dialog flows
- * 
+ *
  * @param filePath - Path to Chrome Recorder JSON export
  * @returns Object with normalized recording and detected dialog flows
  */
-export async function parseRecordingWithDialogs(filePath: string): Promise<{
-  recording: NormalizedRecording;
-  dialogFlows: DialogFlow[];
-}> {
+export async function parseRecordingWithDialogs(
+  filePath: string
+): Promise<{ recording: NormalizedRecording; dialogFlows: DialogFlow[] }> {
   const recording = await parseRecording(filePath);
   const dialogFlows = groupDialogSteps(recording.steps);
   return { recording, dialogFlows };

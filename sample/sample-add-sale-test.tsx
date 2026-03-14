@@ -42,7 +42,9 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/hooks/useCountryData", () => ({ default: () => "KES" }));
-vi.mock("@/hooks/useWindowSize", () => ({ default: () => ({ isMobile: false }) }));
+vi.mock("@/hooks/useWindowSize", () => ({
+  default: () => ({ isMobile: false }),
+}));
 
 vi.mock("lodash/debounce", () => ({
   default: <T extends (...args: any[]) => any>(callback: T) => {
@@ -83,22 +85,29 @@ const setup = () => {
 };
 
 const openAddSaleDialog = async (user: ReturnType<typeof userEvent.setup>) => {
-  await user.click(screen.getByRole("button", { name: /add sale \(invoice\)/i }));
+  await user.click(
+    screen.getByRole("button", { name: /add sale \(invoice\)/i })
+  );
   // Synchronization: wait for dialog to mount before proceeding.
   await screen.findByRole("heading", { name: "Add Sale (Invoice)" });
 };
 
 const addItemToCart = async (user: ReturnType<typeof userEvent.setup>) => {
-  const addItemStep = screen.getByRole("dialog", { name: /add sale \(invoice\)/i });
+  const addItemStep = screen.getByRole("dialog", {
+    name: /add sale \(invoice\)/i,
+  });
 
   await user.click(within(addItemStep).getByRole("combobox", { name: "Item" }));
   await user.click(await screen.findByText(MOCK_KRA_SALE_ITEM_NAME));
 
-  const quantityInput = within(addItemStep).getByPlaceholderText("Enter quantity");
+  const quantityInput =
+    within(addItemStep).getByPlaceholderText("Enter quantity");
   await user.clear(quantityInput);
   await user.type(quantityInput, "1");
 
-  await user.click(within(addItemStep).getByRole("button", { name: /\+ add item to cart/i }));
+  await user.click(
+    within(addItemStep).getByRole("button", { name: /\+ add item to cart/i })
+  );
 
   // Synchronization: wait for cart to update.
   await screen.findByText(/LLM masterclass/i);
@@ -111,24 +120,44 @@ const addItemToCart = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.clear(cartQuantityInput);
   await user.type(cartQuantityInput, "4");
 
-  await user.click(within(addItemStep).getByRole("button", { name: /^continue$/i }));
+  await user.click(
+    within(addItemStep).getByRole("button", { name: /^continue$/i })
+  );
 };
 
 const fillOtherDetails = async (user: ReturnType<typeof userEvent.setup>) => {
   // Scope to the current step to avoid positional button indexing.
-  const otherDetailsStep = screen.getByRole("dialog", { name: /other details/i });
+  const otherDetailsStep = screen.getByRole("dialog", {
+    name: /other details/i,
+  });
 
-  await user.click(within(otherDetailsStep).getByRole("combobox", { name: /customer pin \/ name/i }));
+  await user.click(
+    within(otherDetailsStep).getByRole("combobox", {
+      name: /customer pin \/ name/i,
+    })
+  );
   await user.click(await screen.findByText("A009105523T - John Doe"));
 
-  await user.type(within(otherDetailsStep).getByPlaceholderText("Enter rate (0-100)%"), "1");
-  await user.type(within(otherDetailsStep).getByPlaceholderText("Enter a unique trader invoice no."), "001");
   await user.type(
-    within(otherDetailsStep).getByRole("textbox", { name: /general invoice details \(optional\)/i }),
+    within(otherDetailsStep).getByPlaceholderText("Enter rate (0-100)%"),
+    "1"
+  );
+  await user.type(
+    within(otherDetailsStep).getByPlaceholderText(
+      "Enter a unique trader invoice no."
+    ),
+    "001"
+  );
+  await user.type(
+    within(otherDetailsStep).getByRole("textbox", {
+      name: /general invoice details \(optional\)/i,
+    }),
     "Hello world"
   );
 
-  await user.click(within(otherDetailsStep).getByRole("button", { name: /^continue$/i }));
+  await user.click(
+    within(otherDetailsStep).getByRole("button", { name: /^continue$/i })
+  );
 };
 
 const openReviewDialog = () =>
@@ -149,7 +178,9 @@ describe("SalesModule", () => {
     await fillOtherDetails(user);
 
     const reviewDialog = await openReviewDialog();
-    await user.click(within(reviewDialog).getByRole("button", { name: /^save$/i }));
+    await user.click(
+      within(reviewDialog).getByRole("button", { name: /^save$/i })
+    );
 
     await waitFor(() => expect(createSaleMutate).toHaveBeenCalledTimes(1));
     expect(createSaleMutate).toHaveBeenCalledWith({
@@ -158,11 +189,19 @@ describe("SalesModule", () => {
         customerType: mockKraSaleCustomer.taxPayerType,
         traderInvoiceNumber: "001",
         serviceChargeRate: 0.01,
-        items: [expect.objectContaining({ itemID: MOCK_KRA_SALE_ITEM_ID, quantity: 4 })],
+        items: [
+          expect.objectContaining({
+            itemID: MOCK_KRA_SALE_ITEM_ID,
+            quantity: 4,
+          }),
+        ],
       }),
     });
 
-    expect(ToastMessage.success).toHaveBeenCalledWith("Sale", "Sale added successfully");
+    expect(ToastMessage.success).toHaveBeenCalledWith(
+      "Sale",
+      "Sale added successfully"
+    );
   });
 
   // Verifies that the review dialog accurately reflects what the user entered.
@@ -178,12 +217,16 @@ describe("SalesModule", () => {
     const reviewDialog = await openReviewDialog();
 
     expect(
-      within(reviewDialog).getByRole("heading", { name: /review sale \(invoice\)/i })
+      within(reviewDialog).getByRole("heading", {
+        name: /review sale \(invoice\)/i,
+      })
     ).toBeInTheDocument();
     expect(
       within(reviewDialog).getByText(new RegExp(MOCK_KRA_SALE_ITEM_NAME, "i"))
     ).toBeInTheDocument();
-    expect(within(reviewDialog).getByText(mockKraSaleCustomer.email)).toBeInTheDocument();
+    expect(
+      within(reviewDialog).getByText(mockKraSaleCustomer.email)
+    ).toBeInTheDocument();
     expect(within(reviewDialog).getByText("Hello world")).toBeInTheDocument();
   });
 
@@ -191,22 +234,32 @@ describe("SalesModule", () => {
     const user = setup();
 
     await openAddSaleDialog(user);
-    await user.click(screen.getByRole("button", { name: /\+ add item to cart/i }));
+    await user.click(
+      screen.getByRole("button", { name: /\+ add item to cart/i })
+    );
 
-    expect(await screen.findByText("Please enter or select an item")).toBeInTheDocument();
-    expect(await screen.findByText("Please enter unit price")).toBeInTheDocument();
-    expect(await screen.findByText("Please enter quantity")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Please enter or select an item")
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("Please enter unit price")
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("Please enter quantity")
+    ).toBeInTheDocument();
   });
 
   test("shows an error toast when sale creation fails", async () => {
-    useKraCreateSaleMutationMock.mockImplementationOnce(({ onError, onSettled }: any = {}) => ({
-      mutate: (args: any) => {
-        createSaleMutate(args);
-        onError?.("Mutation failed");
-        onSettled?.();
-      },
-      isPending: false,
-    }));
+    useKraCreateSaleMutationMock.mockImplementationOnce(
+      ({ onError, onSettled }: any = {}) => ({
+        mutate: (args: any) => {
+          createSaleMutate(args);
+          onError?.("Mutation failed");
+          onSettled?.();
+        },
+        isPending: false,
+      })
+    );
 
     const user = setup();
 
@@ -215,7 +268,9 @@ describe("SalesModule", () => {
     await fillOtherDetails(user);
 
     const reviewDialog = await openReviewDialog();
-    await user.click(within(reviewDialog).getByRole("button", { name: /^save$/i }));
+    await user.click(
+      within(reviewDialog).getByRole("button", { name: /^save$/i })
+    );
 
     await waitFor(() => expect(createSaleMutate).toHaveBeenCalledTimes(1));
     expect(ToastMessage.error).toHaveBeenCalledWith(
@@ -239,6 +294,8 @@ describe("SalesModule", () => {
     await fillOtherDetails(user);
 
     const reviewDialog = await openReviewDialog();
-    expect(within(reviewDialog).getByRole("button", { name: /^save$/i })).toBeDisabled();
+    expect(
+      within(reviewDialog).getByRole("button", { name: /^save$/i })
+    ).toBeDisabled();
   });
 });

@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest'
-import { normalizeJsBaseline } from './baseline-normalizer.js'
-import { planJsSuite } from './suite-planner.js'
-import type { MockAnalysis } from './mock-intelligence.js'
+import { describe, expect, it } from "vitest";
+import { normalizeJsBaseline } from "./baseline-normalizer.js";
+import { planJsSuite } from "./suite-planner.js";
+import type { MockAnalysis } from "./mock-intelligence.js";
 import type {
   AnalyzedRecording,
   ItGroup,
@@ -10,21 +10,19 @@ import type {
   SemanticMarkerCandidate,
   SemanticMarkerLink,
   UnresolvedSemanticMarker,
-} from '../types/recording.js'
+} from "../types/recording.js";
 
-function createRecording(steps: NormalizedRecording['steps']): NormalizedRecording {
-  return {
-    title: 'Example flow',
-    rawStepCount: steps.length,
-    steps,
-  }
+function createRecording(
+  steps: NormalizedRecording["steps"]
+): NormalizedRecording {
+  return { title: "Example flow", rawStepCount: steps.length, steps };
 }
 
 function createAnalyzedRecording(
   recording: NormalizedRecording,
   intentGroups: ItGroup[] = [
-    { name: 'open example dialog', steps: recording.steps.slice(0, 2) },
-    { name: 'complete example wizard', steps: recording.steps.slice(2) },
+    { name: "open example dialog", steps: recording.steps.slice(0, 2) },
+    { name: "complete example wizard", steps: recording.steps.slice(2) },
   ]
 ): AnalyzedRecording {
   return {
@@ -38,46 +36,50 @@ function createAnalyzedRecording(
       intentGroupCount: intentGroups.length,
     },
     intentGroups,
-  }
+  };
 }
 
 function createMockAnalysis(): MockAnalysis {
   return {
     conventions: null,
-    packagePath: 'packages/example-app',
-    source: 'package-profile',
+    packagePath: "packages/example-app",
+    source: "package-profile",
     recommendations: [
       {
         count: 3,
-        files: ['src/features/FeatureFlow.test.tsx'],
-        kind: 'extract',
-        reason: 'Mock target appears in multiple tests and should be shared',
-        target: '@repo/data-client',
+        files: ["src/features/FeatureFlow.test.tsx"],
+        kind: "extract",
+        reason: "Mock target appears in multiple tests and should be shared",
+        target: "@repo/data-client",
       },
     ],
     repeatedTargets: [
       {
         count: 3,
-        files: ['src/features/FeatureFlow.test.tsx'],
-        target: '@repo/data-client',
+        files: ["src/features/FeatureFlow.test.tsx"],
+        target: "@repo/data-client",
       },
     ],
     mutationLifecycles: [
       {
-        file: 'src/features/FeatureFlow.test.tsx',
-        stages: ['loading', 'success', 'error'],
-        evidence: ['loading cues detected', 'success cues detected', 'error cues detected'],
+        file: "src/features/FeatureFlow.test.tsx",
+        stages: ["loading", "success", "error"],
+        evidence: [
+          "loading cues detected",
+          "success cues detected",
+          "error cues detected",
+        ],
       },
     ],
     interactionContracts: [
       {
-        file: 'src/features/FeatureFlow.test.tsx',
-        kind: 'mutation-form',
-        states: ['in-flight', 'failed-completion'],
-        supportTargets: ['@repo/data-client'],
-        overrideStyle: 'stable-handles',
-        confidence: 'high',
-        evidence: ['loading cues detected', 'error cues detected'],
+        file: "src/features/FeatureFlow.test.tsx",
+        kind: "mutation-form",
+        states: ["in-flight", "failed-completion"],
+        supportTargets: ["@repo/data-client"],
+        overrideStyle: "stable-handles",
+        confidence: "high",
+        evidence: ["loading cues detected", "error cues detected"],
       },
     ],
     instabilityWarnings: [],
@@ -88,120 +90,104 @@ function createMockAnalysis(): MockAnalysis {
     forbidMocks: [],
     preferredBoundaryImplementations: {},
     forbidBoundaryTargets: [],
-    queryHookPolicy: 'avoid',
-    companionPolicy: 'heuristic',
-    enabledContractFamilies: ['mutation-form'],
-  }
+    queryHookPolicy: "avoid",
+    companionPolicy: "heuristic",
+    enabledContractFamilies: ["mutation-form"],
+  };
 }
 
-describe('planJsSuite', () => {
-  it('reifies marker steps into scenario metadata and keeps helpers sync-only', () => {
+describe("planJsSuite", () => {
+  it("reifies marker steps into scenario metadata and keeps helpers sync-only", () => {
     const semanticMarkerCandidate: SemanticMarkerCandidate = {
-      stepId: 'js-step-2',
-      status: 'qualified',
-      originalGesture: 'dblClick',
-      proofSubject: 'heading',
-      proofText: 'Review Example',
-      target: 'Review Example',
+      stepId: "js-step-2",
+      status: "qualified",
+      originalGesture: "dblClick",
+      proofSubject: "heading",
+      proofText: "Review Example",
+      target: "Review Example",
       query: {
-        stepId: 'js-step-2',
-        method: 'getByRole',
-        queryRoot: 'screen',
-        role: 'heading',
+        stepId: "js-step-2",
+        method: "getByRole",
+        queryRoot: "screen",
+        role: "heading",
         raw: "screen.getByRole('heading', { name: 'Review Example' })",
-        target: 'Review Example',
+        target: "Review Example",
       },
-      anchor: {
-        anchorStepId: 'js-step-1',
-        relation: 'precedes',
-      },
-      sourceContext: {
-        originalType: 'dblClick',
-      },
-    }
+      anchor: { anchorStepId: "js-step-1", relation: "precedes" },
+      sourceContext: { originalType: "dblClick" },
+    };
     const semanticMarkerLink: SemanticMarkerLink = {
-      markerStepId: 'js-step-2',
-      anchorStepId: 'js-step-1',
-      relation: 'precedes',
-      proofSubject: 'heading',
-      proofText: 'Review Example',
-      target: 'Review Example',
-      sourceContext: {
-        originalType: 'dblClick',
-      },
+      markerStepId: "js-step-2",
+      anchorStepId: "js-step-1",
+      relation: "precedes",
+      proofSubject: "heading",
+      proofText: "Review Example",
+      target: "Review Example",
+      sourceContext: { originalType: "dblClick" },
       query: semanticMarkerCandidate.query,
-    }
+    };
     const unresolvedSemanticMarker: UnresolvedSemanticMarker = {
-      stepId: 'js-step-4',
-      reason: 'ambiguous-field-context',
-      proofSubject: 'field-label',
-      proofText: 'Customer Reference',
-      target: 'Customer Reference',
+      stepId: "js-step-4",
+      reason: "ambiguous-field-context",
+      proofSubject: "field-label",
+      proofText: "Customer Reference",
+      target: "Customer Reference",
       line: 27,
-      sourceContext: {
-        line: 27,
-        originalType: 'dblClick',
-      },
-      anchor: {
-        anchorStepId: 'js-step-1',
-        relation: 'precedes',
-      },
+      sourceContext: { line: 27, originalType: "dblClick" },
+      anchor: { anchorStepId: "js-step-1", relation: "precedes" },
       query: {
-        stepId: 'js-step-3',
-        method: 'getByText',
-        queryRoot: 'screen',
+        stepId: "js-step-3",
+        method: "getByText",
+        queryRoot: "screen",
         raw: "screen.getByText('Customer Reference')",
-        target: 'Customer Reference',
+        target: "Customer Reference",
       },
-    }
+    };
 
     const parsedInput: ParsedJsInput = {
-      source: 'js',
+      source: "js",
       recording: createRecording([
         {
-          id: 'js-step-1',
-          action: 'click',
-          target: 'Open Example Dialog',
-          originalType: 'click',
-          source: 'js',
+          id: "js-step-1",
+          action: "click",
+          target: "Open Example Dialog",
+          originalType: "click",
+          source: "js",
         },
         {
-          id: 'js-step-2',
-          action: 'click',
-          target: 'Review Example',
-          originalType: 'dblClick',
-          source: 'js',
-          metadata: {
-            semanticMarkerCandidate,
-            semanticMarkerLink,
-          },
+          id: "js-step-2",
+          action: "click",
+          target: "Review Example",
+          originalType: "dblClick",
+          source: "js",
+          metadata: { semanticMarkerCandidate, semanticMarkerLink },
         },
         {
-          id: 'js-step-3',
-          action: 'assert',
-          target: 'Example dialog',
-          originalType: 'assert',
-          source: 'js',
+          id: "js-step-3",
+          action: "assert",
+          target: "Example dialog",
+          originalType: "assert",
+          source: "js",
         },
         {
-          id: 'js-step-4',
-          action: 'click',
-          target: 'Customer Reference',
-          originalType: 'dblClick',
-          source: 'js',
+          id: "js-step-4",
+          action: "click",
+          target: "Customer Reference",
+          originalType: "dblClick",
+          source: "js",
           metadata: {
             semanticMarkerCandidate: {
               ...unresolvedSemanticMarker,
-              stepId: 'js-step-4',
-              status: 'unresolved',
-              originalGesture: 'dblClick',
+              stepId: "js-step-4",
+              status: "unresolved",
+              originalGesture: "dblClick",
             },
             unresolvedSemanticMarker,
           },
         },
       ]),
       baseline: {
-        environmentUrl: 'http://localhost:3001/example',
+        environmentUrl: "http://localhost:3001/example",
         queries: [],
         selectors: [],
         assertions: [],
@@ -209,18 +195,13 @@ describe('planJsSuite', () => {
           semanticMarkerCandidate,
           {
             ...unresolvedSemanticMarker,
-            status: 'unresolved',
-            originalGesture: 'dblClick',
+            status: "unresolved",
+            originalGesture: "dblClick",
           },
         ],
-        itGroups: [
-          {
-            name: 'open example dialog',
-            steps: [],
-          },
-        ],
+        itGroups: [{ name: "open example dialog", steps: [] }],
       },
-    }
+    };
 
     const normalized = normalizeJsBaseline({
       ...parsedInput,
@@ -228,7 +209,7 @@ describe('planJsSuite', () => {
         ...parsedInput.baseline,
         itGroups: [
           {
-            name: 'open example dialog',
+            name: "open example dialog",
             steps: parsedInput.recording.steps.map((step) => ({
               ...step,
               semanticMarkerCandidate: undefined,
@@ -238,369 +219,390 @@ describe('planJsSuite', () => {
           },
         ],
       },
-    })
+    });
     const intentGroups: ItGroup[] = [
-      { name: 'open example dialog', steps: normalized.steps },
-    ]
+      { name: "open example dialog", steps: normalized.steps },
+    ];
 
     const plan = planJsSuite({
       recording: normalized,
       analyzedRecording: createAnalyzedRecording(normalized, intentGroups),
       mockAnalysis: null,
       fallbackTitle: normalized.title,
-    })
+    });
 
-    expect(normalized.steps[1]?.semanticMarkerLink).toEqual(semanticMarkerLink)
-    expect(normalized.steps[3]?.unresolvedSemanticMarker).toEqual(unresolvedSemanticMarker)
+    expect(normalized.steps[1]?.semanticMarkerLink).toEqual(semanticMarkerLink);
+    expect(normalized.steps[3]?.unresolvedSemanticMarker).toEqual(
+      unresolvedSemanticMarker
+    );
     expect(normalized.baseline?.itGroups[0]?.steps[1]).toMatchObject({
       semanticMarkerLink,
-    })
+    });
     expect(normalized.baseline?.itGroups[0]?.steps[3]).toMatchObject({
       unresolvedSemanticMarker,
-    })
+    });
     expect(plan.helpers[0]).toMatchObject({
-      name: 'planOpenExampleDialog',
-      assertionPolicy: 'sync-only',
-    })
+      name: "planOpenExampleDialog",
+      assertionPolicy: "sync-only",
+    });
     expect(plan.helpers[0]?.steps.map((step) => step.id)).toEqual([
-      'js-step-1',
-      'js-step-3',
-    ])
+      "js-step-1",
+      "js-step-3",
+    ]);
     expect(plan.scenarios[0]?.steps.map((step) => step.id)).toEqual([
-      'js-step-1',
-      'js-step-3',
-    ])
-    expect(plan.scenarios[0]?.helperRefs).toEqual(['planOpenExampleDialog'])
-    expect(plan.scenarios[0]?.markerAssertions).toHaveLength(1)
+      "js-step-1",
+      "js-step-3",
+    ]);
+    expect(plan.scenarios[0]?.helperRefs).toEqual(["planOpenExampleDialog"]);
+    expect(plan.scenarios[0]?.markerAssertions).toHaveLength(1);
     expect(plan.scenarios[0]?.markerAssertions?.[0]).toMatchObject({
-      markerStepId: 'js-step-2',
-      anchorStepId: 'js-step-1',
+      markerStepId: "js-step-2",
+      anchorStepId: "js-step-1",
       placement: {
-        kind: 'after-helper',
-        helperName: 'planOpenExampleDialog',
-        stepId: 'js-step-1',
+        kind: "after-helper",
+        helperName: "planOpenExampleDialog",
+        stepId: "js-step-1",
       },
       assertion: {
-        proofKind: 'role-name',
-        query: expect.objectContaining({
-          method: 'findByRole',
-        }),
+        proofKind: "role-name",
+        query: expect.objectContaining({ method: "findByRole" }),
       },
-    })
-    expect(plan.scenarios[0]?.unresolvedMarkerAssertions).toHaveLength(1)
+    });
+    expect(plan.scenarios[0]?.unresolvedMarkerAssertions).toHaveLength(1);
     expect(plan.scenarios[0]?.unresolvedMarkerAssertions?.[0]).toMatchObject({
-      markerStepId: 'js-step-4',
-      anchorStepId: 'js-step-1',
-      reason: 'ambiguous-field-context',
+      markerStepId: "js-step-4",
+      anchorStepId: "js-step-1",
+      reason: "ambiguous-field-context",
       line: 27,
-      sourceContext: {
-        line: 27,
-      },
-    })
-  })
+      sourceContext: { line: 27 },
+    });
+  });
 
-  it('keeps distinct resolved marker proof on the same anchor while still tracking unresolved gaps', () => {
+  it("keeps distinct resolved marker proof on the same anchor while still tracking unresolved gaps", () => {
     const recording = createRecording([
       {
-        id: 'js-step-1',
-        action: 'click',
-        target: 'Continue',
-        originalType: 'click',
-        source: 'js',
+        id: "js-step-1",
+        action: "click",
+        target: "Continue",
+        originalType: "click",
+        source: "js",
       },
       {
-        id: 'js-step-2',
-        action: 'click',
-        target: 'Review Example',
-        originalType: 'dblClick',
-        source: 'js',
+        id: "js-step-2",
+        action: "click",
+        target: "Review Example",
+        originalType: "dblClick",
+        source: "js",
         semanticMarkerCandidate: {
-          stepId: 'js-step-2',
-          status: 'qualified',
-          originalGesture: 'dblClick',
-          proofSubject: 'visible-message',
-          proofText: 'Review Example',
-          target: 'Review Example',
-          sourceContext: {
-            originalType: 'dblClick',
-          },
+          stepId: "js-step-2",
+          status: "qualified",
+          originalGesture: "dblClick",
+          proofSubject: "visible-message",
+          proofText: "Review Example",
+          target: "Review Example",
+          sourceContext: { originalType: "dblClick" },
           query: {
-            stepId: 'js-step-2',
-            method: 'getByText',
-            queryRoot: 'screen',
+            stepId: "js-step-2",
+            method: "getByText",
+            queryRoot: "screen",
             raw: "screen.getByText('Review Example')",
-            target: 'Review Example',
+            target: "Review Example",
           },
-          anchor: {
-            anchorStepId: 'js-step-1',
-            relation: 'precedes',
-          },
+          anchor: { anchorStepId: "js-step-1", relation: "precedes" },
         },
       },
       {
-        id: 'js-step-3',
-        action: 'click',
-        target: 'Review Example',
-        originalType: 'dblClick',
-        source: 'js',
+        id: "js-step-3",
+        action: "click",
+        target: "Review Example",
+        originalType: "dblClick",
+        source: "js",
         semanticMarkerCandidate: {
-          stepId: 'js-step-3',
-          status: 'qualified',
-          originalGesture: 'dblClick',
-          proofSubject: 'heading',
-          proofText: 'Review Example',
-          target: 'Review Example',
-          sourceContext: {
-            originalType: 'dblClick',
-          },
+          stepId: "js-step-3",
+          status: "qualified",
+          originalGesture: "dblClick",
+          proofSubject: "heading",
+          proofText: "Review Example",
+          target: "Review Example",
+          sourceContext: { originalType: "dblClick" },
           query: {
-            stepId: 'js-step-3',
-            method: 'getByRole',
-            queryRoot: 'screen',
-            role: 'heading',
+            stepId: "js-step-3",
+            method: "getByRole",
+            queryRoot: "screen",
+            role: "heading",
             raw: "screen.getByRole('heading', { name: 'Review Example' })",
-            target: 'Review Example',
+            target: "Review Example",
           },
-          anchor: {
-            anchorStepId: 'js-step-1',
-            relation: 'precedes',
-          },
+          anchor: { anchorStepId: "js-step-1", relation: "precedes" },
         },
       },
       {
-        id: 'js-step-4',
-        action: 'assert',
-        target: 'Review summary',
-        originalType: 'assert',
-        source: 'js',
+        id: "js-step-4",
+        action: "assert",
+        target: "Review summary",
+        originalType: "assert",
+        source: "js",
       },
       {
-        id: 'js-step-5',
-        action: 'click',
-        target: 'Review Example',
-        originalType: 'dblClick',
-        source: 'js',
+        id: "js-step-5",
+        action: "click",
+        target: "Review Example",
+        originalType: "dblClick",
+        source: "js",
         semanticMarkerCandidate: {
-          stepId: 'js-step-5',
-          status: 'unresolved',
-          originalGesture: 'dblClick',
-          proofSubject: 'field-label',
-          proofText: 'Review Example',
-          target: 'Review Example',
-          sourceContext: {
-            originalType: 'dblClick',
-          },
+          stepId: "js-step-5",
+          status: "unresolved",
+          originalGesture: "dblClick",
+          proofSubject: "field-label",
+          proofText: "Review Example",
+          target: "Review Example",
+          sourceContext: { originalType: "dblClick" },
           query: {
-            stepId: 'js-step-5',
-            method: 'getByText',
-            queryRoot: 'screen',
+            stepId: "js-step-5",
+            method: "getByText",
+            queryRoot: "screen",
             raw: "screen.getByText('Review Example')",
-            target: 'Review Example',
+            target: "Review Example",
           },
-          anchor: {
-            anchorStepId: 'js-step-1',
-            relation: 'precedes',
-          },
+          anchor: { anchorStepId: "js-step-1", relation: "precedes" },
         },
         unresolvedSemanticMarker: {
-          stepId: 'js-step-5',
-          reason: 'ambiguous-field-context',
-          proofSubject: 'field-label',
-          proofText: 'Review Example',
-          target: 'Review Example',
-          sourceContext: {
-            originalType: 'dblClick',
-          },
+          stepId: "js-step-5",
+          reason: "ambiguous-field-context",
+          proofSubject: "field-label",
+          proofText: "Review Example",
+          target: "Review Example",
+          sourceContext: { originalType: "dblClick" },
           query: {
-            stepId: 'js-step-5',
-            method: 'getByText',
-            queryRoot: 'screen',
+            stepId: "js-step-5",
+            method: "getByText",
+            queryRoot: "screen",
             raw: "screen.getByText('Review Example')",
-            target: 'Review Example',
+            target: "Review Example",
           },
-          anchor: {
-            anchorStepId: 'js-step-1',
-            relation: 'precedes',
-          },
+          anchor: { anchorStepId: "js-step-1", relation: "precedes" },
         },
       },
-    ])
+    ]);
 
     const intentGroups: ItGroup[] = [
-      { name: 'review example', steps: recording.steps },
-    ]
+      { name: "review example", steps: recording.steps },
+    ];
 
     const plan = planJsSuite({
       recording,
       analyzedRecording: createAnalyzedRecording(recording, intentGroups),
       mockAnalysis: null,
       fallbackTitle: recording.title,
-    })
+    });
 
-    expect(plan.helpers[0]?.assertionPolicy).toBe('sync-only')
+    expect(plan.helpers[0]?.assertionPolicy).toBe("sync-only");
     expect(plan.helpers[0]?.steps.map((step) => step.id)).toEqual([
-      'js-step-1',
-      'js-step-4',
-    ])
+      "js-step-1",
+      "js-step-4",
+    ]);
     expect(plan.scenarios[0]?.steps.map((step) => step.id)).toEqual([
-      'js-step-1',
-      'js-step-4',
-    ])
-    expect(plan.scenarios[0]?.markerAssertions).toHaveLength(2)
+      "js-step-1",
+      "js-step-4",
+    ]);
+    expect(plan.scenarios[0]?.markerAssertions).toHaveLength(2);
     expect(plan.scenarios[0]?.markerAssertions?.[0]).toMatchObject({
-      markerStepId: 'js-step-2',
-      anchorStepId: 'js-step-1',
+      markerStepId: "js-step-2",
+      anchorStepId: "js-step-1",
       placement: {
-        kind: 'after-helper',
-        helperName: 'planReviewExample',
-        stepId: 'js-step-1',
+        kind: "after-helper",
+        helperName: "planReviewExample",
+        stepId: "js-step-1",
       },
-      assertion: {
-        proofKind: 'visible-text',
-      },
-    })
-    expect(plan.scenarios[0]?.markerAssertions?.[0]?.assertion.query.method).toBe('findByText')
+      assertion: { proofKind: "visible-text" },
+    });
+    expect(
+      plan.scenarios[0]?.markerAssertions?.[0]?.assertion.query.method
+    ).toBe("findByText");
     expect(plan.scenarios[0]?.markerAssertions?.[1]).toMatchObject({
-      markerStepId: 'js-step-3',
-      anchorStepId: 'js-step-1',
+      markerStepId: "js-step-3",
+      anchorStepId: "js-step-1",
       placement: {
-        kind: 'after-helper',
-        helperName: 'planReviewExample',
-        stepId: 'js-step-1',
+        kind: "after-helper",
+        helperName: "planReviewExample",
+        stepId: "js-step-1",
       },
-      assertion: {
-        proofKind: 'role-name',
-      },
-    })
-    expect(plan.scenarios[0]?.markerAssertions?.[1]?.assertion.query.method).toBe('findByRole')
-    expect(plan.scenarios[0]?.unresolvedMarkerAssertions).toHaveLength(1)
+      assertion: { proofKind: "role-name" },
+    });
+    expect(
+      plan.scenarios[0]?.markerAssertions?.[1]?.assertion.query.method
+    ).toBe("findByRole");
+    expect(plan.scenarios[0]?.unresolvedMarkerAssertions).toHaveLength(1);
     expect(plan.scenarios[0]?.unresolvedMarkerAssertions?.[0]).toMatchObject({
-      markerStepId: 'js-step-5',
-      reason: 'ambiguous-field-context',
-    })
-  })
+      markerStepId: "js-step-5",
+      reason: "ambiguous-field-context",
+    });
+  });
 
-  it('moves resolved marker assertions into the scenario that owns the anchor step', () => {
+  it("moves resolved marker assertions into the scenario that owns the anchor step", () => {
     const recording = createRecording([
       {
-        id: 'js-step-1',
-        action: 'click',
-        target: 'Open Example Dialog',
-        originalType: 'click',
-        source: 'js',
+        id: "js-step-1",
+        action: "click",
+        target: "Open Example Dialog",
+        originalType: "click",
+        source: "js",
       },
       {
-        id: 'js-step-2',
-        action: 'click',
-        target: 'Review Example',
-        originalType: 'dblClick',
-        source: 'js',
+        id: "js-step-2",
+        action: "click",
+        target: "Review Example",
+        originalType: "dblClick",
+        source: "js",
         semanticMarkerCandidate: {
-          stepId: 'js-step-2',
-          status: 'qualified',
-          originalGesture: 'dblClick',
-          proofSubject: 'heading',
-          proofText: 'Review Example',
-          target: 'Review Example',
-          sourceContext: {
-            originalType: 'dblClick',
-          },
+          stepId: "js-step-2",
+          status: "qualified",
+          originalGesture: "dblClick",
+          proofSubject: "heading",
+          proofText: "Review Example",
+          target: "Review Example",
+          sourceContext: { originalType: "dblClick" },
           query: {
-            stepId: 'js-step-2',
-            method: 'getByRole',
-            queryRoot: 'screen',
-            role: 'heading',
-            name: 'Review Example',
+            stepId: "js-step-2",
+            method: "getByRole",
+            queryRoot: "screen",
+            role: "heading",
+            name: "Review Example",
             raw: "screen.getByRole('heading', { name: 'Review Example' })",
-            target: 'Review Example',
+            target: "Review Example",
           },
-          anchor: {
-            anchorStepId: 'js-step-1',
-            relation: 'precedes',
-          },
+          anchor: { anchorStepId: "js-step-1", relation: "precedes" },
         },
       },
       {
-        id: 'js-step-3',
-        action: 'click',
-        target: 'Submit',
-        originalType: 'click',
-        source: 'js',
+        id: "js-step-3",
+        action: "click",
+        target: "Submit",
+        originalType: "click",
+        source: "js",
       },
-    ])
+    ]);
 
     const plan = planJsSuite({
       recording,
       analyzedRecording: createAnalyzedRecording(recording, [
-        { name: 'open example dialog', steps: [recording.steps[0]!, recording.steps[2]!] },
-        { name: 'validation follow-up', steps: [recording.steps[1]!] },
+        {
+          name: "open example dialog",
+          steps: [recording.steps[0]!, recording.steps[2]!],
+        },
+        { name: "validation follow-up", steps: [recording.steps[1]!] },
       ]),
       mockAnalysis: null,
       fallbackTitle: recording.title,
-    })
+    });
 
-    expect(plan.scenarios[0]?.markerAssertions).toHaveLength(1)
+    expect(plan.scenarios[0]?.markerAssertions).toHaveLength(1);
     expect(plan.scenarios[0]?.markerAssertions?.[0]).toMatchObject({
-      markerStepId: 'js-step-2',
-      anchorStepId: 'js-step-1',
+      markerStepId: "js-step-2",
+      anchorStepId: "js-step-1",
       diagnostics: {
         placementCorrection: {
-          fromScenarioName: 'validation follow-up',
-          toScenarioName: 'open example dialog',
+          fromScenarioName: "validation follow-up",
+          toScenarioName: "open example dialog",
         },
       },
-    })
-    expect(plan.scenarios[1]?.markerAssertions).toEqual([])
-  })
+    });
+    expect(plan.scenarios[1]?.markerAssertions).toEqual([]);
+  });
 
-  it('marks multi-step mutation-heavy flows as module-boundary drafts while replaying setup per contract', () => {
+  it("marks multi-step mutation-heavy flows as module-boundary drafts while replaying setup per contract", () => {
     const recording = createRecording([
-      { action: 'click', target: 'Open Example Wizard', originalType: 'click', source: 'js' },
-      { action: 'fill', target: 'Quantity', value: '4', originalType: 'fill', source: 'js' },
-      { action: 'select', target: 'Customer', value: 'John Doe', originalType: 'select', source: 'js' },
-      { action: 'fill', target: 'Example Details', value: 'Hello world', originalType: 'fill', source: 'js' },
-      { action: 'click', target: 'Continue', originalType: 'click', source: 'js' },
-      { action: 'click', target: 'Review Example', originalType: 'click', source: 'js' },
-      { action: 'click', target: 'Save', originalType: 'click', source: 'js' },
-    ])
+      {
+        action: "click",
+        target: "Open Example Wizard",
+        originalType: "click",
+        source: "js",
+      },
+      {
+        action: "fill",
+        target: "Quantity",
+        value: "4",
+        originalType: "fill",
+        source: "js",
+      },
+      {
+        action: "select",
+        target: "Customer",
+        value: "John Doe",
+        originalType: "select",
+        source: "js",
+      },
+      {
+        action: "fill",
+        target: "Example Details",
+        value: "Hello world",
+        originalType: "fill",
+        source: "js",
+      },
+      {
+        action: "click",
+        target: "Continue",
+        originalType: "click",
+        source: "js",
+      },
+      {
+        action: "click",
+        target: "Review Example",
+        originalType: "click",
+        source: "js",
+      },
+      { action: "click", target: "Save", originalType: "click", source: "js" },
+    ]);
 
     const plan = planJsSuite({
       recording,
       analyzedRecording: createAnalyzedRecording(recording),
-      mockAnalysis: {
-        ...createMockAnalysis(),
-        companionPolicy: 'off',
-      },
+      mockAnalysis: { ...createMockAnalysis(), companionPolicy: "off" },
       fallbackTitle: recording.title,
-    })
+    });
 
-    expect(plan.renderBoundary.kind).toBe('module')
-    expect(plan.renderBoundary.reason).toContain('container/module boundary')
-    expect(plan.stateSafety.status).toBe('setup-replay-required')
-    expect(plan.itGroups).toHaveLength(2)
-    expect(plan.scenarios).toHaveLength(2)
-    expect(plan.helpers).toHaveLength(2)
-    expect(plan.scenarios[0]?.helperRefs).toEqual(['planOpenExampleDialog'])
+    expect(plan.renderBoundary.kind).toBe("module");
+    expect(plan.renderBoundary.reason).toContain("container/module boundary");
+    expect(plan.stateSafety.status).toBe("setup-replay-required");
+    expect(plan.itGroups).toHaveLength(2);
+    expect(plan.scenarios).toHaveLength(2);
+    expect(plan.helpers).toHaveLength(2);
+    expect(plan.scenarios[0]?.helperRefs).toEqual(["planOpenExampleDialog"]);
     expect(plan.scenarios[1]?.helperRefs).toEqual([
-      'planOpenExampleDialog',
-      'planCompleteExampleWizard',
-    ])
-    expect(plan.helpers.every((helper) => helper.assertionPolicy === 'sync-only')).toBe(true)
+      "planOpenExampleDialog",
+      "planCompleteExampleWizard",
+    ]);
+    expect(
+      plan.helpers.every((helper) => helper.assertionPolicy === "sync-only")
+    ).toBe(true);
     expect(plan.warnings).toContain(
-      'Prefer a repo-local module/container render boundary for this flow instead of targeting a leaf form component directly.'
-    )
-    expect(plan.warnings.some((warning) => warning.includes('@repo/data-client'))).toBe(true)
+      "Prefer a repo-local module/container render boundary for this flow instead of targeting a leaf form component directly."
+    );
+    expect(
+      plan.warnings.some((warning) => warning.includes("@repo/data-client"))
+    ).toBe(true);
     expect(plan.warnings).toContain(
-      'Replay prerequisite setup inside each scenario helper instead of collapsing multiple contracts into one broad end-to-end test.'
-    )
-  })
+      "Replay prerequisite setup inside each scenario helper instead of collapsing multiple contracts into one broad end-to-end test."
+    );
+  });
 
-  it('keeps simple flows at component scope without boundary warnings', () => {
+  it("keeps simple flows at component scope without boundary warnings", () => {
     const recording = createRecording([
-      { action: 'click', target: 'Open filters', originalType: 'click', source: 'js' },
-      { action: 'fill', target: 'Search', value: 'milk', originalType: 'fill', source: 'js' },
-      { action: 'click', target: 'Apply', originalType: 'click', source: 'js' },
-    ])
+      {
+        action: "click",
+        target: "Open filters",
+        originalType: "click",
+        source: "js",
+      },
+      {
+        action: "fill",
+        target: "Search",
+        value: "milk",
+        originalType: "fill",
+        source: "js",
+      },
+      { action: "click", target: "Apply", originalType: "click", source: "js" },
+    ]);
 
     const plan = planJsSuite({
       recording,
@@ -614,165 +616,259 @@ describe('planJsSuite', () => {
           filteredStepCount: recording.steps.length,
           intentGroupCount: 1,
         },
-        intentGroups: [{ name: 'filter list', steps: recording.steps }],
+        intentGroups: [{ name: "filter list", steps: recording.steps }],
       },
       mockAnalysis: null,
       fallbackTitle: recording.title,
-    })
+    });
 
-    expect(plan.renderBoundary.kind).toBe('component')
-    expect(plan.stateSafety.status).toBe('safe-multi-it')
-    expect(plan.itGroups).toHaveLength(1)
-    expect(plan.warnings).toEqual([])
-  })
+    expect(plan.renderBoundary.kind).toBe("component");
+    expect(plan.stateSafety.status).toBe("safe-multi-it");
+    expect(plan.itGroups).toHaveLength(1);
+    expect(plan.warnings).toEqual([]);
+  });
 
-  it('splits non-wizard intent groups into safe multi-test scenarios with helper plans', () => {
+  it("splits non-wizard intent groups into safe multi-test scenarios with helper plans", () => {
     const recording = createRecording([
-      { action: 'click', target: 'Open filters', originalType: 'click', source: 'js' },
-      { action: 'fill', target: 'Search', value: 'milk', originalType: 'fill', source: 'js' },
-      { action: 'click', target: 'Apply', originalType: 'click', source: 'js' },
-      { action: 'click', target: 'Open review', originalType: 'click', source: 'js' },
-      { action: 'assert', target: 'Review panel', originalType: 'assert', source: 'js' },
-    ])
+      {
+        action: "click",
+        target: "Open filters",
+        originalType: "click",
+        source: "js",
+      },
+      {
+        action: "fill",
+        target: "Search",
+        value: "milk",
+        originalType: "fill",
+        source: "js",
+      },
+      { action: "click", target: "Apply", originalType: "click", source: "js" },
+      {
+        action: "click",
+        target: "Open review",
+        originalType: "click",
+        source: "js",
+      },
+      {
+        action: "assert",
+        target: "Review panel",
+        originalType: "assert",
+        source: "js",
+      },
+    ]);
 
     const intentGroups: ItGroup[] = [
-      { name: 'filter list', steps: recording.steps.slice(0, 3) },
-      { name: 'review results', steps: recording.steps.slice(3) },
-    ]
+      { name: "filter list", steps: recording.steps.slice(0, 3) },
+      { name: "review results", steps: recording.steps.slice(3) },
+    ];
 
     const plan = planJsSuite({
       recording,
       analyzedRecording: createAnalyzedRecording(recording, intentGroups),
       mockAnalysis: null,
       fallbackTitle: recording.title,
-    })
+    });
 
-    expect(plan.stateSafety.status).toBe('safe-multi-it')
-    expect(plan.itGroups).toHaveLength(2)
-    expect(plan.scenarios).toHaveLength(2)
+    expect(plan.stateSafety.status).toBe("safe-multi-it");
+    expect(plan.itGroups).toHaveLength(2);
+    expect(plan.scenarios).toHaveLength(2);
     expect(plan.scenarios.map((scenario) => scenario.name)).toEqual([
-      'filter list',
-      'review results',
-    ])
-    expect(plan.scenarios.every((scenario) => scenario.helperRefs.length > 0)).toBe(true)
+      "filter list",
+      "review results",
+    ]);
+    expect(
+      plan.scenarios.every((scenario) => scenario.helperRefs.length > 0)
+    ).toBe(true);
     expect(plan.helpers.map((helper) => helper.name)).toEqual([
-      'planFilterList',
-      'planReviewResults',
-    ])
-    expect(plan.helpers.every((helper) => helper.assertionPolicy === 'sync-only')).toBe(true)
-  })
+      "planFilterList",
+      "planReviewResults",
+    ]);
+    expect(
+      plan.helpers.every((helper) => helper.assertionPolicy === "sync-only")
+    ).toBe(true);
+  });
 
-  it('keeps stateful wizard flows explicit by replaying setup when the owning render target is still unresolved', () => {
+  it("keeps stateful wizard flows explicit by replaying setup when the owning render target is still unresolved", () => {
     const recording = createRecording([
-      { action: 'click', target: 'Open example wizard', originalType: 'click', source: 'js' },
-      { action: 'fill', target: 'Customer', value: 'Jane', originalType: 'fill', source: 'js' },
-      { action: 'fill', target: 'Email', value: 'jane@example.com', originalType: 'fill', source: 'js' },
-      { action: 'click', target: 'Continue', originalType: 'click', source: 'js' },
-      { action: 'fill', target: 'Notes', value: 'hello', originalType: 'fill', source: 'js' },
-      { action: 'click', target: 'Review Example', originalType: 'click', source: 'js' },
-      { action: 'click', target: 'Save', originalType: 'click', source: 'js' },
-    ])
+      {
+        action: "click",
+        target: "Open example wizard",
+        originalType: "click",
+        source: "js",
+      },
+      {
+        action: "fill",
+        target: "Customer",
+        value: "Jane",
+        originalType: "fill",
+        source: "js",
+      },
+      {
+        action: "fill",
+        target: "Email",
+        value: "jane@example.com",
+        originalType: "fill",
+        source: "js",
+      },
+      {
+        action: "click",
+        target: "Continue",
+        originalType: "click",
+        source: "js",
+      },
+      {
+        action: "fill",
+        target: "Notes",
+        value: "hello",
+        originalType: "fill",
+        source: "js",
+      },
+      {
+        action: "click",
+        target: "Review Example",
+        originalType: "click",
+        source: "js",
+      },
+      { action: "click", target: "Save", originalType: "click", source: "js" },
+    ]);
 
     const plan = planJsSuite({
       recording,
       analyzedRecording: createAnalyzedRecording(recording),
       mockAnalysis: null,
       fallbackTitle: recording.title,
-    })
+    });
 
-    expect(plan.renderBoundary.kind).toBe('unknown')
-    expect(plan.stateSafety.status).toBe('setup-replay-required')
-    expect(plan.scenarios).toHaveLength(2)
-    expect(plan.scenarios[0]?.helperRefs).toEqual(['planOpenExampleDialog'])
+    expect(plan.renderBoundary.kind).toBe("unknown");
+    expect(plan.stateSafety.status).toBe("setup-replay-required");
+    expect(plan.scenarios).toHaveLength(2);
+    expect(plan.scenarios[0]?.helperRefs).toEqual(["planOpenExampleDialog"]);
     expect(plan.scenarios[1]?.helperRefs).toEqual([
-      'planOpenExampleDialog',
-      'planCompleteExampleWizard',
-    ])
-    expect(plan.renderBoundary.resolvedTarget).toBeNull()
+      "planOpenExampleDialog",
+      "planCompleteExampleWizard",
+    ]);
+    expect(plan.renderBoundary.resolvedTarget).toBeNull();
     expect(plan.warnings).toContain(
-      'Taro could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.'
-    )
+      "Taro could not resolve the exact render target from repo context; generated output should be treated as a boundary draft."
+    );
     expect(plan.warnings).toContain(
-      'Replay prerequisite setup inside each scenario helper instead of collapsing multiple contracts into one broad end-to-end test.'
-    )
-  })
+      "Replay prerequisite setup inside each scenario helper instead of collapsing multiple contracts into one broad end-to-end test."
+    );
+  });
 
-  it('synthesizes mutation-form companion scenarios when repo contracts are high confidence', () => {
+  it("synthesizes mutation-form companion scenarios when repo contracts are high confidence", () => {
     const recording = createRecording([
-      { action: 'click', target: 'Add profile', originalType: 'click', source: 'js' },
-      { action: 'fill', target: 'Profile name', value: 'Acme', originalType: 'fill', source: 'js' },
-      { action: 'select', target: 'Country', value: 'Kenya', originalType: 'select', source: 'js' },
-      { action: 'click', target: 'Save profile', originalType: 'click', source: 'js' },
-      { action: 'assert', target: 'Profile saved', originalType: 'assert', source: 'js' },
-    ])
+      {
+        action: "click",
+        target: "Add profile",
+        originalType: "click",
+        source: "js",
+      },
+      {
+        action: "fill",
+        target: "Profile name",
+        value: "Acme",
+        originalType: "fill",
+        source: "js",
+      },
+      {
+        action: "select",
+        target: "Country",
+        value: "Kenya",
+        originalType: "select",
+        source: "js",
+      },
+      {
+        action: "click",
+        target: "Save profile",
+        originalType: "click",
+        source: "js",
+      },
+      {
+        action: "assert",
+        target: "Profile saved",
+        originalType: "assert",
+        source: "js",
+      },
+    ]);
 
-    const intentGroups: ItGroup[] = [{ name: 'create profile', steps: recording.steps }]
+    const intentGroups: ItGroup[] = [
+      { name: "create profile", steps: recording.steps },
+    ];
     const plan = planJsSuite({
       recording,
       analyzedRecording: createAnalyzedRecording(recording, intentGroups),
       mockAnalysis: createMockAnalysis(),
       fallbackTitle: recording.title,
-    })
+    });
 
     expect(plan.contracts).toEqual([
       expect.objectContaining({
-        kind: 'mutation-form',
-        confidence: 'high',
-        companionStates: ['in-flight', 'failed-completion'],
+        kind: "mutation-form",
+        confidence: "high",
+        companionStates: ["in-flight", "failed-completion"],
       }),
-    ])
+    ]);
     expect(plan.scenarios.map((scenario) => scenario.name)).toEqual([
-      'create profile',
-      'create profile shows in-flight UI',
-      'create profile shows failure UI',
-    ])
-    expect(plan.scenarios[0]?.provenance).toBe('recorded')
+      "create profile",
+      "create profile shows in-flight UI",
+      "create profile shows failure UI",
+    ]);
+    expect(plan.scenarios[0]?.provenance).toBe("recorded");
     expect(plan.scenarios[1]).toMatchObject({
-      provenance: 'synthesized-companion',
-      contractKind: 'mutation-form',
-      companionState: 'in-flight',
-      annotations: expect.arrayContaining([expect.stringContaining('stays unresolved')]),
-    })
-    expect(plan.scenarios[1]?.steps).toHaveLength(4)
+      provenance: "synthesized-companion",
+      contractKind: "mutation-form",
+      companionState: "in-flight",
+      annotations: expect.arrayContaining([
+        expect.stringContaining("stays unresolved"),
+      ]),
+    });
+    expect(plan.scenarios[1]?.steps).toHaveLength(4);
     expect(plan.scenarios[2]).toMatchObject({
-      provenance: 'synthesized-companion',
-      contractKind: 'mutation-form',
-      companionState: 'failed-completion',
-    })
+      provenance: "synthesized-companion",
+      contractKind: "mutation-form",
+      companionState: "failed-completion",
+    });
     expect(plan.warnings).toContain(
-      'Synthesized 2 companion scenario(s) for the mutation-form contract.'
-    )
-  })
+      "Synthesized 2 companion scenario(s) for the mutation-form contract."
+    );
+  });
 
-  it('suppresses mutation-form companion scenarios when support seams are only low confidence', () => {
+  it("suppresses mutation-form companion scenarios when support seams are only low confidence", () => {
     const recording = createRecording([
-      { action: 'fill', target: 'Name', value: 'Acme', originalType: 'fill', source: 'js' },
-      { action: 'click', target: 'Save', originalType: 'click', source: 'js' },
-    ])
+      {
+        action: "fill",
+        target: "Name",
+        value: "Acme",
+        originalType: "fill",
+        source: "js",
+      },
+      { action: "click", target: "Save", originalType: "click", source: "js" },
+    ]);
     const lowConfidenceAnalysis: MockAnalysis = {
       ...createMockAnalysis(),
       interactionContracts: [],
       repeatedTargets: [],
       boundaryProfiles: [],
       preferredSharedMocks: {},
-    }
+    };
 
     const plan = planJsSuite({
       recording,
-      analyzedRecording: createAnalyzedRecording(recording, [{ name: 'save profile', steps: recording.steps }]),
+      analyzedRecording: createAnalyzedRecording(recording, [
+        { name: "save profile", steps: recording.steps },
+      ]),
       mockAnalysis: lowConfidenceAnalysis,
       fallbackTitle: recording.title,
-    })
+    });
 
     expect(plan.contracts).toEqual([
-      expect.objectContaining({
-        kind: 'mutation-form',
-        confidence: 'low',
-      }),
-    ])
-    expect(plan.scenarios).toHaveLength(1)
+      expect.objectContaining({ kind: "mutation-form", confidence: "low" }),
+    ]);
+    expect(plan.scenarios).toHaveLength(1);
     expect(plan.warnings).toContain(
-      'Taro detected a possible mutation-backed contract but companion scaffolds were suppressed because repo control seams are not stable enough yet.'
-    )
-  })
-})
+      "Taro detected a possible mutation-backed contract but companion scaffolds were suppressed because repo control seams are not stable enough yet."
+    );
+  });
+});

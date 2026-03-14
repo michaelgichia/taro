@@ -1,112 +1,125 @@
-import { execFile } from 'node:child_process'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { promisify } from 'node:util'
-import { afterEach, describe, expect, it } from 'vitest'
-import { executeInstallPlan } from './executor.js'
-import { buildInstallPlan } from './planner.js'
-import type { InstallSelection, RuntimeLocationSelections, RuntimeTarget } from './types.js'
-import { verifyInstalledRuntime } from './verification.js'
+import { execFile } from "node:child_process";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
+import { afterEach, describe, expect, it } from "vitest";
+import { executeInstallPlan } from "./executor.js";
+import { buildInstallPlan } from "./planner.js";
+import type {
+  InstallSelection,
+  RuntimeLocationSelections,
+  RuntimeTarget,
+} from "./types.js";
+import { verifyInstalledRuntime } from "./verification.js";
 
-const execFileAsync = promisify(execFile)
-const sandboxRoots: string[] = []
+const execFileAsync = promisify(execFile);
+const sandboxRoots: string[] = [];
 
 afterEach(async () => {
   await Promise.all(
-    sandboxRoots.splice(0).map((root) => rm(root, { recursive: true, force: true }))
-  )
-})
+    sandboxRoots
+      .splice(0)
+      .map((root) => rm(root, { recursive: true, force: true }))
+  );
+});
 
 async function createSandbox(label: string) {
-  const root = await mkdtemp(join(tmpdir(), `taro-verify-${label}-`))
-  const cwd = join(root, 'project')
-  const home = join(root, 'home')
+  const root = await mkdtemp(join(tmpdir(), `taro-verify-${label}-`));
+  const cwd = join(root, "project");
+  const home = join(root, "home");
 
-  sandboxRoots.push(root)
-  await mkdir(cwd, { recursive: true })
-  await mkdir(home, { recursive: true })
+  sandboxRoots.push(root);
+  await mkdir(cwd, { recursive: true });
+  await mkdir(home, { recursive: true });
 
-  return { root, cwd, home }
+  return { root, cwd, home };
 }
 
 function createSelection(
   runtimes: RuntimeTarget[],
-  location: 'global' | 'local'
+  location: "global" | "local"
 ): InstallSelection {
   return {
-    mode: 'non-interactive',
+    mode: "non-interactive",
     runtimes,
     locations: Object.fromEntries(
       runtimes.map((runtime) => [runtime, location])
     ) as RuntimeLocationSelections,
-    source: 'flags',
-  }
+    source: "flags",
+  };
 }
 
-describe('verifyInstalledRuntime', () => {
-  it('verifies the documented runtime entrypoints after installation', async () => {
-    const { cwd, home } = await createSandbox('runtime')
+describe("verifyInstalledRuntime", () => {
+  it("verifies the documented runtime entrypoints after installation", async () => {
+    const { cwd, home } = await createSandbox("runtime");
     const plan = buildInstallPlan(
-      createSelection(['claude', 'opencode', 'gemini', 'codex'], 'global'),
+      createSelection(["claude", "opencode", "gemini", "codex"], "global"),
       { cwd, home }
-    )
+    );
 
-    await executeInstallPlan(plan)
+    await executeInstallPlan(plan);
 
-    const results = await Promise.all(plan.targets.map((target) => verifyInstalledRuntime(target)))
+    const results = await Promise.all(
+      plan.targets.map((target) => verifyInstalledRuntime(target))
+    );
 
     expect(results.map((result) => result.verificationCommand)).toEqual([
-      '/@taro-test/rtl:help',
-      '/@taro-test/rtl-help',
-      '/@taro-test/rtl:help',
-      '$@taro-test/rtl-help',
-    ])
-    expect(results.every((result) => result.status === 'verified')).toBe(true)
+      "/@taro-test/rtl:help",
+      "/@taro-test/rtl-help",
+      "/@taro-test/rtl:help",
+      "$@taro-test/rtl-help",
+    ]);
+    expect(results.every((result) => result.status === "verified")).toBe(true);
     expect(results.map((result) => result.checkedPath)).toEqual(
       plan.targets.map((target) => target.runtimeEntrypointPath)
-    )
+    );
     expect(results.map((result) => result.launcherCommand)).toEqual(
       plan.targets.map((target) => target.runtimeCommand)
-    )
-  }, 10000)
-})
+    );
+  }, 10000);
+});
 
-describe('package smoke proof', () => {
-  it('packs dist, authored runtime sources, and docs into the npm tarball', async () => {
-    const { root } = await createSandbox('pack')
-    const packDir = join(root, 'pack')
-    const cacheDir = join(root, 'npm-cache')
+describe("package smoke proof", () => {
+  it("packs dist, authored runtime sources, and docs into the npm tarball", async () => {
+    const { root } = await createSandbox("pack");
+    const packDir = join(root, "pack");
+    const cacheDir = join(root, "npm-cache");
 
-    await mkdir(packDir, { recursive: true })
-    await mkdir(cacheDir, { recursive: true })
+    await mkdir(packDir, { recursive: true });
+    await mkdir(cacheDir, { recursive: true });
 
     const { stdout } = await execFileAsync(
-      'npm',
-      ['pack', '--json', '--pack-destination', packDir],
+      "npm",
+      ["pack", "--json", "--pack-destination", packDir],
       {
         cwd: process.cwd(),
-        env: {
-          ...process.env,
-          NPM_CONFIG_CACHE: cacheDir,
-        },
+        env: { ...process.env, NPM_CONFIG_CACHE: cacheDir },
       }
-    )
+    );
 
-    const packResult = JSON.parse(stdout) as Array<{ filename: string }>
-    const tarballPath = join(packDir, packResult[0]!.filename)
-    const tarList = await execFileAsync('tar', ['-tf', tarballPath], {
+    const packResult = JSON.parse(stdout) as Array<{ filename: string }>;
+    const tarballPath = join(packDir, packResult[0]!.filename);
+    const tarList = await execFileAsync("tar", ["-tf", tarballPath], {
       cwd: process.cwd(),
-    })
+    });
 
-    expect(tarList.stdout).toContain('package/dist/index.js')
-    expect(tarList.stdout).toContain('package/bin/install.js')
-    expect(tarList.stdout).toContain('package/commands/claude/@taro-test/rtl/help.md')
-    expect(tarList.stdout).toContain('package/commands/gemini/@taro-test/rtl/help.toml')
-    expect(tarList.stdout).toContain('package/commands/opencode/@taro-test/rtl-help.md')
-    expect(tarList.stdout).toContain('package/agents/taro-help.md')
-    expect(tarList.stdout).toContain('package/taro/references/quality-scoring.md')
-    expect(tarList.stdout).toContain('package/docs/USER-GUIDE.md')
-    expect(tarList.stdout).toContain('package/README.md')
-  })
-})
+    expect(tarList.stdout).toContain("package/dist/index.js");
+    expect(tarList.stdout).toContain("package/bin/install.js");
+    expect(tarList.stdout).toContain(
+      "package/commands/claude/@taro-test/rtl/help.md"
+    );
+    expect(tarList.stdout).toContain(
+      "package/commands/gemini/@taro-test/rtl/help.toml"
+    );
+    expect(tarList.stdout).toContain(
+      "package/commands/opencode/@taro-test/rtl-help.md"
+    );
+    expect(tarList.stdout).toContain("package/agents/taro-help.md");
+    expect(tarList.stdout).toContain(
+      "package/taro/references/quality-scoring.md"
+    );
+    expect(tarList.stdout).toContain("package/docs/USER-GUIDE.md");
+    expect(tarList.stdout).toContain("package/README.md");
+  });
+});

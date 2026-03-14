@@ -1,10 +1,10 @@
-import * as babelParser from '@babel/parser'
-import _traverse from '@babel/traverse'
-import type { NodePath } from '@babel/traverse'
-import * as t from '@babel/types'
-import { readFile } from 'node:fs/promises'
-import { relative } from 'node:path'
-import type { MutationLifecyclePattern } from '../types/conventions.js'
+import * as babelParser from "@babel/parser";
+import _traverse from "@babel/traverse";
+import type { NodePath } from "@babel/traverse";
+import * as t from "@babel/types";
+import { readFile } from "node:fs/promises";
+import { relative } from "node:path";
+import type { MutationLifecyclePattern } from "../types/conventions.js";
 import type {
   RepoRenderTargetCandidate,
   TaroBoundaryExemplarProfile,
@@ -17,266 +17,291 @@ import type {
   TaroProviderWrapperProfile,
   TaroRenderHelperProfile,
   TaroStateConfidence,
-} from '../types/state.js'
+} from "../types/state.js";
 
-const traverse = (_traverse as any).default ?? _traverse
+const traverse = (_traverse as any).default ?? _traverse;
 
 export interface BoundaryLearningTestFile {
-  path: string
-  content: string
+  path: string;
+  content: string;
 }
 
 export interface BoundaryLearningResult {
-  profiles: TaroBoundaryProfile[]
-  exemplars: TaroBoundaryExemplarProfile[]
+  profiles: TaroBoundaryProfile[];
+  exemplars: TaroBoundaryExemplarProfile[];
 }
 
 export interface BoundaryImportReference {
-  target: string
-  importedNames: string[]
-  kind: TaroBoundaryKind
-  guardrailReason: TaroBoundaryGuardrailReason | null
+  target: string;
+  importedNames: string[];
+  kind: TaroBoundaryKind;
+  guardrailReason: TaroBoundaryGuardrailReason | null;
 }
 
 interface ImportedBinding {
-  importPath: string
-  imported: string
-  local: string
+  importPath: string;
+  imported: string;
+  local: string;
 }
 
 interface BoundaryObservation {
-  target: string
-  kind: TaroBoundaryKind
-  strategy: TaroBoundaryStrategy
-  guardrailReason: TaroBoundaryGuardrailReason | null
-  supportImportPath: string | null
-  supportExports: TaroBoundaryProfile['supportExports']
-  payloadSource: TaroBoundaryPayloadSource
-  files: Set<string>
-  evidence: Set<string>
-  weight: number
+  target: string;
+  kind: TaroBoundaryKind;
+  strategy: TaroBoundaryStrategy;
+  guardrailReason: TaroBoundaryGuardrailReason | null;
+  supportImportPath: string | null;
+  supportExports: TaroBoundaryProfile["supportExports"];
+  payloadSource: TaroBoundaryPayloadSource;
+  files: Set<string>;
+  evidence: Set<string>;
+  weight: number;
 }
 
 interface FileBoundaryUsage {
-  file: string
-  targets: Set<string>
-  kinds: Set<TaroBoundaryKind>
-  usesCentralBoundarySupport: boolean
-  usesProviderWrapper: boolean
-  overrideStyle: TaroBoundaryExemplarProfile['overrideStyle']
+  file: string;
+  targets: Set<string>;
+  kinds: Set<TaroBoundaryKind>;
+  usesCentralBoundarySupport: boolean;
+  usesProviderWrapper: boolean;
+  overrideStyle: TaroBoundaryExemplarProfile["overrideStyle"];
 }
 
 const AST_PLUGINS: babelParser.ParserPlugin[] = [
-  'jsx',
-  'typescript',
-  'classProperties',
-  'classPrivateProperties',
-  'classPrivateMethods',
-  'topLevelAwait',
-]
+  "jsx",
+  "typescript",
+  "classProperties",
+  "classPrivateProperties",
+  "classPrivateMethods",
+  "topLevelAwait",
+];
 
-const SUPPORT_IMPORT_REGEX = /(mock|fixture|factor)/i
-const MOCK_METHOD_REGEX = /^mock(?:Implementation(?:Once)?|ReturnValue(?:Once)?|ResolvedValue(?:Once)?|RejectedValue(?:Once)?|Reset|Clear)$/u
-const UI_PATH_REGEX = /(?:^|\/)(?:components?|library|ui(?:-kit)?|design-system)(?:\/|$)/i
+const SUPPORT_IMPORT_REGEX = /(mock|fixture|factor)/i;
+const MOCK_METHOD_REGEX =
+  /^mock(?:Implementation(?:Once)?|ReturnValue(?:Once)?|ResolvedValue(?:Once)?|RejectedValue(?:Once)?|Reset|Clear)$/u;
+const UI_PATH_REGEX =
+  /(?:^|\/)(?:components?|library|ui(?:-kit)?|design-system)(?:\/|$)/i;
 const THIRD_PARTY_UI_PACKAGE_REGEX =
-  /(?:^@[^/]+\/(?:components|ui(?:-kit)?|design-system)$)|(?:^[^./~@][^/]*\/(?:components|ui(?:-kit)?|design-system)$)/i
+  /(?:^@[^/]+\/(?:components|ui(?:-kit)?|design-system)$)|(?:^[^./~@][^/]*\/(?:components|ui(?:-kit)?|design-system)$)/i;
 
 function parseCode(code: string) {
   return babelParser.parse(code, {
-    sourceType: 'module',
+    sourceType: "module",
     plugins: AST_PLUGINS,
-  })
+  });
 }
 
 function isTestingSupportImport(importPath: string): boolean {
-  return SUPPORT_IMPORT_REGEX.test(importPath)
+  return SUPPORT_IMPORT_REGEX.test(importPath);
 }
 
 function toConfidence(score: number): TaroStateConfidence {
   if (score >= 0.8) {
-    return 'high'
+    return "high";
   }
   if (score >= 0.45) {
-    return 'medium'
+    return "medium";
   }
-  return 'low'
+  return "low";
 }
 
 function strategyPriority(strategy: TaroBoundaryStrategy): number {
   switch (strategy) {
-    case 'forbid':
-      return 6
-    case 'provider-wrapper':
-      return 5
-    case 'shared-module-factory':
-      return 4
-    case 'scaffolded-module-factory':
-      return 3
-    case 'inline-safe':
-      return 2
-    case 'real-runtime':
-      return 1
+    case "forbid":
+      return 6;
+    case "provider-wrapper":
+      return 5;
+    case "shared-module-factory":
+      return 4;
+    case "scaffolded-module-factory":
+      return 3;
+    case "inline-safe":
+      return 2;
+    case "real-runtime":
+      return 1;
     default:
-      return 0
+      return 0;
   }
 }
 
 function normalizeTarget(target: string): string {
-  return target.replace(/\\/g, '/')
+  return target.replace(/\\/g, "/");
 }
 
 function isRepoOwnedBoundaryTarget(target: string): boolean {
-  return /^(?:\.{1,2}\/|@\/|~\/)/u.test(target)
+  return /^(?:\.{1,2}\/|@\/|~\/)/u.test(target);
 }
 
 function isComponentLikeExportName(name: string): boolean {
-  if (name === 'default') {
-    return true
+  if (name === "default") {
+    return true;
   }
 
   if (!/^[A-Z][A-Za-z0-9]*$/u.test(name)) {
-    return false
+    return false;
   }
 
   if (/^use[A-Z]/u.test(name) || /^[A-Z0-9_]+$/u.test(name)) {
-    return false
+    return false;
   }
 
-  return true
+  return true;
 }
 
-function isRepoOwnedUiWrapperTarget(target: string, exportedNames: string[]): boolean {
+function isRepoOwnedUiWrapperTarget(
+  target: string,
+  exportedNames: string[]
+): boolean {
   return (
     isRepoOwnedBoundaryTarget(target) &&
     UI_PATH_REGEX.test(target) &&
     exportedNames.some((name) => isComponentLikeExportName(name))
-  )
+  );
 }
 
 export function getBoundaryGuardrailReason(
   target: string,
   exportedNames: string[] = []
 ): TaroBoundaryGuardrailReason | null {
-  const normalized = normalizeTarget(target)
+  const normalized = normalizeTarget(target);
 
   if (isRepoOwnedUiWrapperTarget(normalized, exportedNames)) {
-    return 'repo-owned-ui-wrapper'
+    return "repo-owned-ui-wrapper";
   }
 
-  if (!isRepoOwnedBoundaryTarget(normalized) && THIRD_PARTY_UI_PACKAGE_REGEX.test(normalized)) {
-    return 'ui-package'
+  if (
+    !isRepoOwnedBoundaryTarget(normalized) &&
+    THIRD_PARTY_UI_PACKAGE_REGEX.test(normalized)
+  ) {
+    return "ui-package";
   }
 
-  return null
+  return null;
 }
 
 export function classifyBoundaryKind(target: string): TaroBoundaryKind {
-  const normalized = normalizeTarget(target)
+  const normalized = normalizeTarget(target);
 
   if (
-    normalized === 'next/navigation' ||
+    normalized === "next/navigation" ||
     /(?:router|navigation|navigate|history)/i.test(normalized)
   ) {
-    return 'router'
+    return "router";
   }
 
   if (/(?:auth|session|clerk|next-auth)/i.test(normalized)) {
-    return 'auth'
-  }
-
-  if (/(?:feature-flag|flag|featureFlags|launchdarkly|statsig)/i.test(normalized)) {
-    return 'feature-flag'
+    return "auth";
   }
 
   if (
-    normalized === 'fetch' ||
-    /(?:axios|graphql|trpc|rpc|rest|nock|msw|undici|fetch-mock)/i.test(normalized)
+    /(?:feature-flag|flag|featureFlags|launchdarkly|statsig)/i.test(normalized)
   ) {
-    return 'network-client'
+    return "feature-flag";
+  }
+
+  if (
+    normalized === "fetch" ||
+    /(?:axios|graphql|trpc|rpc|rest|nock|msw|undici|fetch-mock)/i.test(
+      normalized
+    )
+  ) {
+    return "network-client";
   }
 
   if (/(?:^|\/)(?:actions?|server-actions?)(?:\/|$)/i.test(normalized)) {
-    return 'server-action'
-  }
-
-  if (/(?:data-layer|query|mutation|repository|repo|api)(?:\/|$)|(?:\/api(?:\/|$))/i.test(normalized)) {
-    return 'data-module'
-  }
-
-  if (/(?:localStorage|sessionStorage|Date|Math|window|document)/i.test(normalized)) {
-    return 'env'
+    return "server-action";
   }
 
   if (
-    normalized.startsWith('./') ||
-    normalized.startsWith('../') ||
-    normalized.startsWith('@/') ||
-    normalized.startsWith('~/')
+    /(?:data-layer|query|mutation|repository|repo|api)(?:\/|$)|(?:\/api(?:\/|$))/i.test(
+      normalized
+    )
   ) {
-    return 'local-child'
+    return "data-module";
   }
 
-  return 'unknown'
+  if (
+    /(?:localStorage|sessionStorage|Date|Math|window|document)/i.test(
+      normalized
+    )
+  ) {
+    return "env";
+  }
+
+  if (
+    normalized.startsWith("./") ||
+    normalized.startsWith("../") ||
+    normalized.startsWith("@/") ||
+    normalized.startsWith("~/")
+  ) {
+    return "local-child";
+  }
+
+  return "unknown";
 }
 
-export function isForbiddenBoundaryTarget(target: string, exportedNames: string[] = []): boolean {
-  return getBoundaryGuardrailReason(target, exportedNames) !== null
+export function isForbiddenBoundaryTarget(
+  target: string,
+  exportedNames: string[] = []
+): boolean {
+  return getBoundaryGuardrailReason(target, exportedNames) !== null;
 }
 
-function inferPayloadSource(importPath: string | null): TaroBoundaryPayloadSource {
+function inferPayloadSource(
+  importPath: string | null
+): TaroBoundaryPayloadSource {
   if (!importPath) {
-    return 'unknown'
+    return "unknown";
   }
   if (/mock-store/i.test(importPath)) {
-    return 'mock-store'
+    return "mock-store";
   }
   if (/fixtures?/i.test(importPath)) {
-    return 'fixtures'
+    return "fixtures";
   }
   if (/mocks?/i.test(importPath)) {
-    return 'typed-defaults'
+    return "typed-defaults";
   }
   if (/factors?/i.test(importPath)) {
-    return 'exemplar-only'
+    return "exemplar-only";
   }
-  return 'manual'
+  return "manual";
 }
 
-function createEmptySupportExports(): TaroBoundaryProfile['supportExports'] {
+function createEmptySupportExports(): TaroBoundaryProfile["supportExports"] {
   return {
     factoryExport: null,
     resetExport: null,
     overrideExports: [],
     spyExports: [],
     fixtureExports: [],
-  }
+  };
 }
 
 function getStringLiteral(node: t.Node | null | undefined): string | null {
   if (!node) {
-    return null
+    return null;
   }
   if (t.isStringLiteral(node)) {
-    return node.value
+    return node.value;
   }
   if (t.isTemplateLiteral(node) && node.expressions.length === 0) {
-    return node.quasis[0]?.value.cooked ?? null
+    return node.quasis[0]?.value.cooked ?? null;
   }
-  return null
+  return null;
 }
 
 function getMockTarget(path: NodePath<t.CallExpression>): string | null {
-  const callee = path.node.callee
+  const callee = path.node.callee;
   if (
     t.isMemberExpression(callee) &&
     t.isIdentifier(callee.object) &&
-    (callee.object.name === 'vi' || callee.object.name === 'jest') &&
-    t.isIdentifier(callee.property, { name: 'mock' })
+    (callee.object.name === "vi" || callee.object.name === "jest") &&
+    t.isIdentifier(callee.property, { name: "mock" })
   ) {
-    return getStringLiteral(path.node.arguments[0] ?? null)
+    return getStringLiteral(path.node.arguments[0] ?? null);
   }
 
-  return null
+  return null;
 }
 
 function resolveImportedBinding(
@@ -284,179 +309,198 @@ function resolveImportedBinding(
   name: string | null | undefined
 ): ImportedBinding | null {
   if (!name) {
-    return null
+    return null;
   }
-  return importedBindings.get(name) ?? null
+  return importedBindings.get(name) ?? null;
 }
 
 function buildImportedBindings(ast: t.File): Map<string, ImportedBinding> {
-  const bindings = new Map<string, ImportedBinding>()
+  const bindings = new Map<string, ImportedBinding>();
 
   for (const node of ast.program.body) {
     if (!t.isImportDeclaration(node)) {
-      continue
+      continue;
     }
 
     for (const specifier of node.specifiers) {
       if (t.isImportDefaultSpecifier(specifier)) {
         bindings.set(specifier.local.name, {
           importPath: node.source.value,
-          imported: 'default',
+          imported: "default",
           local: specifier.local.name,
-        })
+        });
       } else if (t.isImportSpecifier(specifier)) {
         bindings.set(specifier.local.name, {
           importPath: node.source.value,
-          imported:
-            t.isIdentifier(specifier.imported) ? specifier.imported.name : specifier.imported.value,
+          imported: t.isIdentifier(specifier.imported)
+            ? specifier.imported.name
+            : specifier.imported.value,
           local: specifier.local.name,
-        })
+        });
       }
     }
   }
 
-  return bindings
+  return bindings;
 }
 
 function pushUnique(target: string[], value: string | null | undefined): void {
   if (!value) {
-    return
+    return;
   }
   if (!target.includes(value)) {
-    target.push(value)
+    target.push(value);
   }
 }
 
 function inferStrategy(params: {
-  target: string
-  guardrailReason: TaroBoundaryGuardrailReason | null
-  supportImportPath: string | null
-  usedFactoryExport: boolean
+  target: string;
+  guardrailReason: TaroBoundaryGuardrailReason | null;
+  supportImportPath: string | null;
+  usedFactoryExport: boolean;
 }): TaroBoundaryStrategy {
   if (params.guardrailReason) {
-    return 'forbid'
+    return "forbid";
   }
   if (params.usedFactoryExport && params.supportImportPath) {
-    return 'shared-module-factory'
+    return "shared-module-factory";
   }
-  if (classifyBoundaryKind(params.target) === 'router') {
-    return 'inline-safe'
+  if (classifyBoundaryKind(params.target) === "router") {
+    return "inline-safe";
   }
-  if (classifyBoundaryKind(params.target) === 'env') {
-    return 'inline-safe'
+  if (classifyBoundaryKind(params.target) === "env") {
+    return "inline-safe";
   }
-  return 'real-runtime'
+  return "real-runtime";
 }
 
 function getReturnedObjectExpression(
-  factory:
-    | t.Expression
-    | t.SpreadElement
-    | t.ArgumentPlaceholder
-    | undefined
+  factory: t.Expression | t.SpreadElement | t.ArgumentPlaceholder | undefined
 ): t.ObjectExpression | null {
   if (!factory) {
-    return null
+    return null;
   }
   if (t.isArrowFunctionExpression(factory)) {
     if (t.isObjectExpression(factory.body)) {
-      return factory.body
+      return factory.body;
     }
     if (t.isBlockStatement(factory.body)) {
       for (const statement of factory.body.body) {
-        if (t.isReturnStatement(statement) && t.isObjectExpression(statement.argument)) {
-          return statement.argument
+        if (
+          t.isReturnStatement(statement) &&
+          t.isObjectExpression(statement.argument)
+        ) {
+          return statement.argument;
         }
       }
     }
   }
   if (t.isFunctionExpression(factory) || t.isFunctionDeclaration(factory)) {
     for (const statement of factory.body.body) {
-      if (t.isReturnStatement(statement) && t.isObjectExpression(statement.argument)) {
-        return statement.argument
+      if (
+        t.isReturnStatement(statement) &&
+        t.isObjectExpression(statement.argument)
+      ) {
+        return statement.argument;
       }
     }
   }
-  return null
+  return null;
 }
 
-function getReturnedObjectPropertyNames(node: t.ObjectExpression | null): string[] {
+function getReturnedObjectPropertyNames(
+  node: t.ObjectExpression | null
+): string[] {
   if (!node) {
-    return []
+    return [];
   }
 
-  const names = new Set<string>()
+  const names = new Set<string>();
   for (const property of node.properties) {
     if (t.isObjectProperty(property)) {
       if (t.isIdentifier(property.key)) {
-        names.add(property.key.name)
+        names.add(property.key.name);
       } else if (t.isStringLiteral(property.key)) {
-        names.add(property.key.value)
+        names.add(property.key.value);
       }
-      continue
+      continue;
     }
 
     if (t.isObjectMethod(property) && t.isIdentifier(property.key)) {
-      names.add(property.key.name)
+      names.add(property.key.name);
     }
   }
 
-  return [...names].sort()
+  return [...names].sort();
 }
 
 function inferRenderBoundary(
   file: string,
   renderTargets: RepoRenderTargetCandidate[]
-): TaroBoundaryExemplarProfile['renderBoundary'] {
-  const matches = renderTargets.filter((target) => target.sourceTestFile === file)
+): TaroBoundaryExemplarProfile["renderBoundary"] {
+  const matches = renderTargets.filter(
+    (target) => target.sourceTestFile === file
+  );
   if (matches.length === 0) {
-    return 'unknown'
+    return "unknown";
   }
-  if (matches.some((target) => /Module$/u.test(target.symbol) || target.usesWithin)) {
-    return 'module'
+  if (
+    matches.some(
+      (target) => /Module$/u.test(target.symbol) || target.usesWithin
+    )
+  ) {
+    return "module";
   }
-  return 'component'
+  return "component";
 }
 
 export async function collectBoundaryLearning(params: {
-  projectRoot: string
-  testFiles: BoundaryLearningTestFile[]
-  renderTargets: RepoRenderTargetCandidate[]
-  providerWrappers: TaroProviderWrapperProfile[]
-  mutationLifecycles: MutationLifecyclePattern[]
+  projectRoot: string;
+  testFiles: BoundaryLearningTestFile[];
+  renderTargets: RepoRenderTargetCandidate[];
+  providerWrappers: TaroProviderWrapperProfile[];
+  mutationLifecycles: MutationLifecyclePattern[];
 }): Promise<BoundaryLearningResult> {
-  const observations = new Map<string, BoundaryObservation[]>()
-  const fileUsage = new Map<string, FileBoundaryUsage>()
-  const providerWrapperFiles = new Set(params.providerWrappers.map((wrapper) => wrapper.sourceTestFile))
-  const mutationFiles = new Set(params.mutationLifecycles.map((entry) => entry.file))
+  const observations = new Map<string, BoundaryObservation[]>();
+  const fileUsage = new Map<string, FileBoundaryUsage>();
+  const providerWrapperFiles = new Set(
+    params.providerWrappers.map((wrapper) => wrapper.sourceTestFile)
+  );
+  const mutationFiles = new Set(
+    params.mutationLifecycles.map((entry) => entry.file)
+  );
 
   for (const testFile of params.testFiles) {
-    const relativeFile = relative(params.projectRoot, testFile.path).replace(/\\/g, '/')
+    const relativeFile = relative(params.projectRoot, testFile.path).replace(
+      /\\/g,
+      "/"
+    );
     const usage: FileBoundaryUsage = {
       file: relativeFile,
       targets: new Set(),
       kinds: new Set(),
       usesCentralBoundarySupport: false,
       usesProviderWrapper: providerWrapperFiles.has(relativeFile),
-      overrideStyle: 'none',
-    }
+      overrideStyle: "none",
+    };
 
-    let ast: t.File
+    let ast: t.File;
     try {
-      ast = parseCode(testFile.content)
+      ast = parseCode(testFile.content);
     } catch {
-      fileUsage.set(relativeFile, usage)
-      continue
+      fileUsage.set(relativeFile, usage);
+      continue;
     }
 
-    const importedBindings = buildImportedBindings(ast)
+    const importedBindings = buildImportedBindings(ast);
 
     function upsertObservation(
       target: string,
-      next: Partial<BoundaryObservation> & Pick<BoundaryObservation, 'kind' | 'strategy'>
+      next: Partial<BoundaryObservation> &
+        Pick<BoundaryObservation, "kind" | "strategy">
     ) {
-      const existing = observations.get(target) ?? []
-      const supportExports = next.supportExports ?? createEmptySupportExports()
+      const existing = observations.get(target) ?? [];
+      const supportExports = next.supportExports ?? createEmptySupportExports();
       const entry: BoundaryObservation = {
         target,
         kind: next.kind,
@@ -464,30 +508,35 @@ export async function collectBoundaryLearning(params: {
         guardrailReason: next.guardrailReason ?? null,
         supportImportPath: next.supportImportPath ?? null,
         supportExports,
-        payloadSource: next.payloadSource ?? inferPayloadSource(next.supportImportPath ?? null),
+        payloadSource:
+          next.payloadSource ??
+          inferPayloadSource(next.supportImportPath ?? null),
         files: new Set([relativeFile]),
         evidence: new Set(next.evidence ?? []),
         weight: next.weight ?? 1,
-      }
-      existing.push(entry)
-      observations.set(target, existing)
-      usage.targets.add(target)
-      usage.kinds.add(next.kind)
-      if (entry.strategy === 'shared-module-factory') {
-        usage.usesCentralBoundarySupport = true
+      };
+      existing.push(entry);
+      observations.set(target, existing);
+      usage.targets.add(target);
+      usage.kinds.add(next.kind);
+      if (entry.strategy === "shared-module-factory") {
+        usage.usesCentralBoundarySupport = true;
       }
     }
 
     traverse(ast, {
       CallExpression(path: NodePath<t.CallExpression>) {
-        const target = getMockTarget(path)
-      if (target) {
-        const normalizedTarget = normalizeTarget(target)
-        const returnedObject = getReturnedObjectExpression(path.node.arguments[1])
-        const returnedObjectPropertyNames = getReturnedObjectPropertyNames(returnedObject)
-        let supportImportPath: string | null = null
-        const supportExports = createEmptySupportExports()
-        let usedFactoryExport = false
+        const target = getMockTarget(path);
+        if (target) {
+          const normalizedTarget = normalizeTarget(target);
+          const returnedObject = getReturnedObjectExpression(
+            path.node.arguments[1]
+          );
+          const returnedObjectPropertyNames =
+            getReturnedObjectPropertyNames(returnedObject);
+          let supportImportPath: string | null = null;
+          const supportExports = createEmptySupportExports();
+          let usedFactoryExport = false;
 
           if (returnedObject) {
             for (const property of returnedObject.properties) {
@@ -499,11 +548,11 @@ export async function collectBoundaryLearning(params: {
                 const imported = resolveImportedBinding(
                   importedBindings,
                   property.argument.callee.name
-                )
+                );
                 if (imported && isTestingSupportImport(imported.importPath)) {
-                  supportImportPath = imported.importPath
-                  supportExports.factoryExport = imported.local
-                  usedFactoryExport = true
+                  supportImportPath = imported.importPath;
+                  supportExports.factoryExport = imported.local;
+                  usedFactoryExport = true;
                 }
               }
 
@@ -511,20 +560,23 @@ export async function collectBoundaryLearning(params: {
                 t.isObjectProperty(property) &&
                 t.isIdentifier(property.value)
               ) {
-                const imported = resolveImportedBinding(importedBindings, property.value.name)
+                const imported = resolveImportedBinding(
+                  importedBindings,
+                  property.value.name
+                );
                 if (imported && isTestingSupportImport(imported.importPath)) {
-                  supportImportPath = imported.importPath
-                  pushUnique(supportExports.overrideExports, imported.local)
+                  supportImportPath = imported.importPath;
+                  pushUnique(supportExports.overrideExports, imported.local);
                 }
               }
             }
           }
 
-          const kind = classifyBoundaryKind(normalizedTarget)
+          const kind = classifyBoundaryKind(normalizedTarget);
           const guardrailReason = getBoundaryGuardrailReason(
             normalizedTarget,
             returnedObjectPropertyNames
-          )
+          );
           upsertObservation(normalizedTarget, {
             kind,
             strategy: inferStrategy({
@@ -537,22 +589,26 @@ export async function collectBoundaryLearning(params: {
             supportImportPath,
             supportExports,
             payloadSource: inferPayloadSource(supportImportPath),
-            evidence: new Set([`${relativeFile}: mock target ${normalizedTarget}`]),
+            evidence: new Set([
+              `${relativeFile}: mock target ${normalizedTarget}`,
+            ]),
             weight: usedFactoryExport ? 3 : 1,
-          })
+          });
         }
 
-        if (t.isIdentifier(path.node.callee, { name: 'beforeEach' })) {
-          const arg = path.node.arguments[0]
+        if (t.isIdentifier(path.node.callee, { name: "beforeEach" })) {
+          const arg = path.node.arguments[0];
           if (t.isIdentifier(arg)) {
-            const imported = resolveImportedBinding(importedBindings, arg.name)
+            const imported = resolveImportedBinding(importedBindings, arg.name);
             if (imported && isTestingSupportImport(imported.importPath)) {
               for (const entries of observations.values()) {
                 for (const entry of entries) {
                   if (entry.supportImportPath === imported.importPath) {
-                    entry.supportExports.resetExport = imported.local
-                    entry.weight += 1
-                    entry.evidence.add(`${relativeFile}: beforeEach(${imported.local})`)
+                    entry.supportExports.resetExport = imported.local;
+                    entry.weight += 1;
+                    entry.evidence.add(
+                      `${relativeFile}: beforeEach(${imported.local})`
+                    );
                   }
                 }
               }
@@ -566,17 +622,23 @@ export async function collectBoundaryLearning(params: {
           t.isIdentifier(path.node.callee.property) &&
           MOCK_METHOD_REGEX.test(path.node.callee.property.name)
         ) {
-          const imported = resolveImportedBinding(importedBindings, path.node.callee.object.name)
+          const imported = resolveImportedBinding(
+            importedBindings,
+            path.node.callee.object.name
+          );
           if (imported && isTestingSupportImport(imported.importPath)) {
-            usage.overrideStyle = 'stable-handles'
+            usage.overrideStyle = "stable-handles";
             for (const entries of observations.values()) {
               for (const entry of entries) {
                 if (entry.supportImportPath === imported.importPath) {
-                  pushUnique(entry.supportExports.overrideExports, imported.local)
-                  entry.weight += 1
+                  pushUnique(
+                    entry.supportExports.overrideExports,
+                    imported.local
+                  );
+                  entry.weight += 1;
                   entry.evidence.add(
                     `${relativeFile}: ${imported.local}.${path.node.callee.property.name}(...)`
-                  )
+                  );
                 }
               }
             }
@@ -584,46 +646,49 @@ export async function collectBoundaryLearning(params: {
         }
       },
       Identifier(path: NodePath<t.Identifier>) {
-        const imported = resolveImportedBinding(importedBindings, path.node.name)
+        const imported = resolveImportedBinding(
+          importedBindings,
+          path.node.name
+        );
         if (!imported || !isTestingSupportImport(imported.importPath)) {
-          return
+          return;
         }
         if (/Spy|Mutate|Mock$/u.test(imported.local)) {
           for (const entries of observations.values()) {
             for (const entry of entries) {
               if (entry.supportImportPath === imported.importPath) {
-                pushUnique(entry.supportExports.spyExports, imported.local)
+                pushUnique(entry.supportExports.spyExports, imported.local);
               }
             }
           }
         }
       },
-    })
+    });
 
-    fileUsage.set(relativeFile, usage)
+    fileUsage.set(relativeFile, usage);
   }
 
   for (const wrapper of params.providerWrappers) {
-    const target = normalizeTarget(wrapper.importPath)
-    const existing = observations.get(target) ?? []
+    const target = normalizeTarget(wrapper.importPath);
+    const existing = observations.get(target) ?? [];
     existing.push({
       target,
       kind: classifyBoundaryKind(target),
-      strategy: 'provider-wrapper',
+      strategy: "provider-wrapper",
       guardrailReason: getBoundaryGuardrailReason(target, []),
       supportImportPath: wrapper.importPath,
       supportExports: createEmptySupportExports(),
-      payloadSource: 'manual',
+      payloadSource: "manual",
       files: new Set([wrapper.sourceTestFile]),
       evidence: new Set([`${wrapper.sourceTestFile}: wrapper ${wrapper.name}`]),
       weight: 2,
-    })
-    observations.set(target, existing)
-    const usage = fileUsage.get(wrapper.sourceTestFile)
+    });
+    observations.set(target, existing);
+    const usage = fileUsage.get(wrapper.sourceTestFile);
     if (usage) {
-      usage.targets.add(target)
-      usage.kinds.add(classifyBoundaryKind(target))
-      usage.usesProviderWrapper = true
+      usage.targets.add(target);
+      usage.kinds.add(classifyBoundaryKind(target));
+      usage.usesProviderWrapper = true;
     }
   }
 
@@ -633,48 +698,66 @@ export async function collectBoundaryLearning(params: {
         return (
           right.weight - left.weight ||
           strategyPriority(right.strategy) - strategyPriority(left.strategy) ||
-          (right.supportImportPath ?? '').localeCompare(left.supportImportPath ?? '')
-        )
-      })
-      const winner = sortedEntries[0]!
-      const totalWeight = sortedEntries.reduce((sum, entry) => sum + entry.weight, 0) || 1
-      const confidence = toConfidence(winner.weight / totalWeight + (winner.supportImportPath ? 0.2 : 0))
-      const files = [...new Set(sortedEntries.flatMap((entry) => [...entry.files]))].sort()
-      const evidence = [...new Set(sortedEntries.flatMap((entry) => [...entry.evidence]))].sort()
+          (right.supportImportPath ?? "").localeCompare(
+            left.supportImportPath ?? ""
+          )
+        );
+      });
+      const winner = sortedEntries[0]!;
+      const totalWeight =
+        sortedEntries.reduce((sum, entry) => sum + entry.weight, 0) || 1;
+      const confidence = toConfidence(
+        winner.weight / totalWeight + (winner.supportImportPath ? 0.2 : 0)
+      );
+      const files = [
+        ...new Set(sortedEntries.flatMap((entry) => [...entry.files])),
+      ].sort();
+      const evidence = [
+        ...new Set(sortedEntries.flatMap((entry) => [...entry.evidence])),
+      ].sort();
       const conflictTargets = [
         ...new Set(
           sortedEntries
             .slice(1)
-            .map((entry) => `${entry.strategy}${entry.supportImportPath ? ` -> ${entry.supportImportPath}` : ''}`)
+            .map(
+              (entry) =>
+                `${entry.strategy}${entry.supportImportPath ? ` -> ${entry.supportImportPath}` : ""}`
+            )
         ),
-      ]
+      ];
 
       return {
         target,
         kind: winner.kind,
         strategy: winner.strategy,
         guardrailReason: winner.guardrailReason,
-        supportImportPath: winner.strategy === 'forbid' ? null : winner.supportImportPath,
+        supportImportPath:
+          winner.strategy === "forbid" ? null : winner.supportImportPath,
         supportPath: null,
         supportExports:
-          winner.strategy === 'forbid'
+          winner.strategy === "forbid"
             ? createEmptySupportExports()
             : {
                 factoryExport: winner.supportExports.factoryExport,
                 resetExport: winner.supportExports.resetExport,
-                overrideExports: [...winner.supportExports.overrideExports].sort(),
+                overrideExports: [
+                  ...winner.supportExports.overrideExports,
+                ].sort(),
                 spyExports: [...winner.supportExports.spyExports].sort(),
-                fixtureExports: [...winner.supportExports.fixtureExports].sort(),
+                fixtureExports: [
+                  ...winner.supportExports.fixtureExports,
+                ].sort(),
               },
-        payloadSource: winner.strategy === 'forbid' ? 'unknown' : winner.payloadSource,
+        payloadSource:
+          winner.strategy === "forbid" ? "unknown" : winner.payloadSource,
         confidence,
         files,
         evidence,
         conflictTargets,
         lowConfidenceScaffold: false,
-      }
+      };
     })
-    .sort((left, right) => left.target.localeCompare(right.target))
+    .sort((left, right) => left.target.localeCompare(right.target));
 
   const exemplars: TaroBoundaryExemplarProfile[] = [...fileUsage.values()]
     .map((usage) => ({
@@ -687,60 +770,66 @@ export async function collectBoundaryLearning(params: {
       hasMutationLifecycle: mutationFiles.has(usage.file),
       overrideStyle: usage.overrideStyle,
       tags: [
-        ...(usage.usesProviderWrapper ? ['provider-wrapper'] : []),
-        ...(usage.usesCentralBoundarySupport ? ['central-boundary-support'] : []),
-        ...(mutationFiles.has(usage.file) ? ['mutation-lifecycle'] : []),
+        ...(usage.usesProviderWrapper ? ["provider-wrapper"] : []),
+        ...(usage.usesCentralBoundarySupport
+          ? ["central-boundary-support"]
+          : []),
+        ...(mutationFiles.has(usage.file) ? ["mutation-lifecycle"] : []),
         ...[...usage.kinds].map((kind) => `boundary:${kind}`),
       ].sort(),
     }))
-    .sort((left, right) => left.file.localeCompare(right.file))
+    .sort((left, right) => left.file.localeCompare(right.file));
 
-  return { profiles, exemplars }
+  return { profiles, exemplars };
 }
 
 export async function discoverBoundaryImportsFromSource(
   filePath: string
 ): Promise<BoundaryImportReference[]> {
-  let content: string
+  let content: string;
   try {
-    content = await readFile(filePath, 'utf-8')
+    content = await readFile(filePath, "utf-8");
   } catch {
-    return []
+    return [];
   }
 
-  let ast: t.File
+  let ast: t.File;
   try {
-    ast = parseCode(content)
+    ast = parseCode(content);
   } catch {
-    return []
+    return [];
   }
 
-  const imports = new Map<string, Set<string>>()
+  const imports = new Map<string, Set<string>>();
   for (const node of ast.program.body) {
     if (!t.isImportDeclaration(node)) {
-      continue
+      continue;
     }
 
-    const importPath = normalizeTarget(node.source.value)
+    const importPath = normalizeTarget(node.source.value);
     if (
-      importPath === 'react' ||
-      importPath.startsWith('@testing-library/') ||
-      importPath.endsWith('.css') ||
-      importPath.endsWith('.scss') ||
-      importPath.endsWith('.sass')
+      importPath === "react" ||
+      importPath.startsWith("@testing-library/") ||
+      importPath.endsWith(".css") ||
+      importPath.endsWith(".scss") ||
+      importPath.endsWith(".sass")
     ) {
-      continue
+      continue;
     }
 
-    const names = imports.get(importPath) ?? new Set<string>()
+    const names = imports.get(importPath) ?? new Set<string>();
     for (const specifier of node.specifiers) {
       if (t.isImportDefaultSpecifier(specifier)) {
-        names.add('default')
+        names.add("default");
       } else if (t.isImportSpecifier(specifier)) {
-        names.add(t.isIdentifier(specifier.imported) ? specifier.imported.name : specifier.imported.value)
+        names.add(
+          t.isIdentifier(specifier.imported)
+            ? specifier.imported.name
+            : specifier.imported.value
+        );
       }
     }
-    imports.set(importPath, names)
+    imports.set(importPath, names);
   }
 
   return [...imports.entries()]
@@ -750,54 +839,54 @@ export async function discoverBoundaryImportsFromSource(
       kind: classifyBoundaryKind(target),
       guardrailReason: getBoundaryGuardrailReason(target, [...importedNames]),
     }))
-    .sort((left, right) => left.target.localeCompare(right.target))
+    .sort((left, right) => left.target.localeCompare(right.target));
 }
 
 export function summarizeBoundaryProfiles(
   profiles: TaroBoundaryProfile[],
   options: {
-    renderHelpers: TaroRenderHelperProfile[]
-    playwrightAuth: TaroPlaywrightAuthProfile | null
+    renderHelpers: TaroRenderHelperProfile[];
+    playwrightAuth: TaroPlaywrightAuthProfile | null;
   }
 ): string[] {
-  const lines: string[] = []
+  const lines: string[] = [];
 
   if (profiles.length === 0) {
-    lines.push('- No learned boundary profiles yet.')
+    lines.push("- No learned boundary profiles yet.");
   } else {
     for (const profile of profiles) {
       const detail = [
         `${profile.kind}`,
         `${profile.strategy}`,
         `confidence=${profile.confidence}`,
-      ]
+      ];
       if (profile.guardrailReason) {
-        detail.push(`guardrail=${profile.guardrailReason}`)
+        detail.push(`guardrail=${profile.guardrailReason}`);
       }
       if (profile.supportImportPath) {
-        detail.push(`support=${profile.supportImportPath}`)
+        detail.push(`support=${profile.supportImportPath}`);
       }
       if (profile.lowConfidenceScaffold) {
-        detail.push('low-confidence-scaffold')
+        detail.push("low-confidence-scaffold");
       }
       if (profile.conflictTargets.length > 0) {
-        detail.push(`conflicts=${profile.conflictTargets.join(', ')}`)
+        detail.push(`conflicts=${profile.conflictTargets.join(", ")}`);
       }
-      lines.push(`- \`${profile.target}\`: ${detail.join(', ')}`)
+      lines.push(`- \`${profile.target}\`: ${detail.join(", ")}`);
     }
   }
 
   if (options.renderHelpers.length > 0) {
     lines.push(
-      `- Render helpers: ${options.renderHelpers.map((helper) => `\`${helper.name}\``).join(', ')}`
-    )
+      `- Render helpers: ${options.renderHelpers.map((helper) => `\`${helper.name}\``).join(", ")}`
+    );
   }
 
   if (options.playwrightAuth) {
     lines.push(
       `- Visual auth: \`${options.playwrightAuth.strategy}\` from \`${options.playwrightAuth.path}\``
-    )
+    );
   }
 
-  return lines
+  return lines;
 }

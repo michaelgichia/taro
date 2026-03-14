@@ -4,14 +4,11 @@
  * Implements CNV-02 (conventions persist across runs) and CNV-03 (faster subsequent runs via caching)
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { ensureProjectStateDirSync } from '../project-state.js';
-import { createEmptyConvention } from './types.js';
-import type { TestConvention } from './types.js';
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const Database = require('better-sqlite3');
+import * as fs from "fs";
+import * as path from "path";
+import Database from "better-sqlite3";
+import { ensureProjectStateDirSync } from "../project-state.js";
+import type { TestConvention } from "./types.js";
 
 export type { TestConvention };
 
@@ -69,9 +66,9 @@ export class ConventionStore {
    * @param conventions - TestConvention object to save
    * @param key - Optional key for the conventions (default: 'default')
    */
-  saveConventions(conventions: TestConvention, key: string = 'default'): void {
+  saveConventions(conventions: TestConvention, key: string = "default"): void {
     if (!this.db) {
-      throw new Error('Database not initialized. Call init() first.');
+      throw new Error("Database not initialized. Call init() first.");
     }
 
     const value = JSON.stringify(conventions);
@@ -94,9 +91,9 @@ export class ConventionStore {
    * @param key - Optional key for the conventions (default: 'default')
    * @returns TestConvention or null if not found
    */
-  loadConventions(key: string = 'default'): TestConvention | null {
+  loadConventions(key: string = "default"): TestConvention | null {
     if (!this.db) {
-      throw new Error('Database not initialized. Call init() first.');
+      throw new Error("Database not initialized. Call init() first.");
     }
 
     const stmt = this.db.prepare(`
@@ -127,14 +124,16 @@ export class ConventionStore {
    */
   getCached(key: string): unknown | null {
     if (!this.db) {
-      throw new Error('Database not initialized. Call init() first.');
+      throw new Error("Database not initialized. Call init() first.");
     }
 
     const stmt = this.db.prepare(`
       SELECT value, expires_at FROM cache WHERE key = ?
     `);
 
-    const row = stmt.get(key) as { value: string; expires_at: string | null } | undefined;
+    const row = stmt.get(key) as
+      | { value: string; expires_at: string | null }
+      | undefined;
 
     if (!row) {
       return null;
@@ -165,7 +164,7 @@ export class ConventionStore {
    */
   setCached(key: string, value: unknown, ttlSeconds?: number): void {
     if (!this.db) {
-      throw new Error('Database not initialized. Call init() first.');
+      throw new Error("Database not initialized. Call init() first.");
     }
 
     const serializedValue = JSON.stringify(value);
@@ -194,7 +193,7 @@ export class ConventionStore {
    */
   deleteCached(key: string): void {
     if (!this.db) {
-      throw new Error('Database not initialized. Call init() first.');
+      throw new Error("Database not initialized. Call init() first.");
     }
 
     const stmt = this.db.prepare(`DELETE FROM cache WHERE key = ?`);
@@ -206,7 +205,7 @@ export class ConventionStore {
    */
   clearCache(): void {
     if (!this.db) {
-      throw new Error('Database not initialized. Call init() first.');
+      throw new Error("Database not initialized. Call init() first.");
     }
 
     this.db.exec(`DELETE FROM cache`);
@@ -231,7 +230,7 @@ export class ConventionStore {
  */
 export function createStore(projectRoot: string): ConventionStore {
   const taroDir = ensureProjectStateDirSync(projectRoot);
-  const dbPath = path.join(taroDir, 'conventions.db');
+  const dbPath = path.join(taroDir, "conventions.db");
 
   const store = new ConventionStore(dbPath);
   store.init();
