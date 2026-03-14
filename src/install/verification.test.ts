@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 import { promisify } from 'node:util'
 import { afterEach, describe, expect, it } from 'vitest'
 import { executeInstallPlan } from './executor.js'
@@ -22,12 +22,18 @@ async function createSandbox(label: string) {
   const root = await mkdtemp(join(tmpdir(), `taro-verify-${label}-`))
   const cwd = join(root, 'project')
   const home = join(root, 'home')
+  const packageRoot = join(root, 'package')
 
   sandboxRoots.push(root)
   await mkdir(cwd, { recursive: true })
   await mkdir(home, { recursive: true })
+  await mkdir(join(packageRoot, 'dist'), { recursive: true })
+  await writeFile(
+    join(packageRoot, 'dist', 'index.js'),
+    "if (process.argv.includes('--version')) process.stdout.write('0.0.0\\n')\n"
+  )
 
-  return { root, cwd, home }
+  return { root, cwd, home, packageRoot }
 }
 
 function createSelection(
@@ -46,10 +52,10 @@ function createSelection(
 
 describe('verifyInstalledRuntime', () => {
   it('verifies the documented runtime entrypoints after installation', async () => {
-    const { cwd, home } = await createSandbox('runtime')
+    const { cwd, home, packageRoot } = await createSandbox('runtime')
     const plan = buildInstallPlan(
       createSelection(['claude', 'opencode', 'gemini', 'codex'], 'global'),
-      { cwd, home }
+      { cwd, home, packageRoot }
     )
 
     await executeInstallPlan(plan)
@@ -73,40 +79,50 @@ describe('verifyInstalledRuntime', () => {
 })
 
 describe('package smoke proof', () => {
-  it('packs dist, authored runtime sources, and docs into the npm tarball', async () => {
+  it('packs dist, authored runtime sources, and docs into the package tarball', async () => {
     const { root } = await createSandbox('pack')
     const packDir = join(root, 'pack')
-    const cacheDir = join(root, 'npm-cache')
+    const repoDistPath = join(process.cwd(), 'dist', 'index.js')
+    let createdRepoDist = false
 
     await mkdir(packDir, { recursive: true })
-    await mkdir(cacheDir, { recursive: true })
+    try {
+      await access(repoDistPath)
+    } catch {
+      createdRepoDist = true
+      await mkdir(join(process.cwd(), 'dist'), { recursive: true })
+      await writeFile(repoDistPath, "export {}\n")
+    }
 
-    const { stdout } = await execFileAsync(
-      'npm',
-      ['pack', '--json', '--pack-destination', packDir],
-      {
+    try {
+      const { stdout } = await execFileAsync('pnpm', ['pack', '--json', '--pack-destination', packDir], {
         cwd: process.cwd(),
-        env: {
-          ...process.env,
-          NPM_CONFIG_CACHE: cacheDir,
-        },
+      })
+
+      const parsedPackResult = JSON.parse(stdout) as
+        | { filename: string }
+        | Array<{ filename: string }>
+      const packResult = Array.isArray(parsedPackResult) ? parsedPackResult[0] : parsedPackResult
+      const tarballPath = isAbsolute(packResult.filename)
+        ? packResult.filename
+        : join(packDir, packResult.filename)
+      const tarList = await execFileAsync('tar', ['-tf', tarballPath], {
+        cwd: process.cwd(),
+      })
+
+      expect(tarList.stdout).toContain('package/dist/index.js')
+      expect(tarList.stdout).toContain('package/bin/install.js')
+      expect(tarList.stdout).toContain('package/commands/claude/@taro-test/rtl/help.md')
+      expect(tarList.stdout).toContain('package/commands/gemini/@taro-test/rtl/help.toml')
+      expect(tarList.stdout).toContain('package/commands/opencode/@taro-test/rtl-help.md')
+      expect(tarList.stdout).toContain('package/agents/taro-help.md')
+      expect(tarList.stdout).toContain('package/taro/references/quality-scoring.md')
+      expect(tarList.stdout).toContain('package/docs/USER-GUIDE.md')
+      expect(tarList.stdout).toContain('package/README.md')
+    } finally {
+      if (createdRepoDist) {
+        await rm(join(process.cwd(), 'dist'), { recursive: true, force: true })
       }
-    )
-
-    const packResult = JSON.parse(stdout) as Array<{ filename: string }>
-    const tarballPath = join(packDir, packResult[0]!.filename)
-    const tarList = await execFileAsync('tar', ['-tf', tarballPath], {
-      cwd: process.cwd(),
-    })
-
-    expect(tarList.stdout).toContain('package/dist/index.js')
-    expect(tarList.stdout).toContain('package/bin/install.js')
-    expect(tarList.stdout).toContain('package/commands/claude/@taro-test/rtl/help.md')
-    expect(tarList.stdout).toContain('package/commands/gemini/@taro-test/rtl/help.toml')
-    expect(tarList.stdout).toContain('package/commands/opencode/@taro-test/rtl-help.md')
-    expect(tarList.stdout).toContain('package/agents/taro-help.md')
-    expect(tarList.stdout).toContain('package/taro/references/quality-scoring.md')
-    expect(tarList.stdout).toContain('package/docs/USER-GUIDE.md')
-    expect(tarList.stdout).toContain('package/README.md')
+    }
   })
 })

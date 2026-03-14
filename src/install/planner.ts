@@ -8,6 +8,8 @@ import type { InstallPlan, InstallSelection, ResolvedInstallTarget } from './typ
 interface BuildInstallPlanContext {
   cwd?: string
   home?: string
+  nodePath?: string
+  packageRoot?: string
 }
 
 function buildRuntimeOperations(target: ResolvedInstallTarget) {

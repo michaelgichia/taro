@@ -29,6 +29,7 @@ interface PromptIO {
 interface InstallCommandContext {
   cwd?: string
   home?: string
+  packageRoot?: string
   logger?: Pick<typeof console, 'log' | 'error'>
   promptCapability?: PromptCapability
   promptIO?: PromptIO
@@ -79,6 +80,7 @@ export async function runInstallCommand(
     const plan = buildInstallPlan(selection, {
       cwd: context.cwd,
       home: context.home,
+      packageRoot: context.packageRoot,
     })
 
     logger.log(renderInstallSummary(plan))
