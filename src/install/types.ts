@@ -102,7 +102,7 @@ export interface RuntimeVerificationResult {
 }
 
 export interface InstallOwnershipManifest {
-  packageName: '@taro-dev/rtl'
+  packageName: '@taro-test/rtl'
   runtime: RuntimeTarget
   location: InstallLocation
   manifestVersion: 1
@@ -122,7 +122,7 @@ export interface InstallAssetConflict {
 }
 
 export interface InstallPlan {
-  packageName: '@taro-dev/rtl'
+  packageName: '@taro-test/rtl'
   commandName: 'taro'
   stage: 'prewrite-preview' | 'ready-to-write'
   source: InstallSelectionSource
@@ -144,7 +144,7 @@ export interface RuntimeInstallResult {
 }
 
 export interface InstallExecutionResult {
-  packageName: '@taro-dev/rtl'
+  packageName: '@taro-test/rtl'
   status: 'installed' | 'partial' | 'blocked'
   targets: RuntimeInstallResult[]
 }

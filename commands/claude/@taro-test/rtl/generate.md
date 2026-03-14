@@ -1,5 +1,5 @@
 ---
-name: "@taro-dev/rtl:generate"
+name: "@taro-test/rtl:generate"
 description: Generate deterministic, project-aware React Testing Library tests from Testing Library Recorder exports with Taro.
 argument-hint: "<path/to/recording.js>"
 allowed-tools:
@@ -9,7 +9,7 @@ allowed-tools:
   - Bash
 argument-instructions: |
   Accept exactly one argument: the path to a Testing Library Recorder `.js` export.
-  Example: /@taro-dev/rtl:generate path/to/recording.js
+  Example: /@taro-test/rtl:generate path/to/recording.js
   Stop if the input is missing or does not end in `.js`.
 ---
 <objective>

@@ -1,13 +1,13 @@
 ---
-name: "@taro-dev/rtl-generate-i"
+name: "@taro-test/rtl-generate-i"
 description: "Generate deterministic, repository-aware React Testing Library tests from Testing Library Recorder JS exports with Taro, forcing interactive auth recovery when visual capture needs it."
 ---
 
 # Taro Generate Interactive
 
-Invoke this skill with `$@taro-dev/rtl-generate-i`.
+Invoke this skill with `$@taro-test/rtl-generate-i`.
 
-Use the same workflow and expectations as `$@taro-dev/rtl-generate`, but force interactive Playwright auth recovery for this run.
+Use the same workflow and expectations as `$@taro-test/rtl-generate`, but force interactive Playwright auth recovery for this run.
 
 ## Purpose
 

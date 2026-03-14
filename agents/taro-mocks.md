@@ -1,11 +1,11 @@
 ---
-name: "@taro-dev/rtl-mocks"
+name: "@taro-test/rtl-mocks"
 description: "Review mock targets, provider boundaries, fixture shape, and post-generation follow-up for Taro output. Use when a generated RTL test needs API mocking, router/auth/context setup, fixture guidance, or when the user asks why Taro suggested certain mocks."
 ---
 
 # Taro Mocks
 
-Invoke this skill with `$@taro-dev/rtl-mocks`.
+Invoke this skill with `$@taro-test/rtl-mocks`.
 
 ## Boundary Review Workflow
 

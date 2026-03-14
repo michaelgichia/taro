@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v1.5.1
+
+- renamed the published package and runtime entrypoints from `@taro-dev/rtl` to `@taro-test/rtl`
+- updated installer-managed command and skill paths so all supported runtimes install under the new `@taro-test` namespace
+- refreshed docs and install coverage to match the new organization strategy for future sibling packages like `@taro-test/playwright`
+
 ## v1.5.0
 
 - added findings reporting with envelope flush, blocking gates, and clearer exit-code semantics for generation failures

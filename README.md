@@ -9,7 +9,7 @@ For the current strict-order runtime generation path, see [docs/PIPELINE.md](./d
 ## Getting Started
 
 ```bash
-npx @taro-dev/rtl@latest
+npx @taro-test/rtl@latest
 ```
 
 The installer prompts you to choose:
@@ -19,36 +19,36 @@ The installer prompts you to choose:
 
 After installation or reinstall, run the runtime-native `init` entrypoint:
 
-- Claude Code: `/@taro-dev/rtl:init`
-- Gemini CLI: `/@taro-dev/rtl:init`
-- OpenCode: `/@taro-dev/rtl-init`
-- Codex: `$@taro-dev/rtl-init`
+- Claude Code: `/@taro-test/rtl:init`
+- Gemini CLI: `/@taro-test/rtl:init`
+- OpenCode: `/@taro-test/rtl-init`
+- Codex: `$@taro-test/rtl-init`
 
-The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `npx @taro-dev/rtl@latest --version`.
+The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `npx @taro-test/rtl@latest --version`.
 
 Use the runtime-native help entrypoint when you want routing guidance:
 
-- Claude Code: `/@taro-dev/rtl:help`
-- Gemini CLI: `/@taro-dev/rtl:help`
-- OpenCode: `/@taro-dev/rtl-help`
-- Codex: `$@taro-dev/rtl-help`
+- Claude Code: `/@taro-test/rtl:help`
+- Gemini CLI: `/@taro-test/rtl:help`
+- OpenCode: `/@taro-test/rtl-help`
+- Codex: `$@taro-test/rtl-help`
 
 > [!NOTE]
-> Codex installation uses skills under `skills/@taro-dev/rtl-*/SKILL.md`, not prompt files.
+> Codex installation uses skills under `skills/@taro-test/rtl-*/SKILL.md`, not prompt files.
 
 ## Staying Updated
 
 Use the runtime-native `refresh` entrypoint for maintenance after Taro is already installed:
 
-- Claude Code: `/@taro-dev/rtl:refresh`
-- Gemini CLI: `/@taro-dev/rtl:refresh`
-- OpenCode: `/@taro-dev/rtl-refresh`
-- Codex: `$@taro-dev/rtl-refresh`
+- Claude Code: `/@taro-test/rtl:refresh`
+- Gemini CLI: `/@taro-test/rtl:refresh`
+- OpenCode: `/@taro-test/rtl-refresh`
+- Codex: `$@taro-test/rtl-refresh`
 
 If you need a newer package version first, rerun the installer package:
 
 ```bash
-npx @taro-dev/rtl@latest
+npx @taro-test/rtl@latest
 ```
 
 After updating the package, run the runtime-native `refresh` entrypoint. Refresh is the maintenance path for owned assets: it restores missing owned files and protects manual edits instead of overwriting them silently.
@@ -59,24 +59,24 @@ Use runtime flags plus exactly one location flag to skip prompts:
 
 ```bash
 # Claude Code
-npx @taro-dev/rtl@latest --claude --global
-npx @taro-dev/rtl@latest --claude --local
+npx @taro-test/rtl@latest --claude --global
+npx @taro-test/rtl@latest --claude --local
 
 # OpenCode
-npx @taro-dev/rtl@latest --opencode --global
-npx @taro-dev/rtl@latest --opencode --local
+npx @taro-test/rtl@latest --opencode --global
+npx @taro-test/rtl@latest --opencode --local
 
 # Gemini CLI
-npx @taro-dev/rtl@latest --gemini --global
-npx @taro-dev/rtl@latest --gemini --local
+npx @taro-test/rtl@latest --gemini --global
+npx @taro-test/rtl@latest --gemini --local
 
 # Codex
-npx @taro-dev/rtl@latest --codex --global
-npx @taro-dev/rtl@latest --codex --local
+npx @taro-test/rtl@latest --codex --global
+npx @taro-test/rtl@latest --codex --local
 
 # All runtimes
-npx @taro-dev/rtl@latest --all --global
-npx @taro-dev/rtl@latest --all --local
+npx @taro-test/rtl@latest --all --global
+npx @taro-test/rtl@latest --all --local
 ```
 
 Local installs write to hidden runtime directories in the current project:
@@ -105,7 +105,7 @@ node dist/index.js --all --local
 
 # Or verify the publish boundary with a tarball
 env NPM_CONFIG_CACHE=/tmp/taro-npm-cache npm pack --pack-destination /tmp/taro-pack
-npx /tmp/taro-pack/taro-dev-rtl-1.0.0.tgz --codex --local
+npx /tmp/taro-pack/taro-test-rtl-1.0.0.tgz --codex --local
 ```
 
 The tarball flow is the closest match to what end users get from npm.
@@ -114,13 +114,13 @@ The tarball flow is the closest match to what end users get from npm.
 
 1. builds the package
 2. installs Claude commands into this repo's `./.claude/`
-3. deletes the existing global Taro Claude command directory at `~/.claude/commands/@taro-dev/rtl` and reinstalls it cleanly
+3. deletes the existing global Taro Claude command directory at `~/.claude/commands/@taro-test/rtl` and reinstalls it cleanly
 
 `npm run build:codex` performs the Codex equivalent:
 
 1. builds the package
 2. installs Codex skills into this repo's `./.codex/`
-3. deletes the existing global Taro Codex skill directories plus `~/.codex/@taro-dev-rtl-manifest.json`
+3. deletes the existing global Taro Codex skill directories plus `~/.codex/@taro-test-rtl-manifest.json`
 4. reinstalls the global Codex surface cleanly
 
 That reinstalls the Codex skill surface only. It does not place a global `taro` binary on your shell `PATH`; the installed Codex skills call this checkout's `dist/index.js` directly. When you move or replace the checkout, rerun `npm run build:codex` so the launcher paths stay current.
@@ -129,14 +129,14 @@ That reinstalls the Codex skill surface only. It does not place a global `taro` 
 
 After installation and a first `init` run, use the runtime-native installed generate command or skill for your agent:
 
-- Claude Code: `/@taro-dev/rtl:generate`
-- Claude Code: `/@taro-dev/rtl:generate-i`
-- Gemini CLI: `/@taro-dev/rtl:generate`
-- Gemini CLI: `/@taro-dev/rtl:generate-i`
-- OpenCode: `/@taro-dev/rtl-generate`
-- OpenCode: `/@taro-dev/rtl-generate-i`
-- Codex: `$@taro-dev/rtl-generate`
-- Codex: `$@taro-dev/rtl-generate-i`
+- Claude Code: `/@taro-test/rtl:generate`
+- Claude Code: `/@taro-test/rtl:generate-i`
+- Gemini CLI: `/@taro-test/rtl:generate`
+- Gemini CLI: `/@taro-test/rtl:generate-i`
+- OpenCode: `/@taro-test/rtl-generate`
+- OpenCode: `/@taro-test/rtl-generate-i`
+- Codex: `$@taro-test/rtl-generate`
+- Codex: `$@taro-test/rtl-generate-i`
 
 ### Prerequisites
 

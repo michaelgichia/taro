@@ -79,24 +79,24 @@ describe('prompt runtime install builders', () => {
     const operations = buildClaudeRuntimeOperations(target)
     await materializeOperations(operations)
 
-    const helpPath = join(home, '.claude', 'commands', '@taro-dev', 'rtl', 'help.md')
+    const helpPath = join(home, '.claude', 'commands', '@taro-test', 'rtl', 'help.md')
     const helpContent = await expectFile(helpPath)
     const initContent = await expectFile(
-      join(home, '.claude', 'commands', '@taro-dev', 'rtl', 'init.md')
+      join(home, '.claude', 'commands', '@taro-test', 'rtl', 'init.md')
     )
     const refreshContent = await expectFile(
-      join(home, '.claude', 'commands', '@taro-dev', 'rtl', 'refresh.md')
+      join(home, '.claude', 'commands', '@taro-test', 'rtl', 'refresh.md')
     )
 
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl:help')
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl:init')
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl:generate-i')
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl:refresh')
-    expect(helpContent).toContain('/@taro-dev/rtl:help')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl:help')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl:init')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl:generate-i')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl:refresh')
+    expect(helpContent).toContain('/@taro-test/rtl:help')
     expect(initContent).toContain(`${target.runtimeCommand} __init`)
     expect(refreshContent).toContain(`${target.runtimeCommand} __refresh`)
     expect(operations.map((operation) => operation.relativeDestinationPath)).toContain(
-      'commands/@taro-dev/rtl/references/assertion-markers.md'
+      'commands/@taro-test/rtl/references/assertion-markers.md'
     )
   })
 
@@ -107,10 +107,10 @@ describe('prompt runtime install builders', () => {
     await materializeOperations(buildClaudeRuntimeOperations(target))
 
     const generateContent = await expectFile(
-      join(cwd, '.claude', 'commands', '@taro-dev', 'rtl', 'generate.md')
+      join(cwd, '.claude', 'commands', '@taro-test', 'rtl', 'generate.md')
     )
     const interactiveGenerateContent = await expectFile(
-      join(cwd, '.claude', 'commands', '@taro-dev', 'rtl', 'generate-i.md')
+      join(cwd, '.claude', 'commands', '@taro-test', 'rtl', 'generate-i.md')
     )
     expect(generateContent).toContain('allowed-tools:')
     expect(generateContent).toContain('references/assertion-markers.md')
@@ -119,7 +119,7 @@ describe('prompt runtime install builders', () => {
     )
 
     const installedGenerateReferences = (
-      await readdir(join(cwd, '.claude', 'commands', '@taro-dev', 'rtl', 'references'))
+      await readdir(join(cwd, '.claude', 'commands', '@taro-test', 'rtl', 'references'))
     ).sort()
     expect(installedGenerateReferences).toEqual([...TARO_REFERENCE_FILES])
   })
@@ -132,20 +132,20 @@ describe('prompt runtime install builders', () => {
     await materializeOperations(operations)
 
     const helpContent = await expectFile(
-      join(home, '.gemini', 'commands', '@taro-dev', 'rtl', 'help.toml')
+      join(home, '.gemini', 'commands', '@taro-test', 'rtl', 'help.toml')
     )
     const initContent = await expectFile(
-      join(home, '.gemini', 'commands', '@taro-dev', 'rtl', 'init.toml')
+      join(home, '.gemini', 'commands', '@taro-test', 'rtl', 'init.toml')
     )
     const refreshContent = await expectFile(
-      join(home, '.gemini', 'commands', '@taro-dev', 'rtl', 'refresh.toml')
+      join(home, '.gemini', 'commands', '@taro-test', 'rtl', 'refresh.toml')
     )
 
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl:help')
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl:init')
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl:generate-i')
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl:refresh')
-    expect(helpContent).toContain('/@taro-dev/rtl:help')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl:help')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl:init')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl:generate-i')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl:refresh')
+    expect(helpContent).toContain('/@taro-test/rtl:help')
     expect(initContent).toContain(`\`${target.runtimeCommand} __init\``)
     expect(refreshContent).toContain(`\`${target.runtimeCommand} __refresh\``)
   })
@@ -157,10 +157,10 @@ describe('prompt runtime install builders', () => {
     await materializeOperations(buildGeminiRuntimeOperations(target))
 
     const generateContent = await expectFile(
-      join(cwd, '.gemini', 'commands', '@taro-dev', 'rtl', 'generate.toml')
+      join(cwd, '.gemini', 'commands', '@taro-test', 'rtl', 'generate.toml')
     )
     const interactiveGenerateContent = await expectFile(
-      join(cwd, '.gemini', 'commands', '@taro-dev', 'rtl', 'generate-i.toml')
+      join(cwd, '.gemini', 'commands', '@taro-test', 'rtl', 'generate-i.toml')
     )
     expect(generateContent).toContain(`\`${target.runtimeCommand} __generate <recording-file>\``)
     expect(interactiveGenerateContent).toContain(
@@ -177,20 +177,20 @@ describe('prompt runtime install builders', () => {
     await materializeOperations(operations)
 
     const helpContent = await expectFile(
-      join(home, '.config', 'opencode', 'commands', '@taro-dev', 'rtl-help.md')
+      join(home, '.config', 'opencode', 'commands', '@taro-test', 'rtl-help.md')
     )
     const initContent = await expectFile(
-      join(home, '.config', 'opencode', 'commands', '@taro-dev', 'rtl-init.md')
+      join(home, '.config', 'opencode', 'commands', '@taro-test', 'rtl-init.md')
     )
     const refreshContent = await expectFile(
-      join(home, '.config', 'opencode', 'commands', '@taro-dev', 'rtl-refresh.md')
+      join(home, '.config', 'opencode', 'commands', '@taro-test', 'rtl-refresh.md')
     )
 
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl-help')
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl-init')
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl-generate-i')
-    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-dev/rtl-refresh')
-    expect(helpContent).toContain('/@taro-dev/rtl-help')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl-help')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl-init')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl-generate-i')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl-refresh')
+    expect(helpContent).toContain('/@taro-test/rtl-help')
     expect(initContent).toContain(`${target.runtimeCommand} __init`)
     expect(refreshContent).toContain(`${target.runtimeCommand} __refresh`)
   })
@@ -202,10 +202,10 @@ describe('prompt runtime install builders', () => {
     await materializeOperations(buildOpenCodeRuntimeOperations(target))
 
     const generateContent = await expectFile(
-      join(cwd, '.opencode', 'commands', '@taro-dev', 'rtl-generate.md')
+      join(cwd, '.opencode', 'commands', '@taro-test', 'rtl-generate.md')
     )
     const interactiveGenerateContent = await expectFile(
-      join(cwd, '.opencode', 'commands', '@taro-dev', 'rtl-generate-i.md')
+      join(cwd, '.opencode', 'commands', '@taro-test', 'rtl-generate-i.md')
     )
     expect(generateContent).toContain(`\`${target.runtimeCommand} __generate <recording-file>\``)
     expect(interactiveGenerateContent).toContain(
