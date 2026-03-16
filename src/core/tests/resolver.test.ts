@@ -756,7 +756,7 @@ describe('replayStep', () => {
         click: placeholderClickMock,
         fill: placeholderFillMock,
       })),
-      locator: vi.fn((selector: string) => ({
+      locator: vi.fn(() => ({
         first: () => ({
           click: vi.fn().mockResolvedValue(undefined),
           fill: vi.fn().mockResolvedValue(undefined),
@@ -2670,7 +2670,7 @@ describe('replayStep - additional branches', () => {
   it('replays click action using metadata.selector when available', async () => {
     const clickMock = vi.fn().mockResolvedValue(undefined)
     const page = {
-      locator: vi.fn((sel: string) => ({
+      locator: vi.fn(() => ({
         first: () => ({ click: clickMock }),
       })),
       title: vi.fn().mockResolvedValue('App'),
@@ -3068,7 +3068,7 @@ describe('replayStep - fill placeholder path without debug', () => {
         click: placeholderClickMock,
         fill: placeholderFillMock,
       })),
-      locator: vi.fn((sel: string) => ({
+      locator: vi.fn(() => ({
         first: () => ({
           click: vi.fn().mockResolvedValue(undefined),
           fill: vi.fn().mockResolvedValue(undefined),
@@ -3217,7 +3217,6 @@ describe('replayStep - formatQueryDescriptorForDebug empty return', () => {
 
 describe('replayStep - metadata.query branches (queryToPlaywrightLocator)', () => {
   function makePageWithMethods() {
-    const locatorMock = vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined) }))
     const page = {
       getByText: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined) })),
       getByLabel: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined) })),
@@ -3230,7 +3229,7 @@ describe('replayStep - metadata.query branches (queryToPlaywrightLocator)', () =
       getByTitle: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined) })),
       getByAltText: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined) })),
       getByRole: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined) })),
-      locator: vi.fn((sel: string) => ({
+      locator: vi.fn(() => ({
         first: () => ({ click: vi.fn().mockResolvedValue(undefined) }),
       })),
       title: vi.fn().mockResolvedValue('App'),
@@ -3358,7 +3357,7 @@ describe('replayStep - metadata.query branches (queryToPlaywrightLocator)', () =
       getByRole: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined) })),
       // locator must return an object with a click method at the top level (not nested in first())
       // because queryToPlaywrightLocator returns page.locator(...) directly (not .first())
-      locator: vi.fn((sel: string) => ({
+      locator: vi.fn(() => ({
         click: clickMock,
         first: () => ({ click: clickMock }),
       })),

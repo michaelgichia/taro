@@ -418,13 +418,3 @@ function getCalleeName(callee: ASTNode): string {
   }
   return '';
 }
-
-interface StructureRules {
-  requireDescribe: boolean;
-  requireTest: boolean;
-}
-
-interface QueryRules {
-  preferRobust: boolean;
-  disallowTestId: boolean;
-}
