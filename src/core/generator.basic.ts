@@ -1,8 +1,8 @@
-import type { NormalizedRecording } from '../types/recording.js'
-import { describeBlock, importBlock } from '../templates/test-template.js'
-import { USER_EVENT_ACTIONS } from './generator.constants.js'
-import { generateStepCode } from './generator.shared.js'
-import type { GeneratedTest, GeneratorOptions } from './generator.types.js'
+import type { NormalizedRecording } from '../types/recording.ts'
+import { describeBlock, importBlock } from '../templates/test-template.ts'
+import { USER_EVENT_ACTIONS } from './generator.constants.ts'
+import { generateStepCode } from './generator.shared.ts'
+import type { GeneratedTest, GeneratorOptions } from './generator.types.ts'
 
 export function generateTest(
   recording: NormalizedRecording,

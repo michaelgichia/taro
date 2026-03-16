@@ -12,6 +12,8 @@
     "declarationMap": true,
     "sourceMap": true,
     "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
     "forceConsistentCasingInFileNames": true
   },
   "include": ["src/**/*"],

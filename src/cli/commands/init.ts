@@ -1,6 +1,6 @@
 import { Command } from 'commander'
 import { cwd } from 'node:process'
-import { formatStateSummary, initTaroState } from '../../core/state.js'
+import { formatStateSummary, initTaroState } from '../../core/state.ts'
 
 export function createInitCommand(): Command {
   const init = new Command('__init')

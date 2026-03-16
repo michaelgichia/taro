@@ -14,7 +14,7 @@ import {
   ImportConventions,
   NamingPattern,
   createEmptyConvention
-} from './types.js';
+} from './types.ts';
 
 interface ASTNode {
   type: string;

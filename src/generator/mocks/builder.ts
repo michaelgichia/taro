@@ -5,8 +5,8 @@
  * selected mock library (MSW, jest.fn, sinon, etc.)
  */
 
-import type { MockTarget } from '../../analyzer/mocks/target-analyzer.js';
-import type { ApiCallInfo } from '../../analyzer/mocks/detector.js';
+import type { MockTarget } from '../../analyzer/mocks/target-analyzer.ts';
+import type { ApiCallInfo } from '../../analyzer/mocks/detector.ts';
 
 /**
  * Decision about how to generate the mock

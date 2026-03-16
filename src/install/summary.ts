@@ -7,7 +7,7 @@ import type {
   InstallExecutionResult,
   InstallPlan,
   ResolvedInstallTarget,
-} from './types.js'
+} from './types.ts'
 
 interface PromptIO {
   input?: typeof stdin

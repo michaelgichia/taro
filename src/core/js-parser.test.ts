@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { describe, it, expect } from 'vitest'
-import { parseJsRecording, classifyQuery, segmentIntoItGroups } from './js-parser.js'
+import { parseJsRecording, classifyQuery, segmentIntoItGroups } from './js-parser.ts'
 
 describe('classifyQuery', () => {
   it('rates getByRole as excellent', () => {

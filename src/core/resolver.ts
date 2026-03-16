@@ -24,8 +24,8 @@ import type {
   StepId,
   UnresolvedSemanticMarker,
   VisualState,
-} from '../types/recording.js'
-import type { TaroPlaywrightAuthStrategy } from '../types/state.js'
+} from '../types/recording.ts'
+import type { TaroPlaywrightAuthStrategy } from '../types/state.ts'
 import {
   getUnsupportedSelectorReason,
   isDisplayValueQueryMethod,
@@ -34,7 +34,7 @@ import {
   isTestIdQueryMethod,
   isTextQueryMethod,
   toSingularAsyncQueryMethod
-} from './query-policy.js'
+} from './query-policy.ts'
 
 /**
  * Maps HTML tag names to implied ARIA roles.

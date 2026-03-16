@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { resolveAssetSource } from './assets.js'
-import { RUNTIME_REGISTRY } from './registry.js'
+import { resolveAssetSource } from './assets.ts'
+import { RUNTIME_REGISTRY } from './registry.ts'
 
 describe('RUNTIME_REGISTRY', () => {
   it('models Codex as a skill-first runtime family', () => {

@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   formatFindingsBlock,
   hasBlockingFindings,
-} from './findings-reporter.js'
-import type { Finding } from './findings-reporter.js'
+} from './findings-reporter.ts'
+import type { Finding } from './findings-reporter.ts'
 
 describe('formatFindingsBlock', () => {
   it('returns empty string when findings array is empty', () => {

@@ -6,7 +6,7 @@ import {
   ensureProjectStateDir,
   findReadableProjectStatePath,
   getProjectStatePath,
-} from './project-state.js'
+} from './project-state.ts'
 
 let projectRoot: string
 

@@ -3,10 +3,10 @@
  */
 
 import { writeFileSync, existsSync } from 'fs';
-import { evaluateQualityGates } from './quality-gates.js';
-import { preWriteAudit, AuditResult } from './pre-audit.js';
-import { postWriteVerification, VerificationResult } from './post-verify.js';
-import { QualityScore, ScoringResult } from './types.js';
+import { evaluateQualityGates } from './quality-gates.ts';
+import { preWriteAudit, AuditResult } from './pre-audit.ts';
+import { postWriteVerification, VerificationResult } from './post-verify.ts';
+import { QualityScore, ScoringResult } from './types.ts';
 
 export interface Recording {
   id: string;
@@ -113,7 +113,7 @@ export function orchestrateWithScoring(options: OrchestrateOptions): Orchestrate
   };
 }
 
-export { QualityScore, QualityIssue, QualityCriteria } from './types.js';
-export { evaluateQualityGates } from './quality-gates.js';
-export { preWriteAudit, AuditResult } from './pre-audit.js';
-export { postWriteVerification, VerificationResult } from './post-verify.js';
+export { QualityScore, QualityIssue, QualityCriteria } from './types.ts';
+export { evaluateQualityGates } from './quality-gates.ts';
+export { preWriteAudit, AuditResult } from './pre-audit.ts';
+export { postWriteVerification, VerificationResult } from './post-verify.ts';

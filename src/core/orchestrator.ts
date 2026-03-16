@@ -6,14 +6,14 @@
 import { Command } from 'commander';
 import { resolve } from 'path';
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
-import { parseRecording } from './parser.js';
-import type { AccessibilityProperties } from '../analyzer/visual/element-analyzer.js';
-import type { NormalizedRecording } from '../types/recording.js';
-import { detectApiCalls, filterMockableCalls, groupApiCallsByDomain, type ApiCallInfo } from '../analyzer/mocks/detector.js';
-import { analyzeMockTargets, type MockTarget } from '../analyzer/mocks/target-analyzer.js';
-import { buildMocks, generateMockFile, type MockDecision } from '../generator/mocks/builder.js';
-import { orchestrateWithScoring, preWriteAudit, postWriteVerification, scoreTest } from '../scorer/index.js';
-import { learnConventions, getConventions } from '../learner/index.js';
+import { parseRecording } from './parser.ts';
+import type { AccessibilityProperties } from '../analyzer/visual/element-analyzer.ts';
+import type { NormalizedRecording } from '../types/recording.ts';
+import { detectApiCalls, filterMockableCalls, groupApiCallsByDomain, type ApiCallInfo } from '../analyzer/mocks/detector.ts';
+import { analyzeMockTargets, type MockTarget } from '../analyzer/mocks/target-analyzer.ts';
+import { buildMocks, generateMockFile, type MockDecision } from '../generator/mocks/builder.ts';
+import { orchestrateWithScoring, preWriteAudit, postWriteVerification, scoreTest } from '../scorer/index.ts';
+import { learnConventions, getConventions } from '../learner/index.ts';
 
 /**
  * Visual inspection context passed to generator

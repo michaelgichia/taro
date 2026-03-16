@@ -1,16 +1,16 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { parseJsRecording } from './js-parser.js'
-import { normalizeStep } from './parser.js'
-import { parseRecording } from './parser.js'
+import { parseJsRecording } from './js-parser.ts'
+import { normalizeStep } from './parser.ts'
+import { parseRecording } from './parser.ts'
 import {
   analyzeRecording,
   findVisualCaptureCandidates,
   filterNoiseSteps,
   inferIntentGroups,
-} from './recording-intelligence.js'
-import type { ChromeStep, NormalizedRecording, NormalizedStep } from '../types/recording.js'
+} from './recording-intelligence.ts'
+import type { ChromeStep, NormalizedRecording, NormalizedStep } from '../types/recording.ts'
 
 const sampleJsonBasicPath = resolve(process.cwd(), 'sample/sample-json-recording-basic.json')
 const sampleJsonDialogPath = resolve(process.cwd(), 'sample/sample-json-recording-dialog.json')

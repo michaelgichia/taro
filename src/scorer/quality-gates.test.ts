@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { evaluateQualityGates } from './quality-gates.js'
+import { evaluateQualityGates } from './quality-gates.ts'
 
 describe('evaluateQualityGates', () => {
   it('flags repo-disallowed matcher and fragility patterns', () => {

@@ -1,4 +1,4 @@
-import type { QueryQuality } from '../types/recording.js'
+import type { QueryQuality } from '../types/recording.ts'
 
 const SUPPORTED_RTL_QUERY_METHOD_REGEX =
   /^(?<variant>get|query|find)(?<multiple>All)?By(?<family>Role|LabelText|PlaceholderText|Text|AltText|Title|DisplayValue|TestId)$/

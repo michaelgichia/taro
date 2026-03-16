@@ -8,12 +8,12 @@ import type {
   MockRecommendation,
   MockTargetUsage,
   MutationLifecyclePattern,
-} from './conventions.js'
+} from './conventions.ts'
 import type {
   ScoreDimensions,
   ScoreReason,
   ScoreSignals,
-} from './score.js'
+} from './score.ts'
 
 export type TaroStateConfidence = 'low' | 'medium' | 'high'
 export type TaroTestRunner = 'vitest' | 'jest' | 'unknown'

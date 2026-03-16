@@ -7,9 +7,9 @@ import type {
   NormalizedInstallOptions,
   RuntimeLocationSelections,
   RuntimeTarget,
-} from './types.js'
-import { SUPPORTED_RUNTIMES } from './types.js'
-import { RUNTIME_REGISTRY } from './registry.js'
+} from './types.ts'
+import { SUPPORTED_RUNTIMES } from './types.ts'
+import { RUNTIME_REGISTRY } from './registry.ts'
 
 interface PromptIO {
   input?: typeof stdin

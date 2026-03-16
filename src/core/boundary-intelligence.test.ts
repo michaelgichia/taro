@@ -4,8 +4,8 @@ import { describe, expect, it } from 'vitest'
 import {
   analyzeBoundaryIsolation,
   calculateBoundaryIsolationScore,
-} from './boundary-intelligence.js'
-import { generateTestFromGroups } from './generator.js'
+} from './boundary-intelligence.ts'
+import { generateTestFromGroups } from './generator.ts'
 
 async function readSample(relativePath: string): Promise<string> {
   return readFile(resolve(process.cwd(), relativePath), 'utf-8')

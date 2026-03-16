@@ -7,14 +7,14 @@ import type {
   QueryDescriptor,
   SemanticMarkerCandidate,
   SemanticMarkerCanonicalRecovery,
-} from '../types/recording.js'
+} from '../types/recording.ts'
 import {
   isLabelTextQueryMethod,
   isPlaceholderTextQueryMethod,
   isRoleQueryMethod,
   isTestIdQueryMethod,
   isTextQueryMethod,
-} from './query-policy.js'
+} from './query-policy.ts'
 
 export interface SemanticMarkerContextMatch {
   filePath: string

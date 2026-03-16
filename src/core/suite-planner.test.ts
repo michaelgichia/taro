@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeJsBaseline } from './baseline-normalizer.js'
-import { planJsSuite } from './suite-planner.js'
-import type { MockAnalysis } from './mock-intelligence.js'
+import { normalizeJsBaseline } from './baseline-normalizer.ts'
+import { planJsSuite } from './suite-planner.ts'
+import type { MockAnalysis } from './mock-intelligence.ts'
 import type {
   AnalyzedRecording,
   ItGroup,
@@ -10,7 +10,7 @@ import type {
   SemanticMarkerCandidate,
   SemanticMarkerLink,
   UnresolvedSemanticMarker,
-} from '../types/recording.js'
+} from '../types/recording.ts'
 
 function createRecording(steps: NormalizedRecording['steps']): NormalizedRecording {
   return {

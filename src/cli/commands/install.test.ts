@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mkdtemp, mkdir } from 'node:fs/promises'
 import { afterEach, describe, expect, it } from 'vitest'
-import { buildRuntimeCommand } from '../../install/runtime-launcher.js'
-import { runInstallCommand } from './install.js'
+import { buildRuntimeCommand } from '../../install/runtime-launcher.ts'
+import { runInstallCommand } from './install.ts'
 
 const sandboxRoots: string[] = []
 

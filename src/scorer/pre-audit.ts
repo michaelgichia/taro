@@ -3,7 +3,7 @@
  */
 
 import { parse } from '@typescript-eslint/typescript-estree';
-import { evaluateQualityGates, StructureRules, QueryRules } from './quality-gates.js';
+import { evaluateQualityGates, StructureRules, QueryRules } from './quality-gates.ts';
 
 export interface AuditResult {
   valid: boolean;
@@ -140,4 +140,4 @@ function performStructuralChecks(code: string): { blocking: string[]; warnings: 
   return { blocking, warnings };
 }
 
-export type { StructureRules, QueryRules } from './quality-gates.js';
+export type { StructureRules, QueryRules } from './quality-gates.ts';

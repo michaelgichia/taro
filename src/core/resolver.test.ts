@@ -9,13 +9,13 @@ import {
   resolveSemanticMarkerAssertion,
   resolveSelector,
   selectMatcher,
-} from './resolver.js'
+} from './resolver.ts'
 import type {
   ElementInfo,
   NormalizedStep,
   QueryDescriptor,
   SelectorDescriptor,
-} from '../types/recording.js'
+} from '../types/recording.ts'
 
 const { chromiumLaunchMock, pageEvaluateMock } = vi.hoisted(() => {
   const pageEvaluateMock = vi.fn().mockResolvedValue({

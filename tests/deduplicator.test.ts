@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { deduplicateSteps } from './src/parser/steps/deduplicator.js';
-import type { RecordingStep } from './src/types/recording.js';
+import { deduplicateSteps } from './src/parser/steps/deduplicator.ts';
+import type { RecordingStep } from './src/types/recording.ts';
 
 describe('deduplicateSteps', () => {
   beforeEach(() => {

@@ -18,7 +18,7 @@ import {
   type SemanticMarkerCandidate,
   type SemanticMarkerProofSubject,
   type SelectorDescriptor,
-} from '../types/recording.js'
+} from '../types/recording.ts'
 import {
   classifySupportedQueryMethod,
   isDisplayValueQueryMethod,
@@ -26,7 +26,7 @@ import {
   isRoleQueryMethod,
   isSupportedTestingLibraryQueryMethod,
   isTextQueryMethod,
-} from './query-policy.js'
+} from './query-policy.ts'
 
 // ESM interop for @babel/traverse
 const traverse = (_traverse as any).default ?? _traverse

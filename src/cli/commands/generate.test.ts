@@ -3,13 +3,13 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createGenerateCommand } from "./generate.js";
-import { analyzeBoundaryIsolation } from "../../core/boundary-intelligence.js";
+import { createGenerateCommand } from "./generate.ts";
+import { analyzeBoundaryIsolation } from "../../core/boundary-intelligence.ts";
 import type {
   QueryDescriptor,
   SelectorDescriptor,
   SelectorResolutionResult,
-} from "../../types/recording.js";
+} from "../../types/recording.ts";
 
 const {
   captureVisualStateMock,

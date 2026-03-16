@@ -1,5 +1,5 @@
-import type { MockAnalysis } from './mock-intelligence.js'
-import { resolveSemanticMarkerAssertion } from './resolver.js'
+import type { MockAnalysis } from './mock-intelligence.ts'
+import { resolveSemanticMarkerAssertion } from './resolver.ts'
 import type {
   AnalyzedRecording,
   ItGroup,
@@ -16,7 +16,7 @@ import type {
   StepId,
   UnresolvedSemanticMarker,
   UnresolvedSemanticMarkerAssertionResolution,
-} from '../types/recording.js'
+} from '../types/recording.ts'
 
 export type RenderBoundaryKind = 'module' | 'component' | 'unknown'
 export type BoundaryConfidence = 'high' | 'medium' | 'low'

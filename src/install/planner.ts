@@ -1,9 +1,9 @@
-import { buildClaudeRuntimeOperations } from './runtimes/claude.js'
-import { buildCodexOperations } from './runtimes/codex.js'
-import { buildGeminiRuntimeOperations } from './runtimes/gemini.js'
-import { buildOpenCodeRuntimeOperations } from './runtimes/opencode.js'
-import { resolveInstallTargets } from './resolver.js'
-import type { InstallPlan, InstallSelection, ResolvedInstallTarget } from './types.js'
+import { buildClaudeRuntimeOperations } from './runtimes/claude.ts'
+import { buildCodexOperations } from './runtimes/codex.ts'
+import { buildGeminiRuntimeOperations } from './runtimes/gemini.ts'
+import { buildOpenCodeRuntimeOperations } from './runtimes/opencode.ts'
+import { resolveInstallTargets } from './resolver.ts'
+import type { InstallPlan, InstallSelection, ResolvedInstallTarget } from './types.ts'
 
 interface BuildInstallPlanContext {
   cwd?: string

@@ -10,7 +10,7 @@
  * - click, fill, select, change, navigate, keyPress, assert
  */
 
-import type { RecordingStep, StepType } from '../../types/recording.js';
+import type { RecordingStep, StepType } from '../../types/recording.ts';
 
 const INTENTIONAL_SCROLL_THRESHOLD_MS = 2000;
 

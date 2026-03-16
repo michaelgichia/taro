@@ -9,12 +9,12 @@ import type {
   SemanticMarkerLink,
   SemanticMarkerProofSubject,
   UnresolvedSemanticMarker,
-} from '../types/recording.js'
+} from '../types/recording.ts'
 import {
   isLabelTextQueryMethod,
   isPlaceholderTextQueryMethod,
   isTextQueryMethod,
-} from './query-policy.js'
+} from './query-policy.ts'
 
 export interface VisualCaptureCandidate {
   groupName: string

@@ -3,13 +3,13 @@ import type {
   JsHelperPlan,
   JsScenarioPlan,
   QueryResult,
-} from '../types/recording.js'
+} from '../types/recording.ts'
 import type {
   RepoRenderTargetCandidate,
   TaroRenderHelperProfile,
   TaroTestRunner,
-} from '../types/state.js'
-import type { ConventionsSchema } from '../types/conventions.js'
+} from '../types/state.ts'
+import type { ConventionsSchema } from '../types/conventions.ts'
 
 export interface GeneratorOptions {
   outputPath?: string

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { createVersionCommand, runVersionCommand } from './version.js'
-import { TARO_VERSION } from '../../version.js'
+import { createVersionCommand, runVersionCommand } from './version.ts'
+import { TARO_VERSION } from '../../version.ts'
 
 function createLogger() {
   const logs: string[] = []

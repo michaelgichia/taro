@@ -7,8 +7,8 @@ import type {
   NormalizedInstallOptions,
   RuntimeLocationSelections,
   RuntimeTarget,
-} from './types.js'
-import { SUPPORTED_RUNTIMES } from './types.js'
+} from './types.ts'
+import { SUPPORTED_RUNTIMES } from './types.ts'
 
 export class InstallValidationError extends Error {
   constructor(message: string) {

@@ -2,14 +2,14 @@ import { access, copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } fr
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { resolveInstallTargets } from './resolver.js'
-import { buildCodexOperations } from './runtimes/codex.js'
+import { resolveInstallTargets } from './resolver.ts'
+import { buildCodexOperations } from './runtimes/codex.ts'
 import type {
   InstallFileOperation,
   InstallLocation,
   InstallSelection,
   RuntimeLocationSelections,
-} from './types.js'
+} from './types.ts'
 
 const EXPECTED_SKILLS = [
   '@taro-test/rtl-conventions',

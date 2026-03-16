@@ -4,7 +4,7 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { parse } from '@typescript-eslint/typescript-estree';
-import { detectRepoContractIssues } from '../core/repo-contracts.js';
+import { detectRepoContractIssues } from '../core/repo-contracts.ts';
 
 export interface VerificationResult {
   valid: boolean;

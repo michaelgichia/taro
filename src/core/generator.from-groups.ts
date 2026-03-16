@@ -3,9 +3,9 @@ import type {
   JsScenarioPlan,
   NormalizedStep,
   PlannedMarkerAssertion,
-} from '../types/recording.js'
-import { describeBlockMultiIt, importBlock, stepTemplate } from '../templates/test-template.js'
-import { USER_EVENT_ACTIONS } from './generator.constants.js'
+} from '../types/recording.ts'
+import { describeBlockMultiIt, importBlock, stepTemplate } from '../templates/test-template.ts'
+import { USER_EVENT_ACTIONS } from './generator.constants.ts'
 import {
   buildHelperStepLines,
   dedupeMarkerAssertions,
@@ -14,8 +14,8 @@ import {
   inferAssertionMatcher,
   reconstructQuery,
   renderMarkerAssertionGroup,
-} from './generator.shared.js'
-import type { GenerateFromGroupsOptions, GeneratedTestV3 } from './generator.types.js'
+} from './generator.shared.ts'
+import type { GenerateFromGroupsOptions, GeneratedTestV3 } from './generator.types.ts'
 
 export function generateTestFromGroups(
   title: string,
