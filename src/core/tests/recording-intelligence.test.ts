@@ -1,7 +1,8 @@
-import { readFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { parseJsRecording } from '#core/js-parser.ts'
 import { normalizeStep } from '#core/parser.ts'
@@ -12,14 +13,20 @@ import {
   findVisualCaptureCandidates,
   inferIntentGroups,
 } from '#core/recording-intelligence.ts'
+import {
+  sampleJsonBasicRecording,
+  sampleJsonDialogRecording,
+  sampleRestRecordingJs,
+} from '#tests/fixtures/sample-fixtures.ts'
 import type { ChromeStep, NormalizedRecording, NormalizedStep } from '#types/recording.ts'
 
-const sampleJsonBasicPath = resolve(process.cwd(), 'sample/sample-json-recording-basic.json')
-const sampleJsonDialogPath = resolve(process.cwd(), 'sample/sample-json-recording-dialog.json')
-const sampleRestRecordingPath = resolve(
-  process.cwd(),
-  'sample/sample-rest-recordingextension-output.js'
-)
+const sandboxes: string[] = []
+
+afterEach(async () => {
+  await Promise.all(
+    sandboxes.splice(0).map((root) => rm(root, { recursive: true, force: true }))
+  )
+})
 
 function createJsClickStep(id: string, target: string): NormalizedStep {
   return {
@@ -105,8 +112,7 @@ function createJsMarkerStep(options: {
 }
 
 async function loadSampleRestRecordingAnalysis() {
-  const sample = await readFile(sampleRestRecordingPath, 'utf-8')
-  const parsed = await parseJsRecording(sample)
+  const parsed = await parseJsRecording(sampleRestRecordingJs)
 
   return {
     parsed,
@@ -136,6 +142,14 @@ function getStepIndex(steps: NormalizedStep[], stepId: string): number {
   }
 
   return index
+}
+
+async function createRecordingFile(label: string, source: string) {
+  const root = await mkdtemp(join(tmpdir(), `taro-recording-${label}-`))
+  sandboxes.push(root)
+  const filePath = join(root, `${label}.json`)
+  await writeFile(filePath, source, 'utf-8')
+  return filePath
 }
 
 describe('normalizeStep', () => {
@@ -797,9 +811,14 @@ describe('inferIntentGroups', () => {
   })
 
   it('keeps representative JSON fixtures behaviorally stable after cleanup and grouping', async () => {
+    const [basicPath, dialogPath] = await Promise.all([
+      createRecordingFile('basic', sampleJsonBasicRecording),
+      createRecordingFile('dialog', sampleJsonDialogRecording),
+    ])
+
     const [basic, dialog] = await Promise.all([
-      parseRecording(sampleJsonBasicPath),
-      parseRecording(sampleJsonDialogPath),
+      parseRecording(basicPath),
+      parseRecording(dialogPath),
     ])
 
     const analyzedBasic = analyzeRecording(basic)

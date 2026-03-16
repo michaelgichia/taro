@@ -1,9 +1,7 @@
-import { readFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
-
 import { describe, expect, it } from 'vitest'
 
 import { classifyQuery, parseJsRecording, segmentIntoItGroups } from '#core/js-parser.ts'
+import { sampleRestRecordingJs } from '#tests/fixtures/sample-fixtures.ts'
 
 describe('classifyQuery', () => {
   it('rates getByRole as excellent', () => {
@@ -165,12 +163,7 @@ describe('parseJsRecording', () => {
   })
 
   it('recovers the real sample recorder fixture without fake action targets', async () => {
-    const sample = await readFile(
-      resolve(process.cwd(), 'sample/sample-rest-recordingextension-output.js'),
-      'utf-8'
-    )
-
-    const recording = await parseJsRecording(sample)
+    const recording = await parseJsRecording(sampleRestRecordingJs)
 
     expect(recording.title).toBe('Recording-Add-Sale-KE-06/03/2026 at 08:25:15')
     expect(recording.environmentUrl).toBe(

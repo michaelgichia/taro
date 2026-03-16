@@ -4,47 +4,62 @@ import { spawnSync } from 'node:child_process'
 import { readdir, rm } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
-const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..')
-const nodeBin = process.execPath
-const installEntrypoint = join(rootDir, 'bin', 'install.js')
-const globalCodexRoot = join(homedir(), '.codex')
-const localCodexRoot = join(rootDir, '.codex')
-const currentNamespace = '@taro-test'
-const deprecatedNamespace = '@taro-dev'
-const legacyNamespace = '@tayo-dev'
-const currentManifestFileName = '@taro-test-rtl-manifest.json'
-const deprecatedManifestFileName = '@taro-dev-rtl-manifest.json'
-const legacyManifestFileName = '@tayo-dev-rtl-manifest.json'
-const localCodexSkillNamespaceDir = join(localCodexRoot, 'skills', currentNamespace)
-const deprecatedLocalCodexSkillNamespaceDir = join(localCodexRoot, 'skills', deprecatedNamespace)
-const legacyLocalCodexSkillNamespaceDir = join(localCodexRoot, 'skills', legacyNamespace)
-const globalCodexSkillNamespaceDir = join(globalCodexRoot, 'skills', currentNamespace)
-const deprecatedGlobalCodexSkillNamespaceDir = join(globalCodexRoot, 'skills', deprecatedNamespace)
-const legacyGlobalCodexSkillNamespaceDir = join(globalCodexRoot, 'skills', legacyNamespace)
-const localCodexManifestPath = join(localCodexRoot, currentManifestFileName)
-const deprecatedLocalCodexManifestPath = join(localCodexRoot, deprecatedManifestFileName)
-const legacyLocalCodexManifestPath = join(localCodexRoot, legacyManifestFileName)
-const globalCodexManifestPath = join(globalCodexRoot, currentManifestFileName)
-const deprecatedGlobalCodexManifestPath = join(globalCodexRoot, deprecatedManifestFileName)
-const legacyGlobalCodexManifestPath = join(globalCodexRoot, legacyManifestFileName)
+export function getCodexBuildPaths(rootDir, homeDirectory = homedir()) {
+  const globalCodexRoot = join(homeDirectory, '.codex')
+  const localCodexRoot = join(rootDir, '.codex')
+  const currentNamespace = '@taro-test'
+  const deprecatedNamespace = '@taro-dev'
+  const legacyNamespace = '@tayo-dev'
+  const currentManifestFileName = '@taro-test-rtl-manifest.json'
+  const deprecatedManifestFileName = '@taro-dev-rtl-manifest.json'
+  const legacyManifestFileName = '@tayo-dev-rtl-manifest.json'
 
-function runInstall(args) {
-  const result = spawnSync(nodeBin, [installEntrypoint, ...args], {
-    cwd: rootDir,
-    stdio: 'inherit',
-    env: process.env,
-  })
-
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1)
+  return {
+    localCodexSkillNamespaceDir: join(localCodexRoot, 'skills', currentNamespace),
+    deprecatedLocalCodexSkillNamespaceDir: join(localCodexRoot, 'skills', deprecatedNamespace),
+    legacyLocalCodexSkillNamespaceDir: join(localCodexRoot, 'skills', legacyNamespace),
+    globalCodexSkillNamespaceDir: join(globalCodexRoot, 'skills', currentNamespace),
+    deprecatedGlobalCodexSkillNamespaceDir: join(globalCodexRoot, 'skills', deprecatedNamespace),
+    legacyGlobalCodexSkillNamespaceDir: join(globalCodexRoot, 'skills', legacyNamespace),
+    localCodexManifestPath: join(localCodexRoot, currentManifestFileName),
+    deprecatedLocalCodexManifestPath: join(localCodexRoot, deprecatedManifestFileName),
+    legacyLocalCodexManifestPath: join(localCodexRoot, legacyManifestFileName),
+    globalCodexManifestPath: join(globalCodexRoot, currentManifestFileName),
+    deprecatedGlobalCodexManifestPath: join(globalCodexRoot, deprecatedManifestFileName),
+    legacyGlobalCodexManifestPath: join(globalCodexRoot, legacyManifestFileName),
   }
 }
 
-async function resolveGlobalCodexSkillDirs() {
+export function runInstallOrExit(args, options) {
+  const {
+    spawnImpl,
+    nodeBin,
+    installEntrypoint,
+    rootDir,
+    env,
+    exit = process.exit,
+  } = options
+  const result = spawnImpl(nodeBin, [installEntrypoint, ...args], {
+    cwd: rootDir,
+    stdio: 'inherit',
+    env,
+  })
+
+  if (result.status !== 0) {
+    exit(result.status ?? 1)
+  }
+}
+
+export async function resolveGlobalCodexSkillDirs(options) {
+  const {
+    readdirImpl,
+    localCodexSkillNamespaceDir,
+    globalCodexSkillNamespaceDir,
+  } = options
   try {
-    const entries = await readdir(localCodexSkillNamespaceDir, { withFileTypes: true })
+    const entries = await readdirImpl(localCodexSkillNamespaceDir, { withFileTypes: true })
 
     return entries
       .filter((entry) => entry.isDirectory() && entry.name.startsWith('rtl-'))
@@ -60,49 +75,85 @@ async function resolveGlobalCodexSkillDirs() {
   }
 }
 
-console.log(`[taro] Removing existing local Codex skills at ${localCodexSkillNamespaceDir}...`)
-await rm(localCodexSkillNamespaceDir, { recursive: true, force: true })
-console.log(
-  `[taro] Removing deprecated local Codex skills at ${deprecatedLocalCodexSkillNamespaceDir}...`
-)
-await rm(deprecatedLocalCodexSkillNamespaceDir, { recursive: true, force: true })
-console.log(`[taro] Removing legacy local Codex skills at ${legacyLocalCodexSkillNamespaceDir}...`)
-await rm(legacyLocalCodexSkillNamespaceDir, { recursive: true, force: true })
-console.log(`[taro] Removing existing local Codex manifest at ${localCodexManifestPath}...`)
-await rm(localCodexManifestPath, { force: true })
-console.log(
-  `[taro] Removing deprecated local Codex manifest at ${deprecatedLocalCodexManifestPath}...`
-)
-await rm(deprecatedLocalCodexManifestPath, { force: true })
-console.log(`[taro] Removing legacy local Codex manifest at ${legacyLocalCodexManifestPath}...`)
-await rm(legacyLocalCodexManifestPath, { force: true })
+export async function runCodexBuild(options = {}) {
+  const rootDir =
+    options.rootDir ?? join(dirname(fileURLToPath(import.meta.url)), '..')
+  const nodeBin = options.nodeBin ?? process.execPath
+  const installEntrypoint = options.installEntrypoint ?? join(rootDir, 'bin', 'install.js')
+  const env = options.env ?? process.env
+  const remove = options.rmImpl ?? rm
+  const log = options.log ?? console.log
+  const spawnImpl = options.spawnImpl ?? spawnSync
+  const readdirImpl = options.readdirImpl ?? readdir
+  const exit = options.exit ?? process.exit
+  const paths = getCodexBuildPaths(rootDir, options.homeDir ?? homedir())
 
-console.log('[taro] Installing Codex skills locally...')
-runInstall(['--codex', '--local'])
+  log(`[taro] Removing existing local Codex skills at ${paths.localCodexSkillNamespaceDir}...`)
+  await remove(paths.localCodexSkillNamespaceDir, { recursive: true, force: true })
+  log(
+    `[taro] Removing deprecated local Codex skills at ${paths.deprecatedLocalCodexSkillNamespaceDir}...`
+  )
+  await remove(paths.deprecatedLocalCodexSkillNamespaceDir, { recursive: true, force: true })
+  log(`[taro] Removing legacy local Codex skills at ${paths.legacyLocalCodexSkillNamespaceDir}...`)
+  await remove(paths.legacyLocalCodexSkillNamespaceDir, { recursive: true, force: true })
+  log(`[taro] Removing existing local Codex manifest at ${paths.localCodexManifestPath}...`)
+  await remove(paths.localCodexManifestPath, { force: true })
+  log(
+    `[taro] Removing deprecated local Codex manifest at ${paths.deprecatedLocalCodexManifestPath}...`
+  )
+  await remove(paths.deprecatedLocalCodexManifestPath, { force: true })
+  log(`[taro] Removing legacy local Codex manifest at ${paths.legacyLocalCodexManifestPath}...`)
+  await remove(paths.legacyLocalCodexManifestPath, { force: true })
 
-const globalCodexSkillDirs = await resolveGlobalCodexSkillDirs()
+  log('[taro] Installing Codex skills locally...')
+  runInstallOrExit(['--codex', '--local'], {
+    spawnImpl,
+    nodeBin,
+    installEntrypoint,
+    rootDir,
+    env,
+    exit,
+  })
 
-for (const skillDir of globalCodexSkillDirs) {
-  console.log(`[taro] Removing existing global Codex skill at ${skillDir}...`)
-  await rm(skillDir, { recursive: true, force: true })
+  const globalCodexSkillDirs = await resolveGlobalCodexSkillDirs({
+    readdirImpl,
+    localCodexSkillNamespaceDir: paths.localCodexSkillNamespaceDir,
+    globalCodexSkillNamespaceDir: paths.globalCodexSkillNamespaceDir,
+  })
+
+  for (const skillDir of globalCodexSkillDirs) {
+    log(`[taro] Removing existing global Codex skill at ${skillDir}...`)
+    await remove(skillDir, { recursive: true, force: true })
+  }
+
+  log(
+    `[taro] Removing deprecated global Codex skills at ${paths.deprecatedGlobalCodexSkillNamespaceDir}...`
+  )
+  await remove(paths.deprecatedGlobalCodexSkillNamespaceDir, { recursive: true, force: true })
+  log(`[taro] Removing legacy global Codex skills at ${paths.legacyGlobalCodexSkillNamespaceDir}...`)
+  await remove(paths.legacyGlobalCodexSkillNamespaceDir, { recursive: true, force: true })
+  log(`[taro] Removing existing global Codex manifest at ${paths.globalCodexManifestPath}...`)
+  await remove(paths.globalCodexManifestPath, { force: true })
+  log(
+    `[taro] Removing deprecated global Codex manifest at ${paths.deprecatedGlobalCodexManifestPath}...`
+  )
+  await remove(paths.deprecatedGlobalCodexManifestPath, { force: true })
+  log(`[taro] Removing legacy global Codex manifest at ${paths.legacyGlobalCodexManifestPath}...`)
+  await remove(paths.legacyGlobalCodexManifestPath, { force: true })
+
+  log('[taro] Installing Codex skills globally...')
+  runInstallOrExit(['--codex', '--global'], {
+    spawnImpl,
+    nodeBin,
+    installEntrypoint,
+    rootDir,
+    env,
+    exit,
+  })
+
+  log('[taro] Codex build/install complete.')
 }
 
-console.log(
-  `[taro] Removing deprecated global Codex skills at ${deprecatedGlobalCodexSkillNamespaceDir}...`
-)
-await rm(deprecatedGlobalCodexSkillNamespaceDir, { recursive: true, force: true })
-console.log(`[taro] Removing legacy global Codex skills at ${legacyGlobalCodexSkillNamespaceDir}...`)
-await rm(legacyGlobalCodexSkillNamespaceDir, { recursive: true, force: true })
-console.log(`[taro] Removing existing global Codex manifest at ${globalCodexManifestPath}...`)
-await rm(globalCodexManifestPath, { force: true })
-console.log(
-  `[taro] Removing deprecated global Codex manifest at ${deprecatedGlobalCodexManifestPath}...`
-)
-await rm(deprecatedGlobalCodexManifestPath, { force: true })
-console.log(`[taro] Removing legacy global Codex manifest at ${legacyGlobalCodexManifestPath}...`)
-await rm(legacyGlobalCodexManifestPath, { force: true })
-
-console.log('[taro] Installing Codex skills globally...')
-runInstall(['--codex', '--global'])
-
-console.log('[taro] Codex build/install complete.')
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await runCodexBuild()
+}

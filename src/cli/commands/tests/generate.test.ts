@@ -1,12 +1,13 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createGenerateCommand } from "#cli/commands/generate.ts";
 import { analyzeBoundaryIsolation } from "#core/boundary-intelligence.ts";
+import { sampleRestRecordingJs } from "#tests/fixtures/sample-fixtures.ts";
 import type {
   QueryDescriptor,
   SelectorDescriptor,
@@ -214,10 +215,6 @@ vi.mock("#core/suite-planner.ts", async (importOriginal) => {
 });
 
 const sandboxes: string[] = [];
-const samplePath = resolve(
-  process.cwd(),
-  "sample/sample-rest-recordingextension-output.js",
-);
 const accessibleSelector = "div.css-19bb58m";
 const inspectionFailureSelector =
   "#radix-_r_8s_-content-items > div:nth-of-type(1) > div:nth-of-type(2) span";
@@ -362,7 +359,7 @@ async function createRecordingFixture(
   mutate?: (source: string) => string,
 ) {
   const sandbox = await createSandbox(label);
-  const source = await readFile(samplePath, "utf-8");
+  const source = sampleRestRecordingJs;
   const recordingPath = join(sandbox.root, `${label}.js`);
   await writeFile(recordingPath, mutate ? mutate(source) : source, "utf-8");
   return { ...sandbox, recordingPath };

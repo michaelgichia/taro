@@ -1,6 +1,3 @@
-import { readFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
-
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -8,14 +5,14 @@ import {
   calculateBoundaryIsolationScore,
 } from '#core/boundary-intelligence.ts'
 import { generateTestFromGroups } from '#core/generator.ts'
-
-async function readSample(relativePath: string): Promise<string> {
-  return readFile(resolve(process.cwd(), relativePath), 'utf-8')
-}
+import {
+  boundarySafeSample,
+  boundaryUnsafeSample,
+} from '#tests/fixtures/sample-fixtures.ts'
 
 describe('analyzeBoundaryIsolation', () => {
   it('flags boundary anti-patterns in the generated AddSaleForm sample', async () => {
-    const code = await readSample('sample/AddSaleForm.test.tsx')
+    const code = boundaryUnsafeSample
 
     expect(analyzeBoundaryIsolation(code)).toEqual(
       expect.arrayContaining([
@@ -29,7 +26,7 @@ describe('analyzeBoundaryIsolation', () => {
   })
 
   it('treats the gold-standard repo-aware module sample as boundary-safe', async () => {
-    const code = await readSample('sample/sample-add-sale-test.tsx')
+    const code = boundarySafeSample
 
     expect(analyzeBoundaryIsolation(code)).toEqual([])
     expect(calculateBoundaryIsolationScore(code)).toBe(100)
