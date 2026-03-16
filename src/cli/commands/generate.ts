@@ -4,7 +4,7 @@
  */
 
 import { Command } from 'commander'
-import { access, mkdir, readdir, readFile } from 'node:fs/promises'
+import { access, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, join, relative, resolve } from 'node:path'
 import { cwd, stdin, stdout } from 'node:process'
 import pc from 'picocolors'
@@ -16,7 +16,10 @@ import {
   replayStep,
   resolveSelector,
 } from '../../core/resolver.js'
-import type { CaptureVisualStateAuthOptions } from '../../core/resolver.js'
+import type {
+  CaptureVisualStateAuthOptions,
+  ReplayStepDebugTrace,
+} from '../../core/resolver.js'
 import { scoreGeneratedTest } from '../../core/scorer.js'
 import { analyzeBoundaryIsolation } from '../../core/boundary-intelligence.js'
 import { verifySyntax } from '../../core/verifier.js'
@@ -56,6 +59,7 @@ import type {
   QueryResult,
   SemanticMarkerAssertionUnresolvedReason,
   SelectorDescriptor,
+  SelectorResolutionPhase,
   SelectorResolutionResult,
   StepId,
   UnresolvedSemanticMarkerAssertionResolution,
@@ -83,6 +87,219 @@ import {
 /** Write an operational log line to stderr. Never use console.log in this file — stdout is reserved for the findings envelope. */
 function log(msg: string): void {
   process.stderr.write(msg + '\n')
+}
+
+type DebugTraceRecord =
+  | {
+      kind: 'replay-attempt'
+      action: string
+      error?: string
+      fallbackLocators?: string[]
+      locatorSource: string
+      locatorValue?: string
+      pageTitle?: string
+      pageUrl?: string
+      playwrightAction: string
+      result: string
+      stepId?: string
+      target?: string
+      timeoutMs: number
+    }
+  | {
+      kind: 'selector-resolution'
+      cssSelector: string
+      derivedQuery?: string
+      inspectSource: string
+      inspectionError?: string
+      pageUrl?: string
+      phase?: string
+      reason?: string
+      result: string
+      stepId: string
+    }
+  | {
+      kind: 'step-summary'
+      action: string
+      replayed: boolean
+      selectorsResolved: number
+      selectorsStillUnresolved: number
+      stepId: string
+      warningCount: number
+    }
+  | {
+      kind: 'replay-browser-failure'
+      authStrategy?: string
+      error: string
+      url: string
+    }
+
+interface SelectorDebugReporter {
+  enabled: boolean
+  persist(): Promise<void>
+  traceBrowserFailure(record: {
+    authStrategy?: string
+    error: string
+    url: string
+  }): void
+  traceReplay(debug?: ReplayStepDebugTrace): void
+  traceSelector(result: SelectorResolutionResult): void
+  traceStepSummary(record: {
+    action: string
+    replayed: boolean
+    selectorsResolved: number
+    selectorsStillUnresolved: number
+    stepId: string
+    warningCount: number
+  }): void
+}
+
+function createSelectorDebugReporter(options: {
+  enabled: boolean
+  jsonPath?: string
+}): SelectorDebugReporter {
+  const records: DebugTraceRecord[] = []
+
+  const emit = (record: DebugTraceRecord, line: string) => {
+    if (!options.enabled) {
+      return
+    }
+
+    log(line)
+    if (options.jsonPath) {
+      records.push(record)
+    }
+  }
+
+  const formatValue = (value: string | number | boolean | undefined) =>
+    JSON.stringify(value ?? '')
+
+  return {
+    enabled: options.enabled,
+    traceReplay(debug) {
+      if (!options.enabled || !debug) {
+        return
+      }
+
+      const record: DebugTraceRecord = {
+        kind: 'replay-attempt',
+        action: debug.action,
+        error: debug.error,
+        fallbackLocators: debug.fallbackLocators,
+        locatorSource: debug.locatorSource,
+        locatorValue: debug.locatorValue,
+        pageTitle: debug.pageTitle,
+        pageUrl: debug.pageUrl,
+        playwrightAction: debug.playwrightAction,
+        result: debug.result,
+        stepId: debug.stepId,
+        target: debug.target,
+        timeoutMs: debug.timeoutMs,
+      }
+
+      emit(
+        record,
+        [
+          '[taro][replay]',
+          `step=${debug.stepId ?? '(unknown)'}`,
+          `action=${debug.action}`,
+          `target=${formatValue(debug.target)}`,
+          `url=${formatValue(debug.pageUrl)}`,
+          `locatorSource=${debug.locatorSource}`,
+          `locatorValue=${formatValue(debug.locatorValue)}`,
+          `playwrightAction=${formatValue(debug.playwrightAction)}`,
+          `timeoutMs=${debug.timeoutMs}`,
+          `result=${debug.result}`,
+          `error=${formatValue(debug.error)}`,
+        ].join(' ')
+      )
+    },
+    traceSelector(result) {
+      if (!options.enabled || !result.debug) {
+        return
+      }
+
+      const record: DebugTraceRecord = {
+        kind: 'selector-resolution',
+        cssSelector: result.debug.cssSelector,
+        derivedQuery: result.debug.derivedQuery,
+        inspectSource: result.debug.inspectSource,
+        inspectionError: result.debug.inspectionError,
+        pageUrl: result.debug.pageUrl,
+        phase: result.debug.phase,
+        reason:
+          result.status === 'unresolved'
+            ? result.reason
+            : result.debug.reason,
+        result: result.status,
+        stepId: result.stepId,
+      }
+
+      emit(
+        record,
+        [
+          '[taro][selector]',
+          `step=${result.stepId}`,
+          `css=${formatValue(result.debug.cssSelector)}`,
+          `phase=${result.debug.phase ?? 'n/a'}`,
+          `inspectSource=${result.debug.inspectSource}`,
+          `url=${formatValue(result.debug.pageUrl)}`,
+          `result=${result.status}`,
+          `reason=${formatValue(
+            result.status === 'unresolved' ? result.reason : result.debug.reason
+          )}`,
+          `inspectionError=${formatValue(result.debug.inspectionError)}`,
+          `derivedQuery=${formatValue(result.debug.derivedQuery)}`,
+        ].join(' ')
+      )
+    },
+    traceStepSummary(record) {
+      emit(
+        {
+          kind: 'step-summary',
+          action: record.action,
+          replayed: record.replayed,
+          selectorsResolved: record.selectorsResolved,
+          selectorsStillUnresolved: record.selectorsStillUnresolved,
+          stepId: record.stepId,
+          warningCount: record.warningCount,
+        },
+        [
+          '[taro][step-summary]',
+          `step=${record.stepId}`,
+          `action=${record.action}`,
+          `replayed=${record.replayed}`,
+          `selectorsResolved=${record.selectorsResolved}`,
+          `selectorsStillUnresolved=${record.selectorsStillUnresolved}`,
+          `warningCount=${record.warningCount}`,
+        ].join(' ')
+      )
+    },
+    traceBrowserFailure(record) {
+      emit(
+        {
+          kind: 'replay-browser-failure',
+          authStrategy: record.authStrategy,
+          error: record.error,
+          url: record.url,
+        },
+        [
+          '[taro][replay-browser]',
+          `url=${formatValue(record.url)}`,
+          `authStrategy=${formatValue(record.authStrategy)}`,
+          `error=${formatValue(record.error)}`,
+        ].join(' ')
+      )
+    },
+    async persist() {
+      if (!options.jsonPath) {
+        return
+      }
+
+      await mkdir(dirname(options.jsonPath), { recursive: true })
+      const body = records.map((record) => JSON.stringify(record)).join('\n')
+      await writeFile(options.jsonPath, body.length > 0 ? `${body}\n` : '', 'utf-8')
+    },
+  }
 }
 
 /** Emit the findings envelope to stdout and exit with the correct code. Call on every execution path exit. */
@@ -2092,6 +2309,7 @@ async function resolveJsGeneration(
   itGroups: ItGroup[],
   options?: {
     auth?: CaptureVisualStateAuthOptions | null
+    debugReporter?: SelectorDebugReporter
   }
 ): Promise<{
   itGroups: ItGroup[]
@@ -2121,6 +2339,7 @@ async function resolveJsGeneration(
 
   const hasSelectorsToResolve = selectorGroups.size > 0
   const hasUrl = Boolean(recording.url)
+  const debugReporter = options?.debugReporter
 
   if (hasSelectorsToResolve && hasUrl) {
     // REPLAY PATH: open one persistent browser and replay steps in order
@@ -2145,18 +2364,23 @@ async function resolveJsGeneration(
       const inspect = createPageInspector(page)
       const unresolvedSelectorResolutions = new Map<StepId, SelectorResolutionResult>()
 
-      const resolveStepSelectors = async (stepId: StepId) => {
+      const resolveStepSelectors = async (
+        stepId: StepId,
+        phase: SelectorResolutionPhase
+      ): Promise<{
+        resolved: number
+      }> => {
         const selectors = selectorGroups.get(stepId)
         if (!selectors?.length) {
           unresolvedSelectorResolutions.delete(stepId)
-          return
+          return { resolved: 0 }
         }
 
         const currentStep = updatedSteps.get(stepId) ?? stepMap.get(stepId)
         if (!currentStep) {
           unresolvedSelectorResolutions.delete(stepId)
           selectorStepIds.delete(stepId)
-          return
+          return { resolved: 0 }
         }
 
         const preservedQuery = getStepQueryDescriptor(currentStep)
@@ -2165,15 +2389,25 @@ async function resolveJsGeneration(
 
         if (preservedQuery) {
           chosenResolution = await resolveSelector(selectors[0]!, {
+            debug: {
+              inspectSource: 'preserved-query',
+              phase,
+            },
             url: recording.url,
             preservedQuery,
           })
+          debugReporter?.traceSelector(chosenResolution)
         } else {
           for (const selector of selectors) {
             const resolution = await resolveSelector(selector, {
+              debug: {
+                inspectSource: 'persistent-page',
+                phase,
+              },
               url: recording.url,
               inspect,
             })
+            debugReporter?.traceSelector(resolution)
 
             if (resolution.status === 'resolved') {
               chosenResolution = resolution
@@ -2186,7 +2420,7 @@ async function resolveJsGeneration(
         }
 
         if (!chosenResolution) {
-          return
+          return { resolved: 0 }
         }
 
         const resolution = mergeSelectorResolutionWarnings(chosenResolution, stepWarnings)
@@ -2197,22 +2431,28 @@ async function resolveJsGeneration(
           if (resolution.outcome !== 'preserved-query') {
             queryResults.push(queryDescriptorToResult(resolution.query))
           }
-          return
+          return { resolved: 1 }
         }
 
         unresolvedSelectorResolutions.set(stepId, resolution)
+        return { resolved: 0 }
       }
 
       for (const step of recording.steps) {
         const stepId = step.id
+        let selectorsResolvedThisStep = 0
 
         // Resolve selectors BEFORE replaying this step (DOM is in pre-step state)
         if (stepId && selectorStepIds.has(stepId)) {
-          await resolveStepSelectors(stepId)
+          const stats = await resolveStepSelectors(stepId, 'pre-step')
+          selectorsResolvedThisStep += stats.resolved
         }
 
         // Replay the step to advance DOM state for subsequent steps
-        const replayResult = await replayStep(page, step)
+        const replayResult = await replayStep(page, step, {
+          collectDebug: debugReporter?.enabled,
+        })
+        debugReporter?.traceReplay(replayResult.debug)
         if (!replayResult.replayed && replayResult.warning) {
           console.warn(
             pc.yellow('[taro]') +
@@ -2227,9 +2467,19 @@ async function resolveJsGeneration(
           unresolvedSelectorResolutions.size > 0
         ) {
           for (const unresolvedStepId of unresolvedSelectorResolutions.keys()) {
-            await resolveStepSelectors(unresolvedStepId)
+            const stats = await resolveStepSelectors(unresolvedStepId, 'post-step')
+            selectorsResolvedThisStep += stats.resolved
           }
         }
+
+        debugReporter?.traceStepSummary({
+          action: step.action,
+          replayed: replayResult.replayed,
+          selectorsResolved: selectorsResolvedThisStep,
+          selectorsStillUnresolved: unresolvedSelectorResolutions.size,
+          stepId: stepId ?? '(unknown)',
+          warningCount: replayResult.warning ? 1 : 0,
+        })
       }
 
       for (const resolution of unresolvedSelectorResolutions.values()) {
@@ -2244,6 +2494,11 @@ async function resolveJsGeneration(
     } catch (error) {
       // Browser open failed — fall through, selectors remain unresolved
       const message = error instanceof Error ? error.message : 'Unknown error'
+      debugReporter?.traceBrowserFailure({
+        authStrategy: options?.auth?.strategy,
+        error: message,
+        url: recording.url!,
+      })
       console.warn(
         pc.yellow('[taro]') +
           ` Step replay browser failed: ${message}. Selectors will remain unresolved.`
@@ -2270,14 +2525,24 @@ async function resolveJsGeneration(
 
       if (preservedQuery) {
         chosenResolution = await resolveSelector(selectors[0]!, {
+          debug: {
+            inspectSource: 'preserved-query',
+            phase: 'fallback-no-replay',
+          },
           url: recording.url,
           preservedQuery,
         })
+        debugReporter?.traceSelector(chosenResolution)
       } else {
         for (const selector of selectors) {
           const resolution = await resolveSelector(selector, {
+            debug: {
+              inspectSource: 'fresh-browser',
+              phase: 'fallback-no-replay',
+            },
             url: recording.url,
           })
+          debugReporter?.traceSelector(resolution)
 
           if (resolution.status === 'resolved') {
             chosenResolution = resolution
@@ -2521,17 +2786,27 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
     .option('--auth <file>', 'Path to a Playwright storageState JSON file for optional visual capture')
     .option('--instructions <file>', 'Path to a non-secret auth instructions file for optional visual capture')
     .option('--no-screenshots', 'Skip optional Playwright screenshots and visual inspection')
+    .option('--debug-selectors', 'Emit detailed selector resolution and Playwright replay diagnostics')
+    .option('--debug-selectors-json <file>', 'Write selector resolution and Playwright replay diagnostics as JSONL')
     .action(async (file: string) => {
       const filePath = resolve(file)
       const projectRoot = cwd()
       const findings: Finding[] = []
       const commandOptions = generate.opts<{
         auth?: string
+        debugSelectors?: boolean
+        debugSelectorsJson?: string
         interactiveAuth?: boolean
         instructions?: string
         screenshots?: boolean
       }>()
       const screenshotsEnabled = commandOptions.screenshots !== false
+      const debugReporter = createSelectorDebugReporter({
+        enabled: Boolean(commandOptions.debugSelectors || commandOptions.debugSelectorsJson),
+        jsonPath: commandOptions.debugSelectorsJson
+          ? resolve(projectRoot, commandOptions.debugSelectorsJson)
+          : undefined,
+      })
 
       // 1. Verify file is accessible
       try {
@@ -2841,6 +3116,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
           auth: visualAuth
             ? { path: resolve(projectRoot, visualAuth.path), strategy: visualAuth.strategy }
             : undefined,
+          debugReporter,
         }
       )
 
@@ -2934,6 +3210,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
           })
 
           if (!shouldOverwriteExistingOutput) {
+            await debugReporter.persist()
             flushFindings(findings)
           }
         } catch (error) {
@@ -2943,6 +3220,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
             )
           )
           console.warn(pc.yellow(`[taro] Assessment detail: ${String(error)}`))
+          await debugReporter.persist()
           flushFindings(findings)
         }
       }
@@ -2982,9 +3260,11 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
         const action = result.overwritten ? pc.yellow('Updated') : pc.green('Created')
         log(`${action}: ${pc.bold(result.filePath)}`)
       } catch (err) {
+        await debugReporter.persist()
         process.stderr.write(pc.red('Error:') + ` ${String(err)}` + '\n')
         process.exit(2)
       }
+      await debugReporter.persist()
       flushFindings(findings)
     })
 
