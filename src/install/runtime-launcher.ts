@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+
 import { resolveAssetSource, resolvePackageRoot } from '#install/assets.ts'
 import type { InstallFileOperation, ResolvedInstallTarget, RuntimeAssetDefinition } from '#install/types.ts'
 

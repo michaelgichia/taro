@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+
 import { filterNoiseSteps } from '#parser/steps/noise-filter.ts';
 import type { RecordingStep } from '#types/recording.ts';
 

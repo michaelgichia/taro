@@ -5,16 +5,16 @@
 import { parse } from '@typescript-eslint/typescript-estree';
 import * as fs from 'fs';
 import * as path from 'path';
+
 import {
-  TestConvention,
-  NamingConventions,
-  StructureConventions,
-  QueryPreferences,
-  MatcherConventions,
+  createEmptyConvention,
   ImportConventions,
+  MatcherConventions,
+  NamingConventions,
   NamingPattern,
-  createEmptyConvention
-} from '#learner/types.ts';
+  QueryPreferences,
+  StructureConventions,
+  TestConvention} from '#learner/types.ts';
 
 interface ASTNode {
   type: string;

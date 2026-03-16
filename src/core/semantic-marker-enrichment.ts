@@ -1,5 +1,13 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+
+import {
+  isLabelTextQueryMethod,
+  isPlaceholderTextQueryMethod,
+  isRoleQueryMethod,
+  isTestIdQueryMethod,
+  isTextQueryMethod,
+} from '#core/query-policy.ts'
 import type {
   JsBaselineMetadata,
   NormalizedRecording,
@@ -8,13 +16,6 @@ import type {
   SemanticMarkerCandidate,
   SemanticMarkerCanonicalRecovery,
 } from '#types/recording.ts'
-import {
-  isLabelTextQueryMethod,
-  isPlaceholderTextQueryMethod,
-  isRoleQueryMethod,
-  isTestIdQueryMethod,
-  isTextQueryMethod,
-} from '#core/query-policy.ts'
 
 export interface SemanticMarkerContextMatch {
   filePath: string

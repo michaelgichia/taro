@@ -1,7 +1,9 @@
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
 import { afterEach, describe, expect, it } from 'vitest'
+
 import { enrichCanonicalSemanticMarkers } from '#core/semantic-marker-enrichment.ts'
 import type { NormalizedRecording } from '#types/recording.ts'
 

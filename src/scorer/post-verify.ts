@@ -2,8 +2,9 @@
  * Post-write verification for test files - validates file after creation
  */
 
-import { readFileSync, existsSync } from 'fs';
 import { parse } from '@typescript-eslint/typescript-estree';
+import { existsSync, readFileSync } from 'fs';
+
 import { detectRepoContractIssues } from '#core/repo-contracts.ts';
 
 export interface VerificationResult {

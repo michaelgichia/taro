@@ -1,25 +1,23 @@
 import "@/tests/mocks/digitax-components";
 
 import { ToastMessage } from "@digitax/components";
-
-import {
-  MOCK_KRA_SALE_CUSTOMER_ID,
-  MOCK_KRA_SALE_ITEM_ID,
-  MOCK_KRA_SALE_ITEM_NAME,
-  MOCK_KRA_SALE_BUSINESS_ID,
-  mockKraSaleCustomer,
-} from "@/tests/mocks/kenya/sales/add-sale.mock";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
   createDataLayerMock,
   createSaleMutate,
-  useKraCreateSaleMutationMock,
   resetDataLayerMock,
+  useKraCreateSaleMutationMock,
 } from "@/tests/mocks/digitax-data-layer";
-
-import { render, screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import {
+  MOCK_KRA_SALE_BUSINESS_ID,
+  MOCK_KRA_SALE_CUSTOMER_ID,
+  MOCK_KRA_SALE_ITEM_ID,
+  MOCK_KRA_SALE_ITEM_NAME,
+  mockKraSaleCustomer,
+} from "@/tests/mocks/kenya/sales/add-sale.mock";
 
 import SalesModule from "./SalesModule";
 

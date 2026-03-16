@@ -1,8 +1,10 @@
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { stripVTControlCharacters } from "node:util";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { createGenerateCommand } from "#cli/commands/generate.ts";
 import { analyzeBoundaryIsolation } from "#core/boundary-intelligence.ts";
 import type {
@@ -1323,7 +1325,7 @@ test('Example flow', async () => {
       source
         .replace(new RegExp(`^ \\* ${environmentOptionsMarker} .*$`, "m"), "")
         .replace(
-          /^  expect\(location\.href\)\.toBe\('http:\/\/localhost:3001[^']*'\)\n/m,
+          /^ {2}expect\(location\.href\)\.toBe\('http:\/\/localhost:3001[^']*'\)\n/m,
           "",
         ),
     );

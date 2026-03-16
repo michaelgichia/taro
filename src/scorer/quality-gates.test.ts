@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { evaluateQualityGates } from '#scorer/quality-gates.ts'
 
 describe('evaluateQualityGates', () => {

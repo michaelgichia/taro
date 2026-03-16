@@ -1,13 +1,14 @@
-import { readdir, readFile } from 'node:fs/promises'
+import { readdir,readFile } from 'node:fs/promises'
 import { extname, isAbsolute, join, relative } from 'node:path'
+
 import type {
   ConventionFile,
   ConventionsSchema,
   ImportStyle,
   MockPattern,
 } from '#types/conventions.ts'
-import type { RepoRenderTargetCandidate } from '#types/state.ts'
 import { DEFAULT_CONVENTIONS } from '#types/conventions.ts'
+import type { RepoRenderTargetCandidate } from '#types/state.ts'
 
 const SKIP_DIRS = new Set([
   'node_modules',

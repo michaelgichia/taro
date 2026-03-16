@@ -1,7 +1,8 @@
 import * as babelParser from '@babel/parser'
-import _traverse from '@babel/traverse'
 import type { NodePath } from '@babel/traverse'
+import _traverse from '@babel/traverse'
 import * as t from '@babel/types'
+
 import { getBoundaryGuardrailReason } from '#core/boundary-learning.ts'
 
 const traverse = (_traverse as any).default ?? _traverse

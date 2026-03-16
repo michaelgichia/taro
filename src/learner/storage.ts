@@ -6,10 +6,11 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { ensureProjectStateDirSync } from '#project-state.ts';
-import { TestConvention, createEmptyConvention } from '#learner/types.ts';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+import { createEmptyConvention,TestConvention } from '#learner/types.ts';
+import { ensureProjectStateDirSync } from '#project-state.ts';
+
+ 
 const Database = require('better-sqlite3');
 
 export { TestConvention };

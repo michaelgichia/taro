@@ -5,7 +5,7 @@
  * which network calls need mocking in tests.
  */
 
-import type { RecordingStep, NormalizedRecording } from '#types/recording.ts';
+import type { NormalizedRecording, RecordingStep } from '#types/recording.ts';
 
 /**
  * Information about a detected API call

@@ -1,4 +1,4 @@
-import type { RuntimeTarget, RuntimeDefinition } from '#install/types.ts'
+import type { RuntimeDefinition, RuntimeTarget } from '#install/types.ts'
 
 export const RUNTIME_REGISTRY: Record<RuntimeTarget, RuntimeDefinition> = {
   claude: {

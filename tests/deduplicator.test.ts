@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+
 import { deduplicateSteps } from '#parser/steps/deduplicator.ts';
 import type { RecordingStep } from '#types/recording.ts';
 

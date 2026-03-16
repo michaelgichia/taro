@@ -7,6 +7,7 @@
 
 import { Command } from 'commander'
 import pc from 'picocolors'
+
 import { createGenerateCommand } from '#cli/commands/generate.ts'
 import { createInitCommand } from '#cli/commands/init.ts'
 import {

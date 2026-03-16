@@ -4,21 +4,10 @@
  */
 
 import * as babelParser from '@babel/parser'
-import _traverse from '@babel/traverse'
 import type { NodePath } from '@babel/traverse'
+import _traverse from '@babel/traverse'
 import * as t from '@babel/types'
-import {
-  createStepId,
-  type AssertionDescriptor,
-  type ItGroup,
-  type NormalizedAction,
-  type NormalizedStep,
-  type QueryDescriptor,
-  type QueryQuality,
-  type SemanticMarkerCandidate,
-  type SemanticMarkerProofSubject,
-  type SelectorDescriptor,
-} from '#types/recording.ts'
+
 import {
   classifySupportedQueryMethod,
   isDisplayValueQueryMethod,
@@ -27,6 +16,18 @@ import {
   isSupportedTestingLibraryQueryMethod,
   isTextQueryMethod,
 } from '#core/query-policy.ts'
+import {
+  type AssertionDescriptor,
+  createStepId,
+  type ItGroup,
+  type NormalizedAction,
+  type NormalizedStep,
+  type QueryDescriptor,
+  type QueryQuality,
+  type SelectorDescriptor,
+  type SemanticMarkerCandidate,
+  type SemanticMarkerProofSubject,
+} from '#types/recording.ts'
 
 // ESM interop for @babel/traverse
 const traverse = (_traverse as any).default ?? _traverse

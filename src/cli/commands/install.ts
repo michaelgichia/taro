@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import pc from 'picocolors'
+
 import { executeInstallPlan } from '#install/executor.ts'
 import {
   InstallValidationError,

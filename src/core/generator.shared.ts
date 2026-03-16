@@ -1,3 +1,15 @@
+import { DIALOG_SCOPED_ACTION_PATTERN } from '#core/generator.constants.ts'
+import {
+  getUnsupportedSelectorReason,
+  isRoleQueryMethod,
+  isSupportedTestingLibraryQueryMethod,
+} from '#core/query-policy.ts'
+import {
+  markerAssertionTemplate,
+  markerAssertionTemplateSync,
+  stepTemplate,
+  waitForAssertionBlock,
+} from '#templates/test-template.ts'
 import type {
   JsHelperPlan,
   JsScenarioPlan,
@@ -6,18 +18,6 @@ import type {
   SelectorDescriptor,
   SelectorResolutionResult,
 } from '#types/recording.ts'
-import {
-  markerAssertionTemplate,
-  markerAssertionTemplateSync,
-  stepTemplate,
-  waitForAssertionBlock,
-} from '#templates/test-template.ts'
-import {
-  getUnsupportedSelectorReason,
-  isRoleQueryMethod,
-  isSupportedTestingLibraryQueryMethod,
-} from '#core/query-policy.ts'
-import { DIALOG_SCOPED_ACTION_PATTERN } from '#core/generator.constants.ts'
 
 /** Convert a CSS selector to an RTL screen query string. */
 export function selectorToQuery(selector: string | undefined): string {

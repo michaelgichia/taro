@@ -11,10 +11,11 @@
 
 import { readFile } from 'fs/promises';
 import { resolve } from 'path';
-import type { ChromeRecorderExport, ChromeStep, NormalizedRecording, RecordingStep, StepType } from '#types/recording.ts';
+
 import { deduplicateSteps } from '#parser/steps/deduplicator.ts';
+import { type DialogFlow, groupDialogSteps } from '#parser/steps/dialog-detector.ts';
 import { filterNoiseSteps } from '#parser/steps/noise-filter.ts';
-import { groupDialogSteps, type DialogFlow } from '#parser/steps/dialog-detector.ts';
+import type { ChromeRecorderExport, ChromeStep, NormalizedRecording, RecordingStep, StepType } from '#types/recording.ts';
 
 let stepIdCounter = 0;
 
@@ -147,9 +148,9 @@ export function resetStepCounter(): void {
 
 // Re-export for convenience
 export { deduplicateSteps } from '#parser/steps/deduplicator.ts';
-export { filterNoiseSteps } from '#parser/steps/noise-filter.ts';
-export { groupDialogSteps, resetDialogIdCounter } from '#parser/steps/dialog-detector.ts';
 export type { DialogFlow, DialogType } from '#parser/steps/dialog-detector.ts';
+export { groupDialogSteps, resetDialogIdCounter } from '#parser/steps/dialog-detector.ts';
+export { filterNoiseSteps } from '#parser/steps/noise-filter.ts';
 
 /**
  * Parse recording and extract dialog flows

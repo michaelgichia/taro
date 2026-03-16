@@ -1,7 +1,18 @@
 import { mkdir } from 'node:fs/promises'
 import { dirname } from 'node:path'
+
 import pc from 'picocolors'
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright'
+import { type Browser, type BrowserContext, chromium,type Page } from 'playwright'
+
+import {
+  getUnsupportedSelectorReason,
+  isDisplayValueQueryMethod,
+  isLabelTextQueryMethod,
+  isPlaceholderTextQueryMethod,
+  isTestIdQueryMethod,
+  isTextQueryMethod,
+  toSingularAsyncQueryMethod
+} from '#core/query-policy.ts'
 import type {
   DialogState,
   ElementInfo,
@@ -26,15 +37,6 @@ import type {
   VisualState,
 } from '#types/recording.ts'
 import type { TaroPlaywrightAuthStrategy } from '#types/state.ts'
-import {
-  getUnsupportedSelectorReason,
-  isDisplayValueQueryMethod,
-  isLabelTextQueryMethod,
-  isPlaceholderTextQueryMethod,
-  isTestIdQueryMethod,
-  isTextQueryMethod,
-  toSingularAsyncQueryMethod
-} from '#core/query-policy.ts'
 
 /**
  * Maps HTML tag names to implied ARIA roles.

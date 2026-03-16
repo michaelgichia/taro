@@ -9,17 +9,17 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { findReadableProjectStatePathSync } from '#project-state.ts';
+
 import { extractConventions } from '#learner/analyzer.ts';
 import { ConventionStore, createStore } from '#learner/storage.ts';
 import {
-  TestConvention,
   ConventionKey,
-  createEmptyConvention
-} from '#learner/types.ts';
+  createEmptyConvention,
+  TestConvention} from '#learner/types.ts';
+import { findReadableProjectStatePathSync } from '#project-state.ts';
 
-export type { TestConvention, ConventionKey };
-export { createEmptyConvention, ConventionStore, createStore };
+export type { ConventionKey,TestConvention };
+export { ConventionStore, createEmptyConvention, createStore };
 
 /**
  * Find test directories in a project

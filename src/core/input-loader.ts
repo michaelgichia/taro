@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { extname } from 'node:path'
-import { parseJsRecording, type JsParseResult } from '#core/js-parser.ts'
+
+import { type JsParseResult, parseJsRecording } from '#core/js-parser.ts'
 import {
   createStepId,
   type NormalizedRecording,

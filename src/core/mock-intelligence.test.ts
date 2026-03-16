@@ -1,12 +1,14 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+
 import {
   analyzeMocks,
   analyzeMutationLifecycle,
-  detectMockInstability,
   deriveMockRecommendations,
+  detectMockInstability,
   scanMockTargets,
 } from '#core/mock-intelligence.ts'
 import { scanConventions } from '#core/scanner.ts'

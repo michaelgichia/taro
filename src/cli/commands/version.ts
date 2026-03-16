@@ -1,4 +1,5 @@
 import { Command } from 'commander'
+
 import { TARO_VERSION } from '#version.ts'
 
 interface VersionCommandContext {

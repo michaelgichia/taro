@@ -3,7 +3,9 @@ import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
 import { promisify } from 'node:util'
+
 import { afterEach, describe, expect, it } from 'vitest'
+
 import { executeInstallPlan } from '#install/executor.ts'
 import { buildInstallPlan } from '#install/planner.ts'
 import type { InstallSelection, RuntimeLocationSelections, RuntimeTarget } from '#install/types.ts'

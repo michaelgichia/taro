@@ -1,6 +1,9 @@
-import { createInterface } from 'node:readline/promises'
 import { stdin, stdout } from 'node:process'
+import { createInterface } from 'node:readline/promises'
+
 import pc from 'picocolors'
+
+import { RUNTIME_REGISTRY } from '#install/registry.ts'
 import type {
   InstallLocation,
   InstallSelection,
@@ -9,7 +12,6 @@ import type {
   RuntimeTarget,
 } from '#install/types.ts'
 import { SUPPORTED_RUNTIMES } from '#install/types.ts'
-import { RUNTIME_REGISTRY } from '#install/registry.ts'
 
 interface PromptIO {
   input?: typeof stdin

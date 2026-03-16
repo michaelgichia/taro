@@ -2,10 +2,11 @@
  * Main scorer module - orchestrates test quality evaluation
  */
 
-import { writeFileSync, existsSync } from 'fs';
+import { existsSync, writeFileSync } from 'fs';
+
+import { postWriteVerification,VerificationResult } from '#scorer/post-verify.ts';
+import { AuditResult, preWriteAudit } from '#scorer/pre-audit.ts';
 import { evaluateQualityGates } from '#scorer/quality-gates.ts';
-import { preWriteAudit, AuditResult } from '#scorer/pre-audit.ts';
-import { postWriteVerification, VerificationResult } from '#scorer/post-verify.ts';
 import { QualityScore, ScoringResult } from '#scorer/types.ts';
 
 export interface Recording {
@@ -113,7 +114,7 @@ export function orchestrateWithScoring(options: OrchestrateOptions): Orchestrate
   };
 }
 
-export { QualityScore, QualityIssue, QualityCriteria } from '#scorer/types.ts';
-export { evaluateQualityGates } from '#scorer/quality-gates.ts';
-export { preWriteAudit, AuditResult } from '#scorer/pre-audit.ts';
 export { postWriteVerification, VerificationResult } from '#scorer/post-verify.ts';
+export { AuditResult,preWriteAudit } from '#scorer/pre-audit.ts';
+export { evaluateQualityGates } from '#scorer/quality-gates.ts';
+export { QualityCriteria,QualityIssue, QualityScore } from '#scorer/types.ts';

@@ -1,3 +1,4 @@
+import type { ConventionsSchema } from '#types/conventions.ts'
 import type {
   ItGroup,
   JsHelperPlan,
@@ -9,7 +10,6 @@ import type {
   TaroRenderHelperProfile,
   TaroTestRunner,
 } from '#types/state.ts'
-import type { ConventionsSchema } from '#types/conventions.ts'
 
 export interface GeneratorOptions {
   outputPath?: string

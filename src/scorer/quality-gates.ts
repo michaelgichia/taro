@@ -3,7 +3,8 @@
  */
 
 import { parse } from '@typescript-eslint/typescript-estree';
-import { QualityScore, QualityCriteria, QualityIssue } from '#scorer/types.ts';
+
+import { QualityCriteria, QualityIssue, QualityScore } from '#scorer/types.ts';
 
 interface ASTNode {
   type: string;

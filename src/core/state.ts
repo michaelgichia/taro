@@ -1,7 +1,15 @@
 import { access, readdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, relative, resolve } from 'node:path'
+
 import pc from 'picocolors'
 import { z } from 'zod'
+
+import {
+  classifyBoundaryKind,
+  collectBoundaryLearning,
+  getBoundaryGuardrailReason,
+  summarizeBoundaryProfiles,
+} from '#core/boundary-learning.ts'
 import {
   analyzeTestFile,
   deriveConventions,
@@ -10,23 +18,16 @@ import {
   readTestFiles,
 } from '#core/convention-intelligence.ts'
 import {
-  classifyBoundaryKind,
-  collectBoundaryLearning,
-  getBoundaryGuardrailReason,
-  summarizeBoundaryProfiles,
-} from '#core/boundary-learning.ts'
-import {
+  ensureProjectStateDir,
   findReadableProjectStatePath,
   getProjectStatePath,
-  ensureProjectStateDir,
 } from '#project-state.ts'
-import { DEFAULT_CONVENTIONS } from '#types/conventions.ts'
 import type {
   ConventionFile,
   ConventionsSchema,
+  ImportStyle,
   InteractionContractKind,
   InteractionContractPattern,
-  ImportStyle,
   MockInstabilityWarning,
   MockPattern,
   MockRecommendation,
@@ -35,19 +36,17 @@ import type {
   MutationLifecyclePattern,
   MutationLifecycleStage,
 } from '#types/conventions.ts'
+import { DEFAULT_CONVENTIONS } from '#types/conventions.ts'
 import type { ScoreResult } from '#types/score.ts'
 import type {
   RepoRenderTargetCandidate,
+  ResolvedTaroPackageProfile,
   TaroBoundaryExemplarProfile,
   TaroBoundaryGuardrailReason,
   TaroBoundaryKind,
   TaroBoundaryPayloadSource,
   TaroBoundaryProfile,
   TaroBoundaryStrategy,
-  TaroPlaywrightAuthDetectedAt,
-  TaroPlaywrightAuthProfile,
-  TaroQueryHookPolicy,
-  ResolvedTaroPackageProfile,
   TaroExemplarProfile,
   TaroFileExtension,
   TaroFixtureRootKind,
@@ -58,7 +57,10 @@ import type {
   TaroOverrides,
   TaroPackageOverrides,
   TaroPackageProfile,
+  TaroPlaywrightAuthDetectedAt,
+  TaroPlaywrightAuthProfile,
   TaroProviderWrapperProfile,
+  TaroQueryHookPolicy,
   TaroRenderHelperProfile,
   TaroSharedMockFactoryProfile,
   TaroSignal,

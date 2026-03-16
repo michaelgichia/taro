@@ -1,11 +1,13 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+
 import { afterEach, describe, expect, it } from 'vitest'
+
 import { executeInstallPlan } from '#install/executor.ts'
 import { buildInstallPlan } from '#install/planner.ts'
-import { writeInstallPlan } from '#install/writer.ts'
 import type { InstallSelection, RuntimeLocationSelections, RuntimeTarget } from '#install/types.ts'
+import { writeInstallPlan } from '#install/writer.ts'
 
 const sandboxRoots: string[] = []
 const FIXED_GENERATED_AT = '2026-03-07T20:55:00.000Z'

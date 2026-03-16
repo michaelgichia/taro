@@ -1,5 +1,7 @@
-import { Command } from 'commander'
 import { cwd } from 'node:process'
+
+import { Command } from 'commander'
+
 import { formatStateSummary, refreshTaroState } from '#core/state.ts'
 
 export function createRefreshCommand(): Command {

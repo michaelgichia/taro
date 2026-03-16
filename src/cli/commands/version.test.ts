@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { createVersionCommand, runVersionCommand } from '#cli/commands/version.ts'
 import { TARO_VERSION } from '#version.ts'
 

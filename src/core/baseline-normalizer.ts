@@ -5,9 +5,9 @@ import type {
   NormalizedStep,
   ParsedJsInput,
   QueryDescriptor,
+  SelectorDescriptor,
   SemanticMarkerCandidate,
   SemanticMarkerLink,
-  SelectorDescriptor,
   StepId,
   UnresolvedSemanticMarker,
 } from '#types/recording.ts'

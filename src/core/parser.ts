@@ -5,15 +5,16 @@
  */
 
 import { readFile } from 'node:fs/promises'
+
 import type {
   AssertedEvent,
   ChromeRecorderExport,
-  ChromeStep,
   ChromeRecorderSettings,
-  StepId,
+  ChromeStep,
   NormalizedAction,
   NormalizedRecording,
   NormalizedStep,
+  StepId,
 } from '#types/recording.ts'
 import { createStepId } from '#types/recording.ts'
 

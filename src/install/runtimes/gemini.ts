@@ -1,5 +1,5 @@
-import type { InstallFileOperation, ResolvedInstallTarget } from '#install/types.ts'
 import { buildPromptRuntimeOperations } from '#install/runtimes/prompt-runtimes.ts'
+import type { InstallFileOperation, ResolvedInstallTarget } from '#install/types.ts'
 
 export function buildGeminiRuntimeOperations(
   target: ResolvedInstallTarget,

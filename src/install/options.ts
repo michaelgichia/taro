@@ -1,4 +1,5 @@
 import { stdin, stdout } from 'node:process'
+
 import type {
   InstallCommandOptions,
   InstallLocation,

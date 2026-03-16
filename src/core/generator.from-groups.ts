@@ -1,10 +1,3 @@
-import type {
-  ItGroup,
-  JsScenarioPlan,
-  NormalizedStep,
-  PlannedMarkerAssertion,
-} from '#types/recording.ts'
-import { describeBlockMultiIt, importBlock, stepTemplate } from '#templates/test-template.ts'
 import { USER_EVENT_ACTIONS } from '#core/generator.constants.ts'
 import {
   buildHelperStepLines,
@@ -15,7 +8,14 @@ import {
   reconstructQuery,
   renderMarkerAssertionGroup,
 } from '#core/generator.shared.ts'
-import type { GenerateFromGroupsOptions, GeneratedTestV3 } from '#core/generator.types.ts'
+import type { GeneratedTestV3,GenerateFromGroupsOptions } from '#core/generator.types.ts'
+import { describeBlockMultiIt, importBlock, stepTemplate } from '#templates/test-template.ts'
+import type {
+  ItGroup,
+  JsScenarioPlan,
+  NormalizedStep,
+  PlannedMarkerAssertion,
+} from '#types/recording.ts'
 
 export function generateTestFromGroups(
   title: string,

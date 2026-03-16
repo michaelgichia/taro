@@ -3,8 +3,10 @@
  * Persistent convention learning now lives in .taro/state.json via src/core/state.ts.
  */
 
-import pc from 'picocolors'
 import { readFile } from 'node:fs/promises'
+
+import pc from 'picocolors'
+
 import {
   analyzeSingleTestFile,
   analyzeTestFile,
@@ -13,14 +15,14 @@ import {
   findTestFiles,
   readTestFiles,
 } from '#core/convention-intelligence.ts'
-import { findRepoFallbackPackageProfile, initTaroState, refreshTaroState, writeTaroState, readTaroState } from '#core/state.ts'
+import { findRepoFallbackPackageProfile, initTaroState, readTaroState, refreshTaroState, writeTaroState } from '#core/state.ts'
 import { findReadableProjectStatePath } from '#project-state.ts'
-import { DEFAULT_CONVENTIONS } from '#types/conventions.ts'
 import type { ConventionFile, ConventionsSchema } from '#types/conventions.ts'
+import { DEFAULT_CONVENTIONS } from '#types/conventions.ts'
 import type { RepoRenderTargetCandidate } from '#types/state.ts'
 
-export type { RepoRenderTargetCandidate } from '#types/state.ts'
 export type { TestFileContent } from '#core/convention-intelligence.ts'
+export type { RepoRenderTargetCandidate } from '#types/state.ts'
 export {
   analyzeSingleTestFile,
   analyzeTestFile,

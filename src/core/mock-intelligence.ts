@@ -1,4 +1,6 @@
 import { relative } from 'node:path'
+
+import type { TestFileContent } from '#core/scanner.ts'
 import { readConventions, readTestFiles } from '#core/scanner.ts'
 import type {
   ConventionsSchema,
@@ -17,7 +19,6 @@ import type {
   TaroQueryHookPolicy,
   TaroSharedMockFactoryProfile,
 } from '#types/state.ts'
-import type { TestFileContent } from '#core/scanner.ts'
 
 export interface MockAnalysis {
   conventions: ConventionsSchema | null

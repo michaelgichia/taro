@@ -3,12 +3,40 @@
  * Internal runtime-only generation pipeline for Testing Library Recorder JS exports.
  */
 
-import { Command } from 'commander'
 import { access, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, join, relative, resolve } from 'node:path'
 import { cwd, stdin, stdout } from 'node:process'
+
+import { Command } from 'commander'
 import pc from 'picocolors'
-import { writeTestFile } from '#core/writer.ts'
+
+import { normalizeJsBaseline } from '#core/baseline-normalizer.ts'
+import { analyzeBoundaryIsolation } from '#core/boundary-intelligence.ts'
+import { discoverBoundaryImportsFromSource } from '#core/boundary-learning.ts'
+import {
+  applyBoundarySupport,
+  materializeBoundarySupport,
+  planBoundarySupport,
+} from '#core/boundary-support.ts'
+import {
+  type Finding,
+  formatFindingsBlock,
+  hasBlockingFindings,
+} from '#core/findings-reporter.ts'
+import { emitQuerySummary, generateTestFromGroups } from '#core/generator.ts'
+import { loadInput } from '#core/input-loader.ts'
+import { type JsParseResult, parseJsRecording } from '#core/js-parser.ts'
+import type { MockAnalysis } from '#core/mock-intelligence.ts'
+import { analyzeMocks } from '#core/mock-intelligence.ts'
+import { isTestIdQueryMethod } from '#core/query-policy.ts'
+import {
+  analyzeRecording,
+  findVisualCaptureCandidates,
+} from '#core/recording-intelligence.ts'
+import type {
+  CaptureVisualStateAuthOptions,
+  ReplayStepDebugTrace,
+} from '#core/resolver.ts'
 import {
   captureVisualState,
   createPageInspector,
@@ -16,30 +44,8 @@ import {
   replayStep,
   resolveSelector,
 } from '#core/resolver.ts'
-import type {
-  CaptureVisualStateAuthOptions,
-  ReplayStepDebugTrace,
-} from '#core/resolver.ts'
 import { scoreGeneratedTest } from '#core/scorer.ts'
-import { analyzeBoundaryIsolation } from '#core/boundary-intelligence.ts'
-import { verifySyntax } from '#core/verifier.ts'
 import { enrichCanonicalSemanticMarkers } from '#core/semantic-marker-enrichment.ts'
-import {
-  analyzeRecording,
-  findVisualCaptureCandidates,
-} from '#core/recording-intelligence.ts'
-import { analyzeMocks } from '#core/mock-intelligence.ts'
-import { generateTestFromGroups, emitQuerySummary } from '#core/generator.ts'
-import { loadInput } from '#core/input-loader.ts'
-import { parseJsRecording, type JsParseResult } from '#core/js-parser.ts'
-import { normalizeJsBaseline } from '#core/baseline-normalizer.ts'
-import { planJsSuite } from '#core/suite-planner.ts'
-import {
-  applyBoundarySupport,
-  materializeBoundarySupport,
-  planBoundarySupport,
-} from '#core/boundary-support.ts'
-import { discoverBoundaryImportsFromSource } from '#core/boundary-learning.ts'
 import {
   appendGeneratedTestRecord,
   detectPackageProfileStaleness,
@@ -49,6 +55,10 @@ import {
   refreshTaroState,
   resolveTaroPackageProfile,
 } from '#core/state.ts'
+import type { JsSuitePlan } from '#core/suite-planner.ts'
+import { planJsSuite } from '#core/suite-planner.ts'
+import { verifySyntax } from '#core/verifier.ts'
+import { writeTestFile } from '#core/writer.ts'
 import type {
   AnalyzedRecording,
   ItGroup,
@@ -57,10 +67,10 @@ import type {
   PlannedMarkerAssertion,
   QueryDescriptor,
   QueryResult,
-  SemanticMarkerAssertionUnresolvedReason,
   SelectorDescriptor,
   SelectorResolutionPhase,
   SelectorResolutionResult,
+  SemanticMarkerAssertionUnresolvedReason,
   StepId,
   UnresolvedSemanticMarkerAssertionResolution,
   VisualState,
@@ -70,19 +80,11 @@ import type {
   MarkerReviewDiagnostics,
   ScoreResult,
 } from '#types/score.ts'
-import type { MockAnalysis } from '#core/mock-intelligence.ts'
-import type { JsSuitePlan } from '#core/suite-planner.ts'
 import type {
   RepoRenderTargetCandidate,
   ResolvedTaroPackageProfile,
   TaroPlaywrightAuthProfile,
 } from '#types/state.ts'
-import { isTestIdQueryMethod } from '#core/query-policy.ts'
-import {
-  type Finding,
-  formatFindingsBlock,
-  hasBlockingFindings,
-} from '#core/findings-reporter.ts'
 
 interface GenerateCommandContext {
   input?: Pick<typeof stdin, 'isTTY'>

@@ -1,10 +1,12 @@
 import { readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { mkdtemp, mkdir } from 'node:fs/promises'
+
 import { afterEach, describe, expect, it } from 'vitest'
-import { buildRuntimeCommand } from '#install/runtime-launcher.ts'
+
 import { runInstallCommand } from '#cli/commands/install.ts'
+import { buildRuntimeCommand } from '#install/runtime-launcher.ts'
 
 const sandboxRoots: string[] = []
 

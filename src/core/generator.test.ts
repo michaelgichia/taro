@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { generateTestFromGroups, selectorToQuery } from '#core/generator.ts'
 import { verifySyntax } from '#core/verifier.ts'
 import type { PlannedMarkerAssertion } from '#types/recording.ts'

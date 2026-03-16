@@ -1,19 +1,19 @@
 import { analyzeBoundaryIsolation, calculateBoundaryIsolationScore } from '#core/boundary-intelligence.ts'
-import type { QueryResult } from '#types/recording.ts'
-import type {
-  MarkerCoverageTotals,
-  MarkerReviewDiagnostics,
-  MarkerQualityGateState,
-  ScoreDimensions,
-  ScoreReason,
-  ScoreResult,
-  ScoreSignals,
-} from '#types/score.ts'
 import {
   getSupportedTestingLibraryQueryFamily,
   isTestIdQueryMethod,
 } from '#core/query-policy.ts'
 import { detectRepoContractIssues } from '#core/repo-contracts.ts'
+import type { QueryResult } from '#types/recording.ts'
+import type {
+  MarkerCoverageTotals,
+  MarkerQualityGateState,
+  MarkerReviewDiagnostics,
+  ScoreDimensions,
+  ScoreReason,
+  ScoreResult,
+  ScoreSignals,
+} from '#types/score.ts'
 
 const QUERY_WEIGHTS: Record<string, number> = {
   ByRole: 1.0,

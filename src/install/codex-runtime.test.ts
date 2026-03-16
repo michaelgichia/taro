@@ -1,7 +1,9 @@
-import { access, copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { access, copyFile, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+
 import { afterEach, describe, expect, it } from 'vitest'
+
 import { resolveInstallTargets } from '#install/resolver.ts'
 import { buildCodexOperations } from '#install/runtimes/codex.ts'
 import type {

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
+
 import { normalizeJsBaseline } from '#core/baseline-normalizer.ts'
-import { planJsSuite } from '#core/suite-planner.ts'
 import type { MockAnalysis } from '#core/mock-intelligence.ts'
+import { planJsSuite } from '#core/suite-planner.ts'
 import type {
   AnalyzedRecording,
   ItGroup,

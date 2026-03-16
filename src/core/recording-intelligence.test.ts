@@ -1,13 +1,15 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
+
 import { parseJsRecording } from '#core/js-parser.ts'
 import { normalizeStep } from '#core/parser.ts'
 import { parseRecording } from '#core/parser.ts'
 import {
   analyzeRecording,
-  findVisualCaptureCandidates,
   filterNoiseSteps,
+  findVisualCaptureCandidates,
   inferIntentGroups,
 } from '#core/recording-intelligence.ts'
 import type { ChromeStep, NormalizedRecording, NormalizedStep } from '#types/recording.ts'

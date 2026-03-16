@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { resolveAssetSource } from '#install/assets.ts'
 import { RUNTIME_REGISTRY } from '#install/registry.ts'
 

@@ -2,6 +2,7 @@ import eslint from "@eslint/js";
 import tseslint from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
 import prettierConfig from "eslint-config-prettier";
+import simpleImportSort from "eslint-plugin-simple-import-sort";
 import globals from "globals";
 
 const sourceFiles = ["**/*.{js,mjs,ts,tsx}"];
@@ -36,9 +37,14 @@ export default [
         NodeJS: "readonly",
       },
     },
+    plugins: {
+      "simple-import-sort": simpleImportSort,
+    },
     rules: {
       "no-unused-vars": "off",
       "no-useless-escape": "warn",
+      "simple-import-sort/imports": "warn",
+      "simple-import-sort/exports": "warn",
     },
   },
   {

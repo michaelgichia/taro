@@ -1,5 +1,6 @@
-import type { QueryQuality, QueryResult } from '#types/recording.ts'
 import pc from 'picocolors'
+
+import type { QueryQuality, QueryResult } from '#types/recording.ts'
 
 export function emitQuerySummary(queryResults: QueryResult[]): void {
   if (queryResults.length === 0) return

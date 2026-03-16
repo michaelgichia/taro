@@ -1,3 +1,8 @@
+import {
+  isLabelTextQueryMethod,
+  isPlaceholderTextQueryMethod,
+  isTextQueryMethod,
+} from '#core/query-policy.ts'
 import type {
   AnalyzedRecording,
   IntentGroup,
@@ -10,11 +15,6 @@ import type {
   SemanticMarkerProofSubject,
   UnresolvedSemanticMarker,
 } from '#types/recording.ts'
-import {
-  isLabelTextQueryMethod,
-  isPlaceholderTextQueryMethod,
-  isTextQueryMethod,
-} from '#core/query-policy.ts'
 
 export interface VisualCaptureCandidate {
   groupName: string

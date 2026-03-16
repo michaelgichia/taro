@@ -1,13 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Page } from 'playwright'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import {
   captureVisualState,
   deriveAccessibleQuery,
   extractDialogState,
   inspectElements,
   replayStep,
-  resolveSemanticMarkerAssertion,
   resolveSelector,
+  resolveSemanticMarkerAssertion,
   selectMatcher,
 } from '#core/resolver.ts'
 import type {

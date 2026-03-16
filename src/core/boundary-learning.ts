@@ -1,9 +1,11 @@
-import * as babelParser from '@babel/parser'
-import _traverse from '@babel/traverse'
-import type { NodePath } from '@babel/traverse'
-import * as t from '@babel/types'
 import { readFile } from 'node:fs/promises'
 import { relative } from 'node:path'
+
+import * as babelParser from '@babel/parser'
+import type { NodePath } from '@babel/traverse'
+import _traverse from '@babel/traverse'
+import * as t from '@babel/types'
+
 import type { MutationLifecyclePattern } from '#types/conventions.ts'
 import type {
   RepoRenderTargetCandidate,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { calculateStructureScore, scoreGeneratedTest } from '#core/scorer.ts'
 
 describe('calculateStructureScore', () => {

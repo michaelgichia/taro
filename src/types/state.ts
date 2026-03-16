@@ -1,8 +1,8 @@
 import type {
   ConventionsSchema,
+  ImportStyle,
   InteractionContractKind,
   InteractionContractPattern,
-  ImportStyle,
   MockInstabilityWarning,
   MockPattern,
   MockRecommendation,

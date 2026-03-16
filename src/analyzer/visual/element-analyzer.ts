@@ -1,4 +1,5 @@
 import { Page } from 'playwright';
+
 import { ElementInfo, inspectElement } from '#analyzer/visual/inspector.ts';
 
 /**
