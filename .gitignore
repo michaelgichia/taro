@@ -6,3 +6,6 @@ node_modules/
 .claude/
 .kiro/
 .agent/
+.pnpm-store
+.vscode
+.mypy_cache

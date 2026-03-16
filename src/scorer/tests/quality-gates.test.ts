@@ -3,6 +3,109 @@ import { describe, expect, it } from 'vitest'
 import { evaluateQualityGates } from '#scorer/quality-gates.ts'
 
 describe('evaluateQualityGates', () => {
+  it('returns a zero score with a structure error when the code does not parse', () => {
+    const result = evaluateQualityGates(`
+      describe('broken', () => {
+        it('fails', () => {
+          expect(true).toBe(true)
+    `)
+
+    expect(result).toEqual({
+      overall: 0,
+      criteria: { structure: 0, queries: 0, matchers: 0, noFragility: 0 },
+      issues: [
+        expect.objectContaining({
+          type: 'structure',
+          severity: 'error',
+          message: 'Failed to parse code - syntax error',
+        }),
+      ],
+      passed: false,
+    })
+  })
+
+  it('flags missing describe, missing test blocks, and missing expect statements', () => {
+    const result = evaluateQualityGates(`
+      import { screen } from '@testing-library/react'
+
+      const helper = () => {
+        screen.getByRole('button')
+      }
+    `)
+
+    expect(result.passed).toBe(false)
+    expect(result.criteria.structure).toBe(0)
+    expect(result.criteria.matchers).toBe(0)
+    expect(result.criteria.queries).toBeGreaterThan(50)
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'structure',
+          message: 'Missing describe block',
+        }),
+        expect.objectContaining({
+          type: 'structure',
+          message: 'Missing test case (it/test)',
+        }),
+        expect.objectContaining({
+          type: 'matchers',
+          message: 'No expect statements found',
+        }),
+      ])
+    )
+  })
+
+  it('penalizes fragile queries and CSS selector patterns when robust queries are absent', () => {
+    const result = evaluateQualityGates(`
+      describe('legacy selectors', () => {
+        it('uses test ids', () => {
+          const node = document.querySelector('.dialog [data-testid="save-button"]')
+          expect(node).toBeTruthy()
+        })
+      })
+    `)
+
+    expect(result.criteria.queries).toBe(30)
+    expect(result.criteria.noFragility).toBeLessThan(100)
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'queries',
+          message: 'Using fragile queries (getByTestId, querySelector)',
+        }),
+        expect.objectContaining({
+          type: 'fragility',
+          message: expect.stringContaining('Found'),
+        }),
+        expect.objectContaining({
+          type: 'fragility',
+          message: expect.stringContaining('test ID'),
+        }),
+      ])
+    )
+  })
+
+  it('scores explicit matchers higher than raw expect calls', () => {
+    const rawExpect = evaluateQualityGates(`
+      describe('raw expect', () => {
+        it('asserts loosely', () => {
+          expect(value)
+        })
+      })
+    `)
+    const matcherExpect = evaluateQualityGates(`
+      describe('matcher expect', () => {
+        it('asserts clearly', () => {
+          expect(value).toEqual('ok')
+          expect(other).toContain('x')
+        })
+      })
+    `)
+
+    expect(rawExpect.criteria.matchers).toBe(90)
+    expect(matcherExpect.criteria.matchers).toBeGreaterThan(rawExpect.criteria.matchers)
+  })
+
   it('flags repo-disallowed matcher and fragility patterns', () => {
     const result = evaluateQualityGates(`
       import { render, screen, cleanup } from '@testing-library/react'
@@ -61,6 +164,10 @@ describe('evaluateQualityGates', () => {
         expect.objectContaining({
           type: 'fragility',
           message: 'Teardown compensates for leaked document.body side effects',
+        }),
+        expect.objectContaining({
+          type: 'fragility',
+          message: 'Regex text matcher detected for rendered output',
         }),
       ])
     )

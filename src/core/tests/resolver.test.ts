@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   captureVisualState,
+  createPageInspector,
   deriveAccessibleQuery,
+  emitQry03Warning,
   extractDialogState,
   inspectElements,
   replayStep,
@@ -612,6 +614,75 @@ describe('resolveSelector', () => {
 })
 
 describe('replayStep', () => {
+  it('replays navigate and keyDown steps with explicit Playwright actions in debug output', async () => {
+    const gotoMock = vi.fn().mockResolvedValue(undefined)
+    const pressMock = vi.fn().mockResolvedValue(undefined)
+    const page = {
+      goto: gotoMock,
+      keyboard: {
+        press: pressMock,
+      },
+      title: vi.fn().mockResolvedValue('Workspace'),
+      url: vi.fn().mockReturnValue('http://localhost:3000/workspace'),
+    }
+
+    const navigateResult = await replayStep(
+      page as unknown as Page,
+      {
+        action: 'navigate',
+        id: 'js-step-5',
+        originalType: 'navigate',
+        target: 'http://localhost:3000/orders',
+      },
+      {
+        collectDebug: true,
+        timeoutMs: 1500,
+      }
+    )
+
+    expect(navigateResult).toEqual(
+      expect.objectContaining({
+        replayed: true,
+        debug: expect.objectContaining({
+          locatorSource: 'step.target',
+          locatorValue: 'http://localhost:3000/orders',
+          playwrightAction: "page.goto('http://localhost:3000/orders')",
+          result: 'replayed',
+          timeoutMs: 1500,
+        }),
+      })
+    )
+    expect(gotoMock).toHaveBeenCalledWith('http://localhost:3000/orders', {
+      timeout: 1500,
+      waitUntil: 'domcontentloaded',
+    })
+
+    const keyDownResult = await replayStep(
+      page as unknown as Page,
+      {
+        action: 'keyDown',
+        id: 'js-step-6',
+        originalType: 'keyDown',
+        key: 'Enter',
+      },
+      {
+        collectDebug: true,
+      }
+    )
+
+    expect(keyDownResult).toEqual(
+      expect.objectContaining({
+        replayed: true,
+        debug: expect.objectContaining({
+          locatorValue: 'Enter',
+          playwrightAction: "page.keyboard.press('Enter')",
+          result: 'replayed',
+        }),
+      })
+    )
+    expect(pressMock).toHaveBeenCalledWith('Enter')
+  })
+
   it('captures locator selection details when replay cannot resolve a locator', async () => {
     const page = {
       title: vi.fn().mockResolvedValue('Workspace'),
@@ -646,6 +717,227 @@ describe('replayStep', () => {
         }),
       })
     )
+  })
+
+  it('replays fill steps through placeholder locators when there is exactly one placeholder match', async () => {
+    const placeholderClickMock = vi.fn().mockResolvedValue(undefined)
+    const placeholderFillMock = vi.fn().mockResolvedValue(undefined)
+    const page = {
+      getByPlaceholder: vi.fn(() => ({
+        count: vi.fn().mockResolvedValue(1),
+        click: placeholderClickMock,
+        fill: placeholderFillMock,
+      })),
+      locator: vi.fn((selector: string) => ({
+        first: () => ({
+          click: vi.fn().mockResolvedValue(undefined),
+          fill: vi.fn().mockResolvedValue(undefined),
+        }),
+      })),
+      title: vi.fn().mockResolvedValue('Workspace'),
+      url: vi.fn().mockReturnValue('http://localhost:3000/workspace'),
+    }
+
+    const result = await replayStep(
+      page as unknown as Page,
+      {
+        action: 'fill',
+        id: 'js-step-8',
+        originalType: 'change',
+        target: 'Customer Name',
+        value: 'Acme Corp',
+      },
+      {
+        collectDebug: true,
+      }
+    )
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        replayed: true,
+        debug: expect.objectContaining({
+          action: 'fill',
+          fallbackLocators: ['step.target:Customer Name'],
+          locatorSource: 'fill.placeholder',
+          locatorValue: 'Customer Name',
+          playwrightAction: "page.getByPlaceholder('Customer Name').fill('Acme Corp')",
+          result: 'replayed',
+        }),
+      })
+    )
+    expect(placeholderClickMock).toHaveBeenCalled()
+    expect(placeholderFillMock).toHaveBeenCalledWith('Acme Corp', { timeout: 3000 })
+  })
+
+  it('falls back to the resolved locator for fill/select actions and truncates long failures', async () => {
+    const fallbackClickMock = vi.fn().mockResolvedValue(undefined)
+    const fallbackFillMock = vi.fn().mockResolvedValue(undefined)
+    const selectClickMock = vi.fn().mockRejectedValue(new Error('x'.repeat(140)))
+    const page = {
+      getByPlaceholder: vi.fn(() => ({
+        count: vi.fn().mockResolvedValue(0),
+      })),
+      locator: vi.fn((selector: string) => ({
+        first: () =>
+          selector === '[data-testid="status"]'
+            ? {
+                click: selectClickMock,
+              }
+            : {
+                click: fallbackClickMock,
+                fill: fallbackFillMock,
+              },
+      })),
+      title: vi.fn().mockResolvedValue('Workspace'),
+      url: vi.fn().mockReturnValue('http://localhost:3000/workspace'),
+    }
+
+    const fillResult = await replayStep(
+      page as unknown as Page,
+      {
+        action: 'fill',
+        id: 'js-step-9',
+        originalType: 'change',
+        target: 'input[name="customer"]',
+        value: 'Acme Corp',
+      },
+      {
+        collectDebug: true,
+      }
+    )
+
+    expect(fillResult).toEqual(
+      expect.objectContaining({
+        replayed: true,
+        debug: expect.objectContaining({
+          locatorSource: 'step.target',
+          locatorValue: 'input[name="customer"]',
+          playwrightAction: "locator.fill('Acme Corp')",
+          result: 'replayed',
+        }),
+      })
+    )
+    expect(fallbackClickMock).toHaveBeenCalled()
+    expect(fallbackFillMock).toHaveBeenCalledWith('Acme Corp', { timeout: 3000 })
+
+    const selectResult = await replayStep(
+      page as unknown as Page,
+      {
+        action: 'select',
+        id: 'js-step-10',
+        originalType: 'click',
+        target: '[data-testid="status"]',
+      },
+      {
+        collectDebug: true,
+      }
+    )
+
+    expect(selectResult.replayed).toBe(false)
+    expect(selectResult.warning).toMatch(/^select on \[data-testid="status"\] failed: x+\.\.\.$/)
+    expect(selectResult.debug).toEqual(
+      expect.objectContaining({
+        locatorSource: 'step.target',
+        locatorValue: '[data-testid="status"]',
+        playwrightAction: 'locator.click()',
+        result: 'failed',
+      })
+    )
+  })
+
+  it('returns a no-debug failure payload when navigation throws without debug collection', async () => {
+    const page = {
+      goto: vi.fn().mockRejectedValue(new Error('network error')),
+      title: vi.fn().mockResolvedValue('Workspace'),
+      url: vi.fn().mockReturnValue('http://localhost:3000/workspace'),
+    }
+
+    const result = await replayStep(
+      page as unknown as Page,
+      {
+        action: 'navigate',
+        id: 'js-step-11',
+        originalType: 'navigate',
+        target: 'http://localhost:3000/broken',
+      }
+    )
+
+    expect(result).toEqual({
+      replayed: false,
+      warning: 'navigate on http://localhost:3000/broken failed: network error',
+      debug: undefined,
+    })
+  })
+})
+
+describe('createPageInspector', () => {
+  it('returns found and selector-not-found results from a persistent page', async () => {
+    const foundPage = {
+      locator: vi.fn(() => ({
+        count: vi.fn().mockResolvedValue(1),
+        first: () => ({
+          evaluate: vi.fn().mockResolvedValue(accessibleButton),
+        }),
+      })),
+    }
+    const missingPage = {
+      locator: vi.fn(() => ({
+        count: vi.fn().mockResolvedValue(0),
+      })),
+    }
+    const failingPage = {
+      locator: vi.fn(() => ({
+        count: vi.fn().mockResolvedValue(1),
+        first: () => ({
+          evaluate: vi.fn().mockRejectedValue(new Error('detached')),
+        }),
+      })),
+    }
+
+    await expect(
+      createPageInspector(foundPage as unknown as Page)(
+        'http://localhost:3000',
+        '#save'
+      )
+    ).resolves.toEqual({
+      status: 'found',
+      element: accessibleButton,
+    })
+
+    await expect(
+      createPageInspector(missingPage as unknown as Page)(
+        'http://localhost:3000',
+        '#missing'
+      )
+    ).resolves.toEqual({
+      status: 'selector-not-found',
+    })
+
+    await expect(
+      createPageInspector(failingPage as unknown as Page)(
+        'http://localhost:3000',
+        '#broken'
+      )
+    ).resolves.toEqual({
+      status: 'selector-not-found',
+    })
+
+  })
+})
+
+describe('emitQry03Warning', () => {
+  it('emits the accessible-query warning with the selector included', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    emitQry03Warning('[data-testid="save"]')
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('QRY-03:')
+    )
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[data-testid="save"]')
+    )
+    warnSpy.mockRestore()
   })
 })
 

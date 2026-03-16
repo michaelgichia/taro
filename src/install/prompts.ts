@@ -16,11 +16,13 @@ import { SUPPORTED_RUNTIMES } from '#install/types.ts'
 interface PromptIO {
   input?: typeof stdin
   output?: typeof stdout
+  createInterfaceImpl?: typeof createInterface
+  log?: typeof console.log
 }
 
-const ALL_RUNTIMES_CHOICE = SUPPORTED_RUNTIMES.length + 1
+export const ALL_RUNTIMES_CHOICE = SUPPORTED_RUNTIMES.length + 1
 
-function runtimeMenu(): string {
+export function runtimeMenu(): string {
   const lines = SUPPORTED_RUNTIMES.map((runtime, index) => {
     return `  ${index + 1}. ${RUNTIME_REGISTRY[runtime].displayName}`
   })
@@ -30,7 +32,7 @@ function runtimeMenu(): string {
   return lines.join('\n')
 }
 
-function parseRuntimeSelection(answer: string): RuntimeTarget[] | null {
+export function parseRuntimeSelection(answer: string): RuntimeTarget[] | null {
   const selections = answer
     .split(',')
     .map((part) => Number(part.trim()))
@@ -55,7 +57,7 @@ function parseRuntimeSelection(answer: string): RuntimeTarget[] | null {
   return runtimes.length > 0 ? runtimes : null
 }
 
-function parseLocation(answer: string): InstallLocation | null {
+export function parseLocation(answer: string): InstallLocation | null {
   const normalized = answer.trim().toLowerCase()
 
   if (normalized === '1' || normalized === 'g' || normalized === 'global') {
@@ -69,7 +71,7 @@ function parseLocation(answer: string): InstallLocation | null {
   return null
 }
 
-function deriveSelectionSource(
+export function deriveSelectionSource(
   normalized: NormalizedInstallOptions
 ): InstallSelection['source'] {
   if (normalized.source === 'flags' && normalized.mode === 'non-interactive') {
@@ -87,7 +89,9 @@ export async function promptForInstallChoices(
   normalized: NormalizedInstallOptions,
   io: PromptIO = { input: stdin, output: stdout }
 ): Promise<InstallSelection> {
-  const rl = createInterface({
+  const createInterfaceImpl = io.createInterfaceImpl ?? createInterface
+  const log = io.log ?? console.log
+  const rl = createInterfaceImpl({
     input: io.input ?? stdin,
     output: io.output ?? stdout,
   })
@@ -97,8 +101,8 @@ export async function promptForInstallChoices(
 
     if (normalized.needsRuntimePrompt) {
       while (runtimes.length === 0) {
-        console.log(pc.bold('Choose the runtimes to install:'))
-        console.log(runtimeMenu())
+        log(pc.bold('Choose the runtimes to install:'))
+        log(runtimeMenu())
         const answer = await rl.question(
           'Enter one or more numbers separated by commas: '
         )
@@ -109,7 +113,7 @@ export async function promptForInstallChoices(
           break
         }
 
-        console.log(pc.yellow('Select at least one runtime to continue.\n'))
+        log(pc.yellow('Select at least one runtime to continue.\n'))
       }
     }
 
@@ -123,17 +127,17 @@ export async function promptForInstallChoices(
       let location: InstallLocation | null = null
 
       while (!location) {
-        console.log(
+        log(
           `\n${pc.bold(RUNTIME_REGISTRY[runtime].displayName)} installation location:`
         )
-        console.log('  1. Global')
-        console.log('  2. Local')
+        log('  1. Global')
+        log('  2. Local')
 
         const answer = await rl.question('Choose 1 or 2: ')
         location = parseLocation(answer)
 
         if (!location) {
-          console.log(pc.yellow('Choose `1` for global or `2` for local.'))
+          log(pc.yellow('Choose `1` for global or `2` for local.'))
         }
       }
 
