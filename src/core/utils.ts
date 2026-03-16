@@ -308,18 +308,18 @@ export function buildHelperStepLines(
     const query = reconstructQuery(step, { scopeDialog: options.scopeDialog })
     if (!query) {
       const checkpoint = getSelectorCheckpoint(step)
-      if (checkpoint) {
-        return [
-          stepTemplate({
-            action: step.action,
-            query: '',
-            value: step.value,
-            checkpoint,
-          }),
-        ]
+      const fallbackCheckpoint = {
+        reason: 'No trustworthy RTL query evidence was recovered for this step.',
+        selector: step.target ?? '',
       }
-
-      return []
+      return [
+        stepTemplate({
+          action: step.action,
+          query: '',
+          value: step.value,
+          checkpoint: checkpoint ?? fallbackCheckpoint,
+        }),
+      ]
     }
 
     return [

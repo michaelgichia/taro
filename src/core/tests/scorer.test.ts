@@ -268,4 +268,112 @@ describe('stock flow', () => {
     )
     expect(zeroConversion.requiresReview).toBe(true)
   })
+
+  it('treats fully converted markers as pass and defaults omitted options safely', () => {
+    const fullyConverted = scoreGeneratedTest("test('flow', () => expect(true).toBe(true))", {
+      markerCoverage: {
+        detected: 2,
+        emitted: 2,
+        unresolved: 0,
+      },
+    })
+
+    expect(fullyConverted.markerQualityGate).toEqual({
+      status: 'pass',
+      reason: 'markers-fully-converted',
+      failing: false,
+      message: 'All detected semantic markers were converted into marker-derived assertions.',
+    })
+
+    const defaulted = scoreGeneratedTest(
+      "test('flow', () => expect(true).toBe(true))",
+      undefined as unknown as never
+    )
+
+    expect(defaulted.markerCoverage).toEqual({
+      detected: 0,
+      emitted: 0,
+      unresolved: 0,
+    })
+    expect(defaulted.markerDiagnostics).toEqual({
+      canonicalRecoveries: 0,
+      placementConflicts: 0,
+      placementCorrections: 0,
+    })
+  })
+
+  it('produces a C grade for middling suites and normalizes null option input', () => {
+    const middling = scoreGeneratedTest(
+      `
+it('completes a flow', async () => {
+  render(<FeatureModule />)
+  expect(screen.getByText('Saved')).toHaveTextContent('Saved')
+})
+      `,
+      [{ method: 'getByText', query: "screen.getByText('Saved')", quality: 'good' }]
+    )
+
+    expect(middling.grade).toBe('C')
+
+    const nullOptions = scoreGeneratedTest(
+      "test('flow', () => expect(true).toBe(true))",
+      null as unknown as never
+    )
+
+    expect(nullOptions.markerCoverage).toEqual({
+      detected: 0,
+      emitted: 0,
+      unresolved: 0,
+    })
+  })
+
+  it('adds marker placement conflict reasons and can land in a B-grade band', () => {
+    const bGrade = scoreGeneratedTest(
+      `
+describe('flow', () => {
+  it('completes a flow', async () => {
+    render(<FeatureModule />)
+    expect(screen.getByText('Saved')).toHaveTextContent('Saved')
+  })
+})
+      `,
+      {
+        queryResults: [{ method: 'getByText', query: "screen.getByText('Saved')", quality: 'good' }],
+        markerDiagnostics: {
+          placementConflicts: 1,
+        },
+      }
+    )
+
+    expect(bGrade.grade).toBe('B')
+    expect(bGrade.reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'marker-placement-conflicts',
+          impact: 'negative',
+        }),
+      ])
+    )
+  })
+
+  it('penalizes oversized single-test files and flags remaining test-id queries', () => {
+    const longSingleTest = `it('completes a flow', async () => {\n${'x'.repeat(2105)}\n})`
+    expect(calculateStructureScore(longSingleTest)).toBeLessThan(
+      calculateStructureScore("it('short flow', async () => { expect(true).toBe(true) })")
+    )
+
+    const withTestId = scoreGeneratedTest(
+      "test('flow', () => expect(screen.getByTestId('save')).toBeVisible())",
+      [{ method: 'getByTestId', query: "screen.getByTestId('save')", quality: 'fragile' }]
+    )
+
+    expect(withTestId.reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'testid-queries',
+          impact: 'negative',
+        }),
+      ])
+    )
+  })
 })

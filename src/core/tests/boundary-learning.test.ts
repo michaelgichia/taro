@@ -2,9 +2,11 @@ import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import * as t from '@babel/types'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import {
+  __boundaryLearningTestUtils,
   classifyBoundaryKind,
   collectBoundaryLearning,
   discoverBoundaryImportsFromSource,
@@ -307,6 +309,39 @@ import { createOrder } from './api/orders'
     const targets = result.map((r) => r.target)
     const sorted = [...targets].sort()
     expect(targets).toEqual(sorted)
+  })
+})
+
+describe('__boundaryLearningTestUtils', () => {
+  it('pushUnique ignores empty values and duplicates', () => {
+    const values = ['existing']
+
+    __boundaryLearningTestUtils.pushUnique(values, undefined)
+    __boundaryLearningTestUtils.pushUnique(values, 'existing')
+    __boundaryLearningTestUtils.pushUnique(values, 'next')
+
+    expect(values).toEqual(['existing', 'next'])
+  })
+
+  it('reads static template literal strings and returns null for unsupported bindings', () => {
+    const templateLiteral = t.templateLiteral(
+      [t.templateElement({ cooked: './api/orders', raw: './api/orders' }, true)],
+      []
+    )
+
+    expect(__boundaryLearningTestUtils.getStringLiteral(templateLiteral)).toBe('./api/orders')
+    expect(__boundaryLearningTestUtils.getStringLiteral(undefined)).toBeNull()
+    expect(
+      __boundaryLearningTestUtils.resolveImportedBinding(new Map(), null)
+    ).toBeNull()
+    expect(
+      __boundaryLearningTestUtils.getStringLiteral(t.identifier('dynamicTarget'))
+    ).toBeNull()
+    expect(__boundaryLearningTestUtils.inferPayloadSource('../support/ordersPayload')).toBe('manual')
+    expect(__boundaryLearningTestUtils.strategyPriority('inline-safe')).toBe(2)
+    expect(__boundaryLearningTestUtils.strategyPriority('real-runtime')).toBe(1)
+    expect(__boundaryLearningTestUtils.isComponentLikeExportName('useDialog')).toBe(false)
+    expect(__boundaryLearningTestUtils.isComponentLikeExportName('DIALOG')).toBe(false)
   })
 })
 

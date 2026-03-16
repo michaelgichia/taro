@@ -325,6 +325,15 @@ function pushUnique(target: string[], value: string | null | undefined): void {
   }
 }
 
+export const __boundaryLearningTestUtils = {
+  getStringLiteral,
+  inferPayloadSource,
+  pushUnique,
+  resolveImportedBinding,
+  strategyPriority,
+  isComponentLikeExportName,
+}
+
 function inferStrategy(params: {
   target: string
   guardrailReason: TaroBoundaryGuardrailReason | null

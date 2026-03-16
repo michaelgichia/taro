@@ -400,10 +400,6 @@ function annotateSemanticMarkers(steps: NormalizedStep[]): NormalizedStep[] {
     }
 
     const candidate = getSemanticMarkerCandidate(step)
-    if (!candidate) {
-      return step
-    }
-
     if (isPhase18ConsumableProofSubject(candidate.proofSubject)) {
       const anchorStep = findNearestPriorMajorTransitionStep(steps, index)
       const anchor = anchorStep
@@ -460,6 +456,14 @@ function annotateSemanticMarkers(steps: NormalizedStep[]): NormalizedStep[] {
 
     return step
   })
+}
+
+export const __recordingIntelligenceTestUtils = {
+  buildSemanticMarkerAnchor,
+  buildSemanticMarkerLink,
+  findNearestPriorMajorTransitionStep,
+  isIconOnlyText,
+  isMajorTransitionStep,
 }
 
 function isSameClickTarget(current: NormalizedStep, candidate: NormalizedStep): boolean {

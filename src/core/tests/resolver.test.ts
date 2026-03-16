@@ -1,5 +1,5 @@
 import type { Page } from 'playwright'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   captureVisualState,
@@ -1402,6 +1402,16 @@ describe('selectMatcher', () => {
 })
 
 describe('captureVisualState', () => {
+  let logSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+  })
+
+  afterEach(() => {
+    logSpy.mockRestore()
+  })
+
   it('captures visual state with a runtime-owned Playwright browser', async () => {
     const session = createPlaywrightSession([
       {
@@ -3578,6 +3588,16 @@ describe('replayStep - success path playwrightAction string', () => {
 })
 
 describe('captureVisualState - auth recovery error path', () => {
+  let logSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+  })
+
+  afterEach(() => {
+    logSpy.mockRestore()
+  })
+
   it('returns auth-recovery-failed when inspectVisualPage throws during recovery', async () => {
     const session = createPlaywrightSession([
       {
@@ -3611,6 +3631,16 @@ describe('captureVisualState - auth recovery error path', () => {
 })
 
 describe('captureVisualState - shouldRetryExpectedUrlDuringAuthRecovery', () => {
+  let logSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+  })
+
+  afterEach(() => {
+    logSpy.mockRestore()
+  })
+
   it('does not attempt redirect navigation when expected URL is not set during recovery', async () => {
     const session = createPlaywrightSession([
       {
@@ -4745,5 +4775,737 @@ describe('resolveSemanticMarkerAssertion - query scope fallback coverage', () =>
         reason: 'icon-only-target',
       })
     )
+  })
+})
+
+describe('openCapturePage - non-Error failures', () => {
+  it('treats non-Error navigation failures as unknown errors and does not retry them', async () => {
+    const session = createPlaywrightSession([
+      {
+        dialog: null,
+        elements: {},
+        title: 'App',
+        url: 'http://localhost:3000/',
+      },
+    ])
+
+    session.page.goto.mockRejectedValueOnce('socket closed')
+
+    await expect(
+      openCapturePage({
+        headless: true,
+        timeoutMs: 5000,
+        url: 'http://localhost:3000/',
+      })
+    ).rejects.toBe('socket closed')
+    expect(session.page.goto).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('createPageInspector - nullish DOM fallbacks', () => {
+  it('normalizes missing innerText values to an empty string', async () => {
+    class FakeHTMLElement {
+      constructor(
+        public tagName: string,
+        private attributes: Record<string, string | undefined>,
+        public innerText: string | undefined
+      ) {}
+
+      getAttribute(name: string) {
+        return this.attributes[name] ?? null
+      }
+    }
+
+    class FakeHTMLButtonElement extends FakeHTMLElement {
+      labels = null
+      constructor() {
+        super(
+          'BUTTON',
+          {
+            'aria-label': 'Open drawer',
+            role: 'button',
+          },
+          undefined
+        )
+      }
+    }
+
+    const page = {
+      locator: vi.fn(() => ({
+        first: () => ({
+          evaluate: vi.fn(async (fn: (el: Element) => unknown) =>
+            fn(new FakeHTMLButtonElement() as unknown as Element)
+          ),
+        }),
+      })),
+    }
+
+    const result = await withPatchedDomGlobals(
+      {
+        HTMLButtonElement: FakeHTMLButtonElement,
+        HTMLInputElement: class {},
+        HTMLMeterElement: class {},
+        HTMLOutputElement: class {},
+        HTMLProgressElement: class {},
+        HTMLSelectElement: class {},
+        HTMLTextAreaElement: class {},
+        document: {
+          getElementById: () => null,
+        },
+      },
+      () => createPageInspector(page as unknown as Page)('http://localhost:3000', '#toggle')
+    )
+
+    expect(result).toEqual({
+      status: 'found',
+      element: expect.objectContaining({
+        ariaLabel: 'Open drawer',
+        innerText: '',
+        tagName: 'button',
+      }),
+    })
+  })
+})
+
+describe('extractDialogState - nullish metadata fallbacks', () => {
+  it('returns null role, title, and description when the dialog DOM lacks that metadata', async () => {
+    const dialog = {
+      getAttribute: () => null,
+      querySelector: (selector: string) => {
+        if (selector === 'h1, h2, h3, [aria-labelledby]') {
+          return { textContent: undefined }
+        }
+
+        if (selector === '[aria-describedby], p') {
+          return { textContent: undefined }
+        }
+
+        return null
+      },
+      querySelectorAll: (selector: string) =>
+        selector === 'button, [role="button"]'
+          ? [{ innerText: '   ' }, { innerText: 'Dismiss' }]
+          : [],
+    }
+
+    const page = {
+      evaluate: vi.fn(async (fn: () => unknown) =>
+        withPatchedDomGlobals(
+          {
+            document: {
+              querySelector: (selector: string) =>
+                selector === '[role="dialog"], [role="alertdialog"]' ? dialog : null,
+            },
+          },
+          () => fn()
+        )
+      ),
+    }
+
+    await expect(extractDialogState(page as any)).resolves.toEqual({
+      role: null,
+      title: null,
+      description: null,
+      actions: ['Dismiss'],
+      isOpen: true,
+    })
+  })
+})
+
+describe('resolveSelector - non-Error inspection failures', () => {
+  it('reports unknown inspection errors with the default inspect source', async () => {
+    const inspect = vi.fn().mockRejectedValue('page crashed')
+
+    const result = await resolveSelector(selectorDescriptor, {
+      url: 'http://localhost:3000',
+      inspect,
+    })
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'unresolved',
+        outcome: 'inspection-failed',
+        inspectionError: 'Unknown error',
+        debug: expect.objectContaining({
+          inspectSource: 'persistent-page',
+          inspectionError: 'Unknown error',
+        }),
+      })
+    )
+  })
+})
+
+describe('resolveSemanticMarkerAssertion - fallback field selection', () => {
+  it('uses the candidate step id and the step target when the candidate omits them', () => {
+    const query: QueryDescriptor = {
+      stepId: 'candidate-step',
+      method: 'getByText',
+      queryRoot: 'screen',
+      target: 'Saved successfully',
+      raw: "screen.getByText('Saved successfully')",
+    }
+
+    const step = {
+      action: 'click',
+      target: 'Saved successfully',
+      originalType: 'click',
+      source: 'js',
+      semanticMarkerLink: {
+        markerStepId: 'candidate-step',
+        anchorStepId: 'js-step-1',
+        relation: 'follows',
+        proofSubject: 'visible-message',
+        target: 'Saved successfully',
+        proofText: 'Saved successfully',
+        sourceContext: { line: 12, originalType: 'click' },
+        query,
+      },
+      semanticMarkerCandidate: {
+        stepId: 'candidate-step',
+        status: 'qualified',
+        originalGesture: 'click',
+        proofSubject: 'visible-message',
+        target: undefined,
+        proofText: 'Saved successfully',
+        sourceContext: { line: 12, originalType: 'click' },
+        anchor: { anchorStepId: 'js-step-1', relation: 'follows' },
+        query,
+      },
+    } as unknown as NormalizedStep
+
+    const result = resolveSemanticMarkerAssertion(step)
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'resolved',
+        markerStepId: 'candidate-step',
+        assertion: expect.objectContaining({
+          markerStepId: 'candidate-step',
+          target: 'Saved successfully',
+        }),
+      })
+    )
+  })
+
+  it('uses the source marker step id when an unresolved assertion has no step id', () => {
+    const step = {
+      action: 'click',
+      target: 'Review Order',
+      originalType: 'click',
+      source: 'js',
+      semanticMarkerCandidate: {
+        stepId: 'candidate-unresolved',
+        status: 'qualified',
+        originalGesture: 'click',
+        proofSubject: 'heading',
+        target: 'Review Order',
+        proofText: 'Review Order',
+        sourceContext: { line: 12, originalType: 'click' },
+        anchor: { anchorStepId: 'js-step-1', relation: 'follows' },
+      },
+    } as unknown as NormalizedStep
+
+    const result = resolveSemanticMarkerAssertion(step)
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'unresolved',
+        markerStepId: 'candidate-unresolved',
+        reason: 'missing-query',
+      })
+    )
+  })
+
+  it('falls back to unknown-step when neither the step nor source exposes a marker id', () => {
+    const step = {
+      action: 'click',
+      target: 'Review Order',
+      originalType: 'click',
+      source: 'js',
+      unresolvedSemanticMarker: {
+        reason: 'missing-anchor',
+        proofSubject: 'field-label',
+        sourceContext: { line: 12, originalType: 'click' },
+        target: 'Review Order',
+      },
+    } as unknown as NormalizedStep
+
+    const result = resolveSemanticMarkerAssertion(step)
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'unresolved',
+        markerStepId: 'unknown-step',
+        reason: 'missing-marker-candidate',
+      })
+    )
+  })
+
+  it('uses candidate.target as proof text fallback for concrete values and field labels', () => {
+    const valueStep = {
+      id: 'js-step-value-target-fallback',
+      action: 'click',
+      target: 'Legacy value',
+      originalType: 'click',
+      source: 'js',
+      semanticMarkerLink: {
+        markerStepId: 'js-step-value-target-fallback',
+        anchorStepId: 'js-step-1',
+        relation: 'follows',
+        proofSubject: 'concrete-value',
+        target: 'KES 4,800.00',
+        proofText: undefined,
+        sourceContext: { line: 12, originalType: 'click' },
+        query: {
+          stepId: 'js-step-value-target-fallback',
+          method: 'getByText',
+          queryRoot: 'screen',
+          target: undefined,
+          raw: "screen.getByText('legacy')",
+        },
+      },
+      semanticMarkerCandidate: {
+        stepId: 'js-step-value-target-fallback',
+        status: 'qualified',
+        originalGesture: 'click',
+        proofSubject: 'concrete-value',
+        target: 'KES 4,800.00',
+        proofText: undefined,
+        sourceContext: { line: 12, originalType: 'click' },
+        anchor: { anchorStepId: 'js-step-1', relation: 'follows' },
+        query: {
+          stepId: 'js-step-value-target-fallback',
+          method: 'getByText',
+          queryRoot: 'screen',
+          target: undefined,
+          raw: "screen.getByText('legacy')",
+        },
+      },
+    } as unknown as NormalizedStep
+
+    const fieldStep = {
+      id: 'js-step-field-target-fallback',
+      action: 'click',
+      target: 'Legacy label',
+      originalType: 'click',
+      source: 'js',
+      semanticMarkerLink: {
+        markerStepId: 'js-step-field-target-fallback',
+        anchorStepId: 'js-step-1',
+        relation: 'follows',
+        proofSubject: 'field-label',
+        target: 'Customer Number',
+        proofText: undefined,
+        sourceContext: { line: 12, originalType: 'click' },
+        query: {
+          stepId: 'js-step-field-target-fallback',
+          method: 'getByLabelText',
+          queryRoot: 'screen',
+          target: undefined,
+          raw: "screen.getByLabelText('legacy')",
+        },
+      },
+      semanticMarkerCandidate: {
+        stepId: 'js-step-field-target-fallback',
+        status: 'qualified',
+        originalGesture: 'click',
+        proofSubject: 'field-label',
+        target: 'Customer Number',
+        proofText: undefined,
+        sourceContext: { line: 12, originalType: 'click' },
+        anchor: { anchorStepId: 'js-step-1', relation: 'follows' },
+        query: {
+          stepId: 'js-step-field-target-fallback',
+          method: 'getByLabelText',
+          queryRoot: 'screen',
+          target: undefined,
+          raw: "screen.getByLabelText('legacy')",
+        },
+      },
+    } as unknown as NormalizedStep
+
+    expect(resolveSemanticMarkerAssertion(valueStep)).toEqual(
+      expect.objectContaining({
+        status: 'resolved',
+        assertion: expect.objectContaining({
+          proofKind: 'visible-value',
+          query: expect.objectContaining({
+            raw: "screen.findByText('KES 4,800.00')",
+            target: 'KES 4,800.00',
+          }),
+        }),
+      })
+    )
+
+    expect(resolveSemanticMarkerAssertion(fieldStep)).toEqual(
+      expect.objectContaining({
+        status: 'resolved',
+        assertion: expect.objectContaining({
+          proofKind: 'label-text',
+          query: expect.objectContaining({
+            raw: "screen.findByLabelText('Customer Number')",
+            target: 'Customer Number',
+          }),
+        }),
+      })
+    )
+  })
+
+  it('preserves the original query target when upgrading a role-and-name proof', () => {
+    const step = {
+      id: 'js-step-role-target-fallback',
+      action: 'click',
+      target: 'ignored-step-target',
+      originalType: 'click',
+      source: 'js',
+      semanticMarkerLink: {
+        markerStepId: 'js-step-role-target-fallback',
+        anchorStepId: 'js-step-1',
+        relation: 'follows',
+        proofSubject: 'heading',
+        target: 'Recorder heading target',
+        proofText: 'Checkout',
+        sourceContext: { line: 12, originalType: 'click' },
+        query: {
+          stepId: 'js-step-role-target-fallback',
+          method: 'getByRole',
+          queryRoot: 'screen',
+          role: 'heading',
+          name: 'Checkout',
+          target: 'Recorder heading target',
+          raw: "screen.getByRole('heading', { name: 'Checkout' })",
+        },
+      },
+      semanticMarkerCandidate: {
+        stepId: 'js-step-role-target-fallback',
+        status: 'qualified',
+        originalGesture: 'click',
+        proofSubject: 'heading',
+        target: 'Recorder heading target',
+        proofText: 'Checkout',
+        sourceContext: { line: 12, originalType: 'click' },
+        anchor: { anchorStepId: 'js-step-1', relation: 'follows' },
+        query: {
+          stepId: 'js-step-role-target-fallback',
+          method: 'getByRole',
+          queryRoot: 'screen',
+          role: 'heading',
+          name: 'Checkout',
+          target: 'Recorder heading target',
+          raw: "screen.getByRole('heading', { name: 'Checkout' })",
+        },
+      },
+    } as unknown as NormalizedStep
+
+    const result = resolveSemanticMarkerAssertion(step)
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'resolved',
+        assertion: expect.objectContaining({
+          query: expect.objectContaining({
+            method: 'findByRole',
+            target: 'Checkout',
+          }),
+          target: 'Recorder heading target',
+        }),
+      })
+    )
+  })
+})
+
+describe('captureVisualState - fallback warnings and auth interrupt variants', () => {
+  it('uses capture.png and the empty-title warning when the recorded page never stabilizes', async () => {
+    createPlaywrightSession([
+      {
+        dialog: null,
+        elements: {},
+        matchedLandmarks: [],
+        title: '',
+        url: 'http://localhost:3000/wrong-page',
+      },
+    ])
+
+    const result = await captureVisualState('http://localhost:3000/target', {
+      expected: {
+        title: 'Target Page',
+        url: 'http://localhost:3000/target',
+      },
+      reason: '!!!',
+      screenshotDir: '/tmp/taro-visual',
+      timeoutMs: 10,
+    })
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'captured',
+        screenshotPath: '/tmp/taro-visual/capture.png',
+        startingPointConfirmed: false,
+        warnings: expect.arrayContaining([
+          'Playwright did not reach the recorded URL before visual capture finished. Expected http://localhost:3000/target, reached http://localhost:3000/wrong-page.',
+        ]),
+      })
+    )
+  })
+
+  it('swallows browser.close failures during capture cleanup', async () => {
+    const session = createPlaywrightSession([
+      {
+        dialog: null,
+        elements: {},
+        matchedLandmarks: [],
+        title: 'Dashboard',
+        url: 'http://localhost:3000/dashboard',
+      },
+    ])
+    session.browser.close.mockRejectedValueOnce(new Error('close failed'))
+
+    const result = await captureVisualState('http://localhost:3000/dashboard', {
+      reason: 'cleanup-close-failure',
+    })
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'captured',
+        pageTitle: 'Dashboard',
+      })
+    )
+    expect(session.browser.close).toHaveBeenCalledTimes(1)
+  })
+
+  it('allows auth signals plus a title mismatch to trigger auth recovery with a default 0s timeout message', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+
+    createPlaywrightSession([
+      {
+        authSignals: ['auth-copy'],
+        dialog: null,
+        elements: {},
+        matchedLandmarks: [],
+        title: 'Sign In',
+        url: 'http://localhost:3000/dashboard',
+      },
+    ])
+
+    const result = await captureVisualState('http://localhost:3000/dashboard', {
+      authRecovery: {
+        enabled: true,
+      },
+      expected: {
+        title: 'Dashboard',
+        url: 'http://localhost:3000/dashboard',
+      },
+      reason: 'auth-title-only',
+      screenshotDir: '/tmp/taro-visual',
+    })
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'auth-recovery-timed-out',
+        interrupt: expect.objectContaining({
+          signals: expect.arrayContaining(['auth-copy', 'title-mismatch']),
+        }),
+      })
+    )
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Waiting up to 0s.'))
+
+    logSpy.mockRestore()
+  })
+
+  it('treats missing expected landmarks as sufficient auth evidence even when URL and title match', async () => {
+    createPlaywrightSession([
+      {
+        authSignals: ['auth-copy'],
+        dialog: null,
+        elements: {},
+        matchedLandmarks: [],
+        title: 'Dashboard',
+        url: 'http://localhost:3000/dashboard',
+      },
+    ])
+
+    const result = await captureVisualState('http://localhost:3000/dashboard', {
+      expected: {
+        landmarks: ['Sales panel'],
+        title: 'Dashboard',
+        url: 'http://localhost:3000/dashboard',
+      },
+      reason: 'auth-landmark-only',
+    })
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'auth-interrupted',
+        interrupt: expect.objectContaining({
+          signals: expect.arrayContaining(['auth-copy', 'expected-landmarks-missing']),
+        }),
+      })
+    )
+  })
+})
+
+describe('replayStep - fill and error fallbacks', () => {
+  it('uses an empty placeholder target when the fill step has no target text', async () => {
+    const placeholderClickMock = vi.fn().mockResolvedValue(undefined)
+    const placeholderFillMock = vi.fn().mockResolvedValue(undefined)
+    const page = {
+      getByPlaceholder: vi.fn(() => ({
+        count: vi.fn().mockResolvedValue(1),
+        click: placeholderClickMock,
+        fill: placeholderFillMock,
+      })),
+      getByText: vi.fn(() => ({
+        click: vi.fn().mockResolvedValue(undefined),
+        fill: vi.fn().mockResolvedValue(undefined),
+      })),
+      title: vi.fn().mockResolvedValue('Workspace'),
+      url: vi.fn().mockReturnValue('http://localhost:3000/workspace'),
+    }
+
+    const result = await replayStep(
+      page as unknown as Page,
+      {
+        action: 'fill',
+        id: 'js-step-fill-no-target',
+        originalType: 'fill',
+        source: 'js',
+        value: 'Acme Corp',
+        metadata: {
+          query: {
+            method: 'getByText',
+            target: 'Customer Name',
+          },
+        },
+      } as unknown as NormalizedStep,
+      {
+        collectDebug: true,
+      }
+    )
+
+    expect(page.getByPlaceholder).toHaveBeenCalledWith('')
+    expect(result).toEqual(
+      expect.objectContaining({
+        replayed: true,
+        debug: expect.objectContaining({
+          locatorSource: 'fill.placeholder',
+          locatorValue: '',
+          playwrightAction: "page.getByPlaceholder('').fill('Acme Corp')",
+        }),
+      })
+    )
+  })
+
+  it('reports unknown errors when a replay action throws a non-Error value', async () => {
+    const page = {
+      locator: vi.fn(() => ({
+        first: () => ({
+          click: vi.fn().mockRejectedValue('click blew up'),
+        }),
+      })),
+      title: vi.fn().mockResolvedValue('Workspace'),
+      url: vi.fn().mockReturnValue('http://localhost:3000/workspace'),
+    }
+
+    const result = await replayStep(
+      page as unknown as Page,
+      {
+        action: 'click',
+        id: 'js-step-click-string-error',
+        originalType: 'click',
+        source: 'js',
+        target: '#save',
+      } as unknown as NormalizedStep,
+      {
+        collectDebug: true,
+      }
+    )
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        replayed: false,
+        warning: 'click on #save failed: Unknown error',
+        debug: expect.objectContaining({
+          error: 'Unknown error',
+          locatorSource: 'step.target',
+        }),
+      })
+    )
+  })
+
+  it('omits fallbackLocators when the resolved locator has no debug value', async () => {
+    const placeholderClickMock = vi.fn().mockResolvedValue(undefined)
+    const placeholderFillMock = vi.fn().mockResolvedValue(undefined)
+    const page = {
+      getByPlaceholder: vi.fn(() => ({
+        count: vi.fn().mockResolvedValue(1),
+        click: placeholderClickMock,
+        fill: placeholderFillMock,
+      })),
+      locator: vi.fn(() => ({
+        first: () => ({
+          click: vi.fn().mockResolvedValue(undefined),
+          fill: vi.fn().mockResolvedValue(undefined),
+        }),
+      })),
+      title: vi.fn().mockResolvedValue('Workspace'),
+      url: vi.fn().mockReturnValue('http://localhost:3000/workspace'),
+    }
+
+    let targetReadCount = 0
+    const step = {
+      action: 'fill',
+      id: 'js-step-fill-missing-fallback-label',
+      originalType: 'fill',
+      source: 'js',
+      value: 'Acme Corp',
+      get target() {
+        targetReadCount += 1
+        if (targetReadCount <= 3) {
+          return '#customer'
+        }
+
+        return undefined
+      },
+    } as unknown as NormalizedStep
+
+    const result = await replayStep(page as unknown as Page, step, {
+      collectDebug: true,
+    })
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        replayed: true,
+        debug: expect.objectContaining({
+          fallbackLocators: undefined,
+          locatorSource: 'fill.placeholder',
+          locatorValue: '',
+        }),
+      })
+    )
+  })
+})
+
+describe('resolveSelector - cleanup fallbacks', () => {
+  it('swallows browser.close failures after default selector inspection', async () => {
+    const session = createPlaywrightSession([
+      {
+        elements: { '#save': accessibleButton },
+        title: 'App',
+        url: 'http://localhost:3000',
+      },
+    ])
+    session.browser.close.mockRejectedValueOnce(new Error('close failed'))
+
+    const result = await resolveSelector(selectorDescriptor, {
+      url: 'http://localhost:3000',
+    })
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'resolved',
+        outcome: 'accessible-query',
+      })
+    )
+    expect(session.browser.close).toHaveBeenCalled()
   })
 })

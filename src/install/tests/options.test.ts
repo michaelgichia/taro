@@ -69,6 +69,25 @@ describe('normalizeInstallOptions', () => {
     })
   })
 
+  it('keeps the chosen local location while still requiring runtime prompts', () => {
+    const result = normalizeInstallOptions(
+      { local: true },
+      {
+        input: { isTTY: true },
+        output: { isTTY: true },
+      }
+    )
+
+    expect(result).toEqual({
+      mode: 'interactive',
+      runtimes: [],
+      locations: {},
+      needsRuntimePrompt: true,
+      runtimesNeedingLocation: [],
+      source: 'mixed',
+    })
+  })
+
   it('throws for conflicting location flags or missing prompt capability', () => {
     expect(() =>
       normalizeInstallOptions({

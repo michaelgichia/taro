@@ -256,12 +256,6 @@ export function decideMockExtraction(
     return 'extracted';
   }
 
-  // Complex responses should be extracted
-  const complexity = estimateMockComplexity(apiCall);
-  if (complexity > 10) {
-    return 'extracted';
-  }
-
   // Default to inline for simple cases
   return 'inline';
 }
@@ -288,6 +282,10 @@ function estimateMockComplexity(apiCall: ApiCallInfo): number {
   }
 
   return complexity;
+}
+
+export const __targetAnalyzerTestUtils = {
+  estimateMockComplexity,
 }
 
 /**

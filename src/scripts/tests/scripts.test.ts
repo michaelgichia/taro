@@ -1,11 +1,14 @@
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it, vi } from 'vitest'
 
 import {
   getClaudeBuildPaths,
   runClaudeBuild,
+  runInstallOrExit as runClaudeInstallOrExit,
+  shouldRunAsMain as shouldRunClaudeBuildAsMain,
 } from '../../../scripts/build-claude.js'
 import {
   getCodexBuildPaths,
@@ -22,11 +25,14 @@ import {
 } from '../../../scripts/build-hooks.js'
 
 const require = createRequire(import.meta.url)
+const Module = require('node:module')
 const { buildVitestArgs, runVitest } = require('../../../scripts/run-tests.cjs')
 const {
   cleanSubject,
   detectRepoUrl,
   determineRange,
+  extractPrNumber,
+  findCurrentTag,
   generateChangelog,
   normalizeRepoUrl,
   parseArgs,
@@ -67,6 +73,17 @@ describe('build-hooks.js', () => {
 })
 
 describe('build-claude.js', () => {
+  it('uses the OS home directory when Claude build paths are resolved without an override', () => {
+    const paths = getClaudeBuildPaths('/repo')
+
+    expect(paths.localClaudePackageDirs).toEqual([
+      '/repo/.claude/commands/@taro-dev/rtl',
+      '/repo/.claude/commands/@tayo-dev/rtl',
+    ])
+    expect(paths.globalClaudePackageDir).toContain('/.claude/commands/@taro-dev/rtl')
+    expect(paths.legacyGlobalClaudePackageDir).toContain('/.claude/commands/@tayo-dev/rtl')
+  })
+
   it('builds local and global Claude commands after removing legacy directories', async () => {
     const rmImpl = vi.fn(async () => undefined)
     const spawnImpl = vi.fn(() => ({ status: 0 }))
@@ -138,6 +155,112 @@ describe('build-claude.js', () => {
     ).rejects.toBe(exitError)
     expect(exit).toHaveBeenCalledWith(7)
   })
+
+  it('falls back to exit code 1 when an install step returns no status code', () => {
+    const exit = vi.fn()
+
+    runClaudeInstallOrExit(['--claude', '--local'], {
+      spawnImpl: vi.fn(() => ({ status: null })),
+      nodeBin: '/node',
+      installEntrypoint: '/repo/bin/install.js',
+      rootDir: '/repo',
+      env: {},
+      exit,
+    })
+
+    expect(exit).toHaveBeenCalledWith(1)
+  })
+
+  it('runs the build through the module entrypoint using default option branches', async () => {
+    const rmImpl = vi.fn(async () => undefined)
+    const spawnImpl = vi.fn(() => ({ status: 0 }))
+    const homedirImpl = vi.fn(() => '/home/default-claude')
+    const scriptUrl = new URL('../../../scripts/build-claude.js', import.meta.url)
+    const scriptPath = fileURLToPath(scriptUrl)
+    const rootDir = join(fileURLToPath(new URL('.', scriptUrl)), '..')
+    const originalArgv1 = process.argv[1]
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    vi.resetModules()
+    vi.doMock('node:child_process', () => ({ spawnSync: spawnImpl }))
+    vi.doMock('node:fs/promises', async () => {
+      const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
+      return { ...actual, rm: rmImpl }
+    })
+    vi.doMock('node:os', async () => {
+      const actual = await vi.importActual<typeof import('node:os')>('node:os')
+      return { ...actual, homedir: homedirImpl }
+    })
+
+    try {
+      process.argv[1] = scriptPath
+
+      await import(scriptUrl.href)
+
+      expect(spawnImpl).toHaveBeenNthCalledWith(
+        1,
+        process.execPath,
+        [join(rootDir, 'bin', 'install.js'), '--claude', '--local'],
+        expect.objectContaining({
+          cwd: rootDir,
+          env: process.env,
+          stdio: 'inherit',
+        })
+      )
+      expect(spawnImpl).toHaveBeenNthCalledWith(
+        2,
+        process.execPath,
+        [join(rootDir, 'bin', 'install.js'), '--claude', '--global'],
+        expect.objectContaining({
+          cwd: rootDir,
+          env: process.env,
+          stdio: 'inherit',
+        })
+      )
+
+      const paths = getClaudeBuildPaths(rootDir, '/home/default-claude')
+      expect(rmImpl).toHaveBeenCalledWith(paths.localClaudePackageDirs[0], {
+        recursive: true,
+        force: true,
+      })
+      expect(rmImpl).toHaveBeenCalledWith(paths.localClaudePackageDirs[1], {
+        recursive: true,
+        force: true,
+      })
+      expect(rmImpl).toHaveBeenCalledWith(paths.globalClaudePackageDir, {
+        recursive: true,
+        force: true,
+      })
+      expect(rmImpl).toHaveBeenCalledWith(paths.legacyGlobalClaudePackageDir, {
+        recursive: true,
+        force: true,
+      })
+      expect(log).toHaveBeenCalledWith('[taro] Claude build/install complete.')
+      expect(homedirImpl).toHaveBeenCalled()
+    } finally {
+      process.argv[1] = originalArgv1
+      log.mockRestore()
+      vi.resetModules()
+      vi.unmock('node:child_process')
+      vi.unmock('node:fs/promises')
+      vi.unmock('node:os')
+    }
+  })
+
+  it('detects when the Claude build script is the active entrypoint', () => {
+    expect(
+      shouldRunClaudeBuildAsMain('/repo/scripts/build-claude.js', 'file:///repo/scripts/build-claude.js')
+    ).toBe(true)
+    expect(
+      shouldRunClaudeBuildAsMain('/repo/scripts/other.js', 'file:///repo/scripts/build-claude.js')
+    ).toBe(false)
+  })
+
+  it('treats a missing argv[1] as not running as the main module', () => {
+    expect(shouldRunClaudeBuildAsMain(undefined, 'file:///repo/scripts/build-claude.js')).toBe(
+      false
+    )
+  })
 })
 
 describe('build-codex.js', () => {
@@ -154,6 +277,84 @@ describe('build-codex.js', () => {
     })
 
     expect(exit).toHaveBeenCalledWith(1)
+  })
+
+  it('runs the build through the module entrypoint using default option branches', async () => {
+    const rmImpl = vi.fn(async () => undefined)
+    const readdirImpl = vi.fn(async () => [{ name: 'rtl-help', isDirectory: () => true }])
+    const spawnImpl = vi.fn(() => ({ status: 0 }))
+    const homedirImpl = vi.fn(() => '/home/default-codex')
+    const scriptUrl = new URL('../../../scripts/build-codex.js', import.meta.url)
+    const scriptPath = fileURLToPath(scriptUrl)
+    const rootDir = join(fileURLToPath(new URL('.', scriptUrl)), '..')
+    const originalArgv1 = process.argv[1]
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    vi.resetModules()
+    vi.doMock('node:child_process', () => ({ spawnSync: spawnImpl }))
+    vi.doMock('node:fs/promises', async () => {
+      const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
+      return { ...actual, readdir: readdirImpl, rm: rmImpl }
+    })
+    vi.doMock('node:os', async () => {
+      const actual = await vi.importActual<typeof import('node:os')>('node:os')
+      return { ...actual, homedir: homedirImpl }
+    })
+
+    try {
+      process.argv[1] = scriptPath
+
+      await import(scriptUrl.href)
+
+      expect(spawnImpl).toHaveBeenNthCalledWith(
+        1,
+        process.execPath,
+        [join(rootDir, 'bin', 'install.js'), '--codex', '--local'],
+        expect.objectContaining({
+          cwd: rootDir,
+          env: process.env,
+          stdio: 'inherit',
+        })
+      )
+      expect(spawnImpl).toHaveBeenNthCalledWith(
+        2,
+        process.execPath,
+        [join(rootDir, 'bin', 'install.js'), '--codex', '--global'],
+        expect.objectContaining({
+          cwd: rootDir,
+          env: process.env,
+          stdio: 'inherit',
+        })
+      )
+
+      const paths = getCodexBuildPaths(rootDir, '/home/default-codex')
+      expect(rmImpl).toHaveBeenCalledWith(paths.localCodexSkillNamespaceDir, {
+        recursive: true,
+        force: true,
+      })
+      expect(rmImpl).toHaveBeenCalledWith(
+        join(paths.globalCodexSkillNamespaceDir, 'rtl-help'),
+        {
+          recursive: true,
+          force: true,
+        }
+      )
+      expect(rmImpl).toHaveBeenCalledWith(paths.globalCodexManifestPath, {
+        force: true,
+      })
+      expect(log).toHaveBeenCalledWith('[taro] Codex build/install complete.')
+      expect(homedirImpl).toHaveBeenCalled()
+      expect(readdirImpl).toHaveBeenCalledWith(paths.localCodexSkillNamespaceDir, {
+        withFileTypes: true,
+      })
+    } finally {
+      process.argv[1] = originalArgv1
+      log.mockRestore()
+      vi.resetModules()
+      vi.unmock('node:child_process')
+      vi.unmock('node:fs/promises')
+      vi.unmock('node:os')
+    }
   })
 
   it('resolves global skill directories from local installed skill names', async () => {
@@ -345,6 +546,17 @@ describe('generate-changelog.cjs', () => {
     })
   })
 
+  it('falls back to empty from and HEAD to when flags have no following values', () => {
+    expect(parseArgs(['--from'])).toEqual({
+      from: '',
+      to: 'HEAD',
+    })
+    expect(parseArgs(['--to'])).toEqual({
+      from: '',
+      to: 'HEAD',
+    })
+  })
+
   it('falls back to remote.origin.url when origin get-url is unavailable', () => {
     const execImpl = vi.fn((command) => {
       if (command === 'git remote get-url origin') {
@@ -383,6 +595,47 @@ describe('generate-changelog.cjs', () => {
     })
   })
 
+  it('falls back to HEAD and a "since" heading when --from is provided without --to', () => {
+    expect(determineRange({ from: 'v1.0.0', to: '' }, vi.fn())).toEqual({
+      from: 'v1.0.0',
+      to: 'HEAD',
+      heading: '### Changes since v1.0.0\n',
+    })
+  })
+
+  it('uses the latest reachable tag when HEAD is not tagged and no explicit --to is provided', () => {
+    const execImpl = vi.fn((command) => {
+      if (command === 'git tag --points-at HEAD') return '   '
+      if (command === 'git describe --tags --abbrev=0') return 'v1.4.0'
+      throw new Error(`unexpected command: ${command}`)
+    })
+
+    expect(findCurrentTag(execImpl)).toBe('')
+    expect(determineRange({ from: '', to: '' }, execImpl)).toEqual({
+      from: 'v1.4.0',
+      to: 'HEAD',
+      heading: '### Changes since v1.4.0\n',
+    })
+  })
+
+  it('returns the first non-empty current tag after trimming git output', () => {
+    const execImpl = vi.fn(() => '\n  v2.0.0 \n v1.9.0')
+
+    expect(findCurrentTag(execImpl)).toBe('v2.0.0')
+  })
+
+  it('returns the current tag directly when git reports a single tagged HEAD', () => {
+    expect(findCurrentTag(vi.fn(() => 'v2.1.0'))).toBe('v2.1.0')
+  })
+
+  it('falls back to an empty tag when a string-like git result contains only blank lines', () => {
+    const execImpl = vi.fn(() => ({
+      trim: () => '\n \n',
+    }))
+
+    expect(findCurrentTag(execImpl as never)).toBe('')
+  })
+
   it('throws when HEAD is tagged but no previous tag can be found', () => {
     const execImpl = vi.fn((command) => {
       if (command === 'git tag --points-at HEAD') return 'v1.2.0'
@@ -401,6 +654,10 @@ describe('generate-changelog.cjs', () => {
     expect(
       cleanSubject('abc123', 'Merge pull request #12 from branch', execImpl)
     ).toBe('Merge pull request #12 from branch')
+  })
+
+  it('extracts PR numbers from merge commit subjects', () => {
+    expect(extractPrNumber('Merge pull request #42 from feature/branch')).toBe('42')
   })
 
   it('prints categorized changelog entries and deduplicates repeated subjects', () => {
@@ -444,6 +701,39 @@ describe('generate-changelog.cjs', () => {
     ).toHaveLength(1)
   })
 
+  it('skips malformed git log lines and omits empty categories from output', () => {
+    const logs = []
+    const execImpl = vi.fn((command) => {
+      switch (command) {
+        case 'git remote get-url origin':
+          return 'https://github.com/acme/repo.git'
+        case 'git tag --points-at HEAD':
+          return ''
+        case 'git describe --tags --abbrev=0':
+          return 'v1.0.0'
+        case 'git log v1.0.0..HEAD --pretty=format:"%h|%s"':
+          return ['malformed line', 'abc123|feat: add support'].join('\n')
+        default:
+          throw new Error(`unexpected command: ${command}`)
+      }
+    })
+
+    generateChangelog([], {
+      execImpl,
+      log: (line) => logs.push(line),
+      error: vi.fn(),
+      exit: vi.fn(),
+    })
+
+    expect(logs).toContain('### Changes since v1.0.0\n')
+    expect(logs).toContain('#### Added')
+    expect(logs).not.toContain('#### Fixed')
+    expect(logs).not.toContain('#### Changed')
+    expect(
+      logs.filter((line) => String(line).includes('malformed line'))
+    ).toHaveLength(0)
+  })
+
   it('exits with status 0 when there are no new commits in the requested range', () => {
     const exit = vi.fn()
     const log = vi.fn()
@@ -481,5 +771,126 @@ describe('generate-changelog.cjs', () => {
       'Could not detect repository URL from git remote "origin".'
     )
     expect(exit).toHaveBeenCalledWith(1)
+  })
+
+  it('falls back to the generic error message when the thrown error has no message', () => {
+    const error = vi.fn()
+    const exit = vi.fn()
+
+    generateChangelog([], {
+      execImpl: vi.fn((command) => {
+        if (command === 'git remote get-url origin') {
+          return 'https://github.com/acme/repo.git'
+        }
+        if (command === 'git tag --points-at HEAD') {
+          return ''
+        }
+        if (command === 'git describe --tags --abbrev=0') {
+          throw {}
+        }
+        throw new Error(`unexpected command: ${command}`)
+      }),
+      log: vi.fn(),
+      error,
+      exit,
+    })
+
+    expect(error).toHaveBeenCalledWith(
+      'Error generating changelog. Ensure you have at least one previous tag.'
+    )
+    expect(exit).toHaveBeenCalledWith(1)
+  })
+
+  it('runs as the main module and uses default execSync and console.log dependencies', () => {
+    const scriptPath = require.resolve('../../../scripts/generate-changelog.cjs')
+    const childProcess = require('child_process')
+    const originalExecSync = childProcess.execSync
+    const originalArgv = [...process.argv]
+    const originalMain = require.main
+    const execSyncMock = vi.fn((command) => {
+      switch (command) {
+        case 'git remote get-url origin':
+          return 'https://github.com/acme/repo.git'
+        case 'git tag --points-at HEAD':
+          return ''
+        case 'git describe --tags --abbrev=0':
+          return 'v1.0.0'
+        case 'git log v1.0.0..HEAD --pretty=format:"%h|%s"':
+          return ['invalid line', 'abc123|feat: main entrypoint'].join('\n')
+        default:
+          throw new Error(`unexpected command: ${command}`)
+      }
+    })
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    delete require.cache[scriptPath]
+    childProcess.execSync = execSyncMock
+
+    try {
+      process.argv = ['node', scriptPath]
+
+      Module._load(scriptPath, null, true)
+
+      expect(log).toHaveBeenCalledWith('### Changes since v1.0.0\n')
+      expect(log).toHaveBeenCalledWith('#### Added')
+      expect(log).toHaveBeenCalledWith(
+        '- feat: main entrypoint ([abc123](https://github.com/acme/repo/commit/abc123))'
+      )
+      expect(log).not.toHaveBeenCalledWith('#### Fixed')
+      expect(log).not.toHaveBeenCalledWith('#### Changed')
+      expect(execSyncMock).toHaveBeenCalled()
+    } finally {
+      delete require.cache[scriptPath]
+      childProcess.execSync = originalExecSync
+      process.argv = originalArgv
+      require.main = originalMain
+      log.mockRestore()
+    }
+  })
+
+  it('runs as the main module and uses default console.error and process.exit on failure', () => {
+    const scriptPath = require.resolve('../../../scripts/generate-changelog.cjs')
+    const childProcess = require('child_process')
+    const originalExecSync = childProcess.execSync
+    const originalArgv = [...process.argv]
+    const originalMain = require.main
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const exit = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => code) as never)
+
+    delete require.cache[scriptPath]
+    childProcess.execSync = vi.fn(() => {
+      return ''
+    })
+
+    try {
+      process.argv = ['node', scriptPath]
+
+      childProcess.execSync = vi.fn((command) => {
+        if (command === 'git remote get-url origin') {
+          return 'https://github.com/acme/repo.git'
+        }
+        if (command === 'git tag --points-at HEAD') {
+          return ''
+        }
+        if (command === 'git describe --tags --abbrev=0') {
+          throw {}
+        }
+        throw new Error(`unexpected command: ${command}`)
+      })
+
+      Module._load(scriptPath, null, true)
+
+      expect(error).toHaveBeenCalledWith(
+        'Error generating changelog. Ensure you have at least one previous tag.'
+      )
+      expect(exit).toHaveBeenCalledWith(1)
+    } finally {
+      delete require.cache[scriptPath]
+      childProcess.execSync = originalExecSync
+      process.argv = originalArgv
+      require.main = originalMain
+      error.mockRestore()
+      exit.mockRestore()
+    }
   })
 })

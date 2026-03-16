@@ -102,6 +102,15 @@ describe('runInstallCommand', () => {
     expect(process.exitCode).toBe(1)
   })
 
+  it('rethrows unexpected install errors instead of swallowing them', async () => {
+    const unexpected = new Error('boom')
+    normalizeInstallOptionsMock.mockImplementation(() => {
+      throw unexpected
+    })
+
+    await expect(runInstallCommand({}, createLogger())).rejects.toBe(unexpected)
+  })
+
   it('prints a cancellation message for interactive installs that are not confirmed', async () => {
     const normalized = {
       mode: 'interactive',

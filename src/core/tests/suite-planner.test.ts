@@ -2136,3 +2136,62 @@ describe('planJsSuite', () => {
     })
   })
 })
+
+describe('normalizeJsBaseline', () => {
+  it('preserves steps without ids and attaches selector evidence when present', () => {
+    const normalized = normalizeJsBaseline({
+      source: 'js',
+      recording: createRecording([
+        {
+          action: 'click',
+          target: 'Save',
+          originalType: 'click',
+          source: 'js',
+        },
+        {
+          id: 'js-step-2',
+          action: 'click',
+          target: 'Dialog',
+          originalType: 'click',
+          source: 'js',
+        },
+      ]),
+      baseline: {
+        environmentUrl: 'http://localhost:3000',
+        queries: [],
+        selectors: [
+          {
+            stepId: 'js-step-2',
+            selector: '#dialog',
+            selectorKind: 'document.querySelector',
+            line: 2,
+          },
+        ],
+        assertions: [],
+        semanticMarkerCandidates: [],
+        itGroups: [
+          {
+            name: 'flow',
+            steps: [
+              {
+                id: 'js-step-2',
+                action: 'click',
+                target: 'Dialog',
+                originalType: 'click',
+                source: 'js',
+              },
+            ],
+          },
+        ],
+      },
+    })
+
+    expect(normalized.steps[0]?.target).toBe('Save')
+    expect(normalized.steps[1]?.metadata).toEqual(
+      expect.objectContaining({
+        selector: expect.objectContaining({ selector: '#dialog' }),
+        selectors: [expect.objectContaining({ selector: '#dialog' })],
+      })
+    )
+  })
+})

@@ -161,6 +161,7 @@ describe('learnConventions', () => {
 
   it('learns conventions from discovered test directories and files, then persists them', () => {
     const root = createSandbox()
+    mkdirSync(join(root, 'src'), { recursive: true })
     mkdirSync(join(root, 'tests'), { recursive: true })
     mkdirSync(join(root, '__tests__'), { recursive: true })
     mkdirSync(join(root, 'node_modules', 'pkg'), { recursive: true })
@@ -329,5 +330,23 @@ describe('InMemoryConventionStore', () => {
 
     primary.clear()
     expect(primary.getAll().size).toBe(0)
+  })
+
+  it('promotes a non-default naming pattern when merging from the other store', () => {
+    const primary = new InMemoryConventionStore()
+    const other = new InMemoryConventionStore()
+
+    other.add(
+      'named',
+      convention({
+        naming: {
+          pattern: 'snake_case',
+          describePrefix: 'orders',
+          itTemplate: 'shows {description}',
+        },
+      })
+    )
+
+    expect(primary.merge(other).naming.pattern).toBe('snake_case')
   })
 })

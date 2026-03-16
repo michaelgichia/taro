@@ -144,5 +144,14 @@ describe('verifyInstalledRuntime branches', () => {
       status: 'runtime-check-failed',
       errorMessage: 'plain failure',
     })
+
+    execFileMock.mockImplementationOnce((_file, _args, callback) =>
+      callback({})
+    )
+
+    await expect(verifyInstalledRuntime(createTarget())).resolves.toMatchObject({
+      status: 'runtime-check-failed',
+      errorMessage: 'Runtime verification failed.',
+    })
   })
 })

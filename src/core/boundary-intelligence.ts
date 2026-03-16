@@ -170,6 +170,11 @@ function collectRenderedComponentNames(
   }
 }
 
+export const __boundaryIntelligenceTestUtils = {
+  collectRenderedComponentNames,
+  getCalleeName,
+}
+
 export function analyzeBoundaryIsolation(code: string): BoundaryIssue[] {
   let ast
   try {

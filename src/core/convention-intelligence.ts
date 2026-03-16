@@ -246,3 +246,8 @@ export function extractRenderTargetCandidatesFromFile(
 
   return candidates
 }
+
+export const __conventionIntelligenceTestUtils = {
+  detectFileExtension,
+  detectFolderPattern,
+}

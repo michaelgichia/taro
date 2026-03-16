@@ -1463,11 +1463,11 @@ async function collectMockStoreResources(
 
   const files: string[] = []
 
-  async function walk(dir: string): Promise<void> {
-    if (files.length >= MAX_EVIDENCE) {
-      return
-    }
+  function hasReachedMockStoreEvidenceLimit(): boolean {
+    return files.length >= MAX_EVIDENCE
+  }
 
+  async function walk(dir: string): Promise<void> {
     let entries
     try {
       entries = await readdir(dir, { withFileTypes: true })
@@ -1476,7 +1476,7 @@ async function collectMockStoreResources(
     }
 
     for (const entry of entries) {
-      if (files.length >= MAX_EVIDENCE) {
+      if (hasReachedMockStoreEvidenceLimit()) {
         return
       }
 
@@ -2186,6 +2186,21 @@ async function getLatestPackageEvidence(projectRoot: string, profile: TaroPackag
   }
 }
 
+export const __stateTestUtils = {
+  collectMockStoreResources,
+  collectFixtureDirs,
+  collectProviderWrappers,
+  collectRenderHelpers,
+  deriveInteractionContracts,
+  detectMockInstabilityInFiles,
+  findPackageDescriptors,
+  getLatestPackageEvidence,
+  hasReachedMockStoreEvidenceLimit: (fileCount: number) => fileCount >= MAX_EVIDENCE,
+  hasConfigFile,
+  inferFileExtension,
+  scanProjectState,
+}
+
 export async function detectPackageProfileStaleness(
   projectRoot: string,
   profile: TaroPackageProfile
@@ -2199,7 +2214,7 @@ export async function detectPackageProfileStaleness(
     }
   }
 
-  const latestEvidence = await getLatestPackageEvidence(projectRoot, profile)
+  const latestEvidence = await __stateTestUtils.getLatestPackageEvidence(projectRoot, profile)
   if (latestEvidence.latestMtimeMs === 0) {
     return {
       stale: false,

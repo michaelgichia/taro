@@ -55,6 +55,29 @@ describe('importBlock', () => {
     expect(result).toContain("const renderApp = require('#test/render-app.ts').default")
     expect(result).not.toContain('userEvent')
   })
+
+  it('renders CommonJS userEvent imports and named helpers, plus ESM default helpers', () => {
+    const cjs = importBlock(true, 'cjs', {
+      renderHelper: {
+        name: 'renderCheckout',
+        importPath: '#test/render-checkout.ts',
+        importKind: 'named',
+      },
+    })
+
+    expect(cjs).toContain("const userEvent = require('@testing-library/user-event')")
+    expect(cjs).toContain("const renderCheckout = require('#test/render-checkout.ts').renderCheckout")
+
+    const esm = importBlock(false, 'esm', {
+      renderHelper: {
+        name: 'renderCheckout',
+        importPath: '#test/render-checkout.ts',
+        importKind: 'default',
+      },
+    })
+
+    expect(esm).toContain("import renderCheckout from '#test/render-checkout.ts'")
+  })
 })
 
 describe('stepTemplate', () => {

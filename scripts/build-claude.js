@@ -84,6 +84,8 @@ export async function runClaudeBuild(options = {}) {
   log('[taro] Claude build/install complete.')
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  await runClaudeBuild()
+export function shouldRunAsMain(argv1 = process.argv[1], moduleUrl = import.meta.url) {
+  return Boolean(argv1 && moduleUrl === pathToFileURL(argv1).href)
 }
+
+if (shouldRunAsMain()) await runClaudeBuild()

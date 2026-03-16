@@ -82,6 +82,21 @@ describe('scanner compatibility helpers', () => {
     await expect(readConventions('/repo')).resolves.toBeNull()
   })
 
+  it('returns null when neither state nor compatibility conventions.json exists', async () => {
+    readTaroStateMock.mockResolvedValue(null)
+    findReadableProjectStatePathMock.mockResolvedValue(null)
+
+    await expect(readConventions('/repo')).resolves.toBeNull()
+    expect(readFileMock).not.toHaveBeenCalled()
+  })
+
+  it('returns null when state exists but no fallback package conventions are available', async () => {
+    readTaroStateMock.mockResolvedValue({ packages: { '.': {} } })
+    findRepoFallbackPackageProfileMock.mockReturnValue(undefined)
+
+    await expect(readConventions('/repo')).resolves.toBeNull()
+  })
+
   it('returns default conventions when initTaroState reports no packages and uses fallback profile when available', async () => {
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
     initTaroStateMock.mockResolvedValueOnce({
@@ -114,6 +129,24 @@ describe('scanner compatibility helpers', () => {
     await expect(scanConventions('/repo')).resolves.toEqual(conventions)
 
     stderrSpy.mockRestore()
+  })
+
+  it('falls back to default conventions when scan state has packages but no fallback profile', async () => {
+    initTaroStateMock.mockResolvedValue({
+      state: { packages: { '.': {} } },
+      summary: { packageCount: 1 },
+    })
+    findRepoFallbackPackageProfileMock.mockReturnValue(undefined)
+
+    const result = await scanConventions('/repo')
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        projectRoot: '/repo',
+        importStyle: 'esm',
+        testFiles: [],
+      })
+    )
   })
 
   it('persists conventions into the compatibility package slot and refreshes state on merge', async () => {
@@ -168,5 +201,58 @@ describe('scanner compatibility helpers', () => {
     })
 
     expect(refreshTaroStateMock).toHaveBeenCalledWith('/repo')
+  })
+
+  it('persists low-confidence compatibility signals when conventions are incomplete', async () => {
+    readTaroStateMock.mockResolvedValue({
+      version: 1,
+      meta: {
+        createdAt: '2026-03-16T12:00:00.000Z',
+        updatedAt: '2026-03-16T12:00:00.000Z',
+        taroVersion: '1.0.0',
+      },
+      packages: {},
+      mockStore: {
+        rootDir: null,
+        importHint: null,
+        resources: [],
+      },
+      generatedTests: [],
+    })
+
+    await persistConventions('/repo', {
+      ...DEFAULT_CONVENTIONS,
+      projectRoot: '/repo',
+      scannedAt: '',
+      mockPattern: 'none',
+      folderPattern: 'unknown',
+      fileExtension: 'mixed',
+      testFiles: [],
+    })
+
+    expect(writeTaroStateMock).toHaveBeenCalledWith(
+      '/repo',
+      expect.objectContaining({
+        packages: expect.objectContaining({
+          '.': expect.objectContaining({
+            scannedAt: expect.any(String),
+            importStyle: expect.objectContaining({
+              confidence: 'low',
+              evidence: [],
+            }),
+            mockPattern: expect.objectContaining({
+              confidence: 'low',
+              evidence: [],
+            }),
+            folderPattern: expect.objectContaining({
+              confidence: 'low',
+            }),
+            fileExtension: expect.objectContaining({
+              confidence: 'medium',
+            }),
+          }),
+        }),
+      })
+    )
   })
 })

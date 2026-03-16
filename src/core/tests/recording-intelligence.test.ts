@@ -8,6 +8,7 @@ import { parseJsRecording } from '#core/js-parser.ts'
 import { normalizeStep } from '#core/parser.ts'
 import { parseRecording } from '#core/parser.ts'
 import {
+  __recordingIntelligenceTestUtils,
   analyzeRecording,
   filterNoiseSteps,
   findVisualCaptureCandidates,
@@ -176,6 +177,92 @@ describe('normalizeStep', () => {
       offsetX: 12,
       offsetY: 8,
       assertedEvents: [{ type: 'navigation', url: 'http://localhost:3000/save' }],
+    })
+  })
+})
+
+describe('__recordingIntelligenceTestUtils', () => {
+  it('treats empty proof text as non-icon content', () => {
+    expect(__recordingIntelligenceTestUtils.isIconOnlyText(undefined)).toBe(false)
+    expect(__recordingIntelligenceTestUtils.isIconOnlyText('  ')).toBe(false)
+  })
+
+  it('returns undefined marker links when the step or anchor ids are missing', () => {
+    const candidate = {
+      status: 'unresolved' as const,
+      originalGesture: 'dblClick' as const,
+      proofSubject: 'heading' as const,
+      proofText: 'Review',
+      target: 'Review',
+      anchor: {},
+      sourceContext: {
+        originalType: 'dblClick',
+      },
+    }
+
+    expect(
+      __recordingIntelligenceTestUtils.buildSemanticMarkerLink(
+        { action: 'click', target: 'Review', originalType: 'dblClick', source: 'js' },
+        candidate as never,
+        { id: 'anchor-step', action: 'click', target: 'Open', originalType: 'click', source: 'js' }
+      )
+    ).toBeUndefined()
+
+    expect(
+      __recordingIntelligenceTestUtils.buildSemanticMarkerAnchor(
+        { id: 'marker-step', action: 'click', target: 'Review', originalType: 'dblClick', source: 'js' },
+        { action: 'click', target: 'Open', originalType: 'click', source: 'js' }
+      )
+    ).toBeUndefined()
+  })
+
+  it('treats target-less clicks as non-transitions and skips sync assertions when finding anchors', () => {
+    expect(
+      __recordingIntelligenceTestUtils.isMajorTransitionStep({
+        action: 'navigate',
+        target: 'http://localhost:3000',
+        originalType: 'navigate',
+        source: 'json',
+      })
+    ).toBe(true)
+
+    expect(
+      __recordingIntelligenceTestUtils.isMajorTransitionStep({
+        action: 'click',
+        target: undefined,
+        originalType: 'click',
+        source: 'js',
+      })
+    ).toBe(false)
+
+    expect(
+      __recordingIntelligenceTestUtils.findNearestPriorMajorTransitionStep(
+        [
+          {
+            id: 'open-dialog',
+            action: 'click',
+            target: 'Open Dialog',
+            originalType: 'click',
+            source: 'js',
+          },
+          {
+            id: 'dialog-opened',
+            action: 'assert',
+            target: 'location.href',
+            originalType: 'assertLocation',
+            source: 'js',
+          },
+          createJsMarkerStep({
+            id: 'review-heading',
+            target: 'Review',
+            proofSubject: 'heading',
+          }),
+        ],
+        2
+      )
+    ).toMatchObject({
+      id: 'open-dialog',
+      target: 'Open Dialog',
     })
   })
 })

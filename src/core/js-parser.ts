@@ -471,6 +471,13 @@ function looksLikeVisibleMessage(value?: string): boolean {
   return /^(please|saved|success|error|warning|failed|updated|deleted)\b/i.test(value)
 }
 
+export const __jsParserTestUtils = {
+  extractPlainObject,
+  looksLikeConcreteValue,
+  looksLikeVisibleMessage,
+  sliceSource,
+}
+
 function classifySemanticMarkerProofSubject(
   resolvedTarget: ResolvedTargetDetails
 ): SemanticMarkerProofSubject {

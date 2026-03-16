@@ -1,10 +1,11 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  __stateTestUtils,
   appendGeneratedTestRecord,
   detectPackageProfileStaleness,
   findRepoFallbackPackageProfile,
@@ -47,6 +48,21 @@ describe('initTaroState', () => {
       await readFile(join(projectRoot, '.taro', 'state.json'), 'utf-8')
     ) as { packages: unknown }
     expect(persisted.packages).toEqual({})
+  })
+
+  it('falls back to a root package descriptor when no package.json files exist', async () => {
+    await rm(join(projectRoot, 'package.json'), { force: true })
+    await mkdir(join(projectRoot, 'src'), { recursive: true })
+    await writeFile(
+      join(projectRoot, 'src', 'app.test.tsx'),
+      "import { describe, expect, it } from 'vitest'\ndescribe('app', () => { it('works', () => expect(true).toBe(true)) })",
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+
+    expect(result.state.packages['.']).toBeDefined()
+    expect(result.state.packages['.']?.packagePath).toBe('.')
   })
 
   it('ignores invalid overrides.json and reports the issue in summary warnings', async () => {
@@ -93,6 +109,29 @@ describe('initTaroState', () => {
 
     expect(result.state.packages['packages/example-app']?.runner.value).toBe('vitest')
     expect(result.state.packages['packages/legacy']?.runner.value).toBe('jest')
+  })
+
+  it('assigns unmatched root-level tests to the nearest available package when no root descriptor exists', async () => {
+    await rm(join(projectRoot, 'package.json'), { force: true })
+
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(projectRoot, 'root-flow.test.tsx'),
+      "import { describe, expect, it } from 'vitest'\ndescribe('root flow', () => { it('works', () => expect(true).toBe(true)) })",
+      'utf-8'
+    )
+
+    const result = await __stateTestUtils.scanProjectState(projectRoot)
+
+    expect(Object.keys(result.state.packages)).toEqual(['packages/example-app'])
+    expect(result.state.packages['packages/example-app']?.testFileCount).toBe(1)
   })
 
   it('learns render helpers, repeated mocks, fixture roots, and respects overrides', async () => {
@@ -566,6 +605,33 @@ describe('state hardening', () => {
 
     expect(staleness.stale).toBe(true)
     expect(staleness.reason).toContain('changed after the package profile was scanned')
+  })
+
+  it('uses the fallback stale reason when evidence changed but no path can be surfaced', async () => {
+    await mkdir(join(projectRoot, 'src'), { recursive: true })
+    await writeFile(
+      join(projectRoot, 'src', 'app.test.ts'),
+      "import { it, expect } from 'vitest'\nit('works', () => expect(true).toBe(true))",
+      'utf-8'
+    )
+    const result = await initTaroState(projectRoot)
+    const profile = result.state.packages['.']!
+    const evidenceSpy = vi
+      .spyOn(__stateTestUtils, 'getLatestPackageEvidence')
+      .mockResolvedValue({
+        latestMtimeMs: Date.parse(profile.scannedAt) + 5000,
+        latestPath: null,
+      })
+
+    const staleness = await detectPackageProfileStaleness(projectRoot, profile)
+
+    evidenceSpy.mockRestore()
+
+    expect(staleness).toEqual({
+      stale: true,
+      reason: 'Package evidence changed after the package profile was scanned.',
+      latestEvidencePath: null,
+    })
   })
 
   it('refuses to overwrite the previous state file with invalid payloads', async () => {
@@ -1613,6 +1679,145 @@ describe('state scanning - additional coverage', () => {
     expect(result.state.mockStore.resources[0]?.exports).toContain('ORDER_001')
   })
 
+  it('skips unreadable mock-store files while preserving readable resources', async () => {
+    const mockStoreRoot = join(projectRoot, 'packages', 'example-app', 'src', 'tests', 'mock-store')
+    await mkdir(mockStoreRoot, { recursive: true })
+    await writeFile(join(mockStoreRoot, 'orders.ts'), "export const ORDER_001 = 'ORDER_001'\n", 'utf-8')
+    const unreadablePath = join(mockStoreRoot, 'broken.ts')
+    await writeFile(unreadablePath, "export const BROKEN = true\n", 'utf-8')
+    await chmod(unreadablePath, 0)
+
+    const result = await __stateTestUtils.collectMockStoreResources(projectRoot, {
+      'packages/example-app': {
+        fixtureRoots: [
+          {
+            path: 'packages/example-app/src/tests/mock-store',
+            kind: 'mock-store',
+            source: 'directory',
+          },
+        ],
+      } as never,
+    })
+
+    expect(result.resources.map((resource) => resource.name)).toEqual(['orders.ts'])
+  })
+
+  it('returns an empty mock-store inventory when the learned root is not a directory', async () => {
+    const fakeRoot = join(projectRoot, 'packages', 'example-app', 'src', 'tests', 'mock-store.ts')
+    await mkdir(join(projectRoot, 'packages', 'example-app', 'src', 'tests'), { recursive: true })
+    await writeFile(fakeRoot, "export const ORDER_001 = 'ORDER_001'\n", 'utf-8')
+
+    const result = await __stateTestUtils.collectMockStoreResources(projectRoot, {
+      'packages/example-app': {
+        fixtureRoots: [
+          {
+            path: 'packages/example-app/src/tests/mock-store.ts',
+            kind: 'mock-store',
+            source: 'directory',
+          },
+        ],
+      } as never,
+    })
+
+    expect(result).toEqual({
+      rootDir: 'packages/example-app/src/tests/mock-store.ts',
+      importHint: 'packages/example-app/src/tests/mock-store.ts',
+      resources: [],
+    })
+  })
+
+  it('keeps root-package fixture directories unprefixed and sorts render targets deterministically', async () => {
+    await mkdir(join(projectRoot, 'src', 'tests', 'mocks'), { recursive: true })
+    await writeFile(join(projectRoot, 'src', 'tests', 'mocks', 'orders.ts'), 'export const ORDER = 1\n', 'utf-8')
+    await writeFile(
+      join(projectRoot, 'src', 'feature.test.tsx'),
+      `
+        import ZebraPanel from './ZebraPanel'
+        import AlphaPanel from './AlphaPanel'
+        import { it } from 'vitest'
+
+        it('renders', () => {
+          render(<ZebraPanel />)
+          render(<AlphaPanel />)
+        })
+      `,
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const profile = result.state.packages['.']!
+
+    expect(profile.fixtureRoots).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: 'src/tests/mocks',
+          kind: 'mocks',
+        }),
+      ])
+    )
+    expect(profile.renderTargets.map((target) => target.symbol)).toEqual(['AlphaPanel', 'ZebraPanel'])
+  })
+
+  it('skips unreadable mock-store subdirectories during recursive discovery', async () => {
+    const mockStoreRoot = join(projectRoot, 'packages', 'example-app', 'src', 'tests', 'mock-store')
+    const unreadableDir = join(mockStoreRoot, 'private')
+    await mkdir(unreadableDir, { recursive: true })
+    await writeFile(join(mockStoreRoot, 'orders.ts'), "export const ORDER_001 = 'ORDER_001'\n", 'utf-8')
+    await writeFile(join(unreadableDir, 'secret.ts'), "export const SECRET = true\n", 'utf-8')
+    await chmod(unreadableDir, 0)
+    try {
+      const result = await __stateTestUtils.collectMockStoreResources(projectRoot, {
+        'packages/example-app': {
+          fixtureRoots: [
+            {
+              path: 'packages/example-app/src/tests/mock-store',
+              kind: 'mock-store',
+              source: 'directory',
+            },
+          ],
+        } as never,
+      })
+
+      expect(result.resources.map((resource) => resource.name)).toEqual(['orders.ts'])
+    } finally {
+      await chmod(unreadableDir, 0o755)
+    }
+  })
+
+  it('caps recursive mock-store evidence collection at the configured maximum', async () => {
+    const mockStoreRoot = join(projectRoot, 'packages', 'example-app', 'src', 'tests', 'mock-store')
+    await mkdir(mockStoreRoot, { recursive: true })
+
+    await Promise.all(
+      Array.from({ length: 51 }, (_, index) =>
+        writeFile(
+          join(mockStoreRoot, `resource-${index}.ts`),
+          `export const RESOURCE_${index} = ${index}\n`,
+          'utf-8'
+        )
+      )
+    )
+
+    const result = await __stateTestUtils.collectMockStoreResources(projectRoot, {
+      'packages/example-app': {
+        fixtureRoots: [
+          {
+            path: 'packages/example-app/src/tests/mock-store',
+            kind: 'mock-store',
+            source: 'directory',
+          },
+        ],
+      } as never,
+    })
+
+    expect(result.resources).toHaveLength(50)
+  })
+
+  it('exposes the mock-store evidence limit helper for deterministic boundary testing', () => {
+    expect(__stateTestUtils.hasReachedMockStoreEvidenceLimit(49)).toBe(false)
+    expect(__stateTestUtils.hasReachedMockStoreEvidenceLimit(50)).toBe(true)
+  })
+
   it('preserveGeneratedTests: false drops all generated test history on refresh', async () => {
     await initTaroState(projectRoot)
 
@@ -1654,6 +1859,302 @@ describe('state scanning - additional coverage', () => {
 
     const stateAfter = await readTaroState(projectRoot)
     expect(stateAfter?.generatedTests).toHaveLength(0)
+  })
+
+  it('scanProjectState can intentionally drop generated test history during refresh rebuilds', async () => {
+    await initTaroState(projectRoot)
+
+    await appendGeneratedTestRecord(projectRoot, {
+      packagePath: '.',
+      recordingFile: '/tmp/recording.js',
+      testFile: '/tmp/recording.test.tsx',
+      scoreResult: {
+        total: 80,
+        grade: 'B',
+        dimensions: {
+          queryQuality: 80,
+          assertionSpecificity: 80,
+          testStructure: 80,
+          boundaryIsolation: 80,
+        },
+        signals: {
+          queryCheckpointCount: 0,
+          roleQueryCount: 0,
+          testIdQueryCount: 0,
+          strongAssertionCount: 0,
+          weakAssertionCount: 0,
+          boundaryWarningCount: 0,
+          boundaryIssueCount: 0,
+          placeholderRenderTarget: false,
+          multipleTestBlocks: false,
+        },
+        reasons: [],
+        requiresReview: false,
+      },
+    })
+
+    const existingState = await readTaroState(projectRoot)
+    const rescanned = await __stateTestUtils.scanProjectState(projectRoot, {
+      existingState: existingState!,
+      preserveGeneratedTests: false,
+    })
+
+    expect(rescanned.state.generatedTests).toEqual([])
+  })
+
+  it('treats unreadable config roots and descriptor walks as absent instead of throwing', async () => {
+    const packageJsonFile = join(projectRoot, 'package.json')
+
+    expect(await __stateTestUtils.hasConfigFile(packageJsonFile, 'vitest.config.')).toBe(false)
+    await expect(__stateTestUtils.findPackageDescriptors(packageJsonFile)).resolves.toEqual([
+      {
+        key: '.',
+        root: packageJsonFile,
+        name: null,
+      },
+    ])
+  })
+
+  it('ignores unreadable and skipped directories while scanning fixture roots', async () => {
+    const packageJsonFile = join(projectRoot, 'package.json')
+    await mkdir(join(projectRoot, 'src', 'tests', 'fixtures'), { recursive: true })
+    await mkdir(join(projectRoot, 'node_modules', 'fixtures'), { recursive: true })
+    await mkdir(join(projectRoot, 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'fixtures'), {
+      recursive: true,
+    })
+
+    await expect(__stateTestUtils.collectFixtureDirs(packageJsonFile)).resolves.toEqual([])
+    await expect(__stateTestUtils.collectFixtureDirs(projectRoot)).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: 'src/tests/fixtures',
+          kind: 'fixtures',
+          source: 'directory',
+        }),
+      ])
+    )
+  })
+
+  it('sorts provider wrappers by name and import path', () => {
+    const providerWrappers = __stateTestUtils.collectProviderWrappers(projectRoot, [
+      {
+        path: join(projectRoot, 'src', 'alpha.test.tsx'),
+        content: `
+          import { ZetaProvider } from '@/providers/zeta'
+          import { AlphaProvider } from '@/providers/alpha'
+          render(<App />, { wrapper: ZetaProvider })
+          render(<App />, { wrapper: AlphaProvider })
+        `,
+      },
+      {
+        path: join(projectRoot, 'src', 'beta.test.tsx'),
+        content: `
+          import { AlphaProvider } from '@/providers/alternate-alpha'
+          render(<App />, { wrapper: AlphaProvider })
+        `,
+      },
+    ])
+
+    expect(providerWrappers).toEqual([
+      {
+        name: 'AlphaProvider',
+        importPath: '@/providers/alpha',
+        sourceTestFile: 'src/alpha.test.tsx',
+      },
+      {
+        name: 'AlphaProvider',
+        importPath: '@/providers/alternate-alpha',
+        sourceTestFile: 'src/beta.test.tsx',
+      },
+      {
+        name: 'ZetaProvider',
+        importPath: '@/providers/zeta',
+        sourceTestFile: 'src/alpha.test.tsx',
+      },
+    ])
+  })
+
+  it('dedupes render helpers by binding and sorts by usage count, then name and import path', () => {
+    const renderHelpers = __stateTestUtils.collectRenderHelpers(projectRoot, [
+      {
+        path: join(projectRoot, 'src', 'alpha.test.tsx'),
+        content: `
+          import { renderWithProviders } from '@/tests/renderWithProviders'
+          import { renderWithAuth } from '@/tests/renderWithAuth'
+          renderWithProviders(<App />)
+          renderWithProviders(<App />, { wrapper: Wrapper, within })
+          renderWithAuth(<App />)
+        `,
+      },
+      {
+        path: join(projectRoot, 'src', 'beta.test.tsx'),
+        content: `
+          import { renderWithProviders } from '@/tests/renderWithProviders'
+          import { renderWithAuth } from '@/tests/renderWithAltAuth'
+          import { renderWithUnused } from '@/tests/renderWithUnused'
+          import { within } from '@testing-library/react'
+          renderWithProviders(<App />)
+          within(document.body)
+          renderWithAuth(<App />)
+        `,
+      },
+      {
+        path: join(projectRoot, 'src', 'gamma.test.tsx'),
+        content: `
+          import renderWithScene, { helper } from '@/tests/renderWithScene'
+          renderWithScene(<App />)
+          helper()
+        `,
+      },
+    ])
+
+    expect(renderHelpers).toEqual([
+      expect.objectContaining({
+        name: 'renderWithProviders',
+        importPath: '@/tests/renderWithProviders',
+        usageCount: 2,
+        usesWithin: true,
+      }),
+      expect.objectContaining({
+        name: 'renderWithAuth',
+        importPath: '@/tests/renderWithAltAuth',
+        usageCount: 1,
+      }),
+      expect.objectContaining({
+        name: 'renderWithAuth',
+        importPath: '@/tests/renderWithAuth',
+        usageCount: 1,
+      }),
+      expect.objectContaining({
+        name: 'renderWithScene',
+        importPath: '@/tests/renderWithScene',
+        importKind: 'default',
+        usageCount: 1,
+      }),
+    ])
+  })
+
+  it('derives low-confidence interaction contracts, sorts instability warnings, and infers extension confidence', () => {
+    expect(
+      __stateTestUtils.deriveInteractionContracts({
+        mutationLifecycles: [
+          {
+            file: 'src/forms/skip.test.tsx',
+            stages: ['success'],
+            evidence: ['success cues detected'],
+          },
+          {
+            file: 'src/forms/order.test.tsx',
+            stages: ['loading'],
+            evidence: ['loading cues detected'],
+          },
+          {
+            file: 'src/forms/settings.test.tsx',
+            stages: ['error'],
+            evidence: ['error cues detected'],
+          },
+        ],
+        boundaryExemplars: [
+          {
+            file: 'src/forms/settings.test.tsx',
+            target: '@/api/settings',
+            boundaryKind: 'data-module',
+            boundaryTargets: ['settingsApi'],
+            companionKinds: [],
+            scaffolded: false,
+            overrideStyle: 'inline-reconfigure',
+            tags: [],
+            evidence: [],
+          },
+        ],
+      })
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          file: 'src/forms/order.test.tsx',
+          confidence: 'low',
+          overrideStyle: 'none',
+          supportTargets: [],
+        }),
+        expect.objectContaining({
+          file: 'src/forms/settings.test.tsx',
+          confidence: 'medium',
+          overrideStyle: 'inline-reconfigure',
+          supportTargets: ['settingsApi'],
+        }),
+      ])
+    )
+
+    expect(
+      __stateTestUtils.detectMockInstabilityInFiles(projectRoot, [
+        {
+          path: join(projectRoot, 'src', 'flow.test.tsx'),
+          content: `
+            it('one', () => {
+              const api = { mockResolvedValue() {}, mockImplementationOnce() {} }
+              vi.mock('@/api/orders')
+              vi.resetAllMocks()
+              api.mockResolvedValue()
+              api.mockImplementationOnce(() => {})
+            })
+          `,
+        },
+      ])
+    ).toEqual([
+      expect.objectContaining({ file: 'src/flow.test.tsx', kind: 'per-test-churn' }),
+      expect.objectContaining({ file: 'src/flow.test.tsx', kind: 'recreated-factory' }),
+    ])
+
+    expect(
+      __stateTestUtils.inferFileExtension({
+        scannedAt: new Date().toISOString(),
+        projectRoot,
+        importStyle: 'esm',
+        mockPattern: 'none',
+        folderPattern: 'colocated',
+        fileExtension: 'tsx',
+        testFiles: [{ path: 'src/example.test.tsx', importStyle: 'esm', hasDescribeBlock: true, mockPattern: 'none', hasHelperWithExpect: false }],
+      })
+    ).toEqual(
+      expect.objectContaining({
+        value: 'tsx',
+        confidence: 'medium',
+      })
+    )
+
+    expect(
+      __stateTestUtils.inferFileExtension({
+        scannedAt: new Date().toISOString(),
+        projectRoot,
+        importStyle: 'esm',
+        mockPattern: 'none',
+        folderPattern: 'colocated',
+        fileExtension: 'ts',
+        testFiles: [{ path: 'src/example.test.ts', importStyle: 'esm', hasDescribeBlock: true, mockPattern: 'none', hasHelperWithExpect: false }],
+      })
+    ).toEqual(
+      expect.objectContaining({
+        value: 'ts',
+        confidence: 'high',
+      })
+    )
+
+    expect(
+      __stateTestUtils.inferFileExtension({
+        scannedAt: new Date().toISOString(),
+        projectRoot,
+        importStyle: 'esm',
+        mockPattern: 'none',
+        folderPattern: 'unknown',
+        fileExtension: 'ts',
+        testFiles: [],
+      })
+    ).toEqual(
+      expect.objectContaining({
+        value: 'ts',
+        confidence: 'low',
+      })
+    )
   })
 
   it('emits component-preferred render boundary when all exemplars prefer component', async () => {

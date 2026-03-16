@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { classifyQuery, parseJsRecording, segmentIntoItGroups } from '#core/js-parser.ts'
+import {
+  __jsParserTestUtils,
+  classifyQuery,
+  parseJsRecording,
+  segmentIntoItGroups,
+} from '#core/js-parser.ts'
 import { sampleRestRecordingJs } from '#tests/fixtures/sample-fixtures.ts'
 
 describe('classifyQuery', () => {
@@ -578,6 +583,76 @@ describe('parseJsRecording', () => {
           semanticMarkerCandidate: expect.objectContaining({
             proofSubject: 'field-label',
           }),
+        }),
+      ])
+    )
+  })
+
+  it('treats missing semantic proof text as non-concrete and non-message content', () => {
+    expect(__jsParserTestUtils.looksLikeConcreteValue(undefined)).toBe(false)
+    expect(__jsParserTestUtils.looksLikeVisibleMessage(undefined)).toBe(false)
+    expect(__jsParserTestUtils.sliceSource('const ok = true')).toBeUndefined()
+    expect(
+      __jsParserTestUtils.extractPlainObject({
+        type: 'ObjectExpression',
+        properties: [
+          {
+            type: 'ObjectProperty',
+            computed: true,
+            key: { type: 'Identifier', name: 'dynamicKey' },
+            value: { type: 'StringLiteral', value: 'skip-me' },
+          },
+          {
+            type: 'ObjectProperty',
+            computed: false,
+            key: { type: 'StringLiteral', value: 'name' },
+            value: { type: 'Identifier', name: 'dynamicValue' },
+          },
+        ],
+      } as never)
+    ).toEqual({})
+  })
+
+  it('handles user-event and expect calls that omit their target subject', async () => {
+    const recording = await parseJsRecording(`
+      test('Recorder Flow', async () => {
+        await userEvent.click()
+        expect().toBe(true)
+      })
+    `)
+
+    expect(recording.steps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'click',
+          target: 'click',
+        }),
+      ])
+    )
+    expect(recording.assertions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          target: undefined,
+        }),
+      ])
+    )
+  })
+
+  it('keeps only literal option entries when query option objects mix literal and dynamic values', async () => {
+    const recording = await parseJsRecording(`
+      test('Recorder Flow', async () => {
+        const selected = window.__selected
+        screen.getByRole('button', { 'name': 'Save', selected })
+      })
+    `)
+
+    expect(recording.queries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          method: 'getByRole',
+          options: {
+            name: 'Save',
+          },
         }),
       ])
     )

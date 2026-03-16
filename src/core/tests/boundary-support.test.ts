@@ -244,6 +244,122 @@ describe('planBoundarySupport', () => {
     expect(plan.mockBlocks[0]).toContain('jest.requireActual')
   })
 
+  it('scaffolds generic imported hooks as low-confidence mocks', async () => {
+    const root = await createSandbox()
+
+    vi.mocked(discoverBoundaryImportsFromSource).mockResolvedValue([
+      {
+        target: '@repo/orders',
+        importedNames: ['useOrders'],
+        kind: 'data-module',
+        guardrailReason: null,
+      },
+    ])
+    vi.mocked(getBoundaryGuardrailReason).mockReturnValue(null)
+
+    const plan = await planBoundarySupport({
+      projectRoot: root,
+      outputPath: join(root, 'src', 'feature.test.ts'),
+      packageProfile: makePackageProfile(),
+      renderTargetFile: 'src/Feature.tsx',
+      renderTarget: {
+        symbol: 'Feature',
+        importPath: './Feature',
+        sourceTestFile: 'src/Feature.test.tsx',
+        helperNames: [],
+        usesWithin: false,
+      },
+    })
+
+    expect(plan.requiresReview).toBe(true)
+    expect(plan.supportFiles[0]?.content).toContain('export const useOrdersMock = vi.fn()')
+    expect(plan.supportFiles[0]?.content).toContain('useOrdersMock.mockReset()')
+  })
+
+  it('prefers learned mocks fixture roots when scaffolding new support files', async () => {
+    const root = await createSandbox()
+
+    vi.mocked(discoverBoundaryImportsFromSource).mockResolvedValue([
+      {
+        target: '@repo/orders',
+        importedNames: ['useOrdersQuery'],
+        kind: 'data-module',
+        guardrailReason: null,
+      },
+    ])
+    vi.mocked(getBoundaryGuardrailReason).mockReturnValue(null)
+
+    const plan = await planBoundarySupport({
+      projectRoot: root,
+      outputPath: join(root, 'src', 'feature.test.ts'),
+      packageProfile: makePackageProfile({
+        fixtureRoots: [
+          {
+            path: 'src/tests/mocks',
+            kind: 'mocks',
+            source: 'directory',
+          },
+        ],
+      }),
+      renderTargetFile: 'src/Feature.tsx',
+      renderTarget: {
+        symbol: 'Feature',
+        importPath: './Feature',
+        sourceTestFile: 'src/Feature.test.tsx',
+        helperNames: [],
+        usesWithin: false,
+      },
+    })
+
+    expect(plan.supportFiles[0]?.path).toBe(join(root, 'src', 'tests', 'mocks', 'repo-orders.mock.ts'))
+  })
+
+  it('ignores relevant boundaries that have no reusable profile and are not scaffoldable', async () => {
+    const root = await createSandbox()
+
+    vi.mocked(discoverBoundaryImportsFromSource).mockResolvedValue([
+      {
+        target: '@repo/ui/button',
+        importedNames: ['Button'],
+        kind: 'unknown',
+        guardrailReason: null,
+      },
+    ])
+    vi.mocked(getBoundaryGuardrailReason).mockReturnValue(null)
+
+    const plan = await planBoundarySupport({
+      projectRoot: root,
+      outputPath: join(root, 'src', 'feature.test.ts'),
+      packageProfile: makePackageProfile({
+        boundaryExemplars: [
+          {
+            file: 'src/Feature.test.tsx',
+            renderBoundary: 'module',
+            boundaryTargets: ['@repo/ui/button'],
+            boundaryKinds: ['unknown'],
+            usesProviderWrapper: false,
+            usesCentralBoundarySupport: false,
+            hasMutationLifecycle: false,
+            overrideStyle: 'none',
+            tags: [],
+          },
+        ],
+      }),
+      renderTargetFile: 'src/Feature.tsx',
+      renderTarget: {
+        symbol: 'Feature',
+        importPath: './Feature',
+        sourceTestFile: 'src/Feature.test.tsx',
+        helperNames: [],
+        usesWithin: false,
+      },
+    })
+
+    expect(plan.importLines).toEqual([])
+    expect(plan.mockBlocks).toEqual([])
+    expect(plan.supportFiles).toEqual([])
+  })
+
   it('adds guardrail warning when imported boundary has guardrailReason and a non-forbid profile exists', async () => {
     const root = await createSandbox()
 

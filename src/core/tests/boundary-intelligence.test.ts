@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  __boundaryIntelligenceTestUtils,
   analyzeBoundaryIsolation,
   calculateBoundaryIsolationScore,
 } from '#core/boundary-intelligence.ts'
+import * as t from '@babel/types'
 import { generateTestFromGroups } from '#core/generator.ts'
 import {
   boundarySafeSample,
@@ -467,5 +469,20 @@ describe('analyzeBoundaryIsolation', () => {
         expect.objectContaining({ kind: 'positional-control-selection' }),
       ])
     )
+  })
+})
+
+describe('__boundaryIntelligenceTestUtils', () => {
+  it('handles missing callees and missing rendered nodes safely', () => {
+    expect(__boundaryIntelligenceTestUtils.getCalleeName()).toBeUndefined()
+
+    const names = new Set<string>()
+    __boundaryIntelligenceTestUtils.collectRenderedComponentNames(undefined, names)
+    __boundaryIntelligenceTestUtils.collectRenderedComponentNames(
+      t.jsxFragment(t.jsxOpeningFragment(), t.jsxClosingFragment(), []),
+      names
+    )
+
+    expect(names.size).toBe(0)
   })
 })

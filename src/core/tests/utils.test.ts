@@ -29,9 +29,13 @@ describe('selectorToQuery', () => {
     expect(selectorToQuery(undefined)).toBe('document.body')
     expect(selectorToQuery("[data-testid='save']")).toBe("screen.getByTestId('save')")
     expect(selectorToQuery("[aria-label='Close']")).toBe("screen.getByLabelText('Close')")
+    expect(selectorToQuery("input[type='checkbox']")).toBe("screen.getByRole('checkbox')")
+    expect(selectorToQuery("input[type='radio']")).toBe("screen.getByRole('radio')")
+    expect(selectorToQuery('select')).toBe("screen.getByRole('combobox')")
     expect(selectorToQuery("input[type='password'][placeholder='Secret']")).toContain(
       "screen.getByPlaceholderText('Secret')"
     )
+    expect(selectorToQuery("input[type='password']")).toContain('password input has no implicit role')
     expect(selectorToQuery("a[href='/orders']")).toBe("screen.getByRole('link')")
     expect(selectorToQuery('button.primary')).toBe("screen.getByRole('button')")
     expect(selectorToQuery("img[alt='Hero']")).toBe("screen.getByRole('img')")
@@ -42,7 +46,13 @@ describe('selectorToQuery', () => {
     expect(selectorToQuery("[aria-labelledby='dialog-title']")).toBe(
       'screen.getByLabelText(/* aria-labelledby */ /./)'
     )
+    expect(selectorToQuery("input[type='search'][placeholder='Search orders']")).toBe(
+      "screen.getByPlaceholderText('Search orders')"
+    )
     expect(selectorToQuery("input[type='search']")).toContain("screen.getByRole('searchbox')")
+    expect(selectorToQuery("input[type='email'][placeholder='Email']")).toBe(
+      "screen.getByPlaceholderText('Email')"
+    )
     expect(selectorToQuery('textarea')).toContain("screen.getByRole('textbox')")
     expect(selectorToQuery("[title='Preview']")).toBe("screen.getByTitle('Preview')")
     expect(selectorToQuery("[value='INV-001']")).toBe("screen.getByDisplayValue('INV-001')")
@@ -65,6 +75,23 @@ describe('reconstructQuery and selector checkpoints', () => {
               role: 'button',
               target: 'Save',
               raw: "screen.getByRole('button', { name: 'Save' })",
+            },
+          },
+        })
+      )
+    ).toBe("screen.getByRole('button', { name: 'Save' })")
+
+    expect(
+      reconstructQuery(
+        step({
+          action: 'assert',
+          target: 'Save',
+          metadata: {
+            query: {
+              method: 'getByRole',
+              queryRoot: 'screen',
+              role: 'button',
+              target: 'Save',
             },
           },
         })
@@ -148,6 +175,56 @@ describe('reconstructQuery and selector checkpoints', () => {
     expect(getSelectorCheckpoint(step({ source: 'json', target: 'Save' }))).toBeNull()
   })
 
+  it('drops empty recovered queries, skips helper steps with no fallback, and dedupes after-helper markers', () => {
+    expect(
+      reconstructQuery(
+        step({
+          metadata: {
+            query: {
+              raw: '',
+            },
+          } as never,
+        })
+      )
+    ).toBe("screen.getByText('Save')")
+
+    expect(
+      buildHelperStepLines(
+        {
+          name: 'openDialog',
+          purpose: 'Open dialog',
+          assertionPolicy: 'sync-only',
+          steps: [
+            step({
+              action: 'click',
+              source: 'js',
+              target: '.css-only-selector',
+            }),
+          ],
+        },
+        {
+          matcherMap: new Map(),
+          scopeDialog: false,
+        }
+      )[0]
+    ).toContain('taro-query-checkpoint')
+
+    expect(
+      dedupeMarkerAssertions([
+        {
+          stepId: 'a',
+          placement: { kind: 'after-helper', helperName: 'setupDialog', stepId: 'step-1' },
+          assertion: { queryExpression: "screen.getByText('Saved')", matcher: '.toBeVisible()' },
+        },
+        {
+          stepId: 'b',
+          placement: { kind: 'after-helper', helperName: 'setupDialog', stepId: 'step-1' },
+          assertion: { queryExpression: "screen.getByText('Saved')", matcher: '.toBeVisible()' },
+        },
+      ])
+    ).toHaveLength(1)
+  })
+
   it('covers role descriptor fallbacks and heading selectors', () => {
     expect(selectorToQuery('h2.page-title')).toBe("screen.getByRole('heading')")
     expect(
@@ -182,6 +259,67 @@ describe('reconstructQuery and selector checkpoints', () => {
         })
       )
     ).toBe("screen.getByRole('button')")
+  })
+
+  it('returns raw screen query targets without rebuilding them', () => {
+    expect(
+      reconstructQuery(
+        step({
+          target: "screen.getByRole('button', { name: 'Save' })",
+        })
+      )
+    ).toBe("screen.getByRole('button', { name: 'Save' })")
+  })
+
+  it('falls back when exact query descriptors are unsupported and reads selector descriptors from metadata', () => {
+    expect(
+      reconstructQuery(
+        step({
+          action: 'assert',
+          target: 'Preview',
+          metadata: {
+            query: {
+              method: 'getByTitle',
+              queryRoot: 'screen',
+              target: 'Preview',
+            },
+          },
+        })
+      )
+    ).toBe("screen.getByTitle('Preview')")
+
+    expect(
+      reconstructQuery(
+        step({
+          action: 'assert',
+          target: 'Save',
+          metadata: {
+            query: {
+              method: 'getByTestId',
+              queryRoot: 'screen',
+              target: 'save-button',
+            },
+          },
+        })
+      )
+    ).toBe("screen.getByText('Save')")
+
+    expect(
+      getSelectorCheckpoint(
+        step({
+          source: 'js',
+          target: 'Save',
+          metadata: {
+            selector: {
+              selector: '#save-button',
+            },
+          } as never,
+        })
+      )
+    ).toEqual({
+      reason: 'No trustworthy RTL query evidence was recovered for this selector.',
+      selector: '#save-button',
+    })
   })
 })
 

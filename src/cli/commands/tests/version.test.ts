@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { createVersionCommand, runVersionCommand } from '#cli/commands/version.ts'
 import { TARO_VERSION } from '#version.ts'
@@ -21,6 +21,18 @@ describe('runVersionCommand', () => {
     runVersionCommand({ logger })
 
     expect(logs).toEqual([TARO_VERSION])
+  })
+
+  it('falls back to console.log when no logger is provided', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      runVersionCommand()
+
+      expect(log).toHaveBeenCalledWith(TARO_VERSION)
+    } finally {
+      log.mockRestore()
+    }
   })
 })
 

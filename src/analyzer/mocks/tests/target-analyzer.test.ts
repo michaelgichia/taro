@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  __targetAnalyzerTestUtils,
   analyzeMockLibraryUsage,
   analyzeMockTargets,
   decideMockExtraction,
@@ -122,6 +123,7 @@ describe('selectMockLibrary and decideMockExtraction', () => {
     expect(
       selectMockLibrary(createApiCall({ method: 'XMLHttpRequest' }), [{ name: 'nock', isConfigured: false }])
     ).toBe('jest.fn')
+    expect(selectMockLibrary(createApiCall(), [])).toBe('jest.fn')
 
     expect(
       decideMockExtraction(
@@ -133,6 +135,18 @@ describe('selectMockLibrary and decideMockExtraction', () => {
         []
       )
     ).toBe('inline')
+  })
+
+  it('estimates extra complexity for query params, mutable methods, and external APIs', () => {
+    expect(
+      __targetAnalyzerTestUtils.estimateMockComplexity(
+        createApiCall({
+          url: 'https://api.example.com/orders?draft=true',
+          httpMethod: 'PATCH',
+          isExternal: true,
+        })
+      )
+    ).toBe(8)
   })
 })
 

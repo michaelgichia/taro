@@ -10,6 +10,7 @@ import { resolveInstallTargets } from '#install/resolver.ts'
 import { buildClaudeRuntimeOperations } from '#install/runtimes/claude.ts'
 import { buildGeminiRuntimeOperations } from '#install/runtimes/gemini.ts'
 import { buildOpenCodeRuntimeOperations } from '#install/runtimes/opencode.ts'
+import { buildPromptRuntimeOperations } from '#install/runtimes/prompt-runtimes.ts'
 import type {
   InstallFileOperation,
   InstallLocation,
@@ -74,6 +75,14 @@ function resolveTarget(runtime: RuntimeTarget, location: InstallLocation, cwd: s
 }
 
 describe('prompt runtime install builders', () => {
+  it('rejects unsupported runtime ids in the generic prompt builder', async () => {
+    const { cwd, home } = await createInstallContext()
+
+    expect(() =>
+      buildPromptRuntimeOperations(resolveTarget('codex', 'global', cwd, home))
+    ).toThrow('Prompt runtime operations do not support codex.')
+  })
+
   it('rejects mismatched runtime ids for the prompt-runtime wrappers', async () => {
     const { cwd, home } = await createInstallContext()
 

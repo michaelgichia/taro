@@ -102,6 +102,90 @@ describe('detectApiCallsFromCodebase', () => {
       }),
     ])
   })
+
+  it('handles graphql/jsonp heuristics and unmatched dynamic URLs', () => {
+    const recording: NormalizedRecording = {
+      title: 'Flow',
+      rawStepCount: 2,
+      steps: [
+        {
+          id: 'graphql-step',
+          type: 'fill',
+          action: 'fill',
+          target: 'query',
+          value: '/graphql?operation=CreateOrder',
+        },
+        {
+          id: 'jsonp-step',
+          type: 'fill',
+          action: 'fill',
+          target: 'callback',
+          value: 'https://api.example.com/jsonp?callback=loadOrders',
+        },
+      ],
+    }
+
+    expect(detectApiCallsFromRecording(recording)).toEqual([
+      expect.objectContaining({
+        id: 'recording-graphql-step',
+        method: 'fetch',
+        url: '/graphql?operation=CreateOrder',
+        isExternal: false,
+      }),
+      expect.objectContaining({
+        id: 'recording-jsonp-step',
+        method: 'fetch-jsonp',
+        url: 'https://api.example.com/jsonp?callback=loadOrders',
+        isExternal: true,
+      }),
+    ])
+
+    expect(
+      detectApiCallsFromCodebase([
+        {
+          path: 'src/dynamic.ts',
+          content: ['await fetch(createOrdersUrl())', 'await axios({ url: endpoint })'].join('\n'),
+        },
+      ])
+    ).toEqual([
+      expect.objectContaining({
+        method: 'fetch',
+        url: '[dynamic - ${createOrdersUrl}]',
+        isExternal: false,
+      }),
+      expect.objectContaining({
+        method: 'axios',
+        url: undefined,
+        httpMethod: undefined,
+        isExternal: true,
+      }),
+    ])
+  })
+
+  it('defaults unknown API-like endpoints to fetch', () => {
+    const recording: NormalizedRecording = {
+      title: 'Flow',
+      rawStepCount: 1,
+      steps: [
+        {
+          id: 'default-step',
+          type: 'fill',
+          action: 'fill',
+          target: 'endpoint',
+          value: '/api/orders',
+        },
+      ],
+    }
+
+    expect(detectApiCallsFromRecording(recording)).toEqual([
+      expect.objectContaining({
+        id: 'recording-default-step',
+        method: 'fetch',
+        url: '/api/orders',
+        isExternal: false,
+      }),
+    ])
+  })
 })
 
 describe('detectApiCalls', () => {

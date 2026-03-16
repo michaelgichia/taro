@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import type { TestFileContent } from '#core/convention-intelligence.ts'
 import {
+  __conventionIntelligenceTestUtils,
   analyzeTestFile,
   deriveConventions,
   extractRenderTargetCandidatesFromFile,
@@ -96,6 +97,8 @@ describe('convention-intelligence', () => {
       })
     )
     expect(emptyDerived.projectRoot).toBe(root)
+    expect(emptyDerived.folderPattern).toBe('unknown')
+    expect(emptyDerived.fileExtension).toBe('ts')
     expect(jsOnlyDerived.folderPattern).toBe('__tests__')
     expect(jsOnlyDerived.fileExtension).toBe('js')
     expect(candidates).toEqual([])
@@ -180,5 +183,10 @@ describe('convention-intelligence', () => {
         usesWithin: true,
       },
     ])
+  })
+
+  it('exposes folder and extension defaults for empty convention sets', () => {
+    expect(__conventionIntelligenceTestUtils.detectFolderPattern([], '/repo')).toBe('unknown')
+    expect(__conventionIntelligenceTestUtils.detectFileExtension([])).toBe('ts')
   })
 })

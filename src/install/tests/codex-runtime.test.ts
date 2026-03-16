@@ -87,6 +87,18 @@ function resolveTarget(location: InstallLocation, cwd: string, home: string) {
 }
 
 describe('buildCodexOperations', () => {
+  it('rejects mismatched runtime ids', async () => {
+    const sandbox = await createSandbox('codex-mismatch')
+    const codexTarget = resolveTarget('global', sandbox.projectPath, sandbox.homePath)
+
+    expect(() =>
+      buildCodexOperations({
+        ...codexTarget,
+        id: 'gemini',
+      } as typeof codexTarget)
+    ).toThrow('Codex runtime builder received gemini.')
+  })
+
   it('installs multiple namespaced skill directories into the global Codex home', async () => {
     const sandbox = await createSandbox('codex-global')
     const target = resolveTarget('global', sandbox.projectPath, sandbox.homePath)

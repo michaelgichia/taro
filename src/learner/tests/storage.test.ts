@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mkdirSyncMock,
@@ -109,9 +109,19 @@ vi.mock('#project-state.ts', () => ({
 import { ConventionStore, createStore } from '#learner/storage.ts'
 
 describe('ConventionStore', () => {
+  let logSpy: ReturnType<typeof vi.spyOn>
+  let errorSpy: ReturnType<typeof vi.spyOn>
+
   beforeEach(() => {
     vi.clearAllMocks()
     existsSyncMock.mockReturnValue(true)
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+  })
+
+  afterEach(() => {
+    logSpy.mockRestore()
+    errorSpy.mockRestore()
   })
 
   it('creates the database directory and schema during init', () => {
@@ -204,6 +214,16 @@ describe('ConventionStore', () => {
 })
 
 describe('createStore', () => {
+  let logSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+  })
+
+  afterEach(() => {
+    logSpy.mockRestore()
+  })
+
   it('creates and initializes a store in the project state directory', () => {
     const harness = createDbHarness()
     databaseFactoryMock.mockReturnValue(harness.db)

@@ -133,6 +133,24 @@ it('empty test', () => {})
     )
   })
 
+  it('warns when test functions are neither imported nor globally referenced', () => {
+    const filePath = writeTestFile(`
+      import { describe, expect } from 'vitest'
+      import { render } from '@testing-library/react'
+
+      describe('renders with globals', () => {
+        render(<div>Ready</div>)
+        expect(true).toBe(true)
+      })
+    `)
+
+    const result = postWriteVerification(filePath)
+
+    expect(result.warnings).toContain(
+      'No it/test import detected - ensure test functions are available globally or imported'
+    )
+  })
+
   it('warns on repo-disallowed RTL and teardown patterns', () => {
     const filePath = writeTestFile(`
       import { cleanup, render, screen } from '@testing-library/react'
