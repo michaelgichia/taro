@@ -1,6 +1,6 @@
-import { USER_EVENT_ACTIONS } from '#core/generator.constants.ts'
-import { generateStepCode } from '#core/generator.shared.ts'
-import type { GeneratedTest, GeneratorOptions } from '#core/generator.types.ts'
+import { USER_EVENT_ACTIONS } from '#core/constant.ts'
+import type { GeneratedTest, GeneratorOptions } from '#core/types.ts'
+import { generateStepCode } from '#core/utils.ts'
 import { describeBlock, importBlock } from '#templates/test-template.ts'
 import type { NormalizedRecording } from '#types/recording.ts'
 

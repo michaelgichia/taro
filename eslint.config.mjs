@@ -10,6 +10,7 @@ const testFiles = [
   "tests/**/*.ts",
   "src/**/*.test.ts",
   "src/**/*.test.tsx",
+  "sample/**/*.js",
   "sample/**/*.test.ts",
   "sample/**/*.test.tsx",
 ];
@@ -97,6 +98,7 @@ export default [
     files: testFiles,
     languageOptions: {
       globals: {
+        ...globals.browser,
         ...globals.node,
         describe: "readonly",
         it: "readonly",

@@ -1,4 +1,5 @@
-import { USER_EVENT_ACTIONS } from '#core/generator.constants.ts'
+import { USER_EVENT_ACTIONS } from '#core/constant.ts'
+import type { GeneratedTestV3,GenerateFromGroupsOptions } from '#core/types.ts'
 import {
   buildHelperStepLines,
   dedupeMarkerAssertions,
@@ -7,8 +8,7 @@ import {
   inferAssertionMatcher,
   reconstructQuery,
   renderMarkerAssertionGroup,
-} from '#core/generator.shared.ts'
-import type { GeneratedTestV3,GenerateFromGroupsOptions } from '#core/generator.types.ts'
+} from '#core/utils.ts'
 import { describeBlockMultiIt, importBlock, stepTemplate } from '#templates/test-template.ts'
 import type {
   ItGroup,
