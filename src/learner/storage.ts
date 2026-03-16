@@ -7,7 +7,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { createEmptyConvention,TestConvention } from '#learner/types.ts';
+import {TestConvention } from '#learner/types.ts';
 import { ensureProjectStateDirSync } from '#project-state.ts';
 
  

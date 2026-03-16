@@ -2,9 +2,8 @@
  * Pre-write audit for test files - validates structure before file creation
  */
 
-import { parse } from '@typescript-eslint/typescript-estree';
 
-import { evaluateQualityGates,QueryRules, StructureRules } from '#scorer/quality-gates.ts';
+import { evaluateQualityGates } from '#scorer/quality-gates.ts';
 
 export interface AuditResult {
   valid: boolean;

@@ -1,5 +1,5 @@
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
-import { dirname, join, relative, resolve } from 'node:path'
+import { dirname, relative, resolve } from 'node:path'
 
 import {
   classifyBoundaryKind,

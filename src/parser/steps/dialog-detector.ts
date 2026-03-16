@@ -13,7 +13,7 @@
  * Time window: related steps within 30s are grouped
  */
 
-import type { RecordingStep, StepType } from '#types/recording.ts';
+import type { RecordingStep } from '#types/recording.ts';
 
 export type DialogType = 'modal' | 'drawer' | 'popover' | 'confirm' | 'form';
 

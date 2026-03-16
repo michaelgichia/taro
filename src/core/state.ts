@@ -1,4 +1,4 @@
-import { access, readdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
+import { readdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, relative, resolve } from 'node:path'
 
 import pc from 'picocolors'
@@ -14,7 +14,6 @@ import {
   analyzeTestFile,
   deriveConventions,
   extractRenderTargetCandidatesFromFile,
-  findTestFiles,
   readTestFiles,
 } from '#core/convention-intelligence.ts'
 import {
@@ -23,7 +22,6 @@ import {
   getProjectStatePath,
 } from '#project-state.ts'
 import type {
-  ConventionFile,
   ConventionsSchema,
   ImportStyle,
   InteractionContractKind,
@@ -36,17 +34,12 @@ import type {
   MutationLifecyclePattern,
   MutationLifecycleStage,
 } from '#types/conventions.ts'
-import { DEFAULT_CONVENTIONS } from '#types/conventions.ts'
 import type { ScoreResult } from '#types/score.ts'
 import type {
-  RepoRenderTargetCandidate,
   ResolvedTaroPackageProfile,
   TaroBoundaryExemplarProfile,
   TaroBoundaryGuardrailReason,
   TaroBoundaryKind,
-  TaroBoundaryPayloadSource,
-  TaroBoundaryProfile,
-  TaroBoundaryStrategy,
   TaroExemplarProfile,
   TaroFileExtension,
   TaroFixtureRootKind,
@@ -60,7 +53,6 @@ import type {
   TaroPlaywrightAuthDetectedAt,
   TaroPlaywrightAuthProfile,
   TaroProviderWrapperProfile,
-  TaroQueryHookPolicy,
   TaroRenderHelperProfile,
   TaroSharedMockFactoryProfile,
   TaroSignal,

@@ -35,13 +35,6 @@ const INTENTIONAL_STEP_TYPES: StepType[] = [
 ];
 
 /**
- * Step types that might be noise depending on context
- */
-const POTENTIALLY_NOISE_STEP_TYPES: StepType[] = [
-  'scroll',
-];
-
-/**
  * Check if a step type is definitely noise
  */
 function isNoiseStepType(step: RecordingStep): boolean {

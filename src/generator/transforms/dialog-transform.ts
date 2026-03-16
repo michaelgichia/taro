@@ -10,7 +10,7 @@
  * - Optional close verification
  */
 
-import type { DialogFlow, DialogType } from '#parser/steps/dialog-detector.ts';
+import type { DialogFlow } from '#parser/steps/dialog-detector.ts';
 import type { RecordingStep } from '#types/recording.ts';
 
 export interface TransformedStep {
@@ -23,52 +23,6 @@ export interface DialogTestTemplate {
   helpers: TransformedStep[];
   testSteps: TransformedStep[];
   cleanup?: TransformedStep[];
-}
-
-/**
- * Generate selector query code from a recording step
- */
-function generateSelectorQuery(step: RecordingStep): string {
-  const selector = step.selector || step.target || '';
-  
-  if (!selector) {
-    return 'screen.getByRole("button")';
-  }
-
-  // Handle different selector types
-  if (selector.startsWith('#')) {
-    // ID selector
-    const id = selector.slice(1);
-    return `screen.getByRole("button", { name: /${id}/i })`;
-  }
-
-  if (selector.startsWith('.')) {
-    // Class selector - use getByTestId or find by text
-    const className = selector.slice(1).replace(/\./g, ' ');
-    return `screen.getByText(/${className}/i)`;
-  }
-
-  if (selector.includes('[data-testid=')) {
-    // data-testid selector
-    const match = selector.match(/\[data-testid=["']([^"']+)["']\]/);
-    if (match) {
-      return `screen.getByTestId("${match[1]}")`;
-    }
-  }
-
-  if (selector.includes('[')) {
-    // Attribute selector
-    const match = selector.match(/\[([^=]+)=["']([^"']+)["']\]/);
-    if (match) {
-      const attr = match[1];
-      const value = match[2];
-      return `screen.getByRole("button", { name: /${value}/i })`;
-    }
-  }
-
-  // Default: try to find by text content
-  const readableName = selector.split(/[#.\s]/).pop() || 'button';
-  return `screen.getByRole("button", { name: /${readableName}/i })`;
 }
 
 /**
@@ -165,35 +119,9 @@ function generateFillCode(step: RecordingStep): string {
 }
 
 /**
- * Generate submit button click code
- */
-function generateSubmitCode(step: RecordingStep): string {
-  const selector = step.selector || step.target || '';
-  
-  let submitQuery = '';
-  
-  if (selector.includes('[data-testid=')) {
-    const match = selector.match(/\[data-testid=["']([^"']+)["']\]/);
-    if (match) {
-      submitQuery = `screen.getByTestId("${match[1]}")`;
-    }
-  } else {
-    // Try to find submit button
-    const submitPatterns = ['submit', 'save', 'confirm', 'apply'];
-    const pattern = submitPatterns.find(p => selector.toLowerCase().includes(p)) || 'submit';
-    submitQuery = `screen.getByRole('button', { name: /${pattern}/i })`;
-  }
-
-  return `await userEvent.click(${submitQuery});`;
-}
-
-/**
  * Generate close dialog code
  */
-function generateCloseCode(step?: RecordingStep): string {
-  // Try to find close button
-  const closePatterns = ['close', 'cancel', 'dismiss', 'esc'];
-  
+function generateCloseCode(): string {
   return `await userEvent.keyboard('{Escape}');`;
 }
 
@@ -283,7 +211,7 @@ function transformSingleFlow(flow: DialogFlow): DialogTestTemplate {
   if (flow.closeStep) {
     cleanup.push({
       type: 'action',
-      code: generateCloseCode(flow.closeStep),
+      code: generateCloseCode(),
       description: 'Close the dialog',
     });
   }

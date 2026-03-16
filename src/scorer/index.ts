@@ -2,7 +2,7 @@
  * Main scorer module - orchestrates test quality evaluation
  */
 
-import { existsSync, writeFileSync } from 'fs';
+import { writeFileSync } from 'fs';
 
 import { postWriteVerification,VerificationResult } from '#scorer/post-verify.ts';
 import { AuditResult, preWriteAudit } from '#scorer/pre-audit.ts';

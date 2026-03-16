@@ -366,11 +366,6 @@ function flushFindings(findings: Finding[]): never {
   process.exit(hasBlockingFindings(findings) ? 1 : 0)
 }
 
-const EMPTY_MARKER_COVERAGE: MarkerCoverageTotals = {
-  detected: 0,
-  emitted: 0,
-  unresolved: 0,
-}
 const EMPTY_MARKER_DIAGNOSTICS: MarkerReviewDiagnostics = {
   canonicalRecoveries: 0,
   placementConflicts: 0,

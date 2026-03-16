@@ -60,7 +60,7 @@ function extractSelector(step: ChromeStep): string | undefined {
 /**
  * Normalize a single Chrome step to internal format
  */
-function normalizeStep(step: ChromeStep, index: number): RecordingStep {
+function normalizeStep(step: ChromeStep, _index: number): RecordingStep {
   const normalized: RecordingStep = {
     id: generateStepId(),
     type: step.type,

@@ -7,13 +7,13 @@ import { Command } from 'commander';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 
-import { type ApiCallInfo, detectApiCalls, filterMockableCalls, groupApiCallsByDomain } from '#analyzer/mocks/detector.ts';
+import { type ApiCallInfo, detectApiCalls, groupApiCallsByDomain } from '#analyzer/mocks/detector.ts';
 import { analyzeMockTargets,type MockTarget } from '#analyzer/mocks/target-analyzer.ts';
 import type { AccessibilityProperties } from '#analyzer/visual/element-analyzer.ts';
 import { parseRecording } from '#core/parser.ts';
-import { buildMocks, generateMockFile,type MockDecision } from '#generator/mocks/builder.ts';
+import { buildMocks,type MockDecision } from '#generator/mocks/builder.ts';
 import { getConventions, learnConventions } from '#learner/index.ts';
-import { orchestrateWithScoring, postWriteVerification, preWriteAudit, scoreTest } from '#scorer/index.ts';
+import { postWriteVerification, preWriteAudit, scoreTest } from '#scorer/index.ts';
 import type { NormalizedRecording } from '#types/recording.ts';
 
 /**
@@ -164,7 +164,7 @@ export async function run(options: OrchestratorOptions): Promise<void> {
     // 4f: Learn from generated test for future runs
     console.log('   📚 Learning conventions from generated test...');
     try {
-      const conventions = learnConventions(process.cwd());
+      learnConventions(process.cwd());
       console.log(`   ✓ Convention learning complete`);
     } catch (error) {
       console.log(`   ⚠ Convention learning skipped: ${error instanceof Error ? error.message : 'Unknown error'}`);

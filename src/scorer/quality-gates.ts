@@ -4,7 +4,7 @@
 
 import { parse } from '@typescript-eslint/typescript-estree';
 
-import { QualityCriteria, QualityIssue, QualityScore } from '#scorer/types.ts';
+import { QualityIssue, QualityScore } from '#scorer/types.ts';
 
 interface ASTNode {
   type: string;
@@ -36,7 +36,7 @@ export function evaluateQualityGates(code: string): QualityScore {
       ecmaVersion: 2020,
       sourceType: 'module'
     }) as unknown as ParsedAST;
-  } catch (error) {
+  } catch {
     issues.push({
       type: 'structure',
       severity: 'error',

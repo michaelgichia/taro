@@ -1,5 +1,5 @@
 import type { Page } from 'playwright';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { analyzeElementProperties, recommendQueryMethod } from '#analyzer/visual/element-analyzer.ts';
 

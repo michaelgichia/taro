@@ -88,7 +88,7 @@ export async function inspectElement(
     });
 
     return elementInfo;
-  } catch (error) {
+  } catch {
     // Element not found - return null as per spec
     return null;
   }
@@ -109,7 +109,7 @@ export async function navigateToUrl(
   try {
     await page.goto(url, { timeout, waitUntil: 'domcontentloaded' });
     return true;
-  } catch (error) {
+  } catch {
     throw new Error(
       `Failed to load URL "${url}" after ${timeout}ms. ` +
       'Ensure the app is running and the URL is correct.'
