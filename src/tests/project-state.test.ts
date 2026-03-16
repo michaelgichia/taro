@@ -6,7 +6,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import {
   ensureProjectStateDir,
+  ensureProjectStateDirSync,
   findReadableProjectStatePath,
+  findReadableProjectStatePathSync,
   getProjectStatePath,
 } from '#project-state.ts'
 
@@ -44,5 +46,16 @@ describe('project state helpers', () => {
     await ensureProjectStateDir(projectRoot)
 
     expect(await findReadableProjectStatePath(projectRoot, 'conventions.json')).toBeNull()
+  })
+
+  it('creates and resolves the canonical .taro directory through the sync helpers', async () => {
+    const stateDir = ensureProjectStateDirSync(projectRoot)
+    const filePath = getProjectStatePath(projectRoot, 'state.json')
+
+    await writeFile(filePath, '{}', 'utf-8')
+
+    expect(stateDir).toBe(join(projectRoot, '.taro'))
+    expect(findReadableProjectStatePathSync(projectRoot, 'state.json')).toBe(filePath)
+    expect(findReadableProjectStatePathSync(projectRoot, 'missing.json')).toBeNull()
   })
 })

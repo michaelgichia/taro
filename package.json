@@ -40,7 +40,8 @@
     "knip": "knip",
     "test": "node scripts/run-tests.cjs",
     "test:run": "node scripts/run-tests.cjs run",
-    "test:coverage": "node scripts/run-tests.cjs run --coverage"
+    "test:coverage": "node scripts/run-tests.cjs run --coverage",
+    "coverage:uncovered": "node -e \"const c=require('./coverage/coverage-final.json'); const rows=[]; for (const [file,data] of Object.entries(c)) { const total=Object.keys(data.statementMap||{}).length; const covered=Object.values(data.s||{}).filter(v=>v>0).length; const pct=total?covered*100/total:100; if (pct<100) rows.push([pct,file]); } rows.sort((a,b)=>a[0]-b[0]); for (const [pct,file] of rows) console.log(pct.toFixed(2).padStart(6)+'%  '+file)\""
   },
   "imports": {
     "#*.ts": {

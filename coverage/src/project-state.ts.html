@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">72.72% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>32/44</span>
+                <span class='fraction'>44/44</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
+                <span class='fraction'>10/10</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">100% </span>
+                <span class="quiet">Functions</span>
                 <span class='fraction'>6/6</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">66.66% </span>
-                <span class="quiet">Functions</span>
-                <span class='fraction'>4/6</span>
-            </div>
-        
-            
-            <div class='fl pad1y space-right2'>
-                <span class="strong">72.72% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>32/44</span>
+                <span class='fraction'>44/44</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line medium'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -120,16 +120,16 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">163x</span>
-<span class="cline-any cline-yes">163x</span>
+<span class="cline-any cline-yes">167x</span>
+<span class="cline-any cline-yes">167x</span>
+<span class="cline-any cline-yes">167x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">138x</span>
-<span class="cline-any cline-yes">138x</span>
-<span class="cline-any cline-yes">138x</span>
-<span class="cline-any cline-yes">138x</span>
-<span class="cline-any cline-yes">138x</span>
+<span class="cline-any cline-yes">141x</span>
+<span class="cline-any cline-yes">141x</span>
+<span class="cline-any cline-yes">141x</span>
+<span class="cline-any cline-yes">141x</span>
+<span class="cline-any cline-yes">141x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">25x</span>
 <span class="cline-any cline-yes">25x</span>
@@ -138,12 +138,12 @@
 <span class="cline-any cline-yes">25x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">94x</span>
 <span class="cline-any cline-yes">94x</span>
@@ -159,19 +159,19 @@
 <span class="cline-any cline-yes">94x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { existsSync, mkdirSync } from 'node:fs'
 import { access, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 &nbsp;
-export const TARO_STATE_DIRNAME = '.taro'
+const TARO_STATE_DIRNAME = '.taro'
 &nbsp;
-export function getProjectStateDir(projectRoot: string): string {
+function getProjectStateDir(projectRoot: string): string {
   return join(projectRoot, TARO_STATE_DIRNAME)
 }
 &nbsp;
@@ -188,13 +188,13 @@ export async function ensureProjectStateDir(projectRoot: string): Promise&lt;str
   return stateDir
 }
 &nbsp;
-export <span class="fstat-no" title="function not covered" >function ensureProjectStateDirSync(projectRoot: string): string {</span>
-<span class="cstat-no" title="statement not covered" >  const stateDir = getProjectStateDir(projectRoot)</span>
-<span class="cstat-no" title="statement not covered" >  if (!existsSync(stateDir)) {</span>
-<span class="cstat-no" title="statement not covered" >    mkdirSync(stateDir, { recursive: true })</span>
-<span class="cstat-no" title="statement not covered" >  }</span>
-<span class="cstat-no" title="statement not covered" >  return stateDir</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+export function ensureProjectStateDirSync(projectRoot: string): string {
+  const stateDir = getProjectStateDir(projectRoot)
+  if (!existsSync(stateDir)) {
+    mkdirSync(stateDir, { recursive: true })
+  }
+  return stateDir
+}
 &nbsp;
 export async function findReadableProjectStatePath(
   projectRoot: string,
@@ -209,13 +209,13 @@ export async function findReadableProjectStatePath(
   }
 }
 &nbsp;
-export <span class="fstat-no" title="function not covered" >function findReadableProjectStatePathSync(</span>
-<span class="cstat-no" title="statement not covered" >  projectRoot: string,</span>
-<span class="cstat-no" title="statement not covered" >  ...segments: string[]</span>
-<span class="cstat-no" title="statement not covered" >): string | null {</span>
-<span class="cstat-no" title="statement not covered" >  const statePath = getProjectStatePath(projectRoot, ...segments)</span>
-<span class="cstat-no" title="statement not covered" >  return existsSync(statePath) ? statePath : null</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+export function findReadableProjectStatePathSync(
+  projectRoot: string,
+  ...segments: string[]
+): string | null {
+  const statePath = getProjectStatePath(projectRoot, ...segments)
+  return existsSync(statePath) ? statePath : null
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -223,7 +223,7 @@ export <span class="fstat-no" title="function not covered" >function findReadabl
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-16T09:58:03.885Z
+                at 2026-03-16T10:29:36.113Z
             </div>
         <script src="../prettify.js"></script>
         <script>
