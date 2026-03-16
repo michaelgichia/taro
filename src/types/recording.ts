@@ -431,8 +431,25 @@ export type SelectorResolutionOutcome =
   | 'selector-not-found'
   | 'selector-inaccessible'
   | 'unsupported-selector'
+export type SelectorResolutionPhase = 'pre-step' | 'post-step' | 'fallback-no-replay'
+export type SelectorResolutionInspectSource =
+  | 'persistent-page'
+  | 'fresh-browser'
+  | 'preserved-query'
+
+export interface SelectorResolutionDebugInfo {
+  cssSelector: string
+  derivedQuery?: string
+  inspectSource: SelectorResolutionInspectSource
+  inspectionError?: string
+  pageUrl?: string
+  phase?: SelectorResolutionPhase
+  reason?: string
+  result: SelectorResolutionStatus
+}
 
 interface BaseSelectorResolutionResult {
+  debug?: SelectorResolutionDebugInfo
   stepId: StepId
   selector: SelectorDescriptor
   url?: string

@@ -11,6 +11,9 @@ import type {
   QueryQuality,
   QueryResult,
   SelectorDescriptor,
+  SelectorResolutionDebugInfo,
+  SelectorResolutionInspectSource,
+  SelectorResolutionPhase,
   SelectorResolutionResult,
   SemanticMarkerAssertion,
   SemanticMarkerAssertionProofKind,
@@ -18,6 +21,7 @@ import type {
   SemanticMarkerAssertionUnresolvedReason,
   SemanticMarkerCandidate,
   SemanticMarkerLink,
+  StepId,
   UnresolvedSemanticMarker,
   VisualState,
 } from '../types/recording.js'
@@ -65,8 +69,8 @@ const PLAYWRIGHT_CAPTURE_FAILURE_PREFIX = 'Playwright visual capture failed.'
 const PLAYWRIGHT_SELECTOR_INSPECTION_ERROR_PREFIX = 'Playwright selector inspection failed.'
 const PLAYWRIGHT_AUTH_RECOVERY_POLL_MS = 1000
 const PLAYWRIGHT_PAGE_CONFIRMATION_POLL_MS = 250
-const PLAYWRIGHT_OPEN_RETRY_LIMIT = 2
-const PLAYWRIGHT_OPEN_RETRY_DELAY_MS = 250
+const PLAYWRIGHT_OPEN_RETRY_LIMIT = 3
+const PLAYWRIGHT_OPEN_RETRY_DELAY_MS = 2000
 
 /**
  * Escapes single quotes in strings for use in generated query code.
@@ -122,6 +126,10 @@ export type SelectorInspectionResult =
   | FailedSelectorInspectionResult
 
 export interface ResolveSelectorOptions {
+  debug?: {
+    inspectSource?: SelectorResolutionInspectSource
+    phase?: SelectorResolutionPhase
+  }
   url?: string
   preservedQuery?: QueryDescriptor
   timeoutMs?: number
@@ -235,16 +243,26 @@ function toUnresolvedSelectorResult(
   >['outcome'],
   reason: string,
   options: {
-    url?: string
+    inspectSource?: SelectorResolutionInspectSource
     inspectionError?: string
+    pageUrl?: string
+    phase?: SelectorResolutionPhase
   } = {}
 ): SelectorResolutionResult {
   return {
+    debug: buildSelectorResolutionDebugInfo(selector, {
+      inspectSource: options.inspectSource ?? 'fresh-browser',
+      inspectionError: options.inspectionError,
+      pageUrl: options.pageUrl,
+      phase: options.phase,
+      reason,
+      result: 'unresolved',
+    }),
     status: 'unresolved',
     outcome,
     stepId: selector.stepId,
     selector,
-    url: options.url,
+    url: options.pageUrl,
     reason,
     inspectionError: options.inspectionError,
     warnings: [reason],
@@ -253,6 +271,51 @@ function toUnresolvedSelectorResult(
 
 function sanitizeCaptureSegment(value: string): string {
   return value.replace(/[^a-zA-Z0-9-_]+/g, '-').replace(/^-+|-+$/g, '') || 'capture'
+}
+
+function formatQueryDescriptorForDebug(query: {
+  method: string
+  target?: string
+  role?: string
+  name?: string
+}): string {
+  if (query.method === 'getByRole' && query.role) {
+    const parts = [`'${query.role}'`]
+    if (query.name) {
+      parts.push(`{ name: '${escapeSingleQuote(query.name)}' }`)
+    }
+    return `${query.method}(${parts.join(', ')})`
+  }
+
+  if (query.target) {
+    return `${query.method}('${escapeSingleQuote(query.target)}')`
+  }
+
+  return `${query.method}()`
+}
+
+function buildSelectorResolutionDebugInfo(
+  selector: SelectorDescriptor,
+  options: {
+    inspectSource: SelectorResolutionInspectSource
+    inspectionError?: string
+    pageUrl?: string
+    phase?: SelectorResolutionPhase
+    reason?: string
+    result: SelectorResolutionResult['status']
+    derivedQuery?: string
+  }
+): SelectorResolutionDebugInfo {
+  return {
+    cssSelector: selector.selector,
+    derivedQuery: options.derivedQuery,
+    inspectSource: options.inspectSource,
+    inspectionError: options.inspectionError,
+    pageUrl: options.pageUrl,
+    phase: options.phase,
+    reason: options.reason,
+    result: options.result,
+  }
 }
 
 function getSemanticMarkerCandidate(
@@ -1296,6 +1359,8 @@ async function attemptAuthRecovery(params: {
   const { context, expected, initialInterrupt, page, reason, recovery, selector, url } = params
   const startedAt = new Date().toISOString()
   const deadline = Date.now() + recovery.timeoutMs
+  const AUTH_RECOVERY_HEARTBEAT_MS = 30_000
+  let lastHeartbeatAt = Date.now()
   let retryToExpectedUrl:
     | {
         attempted: true
@@ -1305,10 +1370,30 @@ async function attemptAuthRecovery(params: {
         targetUrl: string
       }
     | undefined
+  // Tracks whether a navigation to the expected URL is allowed.
+  // Reset to true each time an auth interrupt is detected so that after
+  // the user re-authenticates, Taro can navigate to the expected URL again.
+  let canNavigateToExpectedUrl = true
 
   try {
     while (Date.now() <= deadline) {
       const snapshot = await inspectVisualPage(page, { expected, selector })
+
+      const now = Date.now()
+      if (now - lastHeartbeatAt >= AUTH_RECOVERY_HEARTBEAT_MS) {
+        const remainingSec = Math.max(0, Math.round((deadline - now) / 1000))
+        console.log(
+          pc.dim('[taro]') + ` Still waiting for sign-in… ${remainingSec}s remaining.`
+        )
+        lastHeartbeatAt = now
+      }
+
+      if (snapshot.authCheckpoint.interrupt) {
+        // User is back at an auth page (e.g. navigation redirected to login).
+        // Allow navigation again so the next successful auth triggers a retry.
+        canNavigateToExpectedUrl = true
+      }
+
       if (
         isStartingPointConfirmed({
           expected,
@@ -1354,7 +1439,7 @@ async function attemptAuthRecovery(params: {
       }
 
       if (
-        !retryToExpectedUrl &&
+        canNavigateToExpectedUrl &&
         shouldRetryExpectedUrlDuringAuthRecovery({
           expected,
           snapshot,
@@ -1365,6 +1450,7 @@ async function attemptAuthRecovery(params: {
           continue
         }
 
+        canNavigateToExpectedUrl = false
         try {
           await page.goto(targetUrl, {
             timeout: Math.max(1, deadline - Date.now()),
@@ -1502,6 +1588,11 @@ export async function captureVisualState(
       })
 
       if (options.authRecovery?.enabled) {
+        const timeoutSec = Math.round((options.authRecovery.timeoutMs ?? 0) / 1000)
+        console.log(
+          pc.dim('[taro]') +
+            ` Auth required — complete sign-in in the browser window. Waiting up to ${timeoutSec}s.`
+        )
         return await attemptAuthRecovery({
           auth: options.auth,
           context: captureSession.context,
@@ -1695,9 +1786,20 @@ export async function resolveSelector(
   options: ResolveSelectorOptions = {}
 ): Promise<SelectorResolutionResult> {
   const { url, preservedQuery, timeoutMs = 5000, inspect = inspectSelector } = options
+  const inspectSource =
+    options.debug?.inspectSource ??
+    (preservedQuery ? 'preserved-query' : inspect === inspectSelector ? 'fresh-browser' : 'persistent-page')
+  const phase = options.debug?.phase
 
   if (preservedQuery) {
     return {
+      debug: buildSelectorResolutionDebugInfo(selector, {
+        inspectSource,
+        pageUrl: url,
+        phase,
+        result: 'resolved',
+        derivedQuery: preservedQuery.raw,
+      }),
       status: 'resolved',
       outcome: 'preserved-query',
       source: 'baseline',
@@ -1713,7 +1815,11 @@ export async function resolveSelector(
     return toUnresolvedSelectorResult(
       selector,
       'no-url',
-      `No recorded URL is available to inspect selector ${selector.selector}.`
+      `No recorded URL is available to inspect selector ${selector.selector}.`,
+      {
+        inspectSource,
+        phase,
+      }
     )
   }
 
@@ -1723,7 +1829,11 @@ export async function resolveSelector(
       selector,
       'unsupported-selector',
       unsupportedSelectorReason,
-      { url }
+      {
+        inspectSource,
+        pageUrl: url,
+        phase,
+      }
     )
   }
 
@@ -1736,8 +1846,10 @@ export async function resolveSelector(
         'inspection-failed',
         `Playwright inspection failed for selector ${selector.selector}.`,
         {
-          url,
+          inspectSource,
           inspectionError: inspection.error,
+          pageUrl: url,
+          phase,
         }
       )
     }
@@ -1747,7 +1859,11 @@ export async function resolveSelector(
         selector,
         'selector-not-found',
         `Selector ${selector.selector} was not found at ${url}.`,
-        { url }
+        {
+          inspectSource,
+          pageUrl: url,
+          phase,
+        }
       )
     }
 
@@ -1757,11 +1873,22 @@ export async function resolveSelector(
         selector,
         'selector-inaccessible',
         `Selector ${selector.selector} did not expose trustworthy accessible query evidence.`,
-        { url }
+        {
+          inspectSource,
+          pageUrl: url,
+          phase,
+        }
       )
     }
 
     return {
+      debug: buildSelectorResolutionDebugInfo(selector, {
+        inspectSource,
+        pageUrl: url,
+        phase,
+        result: 'resolved',
+        derivedQuery: accessibleQuery.query,
+      }),
       status: 'resolved',
       outcome: 'accessible-query',
       source: 'live-dom',
@@ -1778,8 +1905,10 @@ export async function resolveSelector(
       'inspection-failed',
       `Playwright inspection failed for selector ${selector.selector}.`,
       {
-        url,
+        inspectSource,
         inspectionError: error instanceof Error ? error.message : 'Unknown error',
+        pageUrl: url,
+        phase,
       }
     )
   }
@@ -1930,6 +2059,40 @@ function queryToPlaywrightLocator(
   return null
 }
 
+export type ReplayLocatorSource =
+  | 'metadata.selector'
+  | 'metadata.query'
+  | 'step.target'
+  | 'fill.placeholder'
+  | 'none'
+
+export interface ReplayStepDebugTrace {
+  action: NormalizedAction
+  error?: string
+  fallbackLocators?: string[]
+  locatorSource: ReplayLocatorSource
+  locatorValue?: string
+  pageTitle?: string
+  pageUrl?: string
+  playwrightAction: string
+  result: 'replayed' | 'failed' | 'skipped'
+  stepId?: StepId
+  target?: string
+  timeoutMs: number
+}
+
+export interface ReplayStepResult {
+  debug?: ReplayStepDebugTrace
+  replayed: boolean
+  warning?: string
+}
+
+interface ResolvedStepLocator {
+  locator: import('playwright').Locator | null
+  source: ReplayLocatorSource
+  value?: string
+}
+
 /**
  * Resolves a Playwright Locator for a given step, trying metadata.selector,
  * metadata.query, and step.target as fallbacks.
@@ -1937,28 +2100,47 @@ function queryToPlaywrightLocator(
 function resolveStepLocator(
   page: Page,
   step: NormalizedStep
-): import('playwright').Locator | null {
+): ResolvedStepLocator {
   const selectorMeta = step.metadata?.selector as { selector?: string } | undefined
   if (selectorMeta?.selector) {
-    return page.locator(selectorMeta.selector).first()
+    return {
+      locator: page.locator(selectorMeta.selector).first(),
+      source: 'metadata.selector',
+      value: selectorMeta.selector,
+    }
   }
 
   const queryMeta = step.metadata?.query as
     | { method: string; target?: string; role?: string; name?: string }
     | undefined
   if (queryMeta?.method) {
-    return queryToPlaywrightLocator(page, queryMeta)
+    return {
+      locator: queryToPlaywrightLocator(page, queryMeta),
+      source: 'metadata.query',
+      value: formatQueryDescriptorForDebug(queryMeta),
+    }
   }
 
   if (step.target) {
     try {
-      return page.locator(step.target).first()
+      return {
+        locator: page.locator(step.target).first(),
+        source: 'step.target',
+        value: step.target,
+      }
     } catch {
-      return null
+      return {
+        locator: null,
+        source: 'step.target',
+        value: step.target,
+      }
     }
   }
 
-  return null
+  return {
+    locator: null,
+    source: 'none',
+  }
 }
 
 /**
@@ -1972,36 +2154,87 @@ function resolveStepLocator(
 export async function replayStep(
   page: Page,
   step: NormalizedStep,
-  timeoutMs = 3000
-): Promise<{ replayed: boolean; warning?: string }> {
+  options: {
+    collectDebug?: boolean
+    timeoutMs?: number
+  } = {}
+): Promise<ReplayStepResult> {
+  const timeoutMs = options.timeoutMs ?? 3000
   const action = step.action
   const noopActions: NormalizedAction[] = ['assert', 'unknown', 'waitForSelector', 'scroll', 'doubleClick']
+  const debugBase: ReplayStepDebugTrace | undefined = options.collectDebug
+    ? {
+        action,
+        locatorSource: 'none',
+        pageTitle: await page.title().catch(() => undefined),
+        pageUrl: page.url(),
+        playwrightAction: 'noop',
+        result: 'skipped',
+        stepId: step.id,
+        target: step.target,
+        timeoutMs,
+      }
+    : undefined
   if (noopActions.includes(action)) {
-    return { replayed: true }
+    return { replayed: true, debug: debugBase }
   }
 
   try {
     if (action === 'navigate' && step.target) {
       await page.goto(step.target, { timeout: timeoutMs, waitUntil: 'domcontentloaded' })
-      return { replayed: true }
+      return {
+        replayed: true,
+        debug: debugBase
+          ? {
+              ...debugBase,
+              locatorSource: 'step.target',
+              locatorValue: step.target,
+              playwrightAction: `page.goto('${escapeSingleQuote(step.target)}')`,
+              result: 'replayed',
+            }
+          : undefined,
+      }
     }
 
     if (action === 'keyDown' && step.key) {
       await page.keyboard.press(step.key)
-      return { replayed: true }
+      return {
+        replayed: true,
+        debug: debugBase
+          ? {
+              ...debugBase,
+              locatorValue: step.key,
+              playwrightAction: `page.keyboard.press('${escapeSingleQuote(step.key)}')`,
+              result: 'replayed',
+            }
+          : undefined,
+      }
     }
 
-    const locator = resolveStepLocator(page, step)
-    if (!locator) {
-      return { replayed: false, warning: `No locator for ${action} on ${step.target ?? '(unknown)'}` }
+    const resolvedLocator = resolveStepLocator(page, step)
+    if (!resolvedLocator.locator) {
+      return {
+        replayed: false,
+        warning: `No locator for ${action} on ${step.target ?? '(unknown)'}`,
+        debug: debugBase
+          ? {
+              ...debugBase,
+              locatorSource: resolvedLocator.source,
+              locatorValue: resolvedLocator.value,
+              playwrightAction: `${action}()`,
+              result: 'failed',
+              error: `No locator for ${action} on ${step.target ?? '(unknown)'}`,
+            }
+          : undefined,
+      }
     }
 
     switch (action) {
       case 'click':
-        await locator.click({ timeout: timeoutMs })
+        await resolvedLocator.locator.click({ timeout: timeoutMs })
         break
       case 'doubleClick':
-        await locator.dblclick({ timeout: timeoutMs })
+        await resolvedLocator.locator.dblclick({ timeout: timeoutMs })
         break
       case 'fill':
         if (step.value != null) {
@@ -2013,24 +2246,90 @@ export async function replayStep(
           if (placeholderCount === 1) {
             await placeholderLocator.click({ timeout: timeoutMs })
             await placeholderLocator.fill(step.value, { timeout: timeoutMs })
+            return {
+              replayed: true,
+              debug: debugBase
+                ? {
+                    ...debugBase,
+                    fallbackLocators: resolvedLocator.value ? [`${resolvedLocator.source}:${resolvedLocator.value}`] : undefined,
+                    locatorSource: 'fill.placeholder',
+                    locatorValue: target,
+                    playwrightAction: `page.getByPlaceholder('${escapeSingleQuote(target)}').fill('${escapeSingleQuote(step.value)}')`,
+                    result: 'replayed',
+                  }
+                : undefined,
+            }
           } else {
-            await locator.click({ timeout: timeoutMs })
-            await locator.fill(step.value, { timeout: timeoutMs })
+            await resolvedLocator.locator.click({ timeout: timeoutMs })
+            await resolvedLocator.locator.fill(step.value, { timeout: timeoutMs })
           }
         }
         break
       case 'select':
-        await locator.click({ timeout: timeoutMs })
+        await resolvedLocator.locator.click({ timeout: timeoutMs })
         break
       default:
-        return { replayed: true }
+        return { replayed: true, debug: debugBase }
     }
 
-    return { replayed: true }
+    const playwrightAction =
+      action === 'fill' && step.value != null
+        ? `locator.fill('${escapeSingleQuote(step.value)}')`
+        : action === 'select'
+          ? 'locator.click()'
+          : action === 'click'
+            ? 'locator.click()'
+            : action === 'doubleClick'
+              ? 'locator.dblclick()'
+              : `${action}()`
+
+    return {
+      replayed: true,
+      debug: debugBase
+        ? {
+            ...debugBase,
+            locatorSource: resolvedLocator.source,
+            locatorValue: resolvedLocator.value,
+            playwrightAction,
+            result: 'replayed',
+          }
+        : undefined,
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     const truncated = message.length > 120 ? message.slice(0, 120) + '...' : message
-    return { replayed: false, warning: `${action} on ${step.target ?? '(unknown)'} failed: ${truncated}` }
+    const resolvedLocator: Pick<ResolvedStepLocator, 'source' | 'value'> =
+      action === 'navigate' || action === 'keyDown'
+        ? {
+            source: action === 'navigate' ? 'step.target' : 'none',
+            value: action === 'navigate' ? step.target : step.key,
+          }
+        : resolveStepLocator(page, step)
+    return {
+      replayed: false,
+      warning: `${action} on ${step.target ?? '(unknown)'} failed: ${truncated}`,
+      debug: debugBase
+        ? {
+            ...debugBase,
+            locatorSource: resolvedLocator.source,
+            locatorValue: resolvedLocator.value,
+            playwrightAction:
+              action === 'navigate' && step.target
+                ? `page.goto('${escapeSingleQuote(step.target)}')`
+                : action === 'keyDown' && step.key
+                  ? `page.keyboard.press('${escapeSingleQuote(step.key)}')`
+                  : action === 'fill' && step.value != null
+                    ? `locator.fill('${escapeSingleQuote(step.value)}')`
+                    : action === 'click'
+                      ? 'locator.click()'
+                      : action === 'select'
+                        ? 'locator.click()'
+                        : `${action}()`,
+            result: 'failed',
+            error: message,
+          }
+        : undefined,
+    }
   }
 }
 

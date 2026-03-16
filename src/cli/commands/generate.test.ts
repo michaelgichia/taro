@@ -268,11 +268,13 @@ function unresolvedSelector(
   >["outcome"],
   reason: string,
   extras: {
+    debug?: SelectorResolutionResult["debug"];
     url?: string;
     inspectionError?: string;
   } = {},
 ): SelectorResolutionResult {
   return {
+    debug: extras.debug,
     status: "unresolved",
     outcome,
     stepId: selector.stepId,
@@ -640,6 +642,80 @@ test('Reveal flow', async () => {
     );
     expect(written).not.toContain(`// selector: ${deferredSelector}`);
     expect(resolveSelectorMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("emits selector and replay debug traces and writes JSONL when selector debugging is enabled", async () => {
+    const fixture = await createRecordingFixture("selector-debug");
+    const debugPath = join(fixture.outputDir, ".taro", "selector-debug.jsonl");
+
+    replayStepMock.mockResolvedValue({
+      replayed: false,
+      warning: "click on #save failed: Timeout 3000ms exceeded",
+      debug: {
+        action: "click",
+        error: "Timeout 3000ms exceeded",
+        locatorSource: "metadata.query",
+        locatorValue: "getByRole('button', { name: 'Save' })",
+        pageTitle: "Workspace",
+        pageUrl: "http://localhost:3001/workspace",
+        playwrightAction: "locator.click()",
+        result: "failed",
+        stepId: "js-step-2",
+        target: "#save",
+        timeoutMs: 3000,
+      },
+    });
+    resolveSelectorMock.mockImplementation((selector) =>
+      unresolvedSelector(
+        selector,
+        "inspection-failed",
+        `Playwright inspection failed for selector ${selector.selector}.`,
+        {
+          url: "http://localhost:3001/workspace",
+          inspectionError: "browser blocked",
+          debug: {
+            cssSelector: selector.selector,
+            inspectSource: "persistent-page",
+            inspectionError: "browser blocked",
+            pageUrl: "http://localhost:3001/workspace",
+            phase: "pre-step",
+            reason: `Playwright inspection failed for selector ${selector.selector}.`,
+            result: "unresolved",
+          },
+        },
+      ),
+    );
+
+    const result = await runGenerate(
+      ["--debug-selectors", "--debug-selectors-json", debugPath, fixture.recordingPath],
+      fixture.outputDir,
+    );
+    const debugOutput = await readFile(debugPath, "utf-8");
+
+    expect(result.thrown).toBeUndefined();
+    expect(result.logs).toContain("[taro][selector]");
+    expect(result.logs).toContain("inspectSource=persistent-page");
+    expect(result.logs).toContain("[taro][replay]");
+    expect(result.logs).toContain("locatorSource=metadata.query");
+    expect(debugOutput).toContain('"kind":"selector-resolution"');
+    expect(debugOutput).toContain('"kind":"replay-attempt"');
+  });
+
+  it("emits browser-open debug traces when the step replay browser cannot start", async () => {
+    const fixture = await createRecordingFixture("selector-debug-browser-open");
+    openCapturePageMock.mockRejectedValue(new Error("browser blocked"));
+
+    const result = await runGenerate(
+      ["--debug-selectors", fixture.recordingPath],
+      fixture.outputDir,
+    );
+
+    expect(result.thrown).toBeUndefined();
+    expect(result.logs).toContain("[taro][replay-browser]");
+    expect(result.logs).toContain('error="browser blocked"');
+    expect(result.warnings).toContain(
+      "Step replay browser failed: browser blocked. Selectors will remain unresolved.",
+    );
   });
 
   it("uses recording text matches to select package context and recover a source render target", async () => {

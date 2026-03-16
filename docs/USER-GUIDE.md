@@ -7,14 +7,14 @@ For the current strict-order runtime pipeline, see [PIPELINE.md](./PIPELINE.md).
 ## Install
 
 ```bash
-npx @taro-test/rtl@latest
+pnpm dlx @taro-test/rtl@latest
 ```
 
 Use runtime flags plus one location flag to skip prompts:
 
 ```bash
-npx @taro-test/rtl@latest --codex --local
-npx @taro-test/rtl@latest --all --global
+pnpm dlx @taro-test/rtl@latest --codex --local
+pnpm dlx @taro-test/rtl@latest --all --global
 ```
 
 After install or reinstall, run the runtime-native `init` entrypoint:
@@ -24,12 +24,12 @@ After install or reinstall, run the runtime-native `init` entrypoint:
 - OpenCode: `/@taro-test/rtl-init`
 - Codex: `$@taro-test/rtl-init`
 
-The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `npx @taro-test/rtl@latest --version`.
+The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `pnpm dlx @taro-test/rtl@latest --version`.
 
 For Claude Code local testing from this repo, run:
 
 ```bash
-npm run build:claude
+pnpm run build:claude
 ```
 
 That command builds Taro, installs the Claude command surface into this repo's `./.claude/`, deletes the existing global Taro Claude command directory, and reinstalls the global Claude surface cleanly.
@@ -37,10 +37,10 @@ That command builds Taro, installs the Claude command surface into this repo's `
 For the Codex equivalent, run:
 
 ```bash
-npm run build:codex
+pnpm run build:codex
 ```
 
-That command builds Taro, installs the Codex skill surface into this repo's `./.codex/`, deletes the existing global Taro Codex skill directories plus the Taro Codex manifest, and reinstalls the global Codex surface cleanly. It does not place a global `taro` binary on your shell `PATH`; the installed Codex skills call this checkout's `dist/index.js` directly. If you move or replace the checkout, rerun `npm run build:codex` so the launcher paths stay current.
+That command builds Taro, installs the Codex skill surface into this repo's `./.codex/`, deletes the existing global Taro Codex skill directories plus the Taro Codex manifest, and reinstalls the global Codex surface cleanly. It does not place a global `taro` binary on your shell `PATH`; the installed Codex skills call this checkout's `dist/index.js` directly. If you move or replace the checkout, rerun `pnpm run build:codex` so the launcher paths stay current.
 
 ## Runtime Entrypoints
 
@@ -58,7 +58,7 @@ Use the runtime-native `refresh` entrypoint when Taro is already installed and y
 - OpenCode: `/@taro-test/rtl-refresh`
 - Codex: `$@taro-test/rtl-refresh`
 
-If you need a newer package version first, rerun `npx @taro-test/rtl@latest` and then run the runtime-native `refresh` entrypoint.
+If you need a newer package version first, rerun `pnpm dlx @taro-test/rtl@latest` and then run the runtime-native `refresh` entrypoint.
 
 ## Generation Rules
 

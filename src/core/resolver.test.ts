@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Page } from 'playwright'
 import {
   captureVisualState,
   deriveAccessibleQuery,
   extractDialogState,
   inspectElements,
+  replayStep,
   resolveSemanticMarkerAssertion,
   resolveSelector,
   selectMatcher,
@@ -403,21 +405,35 @@ describe('resolveSelector', () => {
     const inspect = vi.fn().mockResolvedValue(foundInspection(accessibleButton))
 
     const result = await resolveSelector(selectorDescriptor, {
+      debug: {
+        inspectSource: 'preserved-query',
+        phase: 'pre-step',
+      },
       url: 'http://localhost:3000',
       preservedQuery,
       inspect,
     })
 
-    expect(result).toEqual({
-      status: 'resolved',
-      outcome: 'preserved-query',
-      source: 'baseline',
-      stepId: 'js-step-1',
-      selector: selectorDescriptor,
-      url: 'http://localhost:3000',
-      query: preservedQuery,
-      warnings: [],
-    })
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'resolved',
+        outcome: 'preserved-query',
+        source: 'baseline',
+        stepId: 'js-step-1',
+        selector: selectorDescriptor,
+        url: 'http://localhost:3000',
+        query: preservedQuery,
+        warnings: [],
+        debug: expect.objectContaining({
+          cssSelector: '#save',
+          derivedQuery: "screen.getByRole('button', { name: 'Save' })",
+          inspectSource: 'preserved-query',
+          pageUrl: 'http://localhost:3000',
+          phase: 'pre-step',
+          result: 'resolved',
+        }),
+      })
+    )
     expect(inspect).not.toHaveBeenCalled()
   })
 
@@ -425,6 +441,10 @@ describe('resolveSelector', () => {
     const inspect = vi.fn().mockResolvedValue(foundInspection(accessibleButton))
 
     const result = await resolveSelector(selectorDescriptor, {
+      debug: {
+        inspectSource: 'persistent-page',
+        phase: 'pre-step',
+      },
       url: 'http://localhost:3000',
       inspect,
     })
@@ -540,6 +560,10 @@ describe('resolveSelector', () => {
     const inspect = vi.fn().mockResolvedValue(failedInspection('browser blocked'))
 
     const result = await resolveSelector(selectorDescriptor, {
+      debug: {
+        inspectSource: 'persistent-page',
+        phase: 'pre-step',
+      },
       url: 'http://localhost:3000',
       inspect,
     })
@@ -551,6 +575,15 @@ describe('resolveSelector', () => {
       expect.objectContaining({
         status: 'unresolved',
         outcome: 'inspection-failed',
+        debug: expect.objectContaining({
+          cssSelector: '#save',
+          inspectSource: 'persistent-page',
+          inspectionError: 'browser blocked',
+          pageUrl: 'http://localhost:3000',
+          phase: 'pre-step',
+          reason: 'Playwright inspection failed for selector #save.',
+          result: 'unresolved',
+        }),
         inspectionError: 'browser blocked',
       })
     )
@@ -572,6 +605,44 @@ describe('resolveSelector', () => {
         status: 'unresolved',
         outcome: 'inspection-failed',
         inspectionError: 'navigation timeout',
+      })
+    )
+  })
+})
+
+describe('replayStep', () => {
+  it('captures locator selection details when replay cannot resolve a locator', async () => {
+    const page = {
+      title: vi.fn().mockResolvedValue('Workspace'),
+      url: vi.fn().mockReturnValue('http://localhost:3000/workspace'),
+    }
+
+    const result = await replayStep(
+      page as unknown as Page,
+      {
+        action: 'click',
+        id: 'js-step-7',
+        originalType: 'click',
+      },
+      {
+        collectDebug: true,
+      }
+    )
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        replayed: false,
+        warning: 'No locator for click on (unknown)',
+        debug: expect.objectContaining({
+          action: 'click',
+          error: 'No locator for click on (unknown)',
+          locatorSource: 'none',
+          pageTitle: 'Workspace',
+          pageUrl: 'http://localhost:3000/workspace',
+          playwrightAction: 'click()',
+          result: 'failed',
+          stepId: 'js-step-7',
+        }),
       })
     )
   })

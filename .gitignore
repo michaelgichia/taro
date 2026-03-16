@@ -1,7 +1,8 @@
-.taro/
-.taro/
 dist/
 node_modules/
+.taro/
+.tayo/
 .codex/
 .claude/
 .kiro/
+.agent/
