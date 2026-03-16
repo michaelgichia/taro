@@ -141,8 +141,8 @@ const EMPTY_MARKER_DIAGNOSTICS: MarkerReviewDiagnostics = {
   placementConflicts: 0,
   placementCorrections: 0,
 }
-const MANUAL_VISUAL_AUTH_TIMEOUT_MS = 5 * 60 * 1000
-const DEFAULT_VISUAL_AUTH_STORAGE_STATE_PATH = '.taro/playwright/.auth/user.json'
+export const MANUAL_VISUAL_AUTH_TIMEOUT_MS = 5 * 60 * 1000
+export const DEFAULT_VISUAL_AUTH_STORAGE_STATE_PATH = '.taro/playwright/.auth/user.json'
 const PAGE_CONFIRMED_CONTEXT_TERM_BONUS = 50
 
 const CONTEXT_SEARCH_SKIP_DIRS = new Set([
@@ -1754,6 +1754,25 @@ export async function resolveOptionalFilePath(
     console.warn(pc.yellow(`[taro] Visual auth: file not found ${absolutePath}; continuing without it.`))
     return null
   }
+}
+
+/**
+ * Checks whether this command run can support interactive visual-auth recovery.
+ *
+ * A forced interactive flag bypasses stdio TTY detection.
+ *
+ * @param {{ input?: { isTTY?: boolean }; output?: { isTTY?: boolean } }} [context={}] - Supplies optional stdio handles to inspect instead of the process globals.
+ * @param {boolean} [forceInteractiveAuth=false] - Forces interactive auth support even when stdin or stdout is not a TTY.
+ * @returns {boolean} `true` when interactive auth recovery is allowed for this run.
+ */
+export function hasInteractiveVisualAuthCapability(
+  context: { input?: { isTTY?: boolean }; output?: { isTTY?: boolean } } = {},
+  forceInteractiveAuth = false
+): boolean {
+  return (
+    forceInteractiveAuth ||
+    Boolean(context.input?.isTTY && context.output?.isTTY)
+  )
 }
 
 /**

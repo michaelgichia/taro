@@ -19,7 +19,7 @@ interface BoundarySupportFilePlan {
   lowConfidence: boolean
 }
 
-interface BoundarySupportPlan {
+export interface BoundarySupportPlan {
   importLines: string[]
   mockBlocks: string[]
   setupLines: string[]
