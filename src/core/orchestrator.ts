@@ -14,8 +14,8 @@ import { parseRecording } from '#core/parser.ts';
 import { buildMocks,type MockDecision } from '#generator/mocks/builder.ts';
 import { getConventions, learnConventions } from '#learner/index.ts';
 import { scoreTest } from '#scorer/index.ts';
-import { preWriteAudit } from '#scorer/pre-audit.ts';
 import { postWriteVerification } from '#scorer/post-verify.ts';
+import { preWriteAudit } from '#scorer/pre-audit.ts';
 import type { NormalizedRecording } from '#types/recording.ts';
 
 /**

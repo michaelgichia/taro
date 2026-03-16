@@ -1398,14 +1398,15 @@ async function attemptAuthRecovery(params: {
         }
       }
 
+      const targetUrl = expected?.url
       if (
         canNavigateToExpectedUrl &&
+        targetUrl &&
         shouldRetryExpectedUrlDuringAuthRecovery({
           expected,
           snapshot,
         })
       ) {
-        const targetUrl = expected.url
 
         canNavigateToExpectedUrl = false
         try {

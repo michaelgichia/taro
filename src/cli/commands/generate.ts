@@ -72,6 +72,7 @@ import type {
   SelectorResolutionResult,
   SemanticMarkerAssertionUnresolvedReason,
   StepId,
+  UnresolvedSelectorResolutionResult,
   UnresolvedSemanticMarkerAssertionResolution,
   VisualState,
 } from '#types/recording.ts'
@@ -3076,7 +3077,7 @@ async function resolveJsGeneration(
       browser = captureSession.browser
       const page = captureSession.page
       const inspect = createPageInspector(page)
-      const unresolvedSelectorResolutions = new Map<StepId, SelectorResolutionResult>()
+      const unresolvedSelectorResolutions = new Map<StepId, UnresolvedSelectorResolutionResult>()
 
       const resolveStepSelectors = async (
         stepId: StepId,

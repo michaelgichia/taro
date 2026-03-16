@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import type { ApiCallInfo } from '#analyzer/mocks/detector.ts'
 import {
   __targetAnalyzerTestUtils,
   analyzeMockLibraryUsage,
@@ -10,7 +11,6 @@ import {
   selectMockLibrary,
   suggestMockFilePath,
 } from '#analyzer/mocks/target-analyzer.ts'
-import type { ApiCallInfo } from '#analyzer/mocks/detector.ts'
 
 function createApiCall(
   overrides: Partial<ApiCallInfo> = {}

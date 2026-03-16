@@ -1,11 +1,11 @@
-import { chmod, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { Finding } from '#core/findings-reporter.ts'
 import { generateCommandInternals } from '#cli/commands/generate.ts'
+import type { Finding } from '#core/findings-reporter.ts'
 import type {
   ItGroup,
   QueryDescriptor,

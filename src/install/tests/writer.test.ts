@@ -14,8 +14,8 @@ vi.mock('node:fs/promises', () => ({
   writeFile: writeFileMock,
 }))
 
-import { writeInstallPlan } from '#install/writer.ts'
 import type { PlannedInstallTarget } from '#install/types.ts'
+import { writeInstallPlan } from '#install/writer.ts'
 
 function createErrnoError(code: string): NodeJS.ErrnoException {
   const error = new Error(code) as NodeJS.ErrnoException

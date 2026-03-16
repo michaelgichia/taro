@@ -13,7 +13,6 @@ import * as path from 'path';
 import { extractConventions } from '#learner/analyzer.ts';
 import { ConventionStore, createStore } from '#learner/storage.ts';
 import {
-  ConventionKey,
   createEmptyConvention,
   TestConvention} from '#learner/types.ts';
 import { findReadableProjectStatePathSync } from '#project-state.ts';

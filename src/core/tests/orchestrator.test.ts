@@ -73,8 +73,8 @@ vi.mock('fs', () => ({
   writeFileSync: writeFileSyncMock,
 }))
 
-import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { createCommand, run } from '#core/orchestrator.ts'
 

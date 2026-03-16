@@ -1,3 +1,4 @@
+import * as t from '@babel/types'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -5,7 +6,6 @@ import {
   analyzeBoundaryIsolation,
   calculateBoundaryIsolationScore,
 } from '#core/boundary-intelligence.ts'
-import * as t from '@babel/types'
 import { generateTestFromGroups } from '#core/generator.ts'
 import {
   boundarySafeSample,

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import type { DialogFlow } from '#parser/steps/dialog-detector.ts'
-import type { RecordingStep } from '#types/recording.ts'
 import {
   generateDialogTestCode,
   transformDialogFlows,
 } from '#generator/transforms/dialog-transform.ts'
+import type { DialogFlow } from '#parser/steps/dialog-detector.ts'
+import type { RecordingStep } from '#types/recording.ts'
 
 function createStep(
   overrides: Partial<RecordingStep> = {}

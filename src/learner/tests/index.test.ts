@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -62,8 +62,8 @@ vi.mock('#project-state.ts', () => ({
 }))
 
 import {
-  InMemoryConventionStore,
   getConventions,
+  InMemoryConventionStore,
   learnConventions,
 } from '#learner/index.ts'
 
