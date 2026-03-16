@@ -12,15 +12,15 @@ import {
   discoverRepoRenderTargets,
   findTestFiles,
   readTestFiles,
-} from './convention-intelligence.ts'
-import { findRepoFallbackPackageProfile, initTaroState, refreshTaroState, writeTaroState, readTaroState } from './state.ts'
-import { findReadableProjectStatePath } from '../project-state.ts'
-import { DEFAULT_CONVENTIONS } from '../types/conventions.ts'
-import type { ConventionFile, ConventionsSchema } from '../types/conventions.ts'
-import type { RepoRenderTargetCandidate } from '../types/state.ts'
+} from '#core/convention-intelligence.ts'
+import { findRepoFallbackPackageProfile, initTaroState, refreshTaroState, writeTaroState, readTaroState } from '#core/state.ts'
+import { findReadableProjectStatePath } from '#project-state.ts'
+import { DEFAULT_CONVENTIONS } from '#types/conventions.ts'
+import type { ConventionFile, ConventionsSchema } from '#types/conventions.ts'
+import type { RepoRenderTargetCandidate } from '#types/state.ts'
 
-export type { RepoRenderTargetCandidate } from '../types/state.ts'
-export type { TestFileContent } from './convention-intelligence.ts'
+export type { RepoRenderTargetCandidate } from '#types/state.ts'
+export type { TestFileContent } from '#core/convention-intelligence.ts'
 export {
   analyzeSingleTestFile,
   analyzeTestFile,

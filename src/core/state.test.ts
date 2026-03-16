@@ -11,7 +11,7 @@ import {
   readTaroState,
   resolveTaroPackageProfile,
   writeTaroState,
-} from './state.ts'
+} from '#core/state.ts'
 
 let projectRoot: string
 

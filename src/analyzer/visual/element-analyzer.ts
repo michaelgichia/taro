@@ -1,5 +1,5 @@
 import { Page } from 'playwright';
-import { ElementInfo, inspectElement } from './inspector.ts';
+import { ElementInfo, inspectElement } from '#analyzer/visual/inspector.ts';
 
 /**
  * Query strategy for Testing Library

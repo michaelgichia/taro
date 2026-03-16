@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { filterNoiseSteps } from './src/parser/steps/noise-filter.ts';
-import type { RecordingStep } from './src/types/recording.ts';
+import { filterNoiseSteps } from '#parser/steps/noise-filter.ts';
+import type { RecordingStep } from '#types/recording.ts';
 
 describe('filterNoiseSteps', () => {
   beforeEach(() => {

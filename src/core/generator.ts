@@ -7,13 +7,13 @@
  *   getByAltText > getByTitle > getByDisplayValue > getByTestId
  */
 
-export { generateTest } from './generator.basic.ts'
-export { generateTestFromGroups } from './generator.from-groups.ts'
-export { emitQuerySummary } from './generator.query-summary.ts'
-export { selectorToQuery } from './generator.shared.ts'
+export { generateTest } from '#core/generator.basic.ts'
+export { generateTestFromGroups } from '#core/generator.from-groups.ts'
+export { emitQuerySummary } from '#core/generator.query-summary.ts'
+export { selectorToQuery } from '#core/generator.shared.ts'
 export type {
   GenerateFromGroupsOptions,
   GeneratedTest,
   GeneratedTestV3,
   GeneratorOptions,
-} from './generator.types.ts'
+} from '#core/generator.types.ts'

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { generateTestFromGroups, selectorToQuery } from './generator.ts'
-import { verifySyntax } from './verifier.ts'
-import type { PlannedMarkerAssertion } from '../types/recording.ts'
+import { generateTestFromGroups, selectorToQuery } from '#core/generator.ts'
+import { verifySyntax } from '#core/verifier.ts'
+import type { PlannedMarkerAssertion } from '#types/recording.ts'
 
 function countOccurrences(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1

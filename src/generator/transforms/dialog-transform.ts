@@ -10,8 +10,8 @@
  * - Optional close verification
  */
 
-import type { RecordingStep } from '../../types/recording.ts';
-import type { DialogFlow, DialogType } from '../../parser/steps/dialog-detector.ts';
+import type { RecordingStep } from '#types/recording.ts';
+import type { DialogFlow, DialogType } from '#parser/steps/dialog-detector.ts';
 
 export interface TransformedStep {
   type: 'helper' | 'action' | 'assertion';

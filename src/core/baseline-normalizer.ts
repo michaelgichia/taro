@@ -10,7 +10,7 @@ import type {
   SelectorDescriptor,
   StepId,
   UnresolvedSemanticMarker,
-} from '../types/recording.ts'
+} from '#types/recording.ts'
 
 type EvidenceMaps = {
   assertions: Map<StepId, AssertionDescriptor[]>

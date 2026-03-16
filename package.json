@@ -38,6 +38,12 @@
     "test:run": "node scripts/run-tests.cjs run",
     "test:coverage": "node scripts/run-tests.cjs run --coverage"
   },
+  "imports": {
+    "#*.ts": {
+      "types": "./src/*.ts",
+      "default": "./dist/*.js"
+    }
+  },
   "exports": {
     ".": "./dist/index.js"
   },

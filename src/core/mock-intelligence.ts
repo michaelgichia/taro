@@ -1,5 +1,5 @@
 import { relative } from 'node:path'
-import { readConventions, readTestFiles } from './scanner.ts'
+import { readConventions, readTestFiles } from '#core/scanner.ts'
 import type {
   ConventionsSchema,
   InteractionContractKind,
@@ -9,15 +9,15 @@ import type {
   MockTargetUsage,
   MutationLifecyclePattern,
   MutationLifecycleStage,
-} from '../types/conventions.ts'
+} from '#types/conventions.ts'
 import type {
   ResolvedTaroPackageProfile,
   TaroBoundaryProfile,
   TaroInteractionContractProfile,
   TaroQueryHookPolicy,
   TaroSharedMockFactoryProfile,
-} from '../types/state.ts'
-import type { TestFileContent } from './scanner.ts'
+} from '#types/state.ts'
+import type { TestFileContent } from '#core/scanner.ts'
 
 export interface MockAnalysis {
   conventions: ConventionsSchema | null

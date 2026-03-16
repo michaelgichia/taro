@@ -9,14 +9,14 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { findReadableProjectStatePathSync } from '../project-state.ts';
-import { extractConventions } from './analyzer.ts';
-import { ConventionStore, createStore } from './storage.ts';
+import { findReadableProjectStatePathSync } from '#project-state.ts';
+import { extractConventions } from '#learner/analyzer.ts';
+import { ConventionStore, createStore } from '#learner/storage.ts';
 import {
   TestConvention,
   ConventionKey,
   createEmptyConvention
-} from './types.ts';
+} from '#learner/types.ts';
 
 export type { TestConvention, ConventionKey };
 export { createEmptyConvention, ConventionStore, createStore };

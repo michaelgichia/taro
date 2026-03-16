@@ -4,7 +4,7 @@ import type { NodePath } from '@babel/traverse'
 import * as t from '@babel/types'
 import { readFile } from 'node:fs/promises'
 import { relative } from 'node:path'
-import type { MutationLifecyclePattern } from '../types/conventions.ts'
+import type { MutationLifecyclePattern } from '#types/conventions.ts'
 import type {
   RepoRenderTargetCandidate,
   TaroBoundaryExemplarProfile,
@@ -17,7 +17,7 @@ import type {
   TaroProviderWrapperProfile,
   TaroRenderHelperProfile,
   TaroStateConfidence,
-} from '../types/state.ts'
+} from '#types/state.ts'
 
 const traverse = (_traverse as any).default ?? _traverse
 

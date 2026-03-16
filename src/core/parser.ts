@@ -14,8 +14,8 @@ import type {
   NormalizedAction,
   NormalizedRecording,
   NormalizedStep,
-} from '../types/recording.ts'
-import { createStepId } from '../types/recording.ts'
+} from '#types/recording.ts'
+import { createStepId } from '#types/recording.ts'
 
 function getFirstSelector(selectors?: string[][]): string | undefined {
   if (!selectors || selectors.length === 0) return undefined

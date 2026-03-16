@@ -5,19 +5,19 @@ import type {
   PlannedMarkerAssertion,
   SelectorDescriptor,
   SelectorResolutionResult,
-} from '../types/recording.ts'
+} from '#types/recording.ts'
 import {
   markerAssertionTemplate,
   markerAssertionTemplateSync,
   stepTemplate,
   waitForAssertionBlock,
-} from '../templates/test-template.ts'
+} from '#templates/test-template.ts'
 import {
   getUnsupportedSelectorReason,
   isRoleQueryMethod,
   isSupportedTestingLibraryQueryMethod,
-} from './query-policy.ts'
-import { DIALOG_SCOPED_ACTION_PATTERN } from './generator.constants.ts'
+} from '#core/query-policy.ts'
+import { DIALOG_SCOPED_ACTION_PATTERN } from '#core/generator.constants.ts'
 
 /** Convert a CSS selector to an RTL screen query string. */
 export function selectorToQuery(selector: string | undefined): string {

@@ -1,6 +1,6 @@
 import { Command } from 'commander'
 import { cwd } from 'node:process'
-import { formatStateSummary, refreshTaroState } from '../../core/state.ts'
+import { formatStateSummary, refreshTaroState } from '#core/state.ts'
 
 export function createRefreshCommand(): Command {
   const refresh = new Command('__refresh')

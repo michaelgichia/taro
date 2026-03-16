@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { analyzeElementProperties, recommendQueryMethod } from '../src/analyzer/visual/element-analyzer.ts';
+import { analyzeElementProperties, recommendQueryMethod } from '#analyzer/visual/element-analyzer.ts';
 import type { Page } from 'playwright';
 
 // Mock Playwright's Page type for testing

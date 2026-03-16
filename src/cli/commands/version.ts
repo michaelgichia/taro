@@ -1,5 +1,5 @@
 import { Command } from 'commander'
-import { TARO_VERSION } from '../../version.ts'
+import { TARO_VERSION } from '#version.ts'
 
 interface VersionCommandContext {
   logger?: Pick<typeof console, 'log'>

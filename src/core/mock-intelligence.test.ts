@@ -8,8 +8,8 @@ import {
   detectMockInstability,
   deriveMockRecommendations,
   scanMockTargets,
-} from './mock-intelligence.ts'
-import { scanConventions } from './scanner.ts'
+} from '#core/mock-intelligence.ts'
+import { scanConventions } from '#core/scanner.ts'
 
 let testDir: string
 

@@ -4,13 +4,13 @@ import {
   classifyBoundaryKind,
   discoverBoundaryImportsFromSource,
   getBoundaryGuardrailReason,
-} from './boundary-learning.ts'
+} from '#core/boundary-learning.ts'
 import type {
   RepoRenderTargetCandidate,
   ResolvedTaroPackageProfile,
   TaroBoundaryKind,
   TaroBoundaryProfile,
-} from '../types/state.ts'
+} from '#types/state.ts'
 
 export interface BoundarySupportFilePlan {
   path: string

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateStructureScore, scoreGeneratedTest } from './scorer.ts'
+import { calculateStructureScore, scoreGeneratedTest } from '#core/scorer.ts'
 
 describe('calculateStructureScore', () => {
   it('penalizes placeholder render targets and unresolved boundary warnings', () => {

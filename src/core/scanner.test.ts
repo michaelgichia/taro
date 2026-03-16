@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { scanConventions, findTestFiles, readConventions } from './scanner.ts'
-import { DEFAULT_CONVENTIONS } from '../types/conventions.ts'
+import { scanConventions, findTestFiles, readConventions } from '#core/scanner.ts'
+import { DEFAULT_CONVENTIONS } from '#types/conventions.ts'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'

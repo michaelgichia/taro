@@ -4,10 +4,10 @@ import { tmpdir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
 import { promisify } from 'node:util'
 import { afterEach, describe, expect, it } from 'vitest'
-import { executeInstallPlan } from './executor.ts'
-import { buildInstallPlan } from './planner.ts'
-import type { InstallSelection, RuntimeLocationSelections, RuntimeTarget } from './types.ts'
-import { verifyInstalledRuntime } from './verification.ts'
+import { executeInstallPlan } from '#install/executor.ts'
+import { buildInstallPlan } from '#install/planner.ts'
+import type { InstallSelection, RuntimeLocationSelections, RuntimeTarget } from '#install/types.ts'
+import { verifyInstalledRuntime } from '#install/verification.ts'
 
 const execFileAsync = promisify(execFile)
 const sandboxRoots: string[] = []

@@ -8,38 +8,38 @@ import { access, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, join, relative, resolve } from 'node:path'
 import { cwd, stdin, stdout } from 'node:process'
 import pc from 'picocolors'
-import { writeTestFile } from '../../core/writer.ts'
+import { writeTestFile } from '#core/writer.ts'
 import {
   captureVisualState,
   createPageInspector,
   openCapturePage,
   replayStep,
   resolveSelector,
-} from '../../core/resolver.ts'
+} from '#core/resolver.ts'
 import type {
   CaptureVisualStateAuthOptions,
   ReplayStepDebugTrace,
-} from '../../core/resolver.ts'
-import { scoreGeneratedTest } from '../../core/scorer.ts'
-import { analyzeBoundaryIsolation } from '../../core/boundary-intelligence.ts'
-import { verifySyntax } from '../../core/verifier.ts'
-import { enrichCanonicalSemanticMarkers } from '../../core/semantic-marker-enrichment.ts'
+} from '#core/resolver.ts'
+import { scoreGeneratedTest } from '#core/scorer.ts'
+import { analyzeBoundaryIsolation } from '#core/boundary-intelligence.ts'
+import { verifySyntax } from '#core/verifier.ts'
+import { enrichCanonicalSemanticMarkers } from '#core/semantic-marker-enrichment.ts'
 import {
   analyzeRecording,
   findVisualCaptureCandidates,
-} from '../../core/recording-intelligence.ts'
-import { analyzeMocks } from '../../core/mock-intelligence.ts'
-import { generateTestFromGroups, emitQuerySummary } from '../../core/generator.ts'
-import { loadInput } from '../../core/input-loader.ts'
-import { parseJsRecording, type JsParseResult } from '../../core/js-parser.ts'
-import { normalizeJsBaseline } from '../../core/baseline-normalizer.ts'
-import { planJsSuite } from '../../core/suite-planner.ts'
+} from '#core/recording-intelligence.ts'
+import { analyzeMocks } from '#core/mock-intelligence.ts'
+import { generateTestFromGroups, emitQuerySummary } from '#core/generator.ts'
+import { loadInput } from '#core/input-loader.ts'
+import { parseJsRecording, type JsParseResult } from '#core/js-parser.ts'
+import { normalizeJsBaseline } from '#core/baseline-normalizer.ts'
+import { planJsSuite } from '#core/suite-planner.ts'
 import {
   applyBoundarySupport,
   materializeBoundarySupport,
   planBoundarySupport,
-} from '../../core/boundary-support.ts'
-import { discoverBoundaryImportsFromSource } from '../../core/boundary-learning.ts'
+} from '#core/boundary-support.ts'
+import { discoverBoundaryImportsFromSource } from '#core/boundary-learning.ts'
 import {
   appendGeneratedTestRecord,
   detectPackageProfileStaleness,
@@ -48,7 +48,7 @@ import {
   readTaroOverrides,
   refreshTaroState,
   resolveTaroPackageProfile,
-} from '../../core/state.ts'
+} from '#core/state.ts'
 import type {
   AnalyzedRecording,
   ItGroup,
@@ -64,25 +64,25 @@ import type {
   StepId,
   UnresolvedSemanticMarkerAssertionResolution,
   VisualState,
-} from '../../types/recording.ts'
+} from '#types/recording.ts'
 import type {
   MarkerCoverageTotals,
   MarkerReviewDiagnostics,
   ScoreResult,
-} from '../../types/score.ts'
-import type { MockAnalysis } from '../../core/mock-intelligence.ts'
-import type { JsSuitePlan } from '../../core/suite-planner.ts'
+} from '#types/score.ts'
+import type { MockAnalysis } from '#core/mock-intelligence.ts'
+import type { JsSuitePlan } from '#core/suite-planner.ts'
 import type {
   RepoRenderTargetCandidate,
   ResolvedTaroPackageProfile,
   TaroPlaywrightAuthProfile,
-} from '../../types/state.ts'
-import { isTestIdQueryMethod } from '../../core/query-policy.ts'
+} from '#types/state.ts'
+import { isTestIdQueryMethod } from '#core/query-policy.ts'
 import {
   type Finding,
   formatFindingsBlock,
   hasBlockingFindings,
-} from '../../core/findings-reporter.ts'
+} from '#core/findings-reporter.ts'
 
 interface GenerateCommandContext {
   input?: Pick<typeof stdin, 'isTTY'>

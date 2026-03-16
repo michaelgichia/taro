@@ -5,9 +5,9 @@ import type {
   ConventionsSchema,
   ImportStyle,
   MockPattern,
-} from '../types/conventions.ts'
-import type { RepoRenderTargetCandidate } from '../types/state.ts'
-import { DEFAULT_CONVENTIONS } from '../types/conventions.ts'
+} from '#types/conventions.ts'
+import type { RepoRenderTargetCandidate } from '#types/state.ts'
+import { DEFAULT_CONVENTIONS } from '#types/conventions.ts'
 
 const SKIP_DIRS = new Set([
   'node_modules',

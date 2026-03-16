@@ -6,7 +6,7 @@
  * on the detected API calls.
  */
 
-import type { ApiCallInfo } from './detector.ts';
+import type { ApiCallInfo } from '#analyzer/mocks/detector.ts';
 
 /**
  * Information about a mock target

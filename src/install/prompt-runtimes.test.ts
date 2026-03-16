@@ -3,18 +3,18 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { mkdir } from 'node:fs/promises'
 import { afterEach, describe, expect, it } from 'vitest'
-import { resolveInstallTargets } from './resolver.ts'
-import { TARO_REFERENCE_FILES } from './reference-files.ts'
+import { resolveInstallTargets } from '#install/resolver.ts'
+import { TARO_REFERENCE_FILES } from '#install/reference-files.ts'
 import type {
   InstallFileOperation,
   InstallLocation,
   InstallSelection,
   RuntimeLocationSelections,
   RuntimeTarget,
-} from './types.ts'
-import { buildClaudeRuntimeOperations } from './runtimes/claude.ts'
-import { buildGeminiRuntimeOperations } from './runtimes/gemini.ts'
-import { buildOpenCodeRuntimeOperations } from './runtimes/opencode.ts'
+} from '#install/types.ts'
+import { buildClaudeRuntimeOperations } from '#install/runtimes/claude.ts'
+import { buildGeminiRuntimeOperations } from '#install/runtimes/gemini.ts'
+import { buildOpenCodeRuntimeOperations } from '#install/runtimes/opencode.ts'
 
 const tempRoots: string[] = []
 

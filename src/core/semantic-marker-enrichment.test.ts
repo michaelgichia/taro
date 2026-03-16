@@ -2,8 +2,8 @@ import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, describe, expect, it } from 'vitest'
-import { enrichCanonicalSemanticMarkers } from './semantic-marker-enrichment.ts'
-import type { NormalizedRecording } from '../types/recording.ts'
+import { enrichCanonicalSemanticMarkers } from '#core/semantic-marker-enrichment.ts'
+import type { NormalizedRecording } from '#types/recording.ts'
 
 const tempDirs: string[] = []
 

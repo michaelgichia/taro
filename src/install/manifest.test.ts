@@ -3,7 +3,7 @@ import {
   classifyAssetConflict,
   createOwnedFile,
   createOwnershipManifest,
-} from './manifest.ts'
+} from '#install/manifest.ts'
 
 describe('createOwnershipManifest', () => {
   it('creates a Taro-owned manifest with hashed files', () => {

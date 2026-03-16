@@ -7,7 +7,7 @@ import type {
   InstallOwnershipManifest,
   InstallOwnedFile,
   RuntimeTarget,
-} from './types.ts'
+} from '#install/types.ts'
 
 export interface CreateOwnershipManifestParams {
   runtime: RuntimeTarget

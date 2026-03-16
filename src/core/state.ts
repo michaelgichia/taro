@@ -8,19 +8,19 @@ import {
   extractRenderTargetCandidatesFromFile,
   findTestFiles,
   readTestFiles,
-} from './convention-intelligence.ts'
+} from '#core/convention-intelligence.ts'
 import {
   classifyBoundaryKind,
   collectBoundaryLearning,
   getBoundaryGuardrailReason,
   summarizeBoundaryProfiles,
-} from './boundary-learning.ts'
+} from '#core/boundary-learning.ts'
 import {
   findReadableProjectStatePath,
   getProjectStatePath,
   ensureProjectStateDir,
-} from '../project-state.ts'
-import { DEFAULT_CONVENTIONS } from '../types/conventions.ts'
+} from '#project-state.ts'
+import { DEFAULT_CONVENTIONS } from '#types/conventions.ts'
 import type {
   ConventionFile,
   ConventionsSchema,
@@ -34,8 +34,8 @@ import type {
   MockTargetUsage,
   MutationLifecyclePattern,
   MutationLifecycleStage,
-} from '../types/conventions.ts'
-import type { ScoreResult } from '../types/score.ts'
+} from '#types/conventions.ts'
+import type { ScoreResult } from '#types/score.ts'
 import type {
   RepoRenderTargetCandidate,
   TaroBoundaryExemplarProfile,
@@ -67,8 +67,8 @@ import type {
   TaroStateSummary,
   TaroStateSummaryPackage,
   TaroTestRunner,
-} from '../types/state.ts'
-import { TARO_VERSION } from '../version.ts'
+} from '#types/state.ts'
+import { TARO_VERSION } from '#version.ts'
 
 const STATE_VERSION = 1
 const GENERATED_TEST_HISTORY_LIMIT = 200

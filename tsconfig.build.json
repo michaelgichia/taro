@@ -4,6 +4,10 @@
     "noEmit": false,
     "outDir": "./dist",
     "rootDir": "./src",
+    "baseUrl": ".",
+    "paths": {
+      "#*.ts": ["src/*.ts"]
+    },
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,

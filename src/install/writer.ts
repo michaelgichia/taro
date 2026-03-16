@@ -4,14 +4,14 @@ import {
   classifyAssetConflict,
   createOwnedFile,
   createOwnershipManifest,
-} from './manifest.ts'
+} from '#install/manifest.ts'
 import type {
   InstallAssetConflict,
   InstallOwnedFile,
   InstallOwnershipManifest,
   PlannedInstallTarget,
   RuntimeInstallResult,
-} from './types.ts'
+} from '#install/types.ts'
 
 export interface ReplaceConfirmationRequest {
   target: PlannedInstallTarget

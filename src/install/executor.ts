@@ -1,7 +1,7 @@
-import { verifyInstalledRuntime } from './verification.ts'
-import { writeInstallPlan } from './writer.ts'
-import type { InstallExecutionResult, InstallPlan } from './types.ts'
-import type { WriteInstallPlanOptions } from './writer.ts'
+import { verifyInstalledRuntime } from '#install/verification.ts'
+import { writeInstallPlan } from '#install/writer.ts'
+import type { InstallExecutionResult, InstallPlan } from '#install/types.ts'
+import type { WriteInstallPlanOptions } from '#install/writer.ts'
 
 export async function executeInstallPlan(
   plan: InstallPlan,

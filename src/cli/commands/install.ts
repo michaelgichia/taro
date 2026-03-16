@@ -1,20 +1,20 @@
 import { Command } from 'commander'
 import pc from 'picocolors'
-import { executeInstallPlan } from '../../install/executor.ts'
+import { executeInstallPlan } from '#install/executor.ts'
 import {
   InstallValidationError,
   normalizeInstallOptions,
   toInstallSelection,
-} from '../../install/options.ts'
-import { buildInstallPlan } from '../../install/planner.ts'
-import { promptForInstallChoices } from '../../install/prompts.ts'
+} from '#install/options.ts'
+import { buildInstallPlan } from '#install/planner.ts'
+import { promptForInstallChoices } from '#install/prompts.ts'
 import {
   confirmInstallPlan,
   renderInstallCancelledMessage,
   renderInstallExecutionResult,
   renderInstallSummary,
-} from '../../install/summary.ts'
-import type { InstallCommandOptions, InstallSelection } from '../../install/types.ts'
+} from '#install/summary.ts'
+import type { InstallCommandOptions, InstallSelection } from '#install/types.ts'
 
 interface PromptCapability {
   input?: Pick<typeof process.stdin, 'isTTY'>

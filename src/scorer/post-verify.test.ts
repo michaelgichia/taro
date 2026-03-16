@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { postWriteVerification } from './post-verify.ts'
+import { postWriteVerification } from '#scorer/post-verify.ts'
 
 const sandboxRoots: string[] = []
 

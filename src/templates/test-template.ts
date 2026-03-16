@@ -3,7 +3,7 @@
  * Functions return string fragments for composing test files.
  */
 
-import type { NormalizedAction } from '../types/recording.ts'
+import type { NormalizedAction } from '#types/recording.ts'
 
 export interface RenderTargetImport {
   symbol: string
