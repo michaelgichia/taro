@@ -4,14 +4,12 @@
  * Implements CNV-02 (conventions persist across runs) and CNV-03 (faster subsequent runs via caching)
  */
 
+import Database from 'better-sqlite3';
 import * as fs from 'fs';
 import * as path from 'path';
 
 import {TestConvention } from '#learner/types.ts';
 import { ensureProjectStateDirSync } from '#project-state.ts';
-
- 
-const Database = require('better-sqlite3');
 
 export { TestConvention };
 

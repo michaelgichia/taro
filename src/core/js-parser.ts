@@ -325,7 +325,7 @@ function mapAssertionKind(subject?: string): AssertionDescriptor['kind'] {
 }
 
 function fallbackDocCommentTitle(code: string): string | undefined {
-  const titleMatch = code.match(/\/\*\*\s*\n\s*\*\s*([^@\*]+)/)
+  const titleMatch = code.match(/\/\*\*\s*\n\s*\*\s*([^@*]+)/)
   const title = titleMatch?.[1]?.trim()
   return title ? title.replace(/\s+at\s+\d{1,2}:\d{2}:\d{2}/, '').replace(/-/g, ' ') : undefined
 }

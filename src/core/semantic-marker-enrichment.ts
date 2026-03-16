@@ -33,7 +33,7 @@ interface RecoveryCandidate {
 const STRING_LITERAL_REGEX =
   /(?<quote>['"`])(?<value>(?:\\.|(?!\k<quote>)[^\\\r\n]){4,})\k<quote>/g
 const HIDDEN_EVIDENCE_PATTERN =
-  /data-testid|data-test-id|getBy(?:TestId|Role|Text|LabelText|PlaceholderText)|findBy(?:TestId|Role|Text|LabelText|PlaceholderText)|querySelector|nth-(?:of-type|child)|\.css-[\w-]+|#radix-[\w-]+|^\.\w|^\#\w|^\//i
+  /data-testid|data-test-id|getBy(?:TestId|Role|Text|LabelText|PlaceholderText)|findBy(?:TestId|Role|Text|LabelText|PlaceholderText)|querySelector|nth-(?:of-type|child)|\.css-[\w-]+|#radix-[\w-]+|^\.\w|^#\w|^\//i
 
 function normalizeText(value?: string): string | undefined {
   const normalized = value?.replace(/\s+/g, ' ').trim()

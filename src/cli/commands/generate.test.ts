@@ -413,6 +413,14 @@ async function runGenerate(
   const originalCwd = process.cwd();
   let thrown: unknown;
   let capturedExitCode: number | undefined;
+  let result: {
+    logs: string;
+    stdout: string;
+    warnings: string;
+    errors: string;
+    thrown: unknown;
+    exitCode: number | undefined;
+  };
 
   process.chdir(cwdPath);
 
@@ -425,7 +433,7 @@ async function runGenerate(
       thrown = error;
     }
   } finally {
-    const result = {
+    result = {
       logs: stripVTControlCharacters(stderrChunks.join("")),
       stdout: stripVTControlCharacters(stdoutChunks.join("")),
       warnings: stripVTControlCharacters(warnSpy.mock.calls.flat().join("\n")),
@@ -440,8 +448,9 @@ async function runGenerate(
     exitSpy.mockRestore();
     warnSpy.mockRestore();
     errorSpy.mockRestore();
-    return result;
   }
+
+  return result;
 }
 
 beforeEach(() => {
