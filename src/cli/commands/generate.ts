@@ -3084,18 +3084,8 @@ async function resolveJsGeneration(
       ): Promise<{
         resolved: number
       }> => {
-        const selectors = selectorGroups.get(stepId)
-        if (!selectors?.length) {
-          unresolvedSelectorResolutions.delete(stepId)
-          return { resolved: 0 }
-        }
-
-        const currentStep = updatedSteps.get(stepId) ?? stepMap.get(stepId)
-        if (!currentStep) {
-          unresolvedSelectorResolutions.delete(stepId)
-          selectorStepIds.delete(stepId)
-          return { resolved: 0 }
-        }
+        const selectors = selectorGroups.get(stepId)!
+        const currentStep = updatedSteps.get(stepId) ?? stepMap.get(stepId)!
 
         const preservedQuery = getStepQueryDescriptor(currentStep)
         const stepWarnings: string[] = []
@@ -3135,11 +3125,7 @@ async function resolveJsGeneration(
           }
         }
 
-        if (!chosenResolution) {
-          return { resolved: 0 }
-        }
-
-        const resolution = mergeSelectorResolutionWarnings(chosenResolution, stepWarnings)
+        const resolution = mergeSelectorResolutionWarnings(chosenResolution!, stepWarnings)
         updatedSteps.set(stepId, applySelectorResolution(currentStep, resolution))
 
         if (resolution.status === 'resolved') {
@@ -3201,10 +3187,6 @@ async function resolveJsGeneration(
       }
 
       for (const resolution of unresolvedSelectorResolutions.values()) {
-        if (resolution.status !== 'unresolved') {
-          continue
-        }
-
         warnings.push(
           `QRY-03 [${resolution.stepId}] unresolved selector ${resolution.selector.selector}: ${resolution.reason}`
         )
@@ -3273,11 +3255,7 @@ async function resolveJsGeneration(
         }
       }
 
-      if (!chosenResolution) {
-        continue
-      }
-
-      const resolution = mergeSelectorResolutionWarnings(chosenResolution, stepWarnings)
+      const resolution = mergeSelectorResolutionWarnings(chosenResolution!, stepWarnings)
       updatedSteps.set(stepId, applySelectorResolution(step, resolution))
 
       if (resolution.status === 'resolved') {
@@ -3911,11 +3889,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
         hydratedSuitePlan && generationHelpers
           ? stripSemanticMarkerStepsFromScenarios(hydratedSuitePlan.scenarios, generationHelpers)
           : undefined
-      const generationItGroups = stripSemanticMarkerStepsFromItGroups(
-        resolvedJsGeneration?.itGroups ??
-          hydratedSuitePlan?.itGroups ??
-          toItGroups(analyzedRecording, normalizedRecording.title)
-      )
+      const generationItGroups = stripSemanticMarkerStepsFromItGroups(resolvedJsGeneration.itGroups)
 
       const generated = generateTestFromGroups(normalizedRecording.title, generationItGroups, {
         outputPath,
@@ -4046,4 +4020,43 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
     })
 
   return generate
+}
+
+export const generateCommandInternals = {
+  applyRepoRenderTarget,
+  auditBoundaryPolicy,
+  buildMarkerCoverageSummary,
+  buildMarkerReviewDiagnostics,
+  collectComparableTokens,
+  collectExpectedLandmarks,
+  collectStepCoverageTokens,
+  collectUnresolvedMarkerAssertions,
+  collectVisualElementContextTerm,
+  compareOutputAssessments,
+  dedupeQueryResults,
+  deriveContextRenderTargets,
+  emitLowConfidenceBanner,
+  emitMarkerPlacementCorrections,
+  emitRecoveredMarkerDiagnostics,
+  emitScoreHints,
+  emitUnresolvedMarkerWarnings,
+  finalizeGeneratedOutput,
+  findRepoContextMatches,
+  flushFindings,
+  isQueryDescriptor,
+  mapParsedQueriesToResults,
+  maybeAnalyzeMocks,
+  maybeCaptureVisualState,
+  mergeAnalyzedStepState,
+  mergeSelectorResolutionWarnings,
+  rebaseRenderHelperImportPath,
+  resolveImportedFilePath,
+  resolveJsGeneration,
+  resolvePackageProfileFromContextMatches,
+  scoreRenderTargetCandidate,
+  stripSemanticMarkerStepsFromScenarios,
+  summarizeCleanup,
+  summarizeMockAnalysis,
+  toItGroups,
+  toProjectRelativePath,
 }

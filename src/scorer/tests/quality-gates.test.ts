@@ -208,4 +208,103 @@ describe('evaluateQualityGates', () => {
       ])
     )
   })
+
+  // Lines 104/219: FunctionExpression/ArrowFunctionExpression body traversal.
+  // When an arrow function is passed as an argument, traverse() receives it via .arguments
+  // and then traverses its BlockStatement body via the FunctionExpression/Arrow branch.
+  // Using setup(() => { describe(...) }) ensures the outer CallExpression is reachable
+  // via ExpressionStatement.expression, and the arrow function body is entered.
+  it('detects describe and it blocks nested inside an arrow function passed as an argument', () => {
+    const result = evaluateQualityGates(`
+      setup(() => {
+        describe('nested describe', () => {
+          it('nested it', () => {
+            expect(true).toBe(true)
+          })
+        })
+      })
+    `)
+
+    expect(result.criteria.structure).toBe(100)
+    expect(result.issues).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ message: 'Missing describe block' }),
+      ])
+    )
+    expect(result.issues).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ message: 'Missing test case (it/test)' }),
+      ])
+    )
+  })
+
+  it('detects describe and it blocks nested inside a function expression passed as an argument', () => {
+    const result = evaluateQualityGates(`
+      setup(function() {
+        describe('fn-expr describe', () => {
+          it('fn-expr it', () => {
+            expect(1).toBe(1)
+          })
+        })
+      })
+    `)
+
+    expect(result.criteria.structure).toBe(100)
+  })
+
+  // Lines 200-205: MemberExpression detection for matcher names in evaluateMatchers.
+  // traverse() receives a MemberExpression directly when it appears as a function argument.
+  // helper(result.toBe, other.toEqual) passes MemberExpression nodes as args, triggering
+  // the node.type === 'MemberExpression' branch (lines 200-205).
+  it('detects matcher-named MemberExpression nodes passed as function arguments', () => {
+    const result = evaluateQualityGates(`
+      describe('member expression matchers', () => {
+        it('uses matcher names as arguments', () => {
+          helper(result.toBe, other.toEqual)
+          expect(true).toBe(true)
+        })
+      })
+    `)
+
+    expect(result.criteria.structure).toBe(100)
+    expect(result.criteria.matchers).toBeGreaterThan(0)
+  })
+
+  // Lines 402-403: getCalleeSource with a CallExpression callee.
+  // it.each([[...]])('name', fn) has an outer CallExpression whose callee is itself a
+  // CallExpression (the it.each([[...]]) call). getCalleeSource recurses into it on line 402.
+  it('handles it.each call expressions where the callee is itself a call expression', () => {
+    const result = evaluateQualityGates(`
+      describe('parameterized', () => {
+        it.each([[1, 2, 3]])('adds %i + %i = %i', (a, b, expected) => {
+          expect(a + b).toBe(expected)
+        })
+      })
+    `)
+
+    expect(result.criteria.structure).toBeGreaterThanOrEqual(50)
+    expect(result.criteria.matchers).toBeGreaterThan(0)
+  })
+
+  // Lines 417-420: getCalleeName CallExpression recursion and empty-string fallback.
+  // describe.each(...)(name, fn) triggers line 417 (CallExpression callee recursion).
+  // An IIFE (function(){})() triggers line 419 (return '' for non-identifier callee).
+  it('handles getCalleeName recursion for call-expression callees and non-identifier fallback', () => {
+    const result = evaluateQualityGates(`
+      describe('outer', () => {
+        it('has iife and describe.each', () => {
+          ;(function() { return 1 })()
+          expect(true).toBe(true)
+        })
+      })
+
+      describe.each([[1, 2]])('parameterized %i', (a, b) => {
+        it('passes', () => {
+          expect(a + b).toBe(3)
+        })
+      })
+    `)
+
+    expect(result.criteria.matchers).toBeGreaterThan(0)
+  })
 })

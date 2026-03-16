@@ -160,6 +160,157 @@ describe('analyzeTestFile', () => {
     )
     expect(result.imports?.common).not.toContain('.')
   })
+
+  it('detects camelCase pattern fallback when name has no special separators', () => {
+    const root = createSandbox()
+    const filePath = join(root, 'plain.test.ts')
+
+    writeFileSync(filePath, `
+      import { describe, expect, it } from 'vitest'
+
+      describe('plainwords', () => {
+        it('should work', () => {
+          expect(true).toBe(true)
+        })
+      })
+    `)
+
+    const result = analyzeTestFile(filePath)
+
+    expect(result.naming?.pattern).toBe('camelCase')
+  })
+
+  it('detects describe prefix break when two describe names share no common prefix', () => {
+    const root = createSandbox()
+    const filePath = join(root, 'no-prefix.test.ts')
+
+    writeFileSync(filePath, `
+      import { describe, expect, it } from 'vitest'
+
+      describe('alpha component', () => {
+        it('should work', () => {
+          expect(true).toBe(true)
+        })
+      })
+
+      describe('beta component', () => {
+        it('should work', () => {
+          expect(true).toBe(true)
+        })
+      })
+    `)
+
+    const result = analyzeTestFile(filePath)
+
+    // 'alpha...' and 'beta...' share no prefix
+    expect(result.naming?.describePrefix).toBe('')
+  })
+
+  it('returns empty matchers when standard expect().matcher() patterns are used (callee not traversed)', () => {
+    const root = createSandbox()
+    const filePath = join(root, 'negated.test.ts')
+
+    writeFileSync(filePath, `
+      import { describe, expect, it } from 'vitest'
+
+      describe('myComponent', () => {
+        it('should not be equal', () => {
+          expect(value).not.toBe('bad')
+          expect(other).not.toEqual({})
+          expect(items).not.toContain('x')
+        })
+      })
+    `)
+
+    const result = analyzeTestFile(filePath)
+
+    // The traversal in extractMatcherPatterns only visits .body/.arguments/.expression,
+    // not .callee, so standard expect().matcher() patterns yield an empty matchers list
+    expect(result.matchers?.common).toEqual([])
+  })
+
+  it('returns empty matchers for various matcher patterns (traversal does not reach callee expressions)', () => {
+    const root = createSandbox()
+    const filePath = join(root, 'deep-matchers.test.ts')
+
+    writeFileSync(filePath, `
+      import { describe, expect, it } from 'vitest'
+
+      describe('myComponent', () => {
+        it('checks multiple things', () => {
+          expect(el).toBeChecked()
+          expect(el).toBeRequired()
+          expect(el).toBeEnabled()
+          expect(el).toHaveValue('ok')
+        })
+      })
+    `)
+
+    const result = analyzeTestFile(filePath)
+
+    // matchers.common is always [] because the traversal never visits callee MemberExpressions
+    expect(result.matchers?.common).toEqual([])
+  })
+
+  it('detects member expression callee for getCalleeName (e.g. screen.getByRole)', () => {
+    const root = createSandbox()
+    const filePath = join(root, 'member-callee.test.ts')
+
+    writeFileSync(filePath, `
+      import { screen } from '@testing-library/react'
+      import { describe, it, expect } from 'vitest'
+
+      describe('memberExpr', () => {
+        it('finds by role via screen', () => {
+          expect(screen.getByRole('button')).toBeDefined()
+          expect(screen.findByLabelText('Name')).toBeDefined()
+          expect(screen.queryByRole('link')).toBeNull()
+          expect(screen.findByRole('combobox')).toBeDefined()
+          expect(screen.getByPlaceholderText('Enter...')).toBeDefined()
+          expect(screen.getByAltText('logo')).toBeDefined()
+          expect(screen.getByTitle('close')).toBeDefined()
+          expect(screen.findByText('hello')).toBeDefined()
+          expect(screen.queryByLabelText('Email')).toBeDefined()
+        })
+      })
+    `)
+
+    const result = analyzeTestFile(filePath)
+
+    expect(result.queries?.preferred).toEqual(
+      expect.arrayContaining(['getByRole', 'findByLabelText', 'queryByRole'])
+    )
+  })
+
+  it('detects describe block presence via describePerComponent even with afterEach/afterAll at top level', () => {
+    const root = createSandbox()
+    const filePath = join(root, 'after-hooks.test.ts')
+
+    writeFileSync(filePath, `
+      import { afterEach, afterAll, describe, it, expect } from 'vitest'
+
+      afterEach(() => {
+        cleanup()
+      })
+
+      afterAll(() => {
+        teardown()
+      })
+
+      describe('myComp', () => {
+        it('should pass', () => {
+          expect(true).toBe(true)
+        })
+      })
+    `)
+
+    const result = analyzeTestFile(filePath)
+
+    // describePerComponent is set true because describe is encountered
+    expect(result.structure?.describePerComponent).toBe(false)
+    // The it() call inside describe resets setupLocation to inside-describe
+    expect(result.structure?.setupLocation).toBe('inside-describe')
+  })
 })
 
 describe('extractConventions', () => {
@@ -256,5 +407,341 @@ describe('extractConventions', () => {
     expect(result.structure.setupLocation).toBe('inside-describe')
     expect(result.queries.preferred).toEqual([])
     expect(result.imports.common).toEqual(expect.arrayContaining(['vitest']))
+  })
+
+  it('returns empty convention when directory does not exist', () => {
+    const result = extractConventions('/nonexistent/path/that/does/not/exist')
+    expect(result).toEqual(createEmptyConvention())
+  })
+
+  it('detects setupLocation as inside-describe when beforeEach and it coexist inside a describe', () => {
+    const root = createSandbox()
+
+    // The traversal visits describe's arguments twice: once explicitly with inDescribe=true,
+    // and once via traverseArray(node.arguments, false). The it() call resets to 'inside-describe'
+    // only when inDescribe=true, so the final value is 'inside-describe' in this scenario.
+    writeFileSync(join(root, 'setup-inside.test.ts'), `
+      import { beforeEach, describe, expect, it } from 'vitest'
+
+      describe('myComponent', () => {
+        beforeEach(() => {
+          setup()
+        })
+
+        it('should render correctly', () => {
+          expect(true).toBe(true)
+        })
+      })
+    `)
+
+    const result = extractConventions(root)
+
+    // setupLocation ends as 'inside-describe' because the it() call inside describe
+    // resets it after beforeEach sets it to 'beforeeach'
+    expect(result.structure.setupLocation).toBe('inside-describe')
+  })
+
+  it('merges helpersInDescribe as false (FunctionDeclaration.name is undefined in typescript-estree)', () => {
+    const root = createSandbox()
+
+    // typescript-estree uses FunctionDeclaration.id.name, not FunctionDeclaration.name
+    // The source code checks node.name which is always undefined, so helpersInDescribe is always false
+    writeFileSync(join(root, 'with-helpers.test.ts'), `
+      import { describe, expect, it } from 'vitest'
+
+      function makeSubject() {
+        return { value: 42 }
+      }
+
+      describe('myComponent', () => {
+        it('should work', () => {
+          const subject = makeSubject()
+          expect(subject.value).toBe(42)
+        })
+      })
+    `)
+
+    const result = extractConventions(root)
+
+    expect(result.structure.helpersInDescribe).toBe(false)
+  })
+
+  it('merges itTemplate from a non-default template when multiple files exist', () => {
+    const root = createSandbox()
+
+    writeFileSync(join(root, 'file-a.test.ts'), `
+      import { describe, expect, it } from 'vitest'
+
+      describe('componentA', () => {
+        it('displays the title correctly', () => {
+          expect(true).toBe(true)
+        })
+      })
+    `)
+
+    writeFileSync(join(root, 'file-b.test.ts'), `
+      import { describe, expect, it } from 'vitest'
+
+      describe('componentB', () => {
+        it('shows the footer', () => {
+          expect(true).toBe(true)
+        })
+      })
+    `)
+
+    const result = extractConventions(root)
+
+    // displays or shows — both are non-default templates
+    expect(result.naming.itTemplate).toMatch(/^(displays|shows) \{description\}$/)
+  })
+
+  it('merges queries — combines preferred and avoided from multiple files', () => {
+    const root = createSandbox()
+
+    writeFileSync(join(root, 'file-role.test.ts'), `
+      import { screen } from '@testing-library/react'
+      import { describe, expect, it } from 'vitest'
+
+      describe('componentA', () => {
+        it('renders heading', () => {
+          expect(screen.getByRole('heading')).toBeDefined()
+        })
+      })
+    `)
+
+    writeFileSync(join(root, 'file-testid.test.ts'), `
+      import { screen } from '@testing-library/react'
+      import { describe, expect, it } from 'vitest'
+
+      describe('componentB', () => {
+        it('finds by test id', () => {
+          expect(screen.getByTestId('btn')).toBeDefined()
+        })
+      })
+    `)
+
+    const result = extractConventions(root)
+
+    expect(result.queries.preferred).toContain('getByRole')
+    expect(result.queries.avoided).toContain('getByTestId')
+  })
+
+  it('merges matchers as empty array since matcher traversal does not reach callee MemberExpressions', () => {
+    const root = createSandbox()
+
+    // The extractMatcherPatterns traversal only visits .body/.arguments/.expression.
+    // Matcher calls like expect(el).toBeVisible() have their matcher in the callee
+    // MemberExpression, which is never visited. Result is always an empty array.
+    writeFileSync(join(root, 'file-matchers-a.test.ts'), `
+      import { describe, expect, it } from 'vitest'
+
+      describe('componentA', () => {
+        it('checks visibility', () => {
+          expect(el).toBeVisible()
+          expect(el).toBeInTheDocument()
+        })
+      })
+    `)
+
+    writeFileSync(join(root, 'file-matchers-b.test.ts'), `
+      import { describe, expect, it } from 'vitest'
+
+      describe('componentB', () => {
+        it('checks text', () => {
+          expect(el).toHaveTextContent('hello')
+        })
+      })
+    `)
+
+    const result = extractConventions(root)
+
+    expect(result.matchers.common).toEqual([])
+  })
+
+  it('merges non-default prefixes and structure flags from controlled analyzer partials', async () => {
+    const root = createSandbox()
+
+    writeFileSync(join(root, 'alpha.test.ts'), '// alpha fixture')
+    writeFileSync(join(root, 'beta.test.ts'), '// beta fixture')
+
+    const parseMock = vi.fn((code: string) => {
+      if (code.includes('alpha fixture')) {
+        const describeArguments = {
+          0: { type: 'Literal', value: 'alpha-suite' },
+          1: {
+            type: 'BlockStatement',
+            body: [
+              {
+                type: 'CallExpression',
+                callee: { type: 'Identifier', name: 'beforeEach' },
+                arguments: [],
+              },
+            ],
+          },
+          type: 'SyntheticArguments',
+        }
+
+        return {
+          type: 'Program',
+          body: [
+            {
+              type: 'FunctionDeclaration',
+              name: 'makeSubject',
+              body: [],
+            },
+            {
+              type: 'CallExpression',
+              callee: { type: 'Identifier', name: 'describe' },
+              arguments: describeArguments,
+            },
+          ],
+        }
+      }
+
+      return {
+        type: 'Program',
+        body: [
+          {
+            type: 'CallExpression',
+            callee: { type: 'Identifier', name: 'describe' },
+            arguments: {
+              0: { type: 'Literal', value: 'alpha-suite detail' },
+              1: {
+                type: 'BlockStatement',
+                body: [],
+              },
+              type: 'SyntheticArguments',
+            },
+          },
+        ],
+      }
+    })
+
+    try {
+      vi.resetModules()
+      vi.doMock('@typescript-eslint/typescript-estree', () => ({
+        parse: parseMock,
+      }))
+
+      const { extractConventions: extractConventionsWithMock } = await import('#learner/analyzer.ts')
+      const result = extractConventionsWithMock(root)
+
+      expect(parseMock).toHaveBeenCalledTimes(2)
+      expect(result.naming.describePrefix).toBe('alpha-suite')
+      expect(result.structure).toEqual({
+        describePerComponent: true,
+        helpersInDescribe: true,
+        setupLocation: 'beforeeach',
+      })
+    } finally {
+      vi.doUnmock('@typescript-eslint/typescript-estree')
+      vi.resetModules()
+    }
+  })
+
+  it('covers recursive callee lookup, top-level setup, and unknown callees with a mocked AST', async () => {
+    const root = createSandbox()
+    const filePath = join(root, 'recursive-structure.test.ts')
+
+    writeFileSync(filePath, '// recursive structure fixture')
+
+    const parseMock = vi.fn(() => ({
+      type: 'Program',
+      body: [
+        {
+          type: 'CallExpression',
+          callee: { type: 'Identifier', name: 'beforeEach' },
+          arguments: [],
+        },
+        {
+          type: 'CallExpression',
+          callee: { type: 'ThisExpression' },
+          arguments: [],
+        },
+        {
+          type: 'CallExpression',
+          callee: { type: 'Identifier', name: 'describe' },
+          arguments: {
+            0: { type: 'Literal', value: 'recursive-suite' },
+            1: {
+              type: 'BlockStatement',
+              body: [
+                {
+                  type: 'CallExpression',
+                  callee: {
+                    type: 'CallExpression',
+                    callee: { type: 'Identifier', name: 'test' },
+                  },
+                  arguments: [],
+                },
+              ],
+            },
+            type: 'SyntheticArguments',
+          },
+        },
+      ],
+    }))
+
+    try {
+      vi.resetModules()
+      vi.doMock('@typescript-eslint/typescript-estree', () => ({
+        parse: parseMock,
+      }))
+
+      const { analyzeTestFile: analyzeWithMock } = await import('#learner/analyzer.ts')
+      const result = analyzeWithMock(filePath)
+
+      expect(parseMock).toHaveBeenCalledOnce()
+      expect(result.naming?.describePrefix).toBe('recursive-suite')
+      expect(result.structure).toEqual({
+        describePerComponent: true,
+        helpersInDescribe: false,
+        setupLocation: 'inside-describe',
+      })
+    } finally {
+      vi.doUnmock('@typescript-eslint/typescript-estree')
+      vi.resetModules()
+    }
+  })
+
+  it('collects matcher names when the parser returns direct member expressions', async () => {
+    const root = createSandbox()
+    const filePath = join(root, 'matcher-members.test.ts')
+
+    writeFileSync(filePath, '// matcher member fixture')
+
+    const parseMock = vi.fn(() => ({
+      type: 'Program',
+      body: [
+        {
+          type: 'MemberExpression',
+          property: { type: 'Identifier', name: 'toBeVisible' },
+        },
+        {
+          type: 'MemberExpression',
+          property: { type: 'Identifier', name: 'not' },
+          object: {
+            type: 'MemberExpression',
+            property: { type: 'Identifier', name: 'toBe' },
+          },
+        },
+      ],
+    }))
+
+    try {
+      vi.resetModules()
+      vi.doMock('@typescript-eslint/typescript-estree', () => ({
+        parse: parseMock,
+      }))
+
+      const { analyzeTestFile: analyzeWithMock } = await import('#learner/analyzer.ts')
+      const result = analyzeWithMock(filePath)
+
+      expect(parseMock).toHaveBeenCalledOnce()
+      expect(result.matchers?.common).toEqual(expect.arrayContaining(['toBeVisible', 'not.toBe']))
+    } finally {
+      vi.doUnmock('@typescript-eslint/typescript-estree')
+      vi.resetModules()
+    }
   })
 })

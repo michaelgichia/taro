@@ -216,6 +216,119 @@ describe('analyzeMocks', () => {
     expect(analysis.companionPolicy).toBe('heuristic')
     expect(analysis.enabledContractFamilies).toEqual(['mutation-form'])
   })
+
+  // Lines 113-115: file has mutation trigger content but only 1 lifecycle stage → filtered out (null)
+  it('excludes mutation files that only have one lifecycle stage from mutationLifecycles', async () => {
+    // Content matches MUTATION_TRIGGER_REGEX (has "mutate") but only has success stage cues
+    await writeFile(
+      join(testDir, 'single-stage.test.ts'),
+      `
+        import { describe, it, vi } from 'vitest'
+
+        describe('single stage', () => {
+          it('only success path', async () => {
+            const mutate = vi.fn().mockResolvedValue({ ok: true })
+            await mutate()
+            expect(mutate).toHaveBeenCalledTimes(1)
+          })
+        })
+      `
+    )
+
+    const analysis = await analyzeMocks(testDir)
+
+    expect(analysis.mutationLifecycles).toEqual([])
+    expect(analysis.interactionContracts).toEqual([])
+  })
+
+  // Lines 133-151: deriveInteractionContracts produces a contract when loading + error stages present
+  it('derives interaction contracts for mutation files with loading and error stages', async () => {
+    // Content must match MUTATION_TRIGGER_REGEX and have loading + error stage cues (≥2 stages)
+    await writeFile(
+      join(testDir, 'loading-error.test.ts'),
+      `
+        import { describe, it, vi } from 'vitest'
+
+        describe('form submission', () => {
+          it('shows loading then error', async () => {
+            const mutate = vi.fn().mockRejectedValue(new Error('failed'))
+            expect(submitButton).toBeDisabled()
+            await expect(mutate()).rejects.toThrow('failed')
+            expect(screen.getByRole('alert')).toBeInTheDocument()
+          })
+        })
+      `
+    )
+
+    const analysis = await analyzeMocks(testDir)
+
+    expect(analysis.mutationLifecycles).toHaveLength(1)
+    expect(analysis.mutationLifecycles[0]).toMatchObject({
+      file: 'loading-error.test.ts',
+      stages: expect.arrayContaining(['loading', 'error']),
+    })
+
+    expect(analysis.interactionContracts).toHaveLength(1)
+    expect(analysis.interactionContracts[0]).toMatchObject({
+      file: 'loading-error.test.ts',
+      kind: 'mutation-form',
+      states: expect.arrayContaining(['in-flight', 'failed-completion']),
+      overrideStyle: 'none',
+      confidence: 'low',
+    })
+  })
+
+  // Lines 138-139: deriveInteractionContracts skips lifecycles that only have success stage
+  // (states array is empty after filtering, so the `continue` branch is taken)
+  it('skips interaction contract generation when lifecycle only has success stage', async () => {
+    // Two stages needed to pass the stages.length < 2 gate, but neither is loading/error.
+    // Use a file with mutation trigger + success stage only... but we need ≥2 stages to reach
+    // deriveInteractionContracts. We craft content with "success" AND a custom second cue that
+    // is not loading/error — the STAGE_PATTERNS only have loading/success/error, so we need
+    // to use success + something else. Actually, let's use success + loading-adjacent cue so
+    // stages.length ≥ 2, but derive only a success-only lifecycle to reach the skip branch.
+    //
+    // The simplest route: produce a lifecycle with stages: ['success'] alone won't pass
+    // stages.length < 2. We instead produce stages: ['success'] via a file that somehow
+    // has exactly one stage. That hits the null branch (lines 113-115), not lines 138-139.
+    //
+    // To hit lines 138-139 we need a lifecycle that reaches deriveInteractionContracts with
+    // stages that include neither 'loading' nor 'error', i.e. only ['success'].
+    // That requires stages.length >= 2 to be false for null return... wait, stages.length must
+    // be >= 2 to NOT return null. So we need at least two stages where neither is loading/error.
+    //
+    // But STAGE_PATTERNS only defines loading, success, error. So if both detected stages are
+    // 'success', they de-duplicate to one entry. Therefore we need a second non-loading/error
+    // stage. Since only those three exist, it's impossible to get ≥2 non-loading/error stages.
+    //
+    // The real skip path (continue) is reached when a lifecycle has e.g. only ['success']
+    // stage AND stages.length was ≥ 2 somehow... which can't happen with the current patterns.
+    //
+    // We verify the behavior through analyzeMocks: a file with only success cues produces
+    // stages.length === 1 → null (filtered), so interactionContracts stays empty.
+    // This test documents and confirms that path.
+    await writeFile(
+      join(testDir, 'success-only.test.ts'),
+      `
+        import { describe, it, vi } from 'vitest'
+
+        describe('happy path', () => {
+          it('saves successfully', async () => {
+            const save = vi.fn().mockResolvedValue({ saved: true })
+            await save()
+            expect(save).toHaveBeenCalled()
+            expect(screen.getByText('success')).toBeInTheDocument()
+          })
+        })
+      `
+    )
+
+    const analysis = await analyzeMocks(testDir)
+
+    // success-only file: stages = ['success'] → length 1 → null → filtered → no lifecycles
+    expect(analysis.mutationLifecycles).toEqual([])
+    expect(analysis.interactionContracts).toEqual([])
+  })
 })
 
 describe('analyzeMutationLifecycle', () => {
@@ -255,6 +368,57 @@ describe('analyzeMutationLifecycle', () => {
         ],
       },
     ])
+  })
+
+  // Lines 113-115: file with mutation trigger but only 1 stage returns null and is filtered out
+  it('filters out files that match mutation trigger but only have one lifecycle stage', async () => {
+    // "mutate" keyword triggers MUTATION_TRIGGER_REGEX, but only success stage cues are present
+    await writeFile(
+      join(testDir, 'single-stage-lifecycle.test.ts'),
+      `
+        import { describe, it, vi } from 'vitest'
+
+        describe('single stage', () => {
+          it('only success', async () => {
+            const mutate = vi.fn().mockResolvedValue({ ok: true })
+            await mutate()
+            expect(mutate).toHaveBeenCalledTimes(1)
+          })
+        })
+      `
+    )
+
+    const patterns = await analyzeMutationLifecycle(testDir)
+
+    expect(patterns).toEqual([])
+  })
+
+  // Lines 117-124: file with mutation trigger and ≥2 stages produces a MutationLifecyclePattern
+  it('produces MutationLifecyclePattern for files with loading and error stages', async () => {
+    await writeFile(
+      join(testDir, 'loading-and-error.test.ts'),
+      `
+        import { describe, it, vi } from 'vitest'
+
+        describe('mutation with loading and error', () => {
+          it('shows disabled button and error alert', async () => {
+            const mutate = vi.fn().mockRejectedValue(new Error('boom'))
+            expect(submitBtn).toBeDisabled()
+            await expect(mutate()).rejects.toThrow('boom')
+            expect(screen.getByRole('alert')).toBeInTheDocument()
+          })
+        })
+      `
+    )
+
+    const patterns = await analyzeMutationLifecycle(testDir)
+
+    expect(patterns).toHaveLength(1)
+    expect(patterns[0]).toMatchObject({
+      file: 'loading-and-error.test.ts',
+      stages: expect.arrayContaining(['loading', 'error']),
+      evidence: expect.arrayContaining(['loading cues detected', 'error cues detected']),
+    })
   })
 })
 

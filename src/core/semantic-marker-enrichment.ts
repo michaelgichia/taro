@@ -48,35 +48,6 @@ function looksLikeHiddenEvidence(value: string): boolean {
   return HIDDEN_EVIDENCE_PATTERN.test(value)
 }
 
-function tokenize(value: string): string[] {
-  return value
-    .toLowerCase()
-    .split(/[^a-z0-9]+/i)
-    .filter((token) => token.length > 0)
-}
-
-function isTokenCompatible(fragment: string, candidate: string): boolean {
-  const fragmentTokens = tokenize(fragment)
-  const candidateTokens = tokenize(candidate)
-  if (fragmentTokens.length === 0 || candidateTokens.length === 0) {
-    return false
-  }
-
-  let searchIndex = 0
-  for (const token of fragmentTokens) {
-    const foundIndex = candidateTokens.findIndex(
-      (candidateToken, index) => index >= searchIndex && candidateToken.startsWith(token)
-    )
-    if (foundIndex === -1) {
-      return false
-    }
-
-    searchIndex = foundIndex + 1
-  }
-
-  return true
-}
-
 function buildRecoveredQuery(
   query: QueryDescriptor,
   recoveredText: string
@@ -157,10 +128,6 @@ function scoreRecoveryCandidate(
   const fragmentLower = fragment.toLowerCase()
   const candidateLower = candidateText.toLowerCase()
   if (candidateLower === fragmentLower || !candidateLower.includes(fragmentLower)) {
-    return Number.NEGATIVE_INFINITY
-  }
-
-  if (!isTokenCompatible(fragment, candidateText)) {
     return Number.NEGATIVE_INFINITY
   }
 

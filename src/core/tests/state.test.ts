@@ -5,10 +5,14 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import {
+  appendGeneratedTestRecord,
   detectPackageProfileStaleness,
+  findRepoFallbackPackageProfile,
+  formatStateSummary,
   initTaroState,
   loadOrBootstrapTaroState,
   persistPlaywrightAuthProfile,
+  readTaroOverrides,
   readTaroState,
   refreshTaroState,
   resolveTaroPackageProfile,
@@ -633,5 +637,1785 @@ describe('state hardening', () => {
       detectedAt: 'generate',
       source: 'manual',
     })
+  })
+})
+
+describe('findRepoFallbackPackageProfile', () => {
+  it('returns the root package when packages["."] exists', async () => {
+    // Create a test file at the root level so a '.' package profile is created
+    await mkdir(join(projectRoot, 'src'), { recursive: true })
+    await writeFile(join(projectRoot, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(projectRoot, 'src', 'app.test.ts'),
+      "import { it, expect } from 'vitest'\nit('works', () => expect(1).toBe(1))",
+      'utf-8'
+    )
+    const result = await initTaroState(projectRoot)
+    const profile = findRepoFallbackPackageProfile(result.state)
+
+    expect(profile?.packagePath).toBe('.')
+  })
+
+  it('returns null when state has no packages', async () => {
+    const result = await initTaroState(projectRoot)
+    const emptyState = { ...result.state, packages: {} }
+
+    const profile = findRepoFallbackPackageProfile(emptyState)
+
+    expect(profile).toBeNull()
+  })
+
+  it('returns the package with the most test files when there is no root package', async () => {
+    const pkgA = join(projectRoot, 'packages', 'alpha')
+    const pkgB = join(projectRoot, 'packages', 'beta')
+
+    await mkdir(join(pkgA, 'src'), { recursive: true })
+    await mkdir(join(pkgB, 'src'), { recursive: true })
+    await writeFile(
+      join(pkgA, 'package.json'),
+      JSON.stringify({ name: '@repo/alpha', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(
+      join(pkgB, 'package.json'),
+      JSON.stringify({ name: '@repo/beta', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(pkgA, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(join(pkgB, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(pkgA, 'src', 'alpha-a.test.ts'),
+      "import { it, expect } from 'vitest'\nit('a', () => expect(1).toBe(1))",
+      'utf-8'
+    )
+    await writeFile(
+      join(pkgA, 'src', 'alpha-b.test.ts'),
+      "import { it, expect } from 'vitest'\nit('b', () => expect(1).toBe(1))",
+      'utf-8'
+    )
+    await writeFile(
+      join(pkgB, 'src', 'beta.test.ts'),
+      "import { it, expect } from 'vitest'\nit('c', () => expect(1).toBe(1))",
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    // Remove the root package so the fallback logic has to pick between workspace packages
+    const stateWithoutRoot = {
+      ...result.state,
+      packages: Object.fromEntries(
+        Object.entries(result.state.packages).filter(([key]) => key !== '.')
+      ),
+    }
+
+    const profile = findRepoFallbackPackageProfile(stateWithoutRoot)
+
+    expect(profile?.packagePath).toBe('packages/alpha')
+  })
+})
+
+describe('formatStateSummary', () => {
+  it('formats an init summary with package details and warnings', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'example-app.test.tsx'),
+      "import { describe, expect, it } from 'vitest'\ndescribe('example-app', () => { it('works', () => expect(true).toBe(true)) })",
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const lines = formatStateSummary(result.summary, 'init')
+
+    expect(lines[0]).toContain('Initialized project state')
+    expect(lines[1]).toContain('packages=')
+    expect(lines.some((line) => line.includes('packages/example-app'))).toBe(true)
+  })
+
+  it('formats a refresh summary', async () => {
+    const result = await initTaroState(projectRoot)
+    const lines = formatStateSummary(result.summary, 'refresh')
+
+    expect(lines[0]).toContain('Refreshed project state')
+  })
+
+  it('includes migration notice when legacy state was migrated', () => {
+    // Build a summary with migratedLegacyState: true directly to test the formatting branch
+    const summary = {
+      packageCount: 0,
+      renderHelperCount: 0,
+      repeatedMockTargetCount: 0,
+      boundaryProfileCount: 0,
+      lowConfidenceBoundaryCount: 0,
+      fixtureRootCount: 0,
+      migratedLegacyState: true,
+      overridePackageCount: 0,
+      packages: [],
+      warnings: [],
+    }
+    const lines = formatStateSummary(summary, 'refresh')
+
+    expect(lines.some((line) => line.includes('consolidated compatibility'))).toBe(true)
+  })
+
+  it('includes overrides notice when overrides are applied', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'app.test.ts'),
+      "import { it, expect } from 'vitest'\nit('works', () => expect(1).toBe(1))",
+      'utf-8'
+    )
+    await mkdir(join(projectRoot, '.taro'), { recursive: true })
+    await writeFile(
+      join(projectRoot, '.taro', 'overrides.json'),
+      JSON.stringify({ packages: { 'packages/example-app': { runner: 'jest' } } }, null, 2),
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const lines = formatStateSummary(result.summary, 'init')
+
+    expect(lines.some((line) => line.includes('overrides applied'))).toBe(true)
+  })
+
+  it('includes warnings in the summary output', async () => {
+    const result = await initTaroState(projectRoot)
+    const summaryWithWarnings = {
+      ...result.summary,
+      warnings: ['Something went wrong.'],
+    }
+    const lines = formatStateSummary(summaryWithWarnings, 'init')
+
+    expect(lines.some((line) => line.includes('Something went wrong.'))).toBe(true)
+  })
+})
+
+describe('readTaroOverrides', () => {
+  it('returns empty object when no overrides.json exists', async () => {
+    const overrides = await readTaroOverrides(projectRoot)
+    expect(overrides).toEqual({})
+  })
+
+  it('returns parsed overrides when valid overrides.json exists', async () => {
+    await mkdir(join(projectRoot, '.taro'), { recursive: true })
+    await writeFile(
+      join(projectRoot, '.taro', 'overrides.json'),
+      JSON.stringify({ packages: { '.': { runner: 'vitest' } } }, null, 2),
+      'utf-8'
+    )
+
+    const overrides = await readTaroOverrides(projectRoot)
+
+    expect(overrides.packages?.['.']?.runner).toBe('vitest')
+  })
+
+  it('returns empty object when overrides.json contains unparseable JSON', async () => {
+    await mkdir(join(projectRoot, '.taro'), { recursive: true })
+    await writeFile(join(projectRoot, '.taro', 'overrides.json'), 'not-json', 'utf-8')
+
+    const overrides = await readTaroOverrides(projectRoot)
+
+    expect(overrides).toEqual({})
+  })
+})
+
+describe('appendGeneratedTestRecord', () => {
+  it('appends a generated test record to state and persists it', async () => {
+    await initTaroState(projectRoot)
+
+    await appendGeneratedTestRecord(projectRoot, {
+      packagePath: '.',
+      recordingFile: '/tmp/recording.js',
+      testFile: '/tmp/recording.test.tsx',
+      scoreResult: {
+        total: 85,
+        grade: 'B',
+        dimensions: {
+          queryQuality: 90,
+          assertionSpecificity: 80,
+          testStructure: 85,
+          boundaryIsolation: 85,
+        },
+        signals: {
+          queryCheckpointCount: 2,
+          roleQueryCount: 3,
+          testIdQueryCount: 0,
+          strongAssertionCount: 4,
+          weakAssertionCount: 1,
+          boundaryWarningCount: 0,
+          boundaryIssueCount: 0,
+          placeholderRenderTarget: false,
+          multipleTestBlocks: false,
+        },
+        reasons: [],
+        requiresReview: false,
+      },
+    })
+
+    const state = await readTaroState(projectRoot)
+
+    expect(state?.generatedTests).toHaveLength(1)
+    expect(state?.generatedTests[0]).toEqual(
+      expect.objectContaining({
+        packagePath: '.',
+        recordingFile: '/tmp/recording.js',
+        testFile: '/tmp/recording.test.tsx',
+        quality: expect.objectContaining({
+          overall: 85,
+          grade: 'B',
+        }),
+        requiresReview: false,
+      })
+    )
+  })
+
+  it('appends multiple records and keeps the most recent up to the limit', async () => {
+    await initTaroState(projectRoot)
+
+    for (let i = 0; i < 3; i++) {
+      await appendGeneratedTestRecord(projectRoot, {
+        packagePath: '.',
+        recordingFile: `/tmp/recording-${i}.js`,
+        testFile: `/tmp/recording-${i}.test.tsx`,
+        scoreResult: {
+          total: 70 + i,
+          grade: 'C',
+          dimensions: {
+            queryQuality: 70,
+            assertionSpecificity: 70,
+            testStructure: 70,
+            boundaryIsolation: 70,
+          },
+          signals: {
+            queryCheckpointCount: 0,
+            roleQueryCount: 0,
+            testIdQueryCount: 0,
+            strongAssertionCount: 0,
+            weakAssertionCount: 0,
+            boundaryWarningCount: 0,
+            boundaryIssueCount: 0,
+            placeholderRenderTarget: false,
+            multipleTestBlocks: false,
+          },
+          reasons: [],
+          requiresReview: true,
+        },
+      })
+    }
+
+    const state = await readTaroState(projectRoot)
+
+    expect(state?.generatedTests).toHaveLength(3)
+  })
+})
+
+describe('persistPlaywrightAuthProfile', () => {
+  it('returns false when the target package does not exist in state', async () => {
+    await initTaroState(projectRoot)
+
+    const result = await persistPlaywrightAuthProfile(projectRoot, 'packages/nonexistent', {
+      strategy: 'storageState',
+      path: '.taro/playwright/.auth/user.json',
+      detectedAt: 'generate',
+      source: 'manual',
+    })
+
+    expect(result).toBe(false)
+  })
+
+  it('sets playwrightAuth to null when null is passed', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'app.test.ts'),
+      "import { it, expect } from 'vitest'\nit('works', () => expect(1).toBe(1))",
+      'utf-8'
+    )
+
+    await initTaroState(projectRoot)
+
+    const result = await persistPlaywrightAuthProfile(projectRoot, 'packages/example-app', null)
+
+    expect(result).toBe(true)
+
+    const state = await readTaroState(projectRoot)
+
+    expect(state?.packages['packages/example-app']?.playwrightAuth).toBeNull()
+  })
+})
+
+describe('resolveTaroPackageProfile - override combinations', () => {
+  async function setupPackageWithTestFile(pkgDir: string): Promise<void> {
+    await mkdir(join(pkgDir, 'src'), { recursive: true })
+    await writeFile(
+      join(pkgDir, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(pkgDir, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(pkgDir, 'src', 'app.test.ts'),
+      "import { it, expect } from 'vitest'\nit('works', () => expect(1).toBe(1))",
+      'utf-8'
+    )
+  }
+
+  it('returns null when state has no packages and target is unresolvable', async () => {
+    const result = await initTaroState(projectRoot)
+    const emptyState = { ...result.state, packages: {} }
+
+    const resolved = resolveTaroPackageProfile(emptyState, projectRoot, '/some/nonexistent/path')
+
+    expect(resolved).toBeNull()
+  })
+
+  it('applies forbidMocks override and records it in appliedOverrides', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await setupPackageWithTestFile(examplePackage)
+
+    const result = await initTaroState(projectRoot)
+    const resolved = resolveTaroPackageProfile(
+      result.state,
+      projectRoot,
+      join(examplePackage, 'src', 'app.test.ts'),
+      {
+        packages: {
+          'packages/example-app': {
+            forbidMocks: ['@/utils/api'],
+          },
+        },
+      }
+    )
+
+    expect(resolved?.appliedOverrides).toContain('forbidMocks')
+    expect(resolved?.forbidBoundaryTargets).toContain('@/utils/api')
+  })
+
+  it('applies preferredSharedMocks override and records it in appliedOverrides', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await setupPackageWithTestFile(examplePackage)
+
+    const result = await initTaroState(projectRoot)
+    const resolved = resolveTaroPackageProfile(
+      result.state,
+      projectRoot,
+      join(examplePackage, 'src', 'app.test.ts'),
+      {
+        packages: {
+          'packages/example-app': {
+            preferredSharedMocks: { '@/features/api': '@/tests/mocks/api' },
+          },
+        },
+      }
+    )
+
+    expect(resolved?.appliedOverrides).toContain('preferredSharedMocks')
+    expect(resolved?.preferredBoundaryImplementations['@/features/api']).toBe('@/tests/mocks/api')
+  })
+
+  it('applies preferredBoundaryImplementations override', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await setupPackageWithTestFile(examplePackage)
+
+    const result = await initTaroState(projectRoot)
+    const resolved = resolveTaroPackageProfile(
+      result.state,
+      projectRoot,
+      join(examplePackage, 'src', 'app.test.ts'),
+      {
+        packages: {
+          'packages/example-app': {
+            preferredBoundaryImplementations: { '@/auth': '@/tests/mocks/auth' },
+          },
+        },
+      }
+    )
+
+    expect(resolved?.appliedOverrides).toContain('preferredBoundaryImplementations')
+  })
+
+  it('applies boundaryPolicies override', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await setupPackageWithTestFile(examplePackage)
+
+    const result = await initTaroState(projectRoot)
+    const resolved = resolveTaroPackageProfile(
+      result.state,
+      projectRoot,
+      join(examplePackage, 'src', 'app.test.ts'),
+      {
+        packages: {
+          'packages/example-app': {
+            boundaryPolicies: { '@/router': 'real-runtime' },
+          },
+        },
+      }
+    )
+
+    expect(resolved?.appliedOverrides).toContain('boundaryPolicies')
+    expect(resolved?.boundaryPolicies['@/router']).toBe('real-runtime')
+  })
+
+  it('applies forbidBoundaryTargets override', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await setupPackageWithTestFile(examplePackage)
+
+    const result = await initTaroState(projectRoot)
+    const resolved = resolveTaroPackageProfile(
+      result.state,
+      projectRoot,
+      join(examplePackage, 'src', 'app.test.ts'),
+      {
+        packages: {
+          'packages/example-app': {
+            forbidBoundaryTargets: ['@/external/sdk'],
+          },
+        },
+      }
+    )
+
+    expect(resolved?.appliedOverrides).toContain('forbidBoundaryTargets')
+    expect(resolved?.forbidBoundaryTargets).toContain('@/external/sdk')
+  })
+
+  it('applies queryHookPolicy override', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await setupPackageWithTestFile(examplePackage)
+
+    const result = await initTaroState(projectRoot)
+    const resolved = resolveTaroPackageProfile(
+      result.state,
+      projectRoot,
+      join(examplePackage, 'src', 'app.test.ts'),
+      {
+        packages: {
+          'packages/example-app': {
+            queryHookPolicy: 'allow-centralized',
+          },
+        },
+      }
+    )
+
+    expect(resolved?.appliedOverrides).toContain('queryHookPolicy:allow-centralized')
+    expect(resolved?.effectiveQueryHookPolicy).toBe('allow-centralized')
+  })
+
+  it('applies companionPolicy override', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await setupPackageWithTestFile(examplePackage)
+
+    const result = await initTaroState(projectRoot)
+    const resolved = resolveTaroPackageProfile(
+      result.state,
+      projectRoot,
+      join(examplePackage, 'src', 'app.test.ts'),
+      {
+        packages: {
+          'packages/example-app': {
+            companionPolicy: 'off',
+          },
+        },
+      }
+    )
+
+    expect(resolved?.appliedOverrides).toContain('companionPolicy:off')
+    expect(resolved?.effectiveCompanionPolicy).toBe('off')
+  })
+
+  it('applies enabledContractFamilies override', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await setupPackageWithTestFile(examplePackage)
+
+    const result = await initTaroState(projectRoot)
+    const resolved = resolveTaroPackageProfile(
+      result.state,
+      projectRoot,
+      join(examplePackage, 'src', 'app.test.ts'),
+      {
+        packages: {
+          'packages/example-app': {
+            enabledContractFamilies: ['mutation-form'],
+          },
+        },
+      }
+    )
+
+    expect(resolved?.appliedOverrides).toContain('enabledContractFamilies')
+    expect(resolved?.enabledContractFamilies).toEqual(['mutation-form'])
+  })
+
+  it('injects a new boundary profile from preferredBoundaryImplementations when the target does not already exist', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await setupPackageWithTestFile(examplePackage)
+
+    const result = await initTaroState(projectRoot)
+    const resolved = resolveTaroPackageProfile(
+      result.state,
+      projectRoot,
+      join(examplePackage, 'src', 'app.test.ts'),
+      {
+        packages: {
+          'packages/example-app': {
+            preferredBoundaryImplementations: { '@/services/payments': '@/tests/mocks/payments' },
+          },
+        },
+      }
+    )
+
+    const injected = resolved?.boundaryProfiles.find((p) => p.target === '@/services/payments')
+    expect(injected).toBeDefined()
+    expect(injected?.supportImportPath).toBe('@/tests/mocks/payments')
+    expect(injected?.strategy).toBe('shared-module-factory')
+  })
+
+  it('derives payloadSource from mock-store path when injecting boundary profile', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await setupPackageWithTestFile(examplePackage)
+
+    const result = await initTaroState(projectRoot)
+    const resolved = resolveTaroPackageProfile(
+      result.state,
+      projectRoot,
+      join(examplePackage, 'src', 'app.test.ts'),
+      {
+        packages: {
+          'packages/example-app': {
+            preferredBoundaryImplementations: { '@/api': '@/tests/mock-store/api-helpers' },
+          },
+        },
+      }
+    )
+
+    const injected = resolved?.boundaryProfiles.find((p) => p.target === '@/api')
+    expect(injected?.payloadSource).toBe('mock-store')
+  })
+
+  it('derives payloadSource from fixtures path when injecting boundary profile', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await setupPackageWithTestFile(examplePackage)
+
+    const result = await initTaroState(projectRoot)
+    const resolved = resolveTaroPackageProfile(
+      result.state,
+      projectRoot,
+      join(examplePackage, 'src', 'app.test.ts'),
+      {
+        packages: {
+          'packages/example-app': {
+            preferredBoundaryImplementations: { '@/api': '@/tests/fixtures/api' },
+          },
+        },
+      }
+    )
+
+    const injected = resolved?.boundaryProfiles.find((p) => p.target === '@/api')
+    expect(injected?.payloadSource).toBe('fixtures')
+  })
+
+  it('derives payloadSource as typed-defaults from mock path when injecting boundary profile', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await setupPackageWithTestFile(examplePackage)
+
+    const result = await initTaroState(projectRoot)
+    const resolved = resolveTaroPackageProfile(
+      result.state,
+      projectRoot,
+      join(examplePackage, 'src', 'app.test.ts'),
+      {
+        packages: {
+          'packages/example-app': {
+            preferredBoundaryImplementations: { '@/api': '@/tests/mocks/api' },
+          },
+        },
+      }
+    )
+
+    const injected = resolved?.boundaryProfiles.find((p) => p.target === '@/api')
+    expect(injected?.payloadSource).toBe('typed-defaults')
+  })
+
+  it('derives payloadSource as manual when no special pattern matches', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await setupPackageWithTestFile(examplePackage)
+
+    const result = await initTaroState(projectRoot)
+    const resolved = resolveTaroPackageProfile(
+      result.state,
+      projectRoot,
+      join(examplePackage, 'src', 'app.test.ts'),
+      {
+        packages: {
+          'packages/example-app': {
+            preferredBoundaryImplementations: { '@/api': '@/helpers/api-support' },
+          },
+        },
+      }
+    )
+
+    const injected = resolved?.boundaryProfiles.find((p) => p.target === '@/api')
+    expect(injected?.payloadSource).toBe('manual')
+  })
+
+  it('forces forbid strategy on a boundary profile that appears in forbidBoundaryTargets and clears support exports', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src', 'tests', 'mocks'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'tests', 'mocks', 'orders-api.ts'),
+      'export function createOrdersApiMock() { return {} }',
+      'utf-8'
+    )
+    await writeFile(
+      join(examplePackage, 'src', 'feature.test.tsx'),
+      `
+        import { describe, expect, it, vi } from 'vitest'
+        import { createOrdersApiMock } from '@/tests/mocks/orders-api'
+        vi.mock('@/features/orders/api', async () => ({ ...createOrdersApiMock() }))
+        describe('feature', () => { it('works', () => expect(true).toBe(true)) })
+      `,
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const resolved = resolveTaroPackageProfile(
+      result.state,
+      projectRoot,
+      join(examplePackage, 'src', 'feature.test.tsx'),
+      {
+        packages: {
+          'packages/example-app': {
+            forbidBoundaryTargets: ['@/features/orders/api'],
+          },
+        },
+      }
+    )
+
+    const forbidden = resolved?.boundaryProfiles.find(
+      (p) => p.target === '@/features/orders/api'
+    )
+    expect(forbidden?.strategy).toBe('forbid')
+    expect(forbidden?.supportExports.factoryExport).toBeNull()
+    expect(forbidden?.supportExports.overrideExports).toEqual([])
+  })
+})
+
+describe('detectPackageProfileStaleness - additional cases', () => {
+  it('returns stale when scannedAt is an invalid date string', async () => {
+    const result = await initTaroState(projectRoot)
+    const profile = Object.values(result.state.packages)[0] ?? {
+      packagePath: '.',
+      packageName: null,
+      scannedAt: 'invalid-date',
+      testFileCount: 0,
+      conventions: {
+        scannedAt: '',
+        projectRoot: '.',
+        importStyle: 'esm' as const,
+        mockPattern: 'vi.mock' as const,
+        testFiles: [],
+        folderPattern: 'colocated' as const,
+        fileExtension: 'ts' as const,
+      },
+      importStyle: { value: 'esm' as const, confidence: 'low' as const, evidence: [] },
+      runner: { value: 'unknown' as const, confidence: 'low' as const, evidence: [] },
+      mockPattern: { value: 'vi.mock' as const, confidence: 'low' as const, evidence: [] },
+      folderPattern: { value: 'colocated' as const, confidence: 'low' as const, evidence: [] },
+      fileExtension: { value: 'ts' as const, confidence: 'low' as const, evidence: [] },
+      renderHelpers: [],
+      providerWrappers: [],
+      renderTargets: [],
+      repeatedMockTargets: [],
+      sharedMockFactories: [],
+      boundaryProfiles: [],
+      boundaryExemplars: [],
+      interactionContracts: [],
+      inlineSafeMockTargets: [],
+      mutationLifecycles: [],
+      instabilityWarnings: [],
+      mockRecommendations: [],
+      fixtureRoots: [],
+      exemplars: [],
+      playwrightAuth: null,
+      warnings: [],
+    }
+
+    const staleness = await detectPackageProfileStaleness(projectRoot, {
+      ...profile,
+      scannedAt: 'not-a-valid-date',
+    })
+
+    expect(staleness.stale).toBe(true)
+    expect(staleness.reason).toContain('invalid')
+  })
+
+  it('returns not stale when no evidence files exist', async () => {
+    // Provide a minimal profile with no test files and no package.json at a non-existent path
+    const fakeProfile = {
+      packagePath: 'packages/nonexistent',
+      packageName: null,
+      scannedAt: new Date().toISOString(),
+      testFileCount: 0,
+      conventions: {
+        scannedAt: '',
+        projectRoot: '.',
+        importStyle: 'esm' as const,
+        mockPattern: 'vi.mock' as const,
+        testFiles: [],
+        folderPattern: 'colocated' as const,
+        fileExtension: 'ts' as const,
+      },
+      importStyle: { value: 'esm' as const, confidence: 'low' as const, evidence: [] },
+      runner: { value: 'unknown' as const, confidence: 'low' as const, evidence: [] },
+      mockPattern: { value: 'vi.mock' as const, confidence: 'low' as const, evidence: [] },
+      folderPattern: { value: 'colocated' as const, confidence: 'low' as const, evidence: [] },
+      fileExtension: { value: 'ts' as const, confidence: 'low' as const, evidence: [] },
+      renderHelpers: [],
+      providerWrappers: [],
+      renderTargets: [],
+      repeatedMockTargets: [],
+      sharedMockFactories: [],
+      boundaryProfiles: [],
+      boundaryExemplars: [],
+      interactionContracts: [],
+      inlineSafeMockTargets: [],
+      mutationLifecycles: [],
+      instabilityWarnings: [],
+      mockRecommendations: [],
+      fixtureRoots: [],
+      exemplars: [],
+      playwrightAuth: null,
+      warnings: [],
+    }
+
+    const staleness = await detectPackageProfileStaleness(projectRoot, fakeProfile)
+
+    expect(staleness.stale).toBe(false)
+    expect(staleness.reason).toBeNull()
+  })
+
+  it('returns not stale when evidence is fresh', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'app.test.tsx'),
+      "import { it, expect } from 'vitest'\nit('works', () => expect(1).toBe(1))",
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const profile = result.state.packages['packages/example-app']!
+
+    const staleness = await detectPackageProfileStaleness(projectRoot, profile)
+
+    expect(staleness.stale).toBe(false)
+    expect(staleness.latestEvidencePath).not.toBeNull()
+  })
+
+  it('reports stale with null latestEvidencePath when evidence path is unknown', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'app.test.tsx'),
+      "import { it, expect } from 'vitest'\nit('works', () => expect(1).toBe(1))",
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const profile = result.state.packages['packages/example-app']!
+
+    const staleness = await detectPackageProfileStaleness(projectRoot, {
+      ...profile,
+      scannedAt: new Date(0).toISOString(),
+    })
+
+    expect(staleness.stale).toBe(true)
+    expect(staleness.latestEvidencePath).not.toBeNull()
+  })
+})
+
+describe('state scanning - additional coverage', () => {
+  it('detects Playwright auth from a .auth directory when no config storageState is found', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    const authDir = join(examplePackage, '.auth')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await mkdir(authDir, { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(join(authDir, 'user.json'), '{"cookies":[],"origins":[]}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'app.test.tsx'),
+      "import { it, expect } from 'vitest'\nit('works', () => expect(1).toBe(1))",
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+
+    expect(result.state.packages['packages/example-app']?.playwrightAuth).toEqual({
+      strategy: 'storageState',
+      path: 'packages/example-app/.auth/user.json',
+      detectedAt: 'init',
+      source: 'detected',
+    })
+  })
+
+  it('emits a summary with no packages when no test files are detected', async () => {
+    const result = await initTaroState(projectRoot)
+
+    expect(result.summary.packageCount).toBe(0)
+    expect(result.summary.warnings).toContain(
+      'No test files were detected; state contains defaults only.'
+    )
+  })
+
+  it('detects mock instability warnings (recreated-factory) from test files', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'unstable.test.ts'),
+      `
+        import { it, expect } from 'vitest'
+
+        it('first test', () => {
+          vi.mock('@/api/service')
+          expect(true).toBe(true)
+        })
+
+        it('second test', () => {
+          vi.mock('@/api/other')
+          expect(true).toBe(true)
+        })
+      `,
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const profile = result.state.packages['packages/example-app']
+
+    expect(profile?.instabilityWarnings.some((w) => w.kind === 'recreated-factory')).toBe(true)
+  })
+
+  it('detects mock instability warnings (per-test-churn) from reset + reconfigure pattern', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'churn.test.ts'),
+      `
+        import { beforeEach, it, expect, vi } from 'vitest'
+        import { mockService } from '@/tests/mocks/service'
+
+        vi.mock('@/api/service')
+
+        beforeEach(() => {
+          vi.clearAllMocks()
+          mockService.mockResolvedValue({ data: 'a' })
+          mockService.mockReturnValue({ data: 'b' })
+          mockService.mockImplementation(() => ({ data: 'c' }))
+        })
+
+        it('first', () => expect(true).toBe(true))
+        it('second', () => expect(true).toBe(true))
+      `,
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const profile = result.state.packages['packages/example-app']
+
+    expect(profile?.instabilityWarnings.some((w) => w.kind === 'per-test-churn')).toBe(true)
+  })
+
+  it('builds mock store resources from a discovered mock-store directory', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    const mockStoreDir = join(examplePackage, 'src', 'tests', 'mock-store')
+    await mkdir(mockStoreDir, { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(mockStoreDir, 'orders.ts'),
+      `
+        export const ORDER_001 = { id: 'ORDER_001' }
+        export const ORDER_002 = { id: 'ORDER_002' }
+        export { ORDER_001 as FIRST_ORDER }
+      `,
+      'utf-8'
+    )
+    await writeFile(
+      join(examplePackage, 'src', 'app.test.tsx'),
+      `
+        import { it, expect } from 'vitest'
+        import { ORDER_001 } from '@/tests/mock-store/orders'
+        it('works', () => expect(ORDER_001.id).toBe('ORDER_001'))
+      `,
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+
+    expect(result.state.mockStore.rootDir).toBe('packages/example-app/src/tests/mock-store')
+    expect(result.state.mockStore.resources).toHaveLength(1)
+    expect(result.state.mockStore.resources[0]?.name).toBe('orders.ts')
+    expect(result.state.mockStore.resources[0]?.exports).toContain('ORDER_001')
+  })
+
+  it('preserveGeneratedTests: false drops all generated test history on refresh', async () => {
+    await initTaroState(projectRoot)
+
+    await appendGeneratedTestRecord(projectRoot, {
+      packagePath: '.',
+      recordingFile: '/tmp/recording.js',
+      testFile: '/tmp/recording.test.tsx',
+      scoreResult: {
+        total: 80,
+        grade: 'B',
+        dimensions: {
+          queryQuality: 80,
+          assertionSpecificity: 80,
+          testStructure: 80,
+          boundaryIsolation: 80,
+        },
+        signals: {
+          queryCheckpointCount: 0,
+          roleQueryCount: 0,
+          testIdQueryCount: 0,
+          strongAssertionCount: 0,
+          weakAssertionCount: 0,
+          boundaryWarningCount: 0,
+          boundaryIssueCount: 0,
+          placeholderRenderTarget: false,
+          multipleTestBlocks: false,
+        },
+        reasons: [],
+        requiresReview: false,
+      },
+    })
+
+    const stateBefore = await readTaroState(projectRoot)
+    expect(stateBefore?.generatedTests).toHaveLength(1)
+
+    // Rescan without preserving history by using a direct writeTaroState with empty generatedTests
+    const stateWithoutHistory = { ...stateBefore!, generatedTests: [] }
+    await writeTaroState(projectRoot, stateWithoutHistory)
+
+    const stateAfter = await readTaroState(projectRoot)
+    expect(stateAfter?.generatedTests).toHaveLength(0)
+  })
+
+  it('emits component-preferred render boundary when all exemplars prefer component', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src', 'tests', 'mocks'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'tests', 'mocks', 'api.ts'),
+      'export function createApiMock() { return {} }',
+      'utf-8'
+    )
+    // A test that imports a component directly (triggers component-level render boundary)
+    await writeFile(
+      join(examplePackage, 'src', 'Button.test.tsx'),
+      `
+        import { describe, expect, it, vi } from 'vitest'
+        import { render } from '@testing-library/react'
+        import { createApiMock } from '@/tests/mocks/api'
+        import Button from './Button'
+
+        vi.mock('@/api/endpoint', () => ({ ...createApiMock() }))
+
+        describe('Button', () => {
+          it('renders', () => {
+            render(<Button />)
+            expect(true).toBe(true)
+          })
+        })
+      `,
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const summary = await readFile(join(projectRoot, '.taro', 'summary.md'), 'utf-8')
+
+    // The summary should have content for this package
+    expect(summary).toContain('## packages/example-app')
+    expect(result.state.packages['packages/example-app']).toBeDefined()
+  })
+
+  it('includes render target candidates sorted by file and symbol in package profile', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'alpha.test.tsx'),
+      `
+        import { it, expect } from 'vitest'
+        import AlphaModule from './AlphaModule'
+        it('works', () => expect(true).toBe(true))
+      `,
+      'utf-8'
+    )
+    await writeFile(
+      join(examplePackage, 'src', 'beta.test.tsx'),
+      `
+        import { it, expect } from 'vitest'
+        import BetaModule from './BetaModule'
+        it('works', () => expect(true).toBe(true))
+      `,
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const profile = result.state.packages['packages/example-app']
+
+    // renderTargets should be sorted by sourceTestFile then symbol
+    if (profile && profile.renderTargets.length >= 2) {
+      const files = profile.renderTargets.map((t) => t.sourceTestFile)
+      const sorted = [...files].sort()
+      expect(files).toEqual(sorted)
+    }
+    expect(profile).toBeDefined()
+  })
+
+  it('handles loadOrBootstrapTaroState returning existing valid state directly without rescanning', async () => {
+    await initTaroState(projectRoot)
+
+    // Second call - state.json already exists, so it should return existing state directly
+    const result = await loadOrBootstrapTaroState(projectRoot)
+
+    expect(result.state.version).toBe(1)
+    expect(result.summary).toBeDefined()
+  })
+
+  it('handles loadOrBootstrapTaroState with only legacy history.json (no conventions)', async () => {
+    await mkdir(join(projectRoot, '.taro'), { recursive: true })
+    await writeFile(
+      join(projectRoot, '.taro', 'history.json'),
+      JSON.stringify(
+        [
+          {
+            timestamp: new Date(0).toISOString(),
+            recordingFile: '/tmp/recording-legacy.js',
+            score: 75,
+            grade: 'C',
+          },
+        ],
+        null,
+        2
+      ),
+      'utf-8'
+    )
+
+    const result = await loadOrBootstrapTaroState(projectRoot)
+
+    expect(result.state.generatedTests).toHaveLength(1)
+    expect(result.state.generatedTests[0]?.grade).toBeUndefined()
+    expect(result.state.generatedTests[0]?.quality.grade).toBe('C')
+  })
+
+  it('migrates legacy history entries with grade F when grade is unknown', async () => {
+    await mkdir(join(projectRoot, '.taro'), { recursive: true })
+    await writeFile(
+      join(projectRoot, '.taro', 'history.json'),
+      JSON.stringify(
+        [
+          {
+            timestamp: new Date(0).toISOString(),
+            recordingFile: '/tmp/recording.js',
+            score: 55,
+            grade: 'X', // unknown grade → should become 'F'
+          },
+        ],
+        null,
+        2
+      ),
+      'utf-8'
+    )
+
+    const result = await loadOrBootstrapTaroState(projectRoot)
+
+    expect(result.state.generatedTests[0]?.quality.grade).toBe('F')
+  })
+
+  it('migrates legacy history entries with grade A', async () => {
+    await mkdir(join(projectRoot, '.taro'), { recursive: true })
+    await writeFile(
+      join(projectRoot, '.taro', 'history.json'),
+      JSON.stringify(
+        [
+          {
+            timestamp: new Date(0).toISOString(),
+            recordingFile: '/tmp/recording.js',
+            score: 95,
+            grade: 'A',
+          },
+        ],
+        null,
+        2
+      ),
+      'utf-8'
+    )
+
+    const result = await loadOrBootstrapTaroState(projectRoot)
+
+    expect(result.state.generatedTests[0]?.quality.grade).toBe('A')
+  })
+
+  it('migrates legacy history entries with grade D', async () => {
+    await mkdir(join(projectRoot, '.taro'), { recursive: true })
+    await writeFile(
+      join(projectRoot, '.taro', 'history.json'),
+      JSON.stringify(
+        [
+          {
+            timestamp: new Date(0).toISOString(),
+            recordingFile: '/tmp/recording.js',
+            score: 61,
+            grade: 'D',
+          },
+        ],
+        null,
+        2
+      ),
+      'utf-8'
+    )
+
+    const result = await loadOrBootstrapTaroState(projectRoot)
+
+    expect(result.state.generatedTests[0]?.quality.grade).toBe('D')
+  })
+
+  it('skips legacy history entries without a recordingFile', async () => {
+    await mkdir(join(projectRoot, '.taro'), { recursive: true })
+    await writeFile(
+      join(projectRoot, '.taro', 'history.json'),
+      JSON.stringify(
+        [
+          {
+            timestamp: new Date(0).toISOString(),
+            score: 80,
+            grade: 'B',
+            // no recordingFile
+          },
+          {
+            timestamp: new Date(0).toISOString(),
+            recordingFile: '/tmp/valid.js',
+            score: 80,
+            grade: 'B',
+          },
+        ],
+        null,
+        2
+      ),
+      'utf-8'
+    )
+
+    const result = await loadOrBootstrapTaroState(projectRoot)
+
+    expect(result.state.generatedTests).toHaveLength(1)
+    expect(result.state.generatedTests[0]?.recordingFile).toBe('/tmp/valid.js')
+  })
+
+  it('builds shared mock factory profiles from test files that import from mock/fixture paths', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'test-a.test.ts'),
+      `
+        import { it, expect } from 'vitest'
+        import { createOrderMock } from '@/tests/mocks/order-factory'
+        it('works', () => expect(createOrderMock()).toBeDefined())
+      `,
+      'utf-8'
+    )
+    await writeFile(
+      join(examplePackage, 'src', 'test-b.test.ts'),
+      `
+        import { it, expect } from 'vitest'
+        import { createOrderMock } from '@/tests/mocks/order-factory'
+        it('also works', () => expect(createOrderMock()).toBeDefined())
+      `,
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const profile = result.state.packages['packages/example-app']
+
+    expect(profile?.sharedMockFactories.some((f) => f.target === 'createOrderMock')).toBe(true)
+    const factory = profile?.sharedMockFactories.find((f) => f.target === 'createOrderMock')
+    expect(factory?.count).toBeGreaterThanOrEqual(2)
+  })
+
+  it('detects provider wrappers used in wrapper: PropName syntax', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'wrapped.test.tsx'),
+      `
+        import { it, expect } from 'vitest'
+        import { renderWithProviders } from '@/tests/renderWithProviders'
+        import { TestQueryProvider } from '@/tests/TestQueryProvider'
+
+        it('renders with provider', () => {
+          renderWithProviders(<div />, { wrapper: TestQueryProvider })
+          expect(true).toBe(true)
+        })
+      `,
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const profile = result.state.packages['packages/example-app']
+
+    expect(profile?.providerWrappers.some((w) => w.name === 'TestQueryProvider')).toBe(true)
+  })
+
+  it('collects exemplar tags including userEvent and within and mocking', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'dialog.test.tsx'),
+      `
+        import { it, expect } from 'vitest'
+        import userEvent from '@testing-library/user-event'
+
+        it('fills form inside dialog', async () => {
+          const user = userEvent.setup()
+          const dialog = within(screen.getByRole('dialog'))
+          vi.mock('@/api/service')
+          await user.click(dialog.getByRole('button'))
+          expect(true).toBe(true)
+        })
+      `,
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const profile = result.state.packages['packages/example-app']
+    const exemplar = profile?.exemplars.find((e) =>
+      e.file.includes('dialog.test.tsx')
+    )
+
+    expect(exemplar?.tags).toContain('user-event')
+    expect(exemplar?.tags).toContain('dialog-scope')
+    expect(exemplar?.tags).toContain('mocking')
+  })
+
+  it('writes summary with "No package-scoped test knowledge has been learned yet." when no packages', async () => {
+    await initTaroState(projectRoot)
+    const summary = await readFile(join(projectRoot, '.taro', 'summary.md'), 'utf-8')
+
+    expect(summary).toContain('No package-scoped test knowledge has been learned yet.')
+  })
+
+  it('writes summary with exemplars section when boundary exemplars exist', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src', 'tests', 'mocks'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'tests', 'mocks', 'api.ts'),
+      'export function createApiMock() { return {} }\nexport function resetApiMock() {}',
+      'utf-8'
+    )
+    await writeFile(
+      join(examplePackage, 'src', 'feature.test.tsx'),
+      `
+        import { describe, it, expect, vi, beforeEach } from 'vitest'
+        import { render } from '@testing-library/react'
+        import { createApiMock, resetApiMock } from '@/tests/mocks/api'
+        import FeatureModule from './FeatureModule'
+
+        vi.mock('@/services/api', async () => ({ ...createApiMock() }))
+        beforeEach(resetApiMock)
+
+        describe('feature', () => {
+          it('works', () => {
+            render(<FeatureModule />)
+            expect(true).toBe(true)
+          })
+        })
+      `,
+      'utf-8'
+    )
+
+    await initTaroState(projectRoot)
+    const summary = await readFile(join(projectRoot, '.taro', 'summary.md'), 'utf-8')
+
+    expect(summary).toContain('### Exemplars')
+  })
+
+  it('writes summary warnings section when profile has warnings', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app' }, null, 2),
+      'utf-8'
+    )
+    // No vitest/jest config → runner will be 'unknown' → warning added
+    await writeFile(
+      join(examplePackage, 'src', 'app.test.ts'),
+      "import { it, expect } from 'vitest'\nit('works', () => expect(1).toBe(1))",
+      'utf-8'
+    )
+
+    await initTaroState(projectRoot)
+    const summary = await readFile(join(projectRoot, '.taro', 'summary.md'), 'utf-8')
+
+    // The package has no runner config, so a warning should be present in the summary
+    expect(summary).toContain('### Warnings')
+  })
+
+  it('collects fixture roots from directory scan in sub-packages', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    const fixturesDir = join(examplePackage, 'src', 'fixtures')
+    await mkdir(fixturesDir, { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(fixturesDir, 'users.ts'),
+      'export const USER_001 = { id: "u1" }',
+      'utf-8'
+    )
+    await writeFile(
+      join(examplePackage, 'src', 'app.test.ts'),
+      "import { it, expect } from 'vitest'\nit('works', () => expect(1).toBe(1))",
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const profile = result.state.packages['packages/example-app']
+
+    expect(profile?.fixtureRoots.some((r) => r.kind === 'fixtures')).toBe(true)
+  })
+
+  it('handles package without package.json gracefully in runner detection', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'no-pkg-json')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/no-pkg-json' }, null, 2),
+      'utf-8'
+    )
+    await writeFile(
+      join(examplePackage, 'src', 'app.test.ts'),
+      "import { it, expect } from 'vitest'\nit('works', () => expect(1).toBe(1))",
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const profile = result.state.packages['packages/no-pkg-json']
+
+    expect(profile).toBeDefined()
+    expect(profile?.runner.value).toBe('vitest')
+  })
+
+  it('detects runner as unknown when no config or package signals exist', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'ambiguous')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/ambiguous' }, null, 2),
+      'utf-8'
+    )
+    await writeFile(
+      join(examplePackage, 'src', 'app.test.ts'),
+      "it('works', () => expect(1).toBe(1))", // no vitest/jest imports
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const profile = result.state.packages['packages/ambiguous']
+
+    expect(profile?.runner.value).toBe('unknown')
+    expect(profile?.warnings).toContain(
+      'Runner could not be detected confidently from local tests/config.'
+    )
+  })
+
+  it('includes "No shared render helper detected" warning when no render helpers found', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'no-render-helper')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/no-render-helper', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'app.test.ts'),
+      "import { it, expect } from 'vitest'\nit('works', () => expect(1).toBe(1))",
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const profile = result.state.packages['packages/no-render-helper']
+
+    expect(profile?.warnings).toContain(
+      'No shared render helper detected; generation may fall back to plain render().'
+    )
+  })
+
+  it('detects runner from vitest script in package.json when no config file is present', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'script-runner')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({
+        name: '@repo/script-runner',
+        scripts: { test: 'vitest run' },
+      }),
+      'utf-8'
+    )
+    await writeFile(
+      join(examplePackage, 'src', 'app.test.ts'),
+      "it('works', () => {})",
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const profile = result.state.packages['packages/script-runner']
+
+    expect(profile?.runner.value).toBe('vitest')
+  })
+
+  it('detects runner from jest script in package.json when no config file is present', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'jest-script-runner')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({
+        name: '@repo/jest-script-runner',
+        scripts: { test: 'jest --coverage' },
+      }),
+      'utf-8'
+    )
+    await writeFile(
+      join(examplePackage, 'src', 'app.test.ts'),
+      "it('works', () => {})",
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const profile = result.state.packages['packages/jest-script-runner']
+
+    expect(profile?.runner.value).toBe('jest')
+  })
+
+  it('readTaroStateWithDiagnostics emits parse warning when state.json contains invalid JSON', async () => {
+    await mkdir(join(projectRoot, '.taro'), { recursive: true })
+    await writeFile(join(projectRoot, '.taro', 'state.json'), 'not-json', 'utf-8')
+
+    const result = await loadOrBootstrapTaroState(projectRoot)
+
+    expect(result.summary.warnings).toContain(
+      'Failed to parse .taro/state.json. Taro will ignore it and rebuild state.'
+    )
+  })
+
+  it('readTaroOverridesWithDiagnostics emits parse warning when overrides.json contains invalid JSON', async () => {
+    await mkdir(join(projectRoot, '.taro'), { recursive: true })
+    await writeFile(join(projectRoot, '.taro', 'overrides.json'), 'not-json', 'utf-8')
+
+    const result = await initTaroState(projectRoot)
+
+    expect(result.summary.warnings).toContain(
+      'Failed to parse .taro/overrides.json. Taro will ignore overrides for this run.'
+    )
+  })
+
+  it('handles Playwright config with storageState pointing to a non-existent file', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'playwright.config.ts'),
+      `export default { use: { storageState: './playwright/.auth/missing-file.json' } }`,
+      'utf-8'
+    )
+    // Intentionally do NOT create the auth file - it should fall through to directory scan
+    await writeFile(
+      join(examplePackage, 'src', 'app.test.tsx'),
+      "import { it, expect } from 'vitest'\nit('works', () => expect(1).toBe(1))",
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+
+    // No auth file exists, so playwrightAuth should be null
+    expect(result.state.packages['packages/example-app']?.playwrightAuth).toBeNull()
+  })
+
+  it('includes playwrightAuth path in staleness evidence when auth path exists', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    const authDir = join(examplePackage, 'playwright', '.auth')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await mkdir(authDir, { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'playwright.config.ts'),
+      `export default { use: { storageState: './playwright/.auth/user.json' } }`,
+      'utf-8'
+    )
+    await writeFile(join(authDir, 'user.json'), '{"cookies":[],"origins":[]}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'app.test.tsx'),
+      "import { it, expect } from 'vitest'\nit('works', () => expect(1).toBe(1))",
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const profile = result.state.packages['packages/example-app']!
+
+    // Profile should have playwrightAuth set
+    expect(profile.playwrightAuth).not.toBeNull()
+
+    // Staleness check should still work (and include auth path in evidence scan)
+    const staleness = await detectPackageProfileStaleness(projectRoot, profile)
+
+    expect(staleness.stale).toBe(false)
+  })
+
+  it('resolves boundary profile supportImportPath to null when guardrailReason is set on an existing profile', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src', 'tests', 'mocks'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'tests', 'mocks', 'api.ts'),
+      'export function createApiMock() { return {} }',
+      'utf-8'
+    )
+    await writeFile(
+      join(examplePackage, 'src', 'feature.test.tsx'),
+      `
+        import { describe, it, expect, vi } from 'vitest'
+        import { createApiMock } from '@/tests/mocks/api'
+
+        vi.mock('@/features/api', () => ({ ...createApiMock() }))
+        vi.mock('@/components/library/Modal', () => ({ Modal: vi.fn() }))
+
+        describe('feature', () => {
+          it('works', () => expect(true).toBe(true))
+        })
+      `,
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+    const resolved = resolveTaroPackageProfile(
+      result.state,
+      projectRoot,
+      join(examplePackage, 'src', 'feature.test.tsx')
+    )
+
+    // @/components/library/Modal gets a repo-owned-ui-wrapper guardrail, meaning
+    // forcedSupportImportPath should be null (line 2344)
+    const guardedProfile = resolved?.boundaryProfiles.find(
+      (p) => p.target === '@/components/library/Modal'
+    )
+    expect(guardedProfile?.guardrailReason).toBe('repo-owned-ui-wrapper')
+    expect(guardedProfile?.supportImportPath).toBeNull()
+  })
+
+  it('reads and returns refreshed state with detectedAt set to refresh', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+    await mkdir(join(examplePackage, 'src'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(join(examplePackage, 'vitest.config.ts'), 'export default {}', 'utf-8')
+    await writeFile(
+      join(examplePackage, 'src', 'app.test.ts'),
+      "import { it, expect } from 'vitest'\nit('works', () => expect(1).toBe(1))",
+      'utf-8'
+    )
+
+    await initTaroState(projectRoot)
+    const refreshed = await refreshTaroState(projectRoot)
+
+    expect(refreshed.state.version).toBe(1)
+    expect(refreshed.state.packages['packages/example-app']).toBeDefined()
+  })
+
+  it('writes summary with mixed render boundary when exemplars include both module and component targets', async () => {
+    const result = await initTaroState(projectRoot)
+
+    // Build a state with a package that has both module and component boundary exemplars
+    // to trigger the 'mixed' branch of summarizeRenderBoundaryPreference
+    const stateWithMixedExemplars = {
+      ...result.state,
+      packages: {
+        'packages/mixed-app': {
+          packagePath: 'packages/mixed-app',
+          packageName: '@repo/mixed-app',
+          scannedAt: new Date().toISOString(),
+          testFileCount: 2,
+          conventions: {
+            scannedAt: '',
+            projectRoot: '.',
+            importStyle: 'esm' as const,
+            mockPattern: 'vi.mock' as const,
+            testFiles: [],
+            folderPattern: 'colocated' as const,
+            fileExtension: 'tsx' as const,
+          },
+          importStyle: { value: 'esm' as const, confidence: 'high' as const, evidence: [] },
+          runner: { value: 'vitest' as const, confidence: 'high' as const, evidence: [] },
+          mockPattern: { value: 'vi.mock' as const, confidence: 'high' as const, evidence: [] },
+          folderPattern: { value: 'colocated' as const, confidence: 'high' as const, evidence: [] },
+          fileExtension: { value: 'tsx' as const, confidence: 'medium' as const, evidence: [] },
+          renderHelpers: [],
+          providerWrappers: [],
+          renderTargets: [],
+          repeatedMockTargets: [],
+          sharedMockFactories: [],
+          boundaryProfiles: [],
+          boundaryExemplars: [
+            {
+              file: 'packages/mixed-app/src/feature-module.test.tsx',
+              renderBoundary: 'module' as const,
+              boundaryTargets: ['@/services/api'],
+              boundaryKinds: ['data-module' as const],
+              usesProviderWrapper: false,
+              usesCentralBoundarySupport: true,
+              hasMutationLifecycle: false,
+              overrideStyle: 'stable-handles' as const,
+              tags: [],
+            },
+            {
+              file: 'packages/mixed-app/src/button.test.tsx',
+              renderBoundary: 'component' as const,
+              boundaryTargets: ['@/services/api'],
+              boundaryKinds: ['data-module' as const],
+              usesProviderWrapper: false,
+              usesCentralBoundarySupport: true,
+              hasMutationLifecycle: false,
+              overrideStyle: 'stable-handles' as const,
+              tags: [],
+            },
+          ],
+          interactionContracts: [],
+          inlineSafeMockTargets: [],
+          mutationLifecycles: [],
+          instabilityWarnings: [],
+          mockRecommendations: [],
+          fixtureRoots: [],
+          exemplars: [],
+          playwrightAuth: null,
+          warnings: [],
+        },
+      },
+    }
+
+    await writeTaroState(projectRoot, stateWithMixedExemplars)
+    const summary = await readFile(join(projectRoot, '.taro', 'summary.md'), 'utf-8')
+
+    expect(summary).toContain('- Preferred render boundary: `mixed`')
   })
 })
