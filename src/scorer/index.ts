@@ -9,7 +9,7 @@ import { AuditResult, preWriteAudit } from '#scorer/pre-audit.ts';
 import { evaluateQualityGates } from '#scorer/quality-gates.ts';
 import { QualityScore, ScoringResult } from '#scorer/types.ts';
 
-export interface Recording {
+interface Recording {
   id: string;
   name: string;
   steps: Array<{
@@ -19,13 +19,13 @@ export interface Recording {
   }>;
 }
 
-export interface OrchestrateOptions {
+interface OrchestrateOptions {
   recording: Recording;
   outputPath: string;
   generateTest: (recording: Recording) => string;
 }
 
-export interface OrchestrateResult {
+interface OrchestrateResult {
   success: boolean;
   outputPath?: string;
   audit?: AuditResult;
@@ -113,8 +113,3 @@ export function orchestrateWithScoring(options: OrchestrateOptions): Orchestrate
     score
   };
 }
-
-export { postWriteVerification, VerificationResult } from '#scorer/post-verify.ts';
-export { AuditResult,preWriteAudit } from '#scorer/pre-audit.ts';
-export { evaluateQualityGates } from '#scorer/quality-gates.ts';
-export { QualityCriteria,QualityIssue, QualityScore } from '#scorer/types.ts';

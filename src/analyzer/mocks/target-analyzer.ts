@@ -33,7 +33,7 @@ export interface MockTarget {
 /**
  * Mock library detected in the codebase
  */
-export interface MockLibrary {
+interface MockLibrary {
   /** Library name */
   name: 'msw' | 'jest.fn' | 'sinon' | 'fetch-mock' | 'undici' | 'nock';
   /** Version if detectable */
@@ -47,7 +47,7 @@ export interface MockLibrary {
 /**
  * Configuration for mock target analysis
  */
-export interface MockTargetAnalysisConfig {
+interface MockTargetAnalysisConfig {
   /** Preferred mock library (if multiple available) */
   preferredLibrary?: MockLibrary['name'];
   /** Maximum inline mock complexity */

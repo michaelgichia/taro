@@ -55,9 +55,15 @@ vi.mock('#learner/index.ts', () => ({
 }))
 
 vi.mock('#scorer/index.ts', () => ({
-  preWriteAudit: preWriteAuditMock,
-  postWriteVerification: postWriteVerificationMock,
   scoreTest: scoreTestMock,
+}))
+
+vi.mock('#scorer/pre-audit.ts', () => ({
+  preWriteAudit: preWriteAuditMock,
+}))
+
+vi.mock('#scorer/post-verify.ts', () => ({
+  postWriteVerification: postWriteVerificationMock,
 }))
 
 vi.mock('fs', () => ({

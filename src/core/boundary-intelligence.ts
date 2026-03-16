@@ -18,14 +18,14 @@ const TEST_CALLBACKS = new Set([
   'afterAll',
 ])
 
-export type BoundaryIssueKind =
+type BoundaryIssueKind =
   | 'leaf-render-boundary'
   | 'inline-hook-mock'
   | 'helper-embedded-assertion'
   | 'protected-ui-boundary-mock'
   | 'positional-control-selection'
 
-export interface BoundaryIssue {
+interface BoundaryIssue {
   kind: BoundaryIssueKind
   severity: 'warning'
   message: string

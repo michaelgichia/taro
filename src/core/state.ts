@@ -432,7 +432,7 @@ interface ReadOverridesDiagnostics {
   warnings: string[]
 }
 
-export interface TaroPackageProfileStaleness {
+interface TaroPackageProfileStaleness {
   stale: boolean
   reason: string | null
   latestEvidencePath: string | null
@@ -1929,7 +1929,7 @@ async function writeTaroSummary(projectRoot: string, state: TaroState): Promise<
   await rename(tempPath, summaryPath)
 }
 
-export async function scanProjectState(
+async function scanProjectState(
   projectRoot: string,
   options: ScanStateOptions = {}
 ): Promise<ScanStateResult> {

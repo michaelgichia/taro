@@ -13,13 +13,13 @@
 import type { DialogFlow } from '#parser/steps/dialog-detector.ts';
 import type { RecordingStep } from '#types/recording.ts';
 
-export interface TransformedStep {
+interface TransformedStep {
   type: 'helper' | 'action' | 'assertion';
   code: string;
   description: string;
 }
 
-export interface DialogTestTemplate {
+interface DialogTestTemplate {
   helpers: TransformedStep[];
   testSteps: TransformedStep[];
   cleanup?: TransformedStep[];
@@ -269,5 +269,3 @@ export function generateDialogTestCode(template: DialogTestTemplate): string {
 
   return lines.join('\n');
 }
-
-export default transformDialogFlows;

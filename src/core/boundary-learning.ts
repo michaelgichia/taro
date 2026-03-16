@@ -23,17 +23,17 @@ import type {
 
 const traverse = (_traverse as any).default ?? _traverse
 
-export interface BoundaryLearningTestFile {
+interface BoundaryLearningTestFile {
   path: string
   content: string
 }
 
-export interface BoundaryLearningResult {
+interface BoundaryLearningResult {
   profiles: TaroBoundaryProfile[]
   exemplars: TaroBoundaryExemplarProfile[]
 }
 
-export interface BoundaryImportReference {
+interface BoundaryImportReference {
   target: string
   importedNames: string[]
   kind: TaroBoundaryKind
@@ -219,10 +219,6 @@ export function classifyBoundaryKind(target: string): TaroBoundaryKind {
   }
 
   return 'unknown'
-}
-
-export function isForbiddenBoundaryTarget(target: string, exportedNames: string[] = []): boolean {
-  return getBoundaryGuardrailReason(target, exportedNames) !== null
 }
 
 function inferPayloadSource(importPath: string | null): TaroBoundaryPayloadSource {

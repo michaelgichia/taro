@@ -85,5 +85,3 @@ export function deduplicateSteps(steps: RecordingStep[]): RecordingStep[] {
   // Filter out duplicates, preserving original order
   return steps.filter(step => !duplicateIds.has(step.id));
 }
-
-export { deduplicateSteps as default };

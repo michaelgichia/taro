@@ -18,9 +18,6 @@ import {
   TestConvention} from '#learner/types.ts';
 import { findReadableProjectStatePathSync } from '#project-state.ts';
 
-export type { ConventionKey,TestConvention };
-export { ConventionStore, createEmptyConvention, createStore };
-
 /**
  * Find test directories in a project
  * @param projectRoot - Root directory to search
@@ -284,11 +281,3 @@ export class InMemoryConventionStore {
     target.imports.common = Array.from(importSet);
   }
 }
-
-export default {
-  learnConventions,
-  getConventions,
-  ConventionStore,
-  InMemoryConventionStore,
-  createStore
-};

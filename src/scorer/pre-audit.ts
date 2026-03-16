@@ -139,5 +139,3 @@ function performStructuralChecks(code: string): { blocking: string[]; warnings: 
 
   return { blocking, warnings };
 }
-
-export type { QueryRules,StructureRules } from '#scorer/quality-gates.ts';

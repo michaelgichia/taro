@@ -284,10 +284,4 @@ describe('generateDialogTestCode', () => {
     ].join('\n'))
   })
 
-  it('matches the default export behavior of transforming flows', async () => {
-    const { default: defaultTransform } = await import('#generator/transforms/dialog-transform.ts')
-    const flows = [createFlow()]
-
-    expect(defaultTransform(flows)).toEqual(transformDialogFlows(flows))
-  })
 })

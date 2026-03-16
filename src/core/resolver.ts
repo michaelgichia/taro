@@ -108,26 +108,26 @@ async function waitForRetryDelay(delayMs: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, delayMs))
 }
 
-export interface FoundSelectorInspectionResult {
+interface FoundSelectorInspectionResult {
   status: 'found'
   element: ElementInfo
 }
 
-export interface MissingSelectorInspectionResult {
+interface MissingSelectorInspectionResult {
   status: 'selector-not-found'
 }
 
-export interface FailedSelectorInspectionResult {
+interface FailedSelectorInspectionResult {
   status: 'inspection-failed'
   error: string
 }
 
-export type SelectorInspectionResult =
+type SelectorInspectionResult =
   | FoundSelectorInspectionResult
   | MissingSelectorInspectionResult
   | FailedSelectorInspectionResult
 
-export interface ResolveSelectorOptions {
+interface ResolveSelectorOptions {
   debug?: {
     inspectSource?: SelectorResolutionInspectSource
     phase?: SelectorResolutionPhase
@@ -981,13 +981,13 @@ export interface CaptureVisualStateAuthOptions {
   strategy: TaroPlaywrightAuthStrategy
 }
 
-export interface CaptureVisualStateExpectations {
+interface CaptureVisualStateExpectations {
   landmarks?: string[]
   title?: string
   url?: string
 }
 
-export interface CaptureVisualStateRecoveryOptions {
+interface CaptureVisualStateRecoveryOptions {
   enabled: boolean
   instructionsPath?: string
   persistedAuthPath?: string
@@ -995,7 +995,7 @@ export interface CaptureVisualStateRecoveryOptions {
   timeoutMs: number
 }
 
-export interface CaptureVisualStateOptions {
+interface CaptureVisualStateOptions {
   auth?: CaptureVisualStateAuthOptions | null
   authRecovery?: CaptureVisualStateRecoveryOptions
   expected?: CaptureVisualStateExpectations
@@ -1732,7 +1732,7 @@ export function deriveAccessibleQuery(info: ElementInfo): QueryResult | null {
  * Legacy helper retained for scoring/reporting until generation consumes
  * SelectorResolutionResult directly in Phase 14-02.
  */
-export function buildQuery(info: ElementInfo, selector: string): QueryResult {
+function buildQuery(info: ElementInfo, selector: string): QueryResult {
   const accessibleQuery = deriveAccessibleQuery(info)
   if (accessibleQuery) {
     return accessibleQuery
@@ -1747,7 +1747,7 @@ export function buildQuery(info: ElementInfo, selector: string): QueryResult {
   }
 }
 
-export async function inspectSelector(
+async function inspectSelector(
   url: string,
   cssSelector: string,
   timeoutMs = 5000
@@ -1956,7 +1956,7 @@ export function selectMatcher(info: ElementInfo, action: string): string {
  * @param timeoutMs - Timeout for navigation (default 5000ms)
  * @returns ElementInfo or null if element not found/error occurs
  */
-export async function inspectElement(
+async function inspectElement(
   url: string,
   cssSelector: string,
   timeoutMs = 5000
@@ -2083,7 +2083,7 @@ export interface ReplayStepDebugTrace {
   timeoutMs: number
 }
 
-export interface ReplayStepResult {
+interface ReplayStepResult {
   debug?: ReplayStepDebugTrace
   replayed: boolean
   warning?: string

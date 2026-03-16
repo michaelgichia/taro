@@ -95,7 +95,7 @@ function normalizeCount(value: unknown): number {
   return Math.max(0, Math.round(value))
 }
 
-export function calculateQueryScore(queryResults: QueryResult[]): number {
+function calculateQueryScore(queryResults: QueryResult[]): number {
   if (queryResults.length === 0) {
     return 100
   }
@@ -108,7 +108,7 @@ export function calculateQueryScore(queryResults: QueryResult[]): number {
   return clampScore((totalWeight / queryResults.length) * 100)
 }
 
-export function calculateAssertionScore(code: string): number {
+function calculateAssertionScore(code: string): number {
   const strongAssertions = countMatches(code, STRONG_ASSERTION_REGEX)
   const weakAssertions = countMatches(code, WEAK_ASSERTION_REGEX)
   const totalAssertions = strongAssertions + weakAssertions
@@ -426,7 +426,7 @@ function deriveBlockers(reasons: ScoreReason[], limit = 2): string[] {
     .map((reason) => reason.message)
 }
 
-export function calculateAggregateScore(
+function calculateAggregateScore(
   dimensions: ScoreDimensions
 ): Pick<ScoreResult, 'total' | 'grade'> {
   const total = clampScore(
@@ -455,7 +455,7 @@ export function calculateAggregateScore(
   return { total, grade: 'F' }
 }
 
-export interface ScoreGeneratedTestOptions {
+interface ScoreGeneratedTestOptions {
   queryResults?: QueryResult[]
   markerCoverage?: Partial<MarkerCoverageTotals>
   markerDiagnostics?: Partial<MarkerReviewDiagnostics>

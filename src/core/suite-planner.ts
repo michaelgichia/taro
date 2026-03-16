@@ -18,8 +18,8 @@ import type {
   UnresolvedSemanticMarkerAssertionResolution,
 } from '#types/recording.ts'
 
-export type RenderBoundaryKind = 'module' | 'component' | 'unknown'
-export type BoundaryConfidence = 'high' | 'medium' | 'low'
+type RenderBoundaryKind = 'module' | 'component' | 'unknown'
+type BoundaryConfidence = 'high' | 'medium' | 'low'
 
 export interface RenderBoundaryAssessment {
   kind: RenderBoundaryKind
@@ -581,7 +581,7 @@ function assessStateSafety(params: {
   }
 }
 
-export function assessRenderBoundary(params: {
+function assessRenderBoundary(params: {
   recording: NormalizedRecording
   mockAnalysis: MockAnalysis | null
 }): RenderBoundaryAssessment {

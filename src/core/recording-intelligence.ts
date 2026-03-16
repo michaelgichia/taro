@@ -16,13 +16,13 @@ import type {
   UnresolvedSemanticMarker,
 } from '#types/recording.ts'
 
-export interface VisualCaptureCandidate {
+interface VisualCaptureCandidate {
   groupName: string
   reason: 'dialog-state' | 'ambiguous-ui'
   selector?: string
 }
 
-export interface NoiseFilterResult {
+interface NoiseFilterResult {
   steps: NormalizedStep[]
   diagnostics: Pick<
     RecordingDiagnostics,

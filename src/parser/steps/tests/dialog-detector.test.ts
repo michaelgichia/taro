@@ -201,18 +201,4 @@ describe('groupDialogSteps', () => {
     })
   })
 
-  it('matches the default export behavior', async () => {
-    resetDialogIdCounter()
-    const steps = [
-      createStep({
-        id: 'json-step-1',
-        selector: '[data-testid="open-modal"]',
-      }),
-    ]
-    const { default: defaultGroup } = await import('#parser/steps/dialog-detector.ts')
-    const expected = groupDialogSteps(steps)
-
-    resetDialogIdCounter()
-    expect(defaultGroup(steps)).toEqual(expected)
-  })
 })

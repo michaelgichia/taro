@@ -58,7 +58,7 @@ export function classifyQuery(method: string): QueryQuality {
  * @param code - The JS file content
  * @returns The URL string or undefined if not found
  */
-export function extractEnvironmentUrl(code: string): string | undefined {
+function extractEnvironmentUrl(code: string): string | undefined {
   const match = code.match(/@jest-environment-options\s*(\{[^}]+\})/)
   if (!match) {
     return undefined

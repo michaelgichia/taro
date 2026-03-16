@@ -1,4 +1,4 @@
-export type RepoContractIssueCode =
+type RepoContractIssueCode =
   | 'helper-assertion'
   | 'query-to-be-defined'
   | 'loose-payload'
@@ -8,7 +8,7 @@ export type RepoContractIssueCode =
   | 'regex-text-matcher'
   | 'mixed-reset-boundary'
 
-export interface RepoContractIssue {
+interface RepoContractIssue {
   code: RepoContractIssueCode
   message: string
 }

@@ -13,13 +13,15 @@ import type { AccessibilityProperties } from '#analyzer/visual/element-analyzer.
 import { parseRecording } from '#core/parser.ts';
 import { buildMocks,type MockDecision } from '#generator/mocks/builder.ts';
 import { getConventions, learnConventions } from '#learner/index.ts';
-import { postWriteVerification, preWriteAudit, scoreTest } from '#scorer/index.ts';
+import { scoreTest } from '#scorer/index.ts';
+import { preWriteAudit } from '#scorer/pre-audit.ts';
+import { postWriteVerification } from '#scorer/post-verify.ts';
 import type { NormalizedRecording } from '#types/recording.ts';
 
 /**
  * Visual inspection context passed to generator
  */
-export interface VisualInspectionContext {
+interface VisualInspectionContext {
   enabled: boolean;
   url?: string;
   elements?: Map<string, AccessibilityProperties>;
@@ -29,7 +31,7 @@ export interface VisualInspectionContext {
 /**
  * Mock inspection context passed to generator
  */
-export interface MockInspectionContext {
+interface MockInspectionContext {
   enabled: boolean;
   apiCalls?: ApiCallInfo[];
   mockTargets?: MockTarget[];
@@ -39,7 +41,7 @@ export interface MockInspectionContext {
 /**
  * Main orchestrator options
  */
-export interface OrchestratorOptions {
+interface OrchestratorOptions {
   recordingPath: string;
   outputPath?: string;
   visual?: boolean;

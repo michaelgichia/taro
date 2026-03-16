@@ -28,6 +28,7 @@
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "lint": "eslint .",
+    "lint:dead-code": "knip --reporter json",
     "lint:fix": "eslint . --fix",
     "lint:sort-imports": "eslint . --fix",
     "lint:unused": "eslint . --fix --config eslint.unused.config.mjs",
@@ -36,6 +37,7 @@
     "pack:check": "pnpm pack --json --dry-run",
     "typecheck": "tsc -p tsconfig.json",
     "type-check": "pnpm run typecheck",
+    "knip": "knip",
     "test": "node scripts/run-tests.cjs",
     "test:run": "node scripts/run-tests.cjs run",
     "test:coverage": "node scripts/run-tests.cjs run --coverage"
@@ -70,14 +72,12 @@
   "license": "MIT",
   "dependencies": {
     "@babel/parser": "^7.29.0",
-    "@babel/template": "^7.28.0",
     "@babel/traverse": "^7.29.0",
     "@babel/types": "^7.29.0",
     "better-sqlite3": "^12.8.0",
     "commander": "^12.0.0",
     "picocolors": "^1.0.0",
     "playwright": "^1.58.2",
-    "xstate": "^5.28.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
@@ -94,6 +94,7 @@
     "eslint-plugin-simple-import-sort": "^12.1.1",
     "eslint-plugin-unused-imports": "^4.1.4",
     "globals": "^16.0.0",
+    "knip": "^5.86.0",
     "prettier": "^3.5.3",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"

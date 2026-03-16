@@ -150,5 +150,3 @@ export function filterNoiseSteps(steps: RecordingStep[]): RecordingStep[] {
 
   return filteredSteps;
 }
-
-export { filterNoiseSteps as default };

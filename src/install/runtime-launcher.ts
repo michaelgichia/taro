@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { resolveAssetSource, resolvePackageRoot } from '#install/assets.ts'
 import type { InstallFileOperation, ResolvedInstallTarget, RuntimeAssetDefinition } from '#install/types.ts'
 
-export const TARO_RUNTIME_COMMAND_PLACEHOLDER = '{{TARO_RUNTIME_COMMAND}}'
+const TARO_RUNTIME_COMMAND_PLACEHOLDER = '{{TARO_RUNTIME_COMMAND}}'
 
 interface RuntimeLauncherContext {
   packageRoot?: string

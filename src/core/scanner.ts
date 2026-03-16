@@ -8,10 +8,6 @@ import { readFile } from 'node:fs/promises'
 import pc from 'picocolors'
 
 import {
-  analyzeSingleTestFile,
-  analyzeTestFile,
-  deriveConventions,
-  discoverRepoRenderTargets,
   findTestFiles,
   readTestFiles,
 } from '#core/convention-intelligence.ts'
@@ -21,12 +17,7 @@ import type { ConventionFile, ConventionsSchema } from '#types/conventions.ts'
 import { DEFAULT_CONVENTIONS } from '#types/conventions.ts'
 
 export type { TestFileContent } from '#core/convention-intelligence.ts'
-export type { RepoRenderTargetCandidate } from '#types/state.ts'
 export {
-  analyzeSingleTestFile,
-  analyzeTestFile,
-  deriveConventions,
-  discoverRepoRenderTargets,
   findTestFiles,
   readTestFiles,
 }

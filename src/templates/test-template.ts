@@ -5,18 +5,18 @@
 
 import type { NormalizedAction } from '#types/recording.ts'
 
-export interface RenderTargetImport {
+interface RenderTargetImport {
   symbol: string
   importPath: string
 }
 
-export interface RenderHelperImport {
+interface RenderHelperImport {
   name: string
   importPath: string
   importKind: 'named' | 'default'
 }
 
-export interface ImportBlockOptions {
+interface ImportBlockOptions {
   renderTarget?: RenderTargetImport | null
   renderHelper?: RenderHelperImport | null
   jestDomImportPath?: string
@@ -96,7 +96,7 @@ function indentLines(text: string, spaces: number): string {
     .join('\n')
 }
 
-export interface StepTemplateOptions {
+interface StepTemplateOptions {
   action: NormalizedAction
   query: string
   value?: string
@@ -209,13 +209,13 @@ export function describeBlock(
   ].join('\n')
 }
 
-export interface ItBlockTemplate {
+interface ItBlockTemplate {
   name: string
   stepLines: string[]
   hasUserEvents: boolean
 }
 
-export interface HelperBlockTemplate {
+interface HelperBlockTemplate {
   name: string
   stepLines: string[]
 }

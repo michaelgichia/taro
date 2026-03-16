@@ -104,17 +104,6 @@ export async function analyzeTestFile(filePath: string): Promise<ConventionFile>
   }
 }
 
-export async function analyzeSingleTestFile(
-  projectRoot: string,
-  filePath: string
-): Promise<ConventionFile> {
-  const normalizedPath = isAbsolute(filePath)
-    ? filePath
-    : join(projectRoot, filePath)
-
-  return analyzeTestFile(normalizedPath)
-}
-
 function detectHelperWithExpect(content: string): boolean {
   if (!content.includes('expect(')) {
     return false
@@ -256,19 +245,4 @@ export function extractRenderTargetCandidatesFromFile(
   }
 
   return candidates
-}
-
-export async function discoverRepoRenderTargets(
-  projectRoot: string
-): Promise<RepoRenderTargetCandidate[]> {
-  const testFiles = await readTestFiles(projectRoot)
-
-  return testFiles
-    .flatMap((file) => extractRenderTargetCandidatesFromFile(projectRoot, file))
-    .sort((left, right) => {
-      return (
-        left.sourceTestFile.localeCompare(right.sourceTestFile) ||
-        left.symbol.localeCompare(right.symbol)
-      )
-    })
 }

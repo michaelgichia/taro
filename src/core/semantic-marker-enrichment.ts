@@ -17,7 +17,7 @@ import type {
   SemanticMarkerCanonicalRecovery,
 } from '#types/recording.ts'
 
-export interface SemanticMarkerContextMatch {
+interface SemanticMarkerContextMatch {
   filePath: string
   kind: 'source' | 'test'
   matchedTerms: string[]

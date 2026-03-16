@@ -11,8 +11,6 @@ import * as path from 'path';
 import {TestConvention } from '#learner/types.ts';
 import { ensureProjectStateDirSync } from '#project-state.ts';
 
-export { TestConvention };
-
 /**
  * ConventionStore class with SQLite persistence
  */

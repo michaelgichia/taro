@@ -419,12 +419,12 @@ function getCalleeName(callee: ASTNode): string {
   return '';
 }
 
-export interface StructureRules {
+interface StructureRules {
   requireDescribe: boolean;
   requireTest: boolean;
 }
 
-export interface QueryRules {
+interface QueryRules {
   preferRobust: boolean;
   disallowTestId: boolean;
 }

@@ -32,7 +32,7 @@ const VOLATILE_SELECTOR_RULES = [
 const SUPPORTED_QUERY_FAMILY_HINT =
   'Prefer RTL queries from the supported families: ByRole, ByLabelText, ByPlaceholderText, ByText, ByAltText, ByTitle, ByDisplayValue, or ByTestId.'
 
-export type SupportedQueryFamily = keyof typeof QUERY_FAMILY_QUALITY_MAP
+type SupportedQueryFamily = keyof typeof QUERY_FAMILY_QUALITY_MAP
 
 interface SupportedQueryMethodMatch {
   variant: 'get' | 'query' | 'find'

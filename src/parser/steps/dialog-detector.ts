@@ -343,5 +343,3 @@ export function groupDialogSteps(steps: RecordingStep[]): DialogFlow[] {
 export function resetDialogIdCounter(): void {
   dialogIdCounter = 0;
 }
-
-export default groupDialogSteps;

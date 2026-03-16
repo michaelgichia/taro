@@ -10,14 +10,14 @@ import type {
   RuntimeTarget,
 } from '#install/types.ts'
 
-export interface CreateOwnershipManifestParams {
+interface CreateOwnershipManifestParams {
   runtime: RuntimeTarget
   location: InstallLocation
   files: InstallOwnedFile[]
   generatedAt?: string
 }
 
-export interface ClassifyAssetConflictParams {
+interface ClassifyAssetConflictParams {
   targetPath: string
   existingContent?: string | null
   manifest?: InstallOwnershipManifest | null

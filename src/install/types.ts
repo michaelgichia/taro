@@ -1,6 +1,6 @@
 export const SUPPORTED_RUNTIMES = ['claude', 'opencode', 'gemini', 'codex'] as const
 export const INSTALL_LOCATIONS = ['global', 'local'] as const
-export const RUNTIME_FAMILIES = ['prompt', 'skill'] as const
+const RUNTIME_FAMILIES = ['prompt', 'skill'] as const
 export const INSTALL_ASSET_KINDS = ['prompt', 'command', 'skill', 'manifest'] as const
 
 export type RuntimeTarget = (typeof SUPPORTED_RUNTIMES)[number]
