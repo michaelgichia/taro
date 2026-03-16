@@ -84,9 +84,9 @@ import {
   hasBlockingFindings,
 } from '../../core/findings-reporter.js'
 
-/** Write an operational log line to stderr. Never use console.log in this file — stdout is reserved for the findings envelope. */
-function log(msg: string): void {
-  process.stderr.write(msg + '\n')
+interface GenerateCommandContext {
+  input?: Pick<typeof stdin, 'isTTY'>
+  output?: Pick<typeof stdout, 'isTTY'>
 }
 
 type DebugTraceRecord =
@@ -153,6 +153,52 @@ interface SelectorDebugReporter {
   }): void
 }
 
+interface RepoContextMatch {
+  filePath: string
+  matchedTerms: string[]
+  kind: 'source' | 'test'
+  score: number
+}
+
+interface FlowCoverageSummary {
+  totalSteps: number
+  coveredSteps: number
+  coveredStepIds: string[]
+  uncoveredStepIds: string[]
+}
+
+interface OutputAssessment {
+  flowCoverage: FlowCoverageSummary
+  scoreResult: ScoreResult
+}
+
+type AuthPreflightStatus =
+  | 'not_required'
+  | 'unknown_recipe'
+  | 'authenticated'
+  | 'failed'
+
+/**
+ * Writes an operational log line to stderr.
+ *
+ * Stdout is reserved for the findings envelope, so callers must use this helper
+ * for routine status output from the generation pipeline.
+ *
+ * @param {string} msg - Supplies the already-formatted message to emit as a single stderr line.
+ */
+function log(msg: string): void {
+  process.stderr.write(msg + '\n')
+}
+
+/**
+ * Builds a selector replay reporter that mirrors debug traces to stderr and optionally persists them as JSONL.
+ *
+ * When `enabled` is false, the returned reporter becomes a no-op even if a JSON path is provided.
+ * When `jsonPath` is set, `persist()` writes one serialized trace record per line.
+ *
+ * @param {{ enabled: boolean, jsonPath?: string }} options - Enables live tracing and, when `jsonPath` is set, records structured diagnostics for later inspection.
+ * @returns {SelectorDebugReporter} A reporter with replay, selector, step-summary, and browser-failure hooks for the JS generation pipeline.
+ */
 function createSelectorDebugReporter(options: {
   enabled: boolean
   jsonPath?: string
@@ -160,6 +206,7 @@ function createSelectorDebugReporter(options: {
   const records: DebugTraceRecord[] = []
 
   const emit = (record: DebugTraceRecord, line: string) => {
+    // Keep debug reporting zero-cost for normal runs unless the caller explicitly opted in.
     if (!options.enabled) {
       return
     }
@@ -302,7 +349,14 @@ function createSelectorDebugReporter(options: {
   }
 }
 
-/** Emit the findings envelope to stdout and exit with the correct code. Call on every execution path exit. */
+/**
+ * Emits the findings envelope to stdout and terminates the process with the matching exit code.
+ *
+ * This helper never returns. A blocking finding exits with code `1`; otherwise the command exits with `0`.
+ *
+ * @param {Finding[]} findings - Provides the complete finding set to serialize, including any blocking items that should flip the exit status.
+ * @throws {never} Always terminates the current process.
+ */
 function flushFindings(findings: Finding[]): never {
   if (findings.length > 0) {
     process.stdout.write(formatFindingsBlock(findings) + '\n')
@@ -323,11 +377,6 @@ const EMPTY_MARKER_DIAGNOSTICS: MarkerReviewDiagnostics = {
 const MANUAL_VISUAL_AUTH_TIMEOUT_MS = 5 * 60 * 1000
 const DEFAULT_VISUAL_AUTH_STORAGE_STATE_PATH = '.taro/playwright/.auth/user.json'
 const PAGE_CONFIRMED_CONTEXT_TERM_BONUS = 50
-
-interface GenerateCommandContext {
-  input?: Pick<typeof stdin, 'isTTY'>
-  output?: Pick<typeof stdout, 'isTTY'>
-}
 
 const CONTEXT_SEARCH_SKIP_DIRS = new Set([
   'node_modules',
@@ -381,20 +430,47 @@ const UNRESOLVED_MARKER_REASON_GUIDANCE: Record<
     'Marker could not be assigned to a single safe scenario. Keep the checkpoint near the intended state change or repair the scenario split.',
 }
 
+/**
+ * Derives the default generated test path for a recorder export.
+ *
+ * The returned file always lives beside `inputPath` and replaces the source extension with `.test.tsx`.
+ *
+ * @param {string} inputPath - Identifies the recorder export whose sibling test file path should be derived.
+ * @returns {string} The generated test file path in `<name>.test.tsx` format.
+ *   Example: `flows/login.js` becomes `flows/login.test.tsx`.
+ */
 function deriveOutputPath(inputPath: string): string {
   const dir = dirname(inputPath)
   const name = basename(inputPath).replace(/\.[cm]?[jt]sx?$/, '')
   return join(dir, `${name}.test.tsx`)
 }
 
+/**
+ * Checks whether a path already points at a test or spec file.
+ *
+ * @param {string} filePath - Supplies the path to classify using Taro's Jest/Vitest-style filename conventions.
+ * @returns {boolean} `true` when the path ends with `.test.*` or `.spec.*`; otherwise `false`.
+ */
 function isTestFilePath(filePath: string): boolean {
   return /\.(test|spec)\.[cm]?[jt]sx?$/u.test(filePath)
 }
 
+/**
+ * Checks whether an import specifier is relative to its source file.
+ *
+ * @param {string} importPath - Supplies the raw module specifier from source code.
+ * @returns {boolean} `true` for `./` and `../` imports; otherwise `false`.
+ */
 function isRelativeImportPath(importPath: string): boolean {
   return importPath.startsWith('./') || importPath.startsWith('../')
 }
 
+/**
+ * Checks whether a filesystem path is accessible to the current process.
+ *
+ * @param {string} filePath - Identifies the file or directory to probe with `fs.access`.
+ * @returns {Promise<boolean>} Resolves to `true` when the path is reachable; otherwise `false`.
+ */
 async function pathExists(filePath: string): Promise<boolean> {
   try {
     await access(filePath)
@@ -404,12 +480,22 @@ async function pathExists(filePath: string): Promise<boolean> {
   }
 }
 
+/**
+ * Resolves a relative import from a source file to the most likely on-disk module path.
+ *
+ * Non-relative specifiers bypass resolution and return `null`. When no candidate exists,
+ * the unresolved absolute target path is still returned so callers can keep deriving paths from it.
+ *
+ * @param {{ projectRoot: string, sourceFile: string, importPath: string }} params - Provides the repo root, the importing file, and the raw import specifier to resolve.
+ * @returns {Promise<string | null>} The absolute imported file path, or `null` when the import is not relative.
+ */
 async function resolveImportedFilePath(params: {
   projectRoot: string
   sourceFile: string
   importPath: string
 }): Promise<string | null> {
   const { projectRoot, sourceFile, importPath } = params
+  // Only repo-local relative imports can be chased to an on-disk render target.
   if (!isRelativeImportPath(importPath)) {
     return null
   }
@@ -434,9 +520,18 @@ async function resolveImportedFilePath(params: {
     }
   }
 
+  // Preserve the unresolved absolute path so downstream code can still derive a stable output location.
   return rawTargetPath
 }
 
+/**
+ * Resolves the concrete source file that should anchor generation for a repo render target.
+ *
+ * Test-file candidates are followed through their relative import so generation can target the real module instead of the test wrapper.
+ *
+ * @param {{ projectRoot: string, renderTarget: RepoRenderTargetCandidate | null }} params - Supplies the repo root and the selected render target candidate, or `null` to bypass resolution.
+ * @returns {Promise<string | null>} The absolute render target file path, or `null` when no render target is available.
+ */
 async function resolveRenderTargetFile(params: {
   projectRoot: string
   renderTarget: RepoRenderTargetCandidate | null
@@ -457,6 +552,14 @@ async function resolveRenderTargetFile(params: {
   })
 }
 
+/**
+ * Rebases a learned render-helper import so it remains valid from a new output directory.
+ *
+ * Helpers that are missing, non-relative, or learned from non-test sources are returned unchanged.
+ *
+ * @param {{ projectRoot: string, outputPath: string, renderHelper: ResolvedTaroPackageProfile['effectiveRenderHelper'] }} params - Supplies the repo root, the final output file, and the render-helper profile to adapt.
+ * @returns {ResolvedTaroPackageProfile['effectiveRenderHelper']} The original helper or a copy with `importPath` rewritten relative to `outputPath`.
+ */
 function rebaseRenderHelperImportPath(params: {
   projectRoot: string
   outputPath: string
@@ -482,25 +585,12 @@ function rebaseRenderHelperImportPath(params: {
   }
 }
 
-interface RepoContextMatch {
-  filePath: string
-  matchedTerms: string[]
-  kind: 'source' | 'test'
-  score: number
-}
-
-interface FlowCoverageSummary {
-  totalSteps: number
-  coveredSteps: number
-  coveredStepIds: string[]
-  uncoveredStepIds: string[]
-}
-
-interface OutputAssessment {
-  flowCoverage: FlowCoverageSummary
-  scoreResult: ScoreResult
-}
-
+/**
+ * Checks whether a string looks like CSS selector syntax rather than user-facing text.
+ *
+ * @param {string} value - Supplies the candidate text to classify before it is reused as repo context or coverage evidence.
+ * @returns {boolean} `true` when the value resembles selector syntax or a raw HTML tag; otherwise `false`.
+ */
 function looksLikeSelectorLikeString(value: string): boolean {
   return (
     /^[#.[]/.test(value) ||
@@ -509,6 +599,15 @@ function looksLikeSelectorLikeString(value: string): boolean {
   )
 }
 
+/**
+ * Normalizes repo-context text and filters out terms that are too generic to search reliably.
+ *
+ * Short strings, selector-like fragments, and one-word generic actions such as `save` or `close`
+ * are rejected so later context matching stays biased toward meaningful UI evidence.
+ *
+ * @param {string} [value] - Supplies raw UI text to normalize; empty, generic, or selector-like input returns `null`.
+ * @returns {string | null} The trimmed context term, or `null` when the value should not influence repo grounding.
+ */
 function normalizeContextTerm(value?: string): string | null {
   const normalized = value?.replace(/\s+/g, ' ').trim()
   if (!normalized || normalized.length < 4 || looksLikeSelectorLikeString(normalized)) {
@@ -523,11 +622,23 @@ function normalizeContextTerm(value?: string): string | null {
   return normalized
 }
 
+/**
+ * Normalizes text for case-insensitive substring comparison.
+ *
+ * @param {string | null} [value] - Supplies the source text to trim, collapse, and lowercase before comparison.
+ * @returns {string | null} The normalized text, or `null` when the input is empty after trimming.
+ */
 function normalizeComparableText(value?: string | null): string | null {
   const normalized = value?.replace(/\s+/g, ' ').trim().toLowerCase()
   return normalized ? normalized : null
 }
 
+/**
+ * Checks whether a coverage token is too generic to count as meaningful evidence.
+ *
+ * @param {string} token - Supplies a normalized coverage token extracted from recording or generated code.
+ * @returns {boolean} `true` when the token is a generic UI or Testing Library term that should be ignored.
+ */
 function isGenericCoverageToken(token: string): boolean {
   return (
     GENERIC_CONTEXT_TERMS.has(token) ||
@@ -558,6 +669,14 @@ function isGenericCoverageToken(token: string): boolean {
   )
 }
 
+/**
+ * Extracts normalized comparison tokens from user-facing text or quoted code fragments.
+ *
+ * Selector-like values, generic tokens, and very short fragments are discarded to keep coverage checks focused on distinguishing text.
+ *
+ * @param {string | null} [value] - Supplies recorder text or generated code from which meaningful comparison tokens should be collected.
+ * @returns {string[]} Unique normalized tokens suitable for loose flow-coverage matching.
+ */
 function collectComparableTokens(value?: string | null): string[] {
   if (!value) {
     return []
@@ -591,11 +710,21 @@ function collectComparableTokens(value?: string | null): string[] {
   return [...tokens]
 }
 
+/**
+ * Collects the primary and secondary coverage tokens that represent a recorder step.
+ *
+ * Navigation, scrolling, wait steps, and top-level location/title assertions are treated as non-measurable
+ * because their evidence is either structural or too indirect for token-based matching.
+ *
+ * @param {NormalizedStep} step - Supplies the analyzed recorder step whose visible evidence should be mapped into coverage tokens.
+ * @returns {{ measurable: boolean, primary: string[], secondary: string[] }} The measurable flag plus the primary and secondary token sets for the step.
+ */
 function collectStepCoverageTokens(step: NormalizedStep): {
   measurable: boolean
   primary: string[]
   secondary: string[]
 } {
+  // Structural/navigation steps are intentionally excluded because token matching would create noisy false positives.
   if (step.action === 'navigate' || step.action === 'scroll' || step.action === 'waitForSelector') {
     return {
       measurable: false,
@@ -638,6 +767,7 @@ function collectStepCoverageTokens(step: NormalizedStep): {
   registerPrimary(step.unresolvedSemanticMarker?.query?.target)
   registerPrimary(step.unresolvedSemanticMarker?.query?.name)
 
+  // Input-like steps need both the control identifier and the asserted/entered value to count as covered.
   if (step.action === 'fill' || step.action === 'select' || step.action === 'assert') {
     registerSecondary(step.value)
   }
@@ -650,10 +780,27 @@ function collectStepCoverageTokens(step: NormalizedStep): {
   }
 }
 
+/**
+ * Checks whether normalized generated code contains a specific coverage token.
+ *
+ * @param {string} normalizedCode - Supplies the already-normalized code string to search.
+ * @param {string} token - Supplies the normalized token that must appear in the code to count as covered.
+ * @returns {boolean} `true` when the token is present in `normalizedCode`; otherwise `false`.
+ */
 function codeIncludesCoverageToken(normalizedCode: string, token: string): boolean {
   return normalizedCode.includes(token)
 }
 
+/**
+ * Summarizes how much of a recorded flow is reflected by the generated code.
+ *
+ * A step counts as covered only when at least one primary token and, when present,
+ * at least one secondary token appear in the normalized output code.
+ *
+ * @param {AnalyzedRecording} analyzedRecording - Supplies the analyzed recording whose measurable steps should be scored.
+ * @param {string} code - Supplies the generated test code to evaluate against the recording.
+ * @returns {FlowCoverageSummary} Coverage totals plus the covered and uncovered step identifiers.
+ */
 function buildFlowCoverageSummary(
   analyzedRecording: AnalyzedRecording,
   code: string
@@ -671,6 +818,7 @@ function buildFlowCoverageSummary(
     }
 
     totalSteps += 1
+    // Primary evidence captures the subject of the step; secondary evidence captures the user-visible value when one matters.
     const hasPrimaryCoverage =
       coverageTokens.primary.length === 0 ||
       coverageTokens.primary.some((token) => codeIncludesCoverageToken(normalizedCode, token))
@@ -695,6 +843,12 @@ function buildFlowCoverageSummary(
   }
 }
 
+/**
+ * Converts parsed query descriptors into scorer-friendly query results.
+ *
+ * @param {JsParseResult} parsed - Supplies the parsed JS recording output whose queries should be normalized for scoring.
+ * @returns {QueryResult[]} Query metadata in the shape expected by `scoreGeneratedTest`.
+ */
 function mapParsedQueriesToResults(parsed: JsParseResult): QueryResult[] {
   return parsed.queries.map((query) => ({
     method: query.method,
@@ -704,6 +858,12 @@ function mapParsedQueriesToResults(parsed: JsParseResult): QueryResult[] {
   }))
 }
 
+/**
+ * Scores generated code against both recorder flow coverage and query-quality heuristics.
+ *
+ * @param {{ analyzedRecording: AnalyzedRecording, code: string }} params - Supplies the analyzed recording and candidate test code to assess.
+ * @returns {Promise<OutputAssessment>} The combined flow-coverage and quality assessment for the candidate output.
+ */
 async function assessOutputAgainstRecording(params: {
   analyzedRecording: AnalyzedRecording
   code: string
@@ -720,6 +880,15 @@ async function assessOutputAgainstRecording(params: {
   }
 }
 
+/**
+ * Compares two output assessments to decide which generated file is stronger.
+ *
+ * Coverage wins first, then manual-review status, then numeric score, then blocker count.
+ *
+ * @param {OutputAssessment} candidate - Supplies the newly generated assessment to compare.
+ * @param {OutputAssessment} existing - Supplies the assessment for the already-present output file.
+ * @returns {number} A positive number when `candidate` is better, a negative number when `existing` is better, or `0` when they are effectively tied.
+ */
 function compareOutputAssessments(candidate: OutputAssessment, existing: OutputAssessment): number {
   const coverageDelta = candidate.flowCoverage.coveredSteps - existing.flowCoverage.coveredSteps
   if (coverageDelta !== 0) {
@@ -738,6 +907,11 @@ function compareOutputAssessments(candidate: OutputAssessment, existing: OutputA
   return existing.scoreResult.blockers.length - candidate.scoreResult.blockers.length
 }
 
+/**
+ * Logs why Taro will keep or replace an existing generated test file.
+ *
+ * @param {{ outputPath: string, candidate: OutputAssessment, existing: OutputAssessment, overwrite: boolean }} params - Supplies the file path, both assessments, and the final overwrite decision to report.
+ */
 function logExistingOutputDecision(params: {
   outputPath: string
   candidate: OutputAssessment
@@ -773,6 +947,14 @@ function logExistingOutputDecision(params: {
   )
 }
 
+/**
+ * Scores a repo-context term by how specific it is likely to be.
+ *
+ * Longer terms and terms with whitespace, punctuation, or digits receive extra weight so context searches prioritize distinctive UI text.
+ *
+ * @param {string} term - Supplies the normalized term to rank.
+ * @returns {number} A relative specificity score where higher values mean better search evidence.
+ */
 function scoreContextTerm(term: string): number {
   let score = term.length
   if (/\s/.test(term)) {
@@ -788,6 +970,14 @@ function scoreContextTerm(term: string): number {
   return score
 }
 
+/**
+ * Extracts the best user-facing context term from the focused visual element.
+ *
+ * The search prefers accessible labels before falling back to visible text-like fields.
+ *
+ * @param {VisualState} visualState - Supplies the captured visual state whose focused element should contribute context.
+ * @returns {string | null} The first normalized element term, or `null` when no reliable text is available.
+ */
 function collectVisualElementContextTerm(visualState: VisualState): string | null {
   const candidates = [
     visualState.element?.ariaLabel,
@@ -807,6 +997,15 @@ function collectVisualElementContextTerm(visualState: VisualState): string | nul
   return null
 }
 
+/**
+ * Collects repo-grounding terms that Playwright confirmed on the page.
+ *
+ * Authentication interruption states only contribute already-known landmark evidence; fully captured states
+ * can also contribute dialog text and focused-element context.
+ *
+ * @param {VisualState | null} visualState - Supplies the visual capture result, or `null` to bypass page-confirmed context.
+ * @returns {string[]} Unique normalized context terms confirmed by the live page state.
+ */
 function collectPageConfirmedContextTerms(visualState: VisualState | null): string[] {
   if (!visualState) {
     return []
@@ -824,6 +1023,7 @@ function collectPageConfirmedContextTerms(visualState: VisualState | null): stri
     register(landmark)
   }
 
+  // Interrupted auth flows only have trustworthy top-level landmarks; deeper UI signals come from the wrong page.
   if (
     visualState.status === 'auth-interrupted' ||
     visualState.status === 'auth-recovery-failed' ||
@@ -841,6 +1041,11 @@ function collectPageConfirmedContextTerms(visualState: VisualState | null): stri
   return [...terms]
 }
 
+/**
+ * Logs a short summary of the strongest page-confirmed repo-context terms.
+ *
+ * @param {VisualState | null} visualState - Supplies the visual state whose confirmed terms should be reported; `null` or empty terms produce no output.
+ */
 function summarizePageConfirmedContext(visualState: VisualState | null): void {
   const confirmedTerms = collectPageConfirmedContextTerms(visualState)
   if (confirmedTerms.length === 0) {
@@ -853,6 +1058,15 @@ function summarizePageConfirmedContext(visualState: VisualState | null): void {
   )
 }
 
+/**
+ * Collects and ranks the recorder terms that should drive repo-context matching.
+ *
+ * Page-confirmed terms receive a bonus so verified live-page evidence outranks unconfirmed recorder text.
+ *
+ * @param {NormalizedRecording} recording - Supplies the normalized recording whose title and steps provide search evidence.
+ * @param {VisualState | null} [visualState=null] - Supplies optional page-confirmed context that should boost matching terms.
+ * @returns {string[]} Up to eight ranked search terms ordered from strongest to weakest evidence.
+ */
 function collectRepoContextSearchTerms(
   recording: NormalizedRecording,
   visualState: VisualState | null = null
@@ -875,6 +1089,7 @@ function collectRepoContextSearchTerms(
     registerTerm(confirmedTerm, PAGE_CONFIRMED_CONTEXT_TERM_BONUS)
   }
 
+  // Recorder title and step text still matter, but live page confirmation should dominate the ranking when available.
   registerTerm(recording.title)
   for (const step of recording.steps) {
     registerTerm(step.target)
@@ -887,6 +1102,14 @@ function collectRepoContextSearchTerms(
     .slice(0, 8)
 }
 
+/**
+ * Scans the repository for source and test files that match the strongest recording context terms.
+ *
+ * The search skips large files, generated directories, and explicitly excluded paths, then returns only the top-ranked matches.
+ *
+ * @param {{ projectRoot: string, terms: string[], excludePaths: string[] }} params - Supplies the repo root, ranked search terms, and absolute or relative paths that must be ignored.
+ * @returns {Promise<RepoContextMatch[]>} The strongest matching files with their matched terms, kind, and aggregate score.
+ */
 async function findRepoContextMatches(params: {
   projectRoot: string
   terms: string[]
@@ -927,6 +1150,7 @@ async function findRepoContextMatches(params: {
       const fullPath = join(dir, entry.name)
 
       if (entry.isDirectory()) {
+        // Skip generated and dependency directories so context matching stays fast and relevant.
         if (!CONTEXT_SEARCH_SKIP_DIRS.has(entry.name)) {
           await walk(fullPath)
         }
@@ -950,6 +1174,7 @@ async function findRepoContextMatches(params: {
         continue
       }
 
+      // Very large files are rarely useful as grounding evidence and are expensive to scan repeatedly.
       if (content.length > 500_000) {
         continue
       }
@@ -989,6 +1214,12 @@ async function findRepoContextMatches(params: {
     .slice(0, 10)
 }
 
+/**
+ * Formats the top repo-context matches into a compact log-friendly summary.
+ *
+ * @param {RepoContextMatch[]} matches - Supplies ranked context matches to condense for stderr logging.
+ * @returns {string} A `file [term, term]` summary joined with ` | ` separators.
+ */
 function formatContextMatchesSummary(matches: RepoContextMatch[]): string {
   return matches
     .slice(0, 3)
@@ -996,10 +1227,24 @@ function formatContextMatchesSummary(matches: RepoContextMatch[]): string {
     .join(' | ')
 }
 
+/**
+ * Normalizes a path for equality comparisons across macOS `/private/var` aliases.
+ *
+ * @param {string} value - Supplies the absolute path to normalize before comparing or rebasing it.
+ * @returns {string} The comparable path with the `/private` prefix removed for `/var` locations.
+ */
 function normalizeComparablePath(value: string): string {
   return value.replace(/^\/private(?=\/var\/)/u, '')
 }
 
+/**
+ * Resolves the most relevant learned package profile from repo-context matches.
+ *
+ * If no match outranks the current profile, the existing profile is preserved and the reason is `null`.
+ *
+ * @param {{ state: Awaited<ReturnType<typeof loadOrBootstrapTaroState>>['state'], currentProfile: ResolvedTaroPackageProfile | null, projectRoot: string, overrides: Awaited<ReturnType<typeof readTaroOverrides>>, matches: RepoContextMatch[] }} params - Supplies the current state snapshot, active profile, repo root, overrides, and ranked context matches.
+ * @returns {{ profile: ResolvedTaroPackageProfile | null, reason: string | null }} The selected package profile and a short explanation when context matching changed it.
+ */
 function resolvePackageProfileFromContextMatches(params: {
   state: Awaited<ReturnType<typeof loadOrBootstrapTaroState>>['state']
   currentProfile: ResolvedTaroPackageProfile | null
@@ -1016,6 +1261,7 @@ function resolvePackageProfileFromContextMatches(params: {
   }
 
   const scores = new Map<string, { score: number; filePath: string }>()
+  // Longest package paths win prefix checks first so nested workspace packages are matched before parent folders.
   const packagePaths = Object.keys(state.packages).sort((left, right) => right.length - left.length)
 
   for (const match of matches) {
@@ -1051,6 +1297,7 @@ function resolvePackageProfileFromContextMatches(params: {
   }
 
   const [packagePath, info] = bestMatch
+  // Do not churn the active profile unless repo evidence clearly points at a different package.
   if (currentProfile?.packagePath === packagePath || info.score <= 0) {
     return {
       profile: currentProfile,
@@ -1078,6 +1325,16 @@ function resolvePackageProfileFromContextMatches(params: {
   }
 }
 
+/**
+ * Converts an absolute file path into a relative import specifier from a directory.
+ *
+ * The returned import omits the file extension and always starts with `.`.
+ *
+ * @param {string} fromDir - Supplies the directory from which the import should be written.
+ * @param {string} absoluteFilePath - Supplies the absolute file path to convert into an import specifier.
+ * @returns {string} A relative import path without a file extension.
+ *   Example: `./components/Foo`.
+ */
 function toImportPath(fromDir: string, absoluteFilePath: string): string {
   const withoutExtension = normalizeComparablePath(absoluteFilePath).replace(/\.[^.]+$/u, '')
   const relativePath = relative(
@@ -1087,10 +1344,24 @@ function toImportPath(fromDir: string, absoluteFilePath: string): string {
   return relativePath.startsWith('.') ? relativePath : `./${relativePath}`
 }
 
+/**
+ * Checks whether a filename stem looks like a component or module symbol suitable as a render target.
+ *
+ * @param {string} symbol - Supplies the candidate symbol name derived from a matched file path.
+ * @returns {boolean} `true` when the symbol looks like a PascalCase identifier; otherwise `false`.
+ */
 function isLikelyRenderTargetSymbol(symbol: string): boolean {
   return /^[A-Z][A-Za-z0-9_]*$/u.test(symbol)
 }
 
+/**
+ * Derives repo render-target candidates from source files that matched recording context.
+ *
+ * Only source files with symbol-like basenames become candidates, and duplicate symbol/import pairs are removed.
+ *
+ * @param {{ projectRoot: string, outputPath: string, matches: RepoContextMatch[] }} params - Supplies the repo root, the expected output path, and the ranked context matches to transform.
+ * @returns {RepoRenderTargetCandidate[]} Render-target candidates inferred from repo context matches.
+ */
 function deriveContextRenderTargets(params: {
   projectRoot: string
   outputPath: string
@@ -1102,6 +1373,7 @@ function deriveContextRenderTargets(params: {
   const outputDir = dirname(outputPath)
 
   for (const match of matches) {
+    // Only source files can become render targets; test files are evidence, not components to render directly.
     if (match.kind !== 'source') {
       continue
     }
@@ -1132,6 +1404,11 @@ function deriveContextRenderTargets(params: {
   return candidates
 }
 
+/**
+ * Logs the overall generated-test score and its dimension breakdown.
+ *
+ * @param {ScoreResult} scoreResult - Supplies the scoring result to summarize for the operator.
+ */
 function logScore(scoreResult: ScoreResult): void {
   const markerCoverageSummary =
     `markers: detected=${scoreResult.markerCoverage.detected}, ` +
@@ -1148,6 +1425,11 @@ function logScore(scoreResult: ScoreResult): void {
   )
 }
 
+/**
+ * Logs semantic-marker coverage totals and warns when the quality gate is failing.
+ *
+ * @param {ScoreResult} scoreResult - Supplies the scoring result whose marker coverage and gate status should be reported.
+ */
 function emitMarkerCoverageSection(scoreResult: ScoreResult): void {
   const gateStatus =
     scoreResult.markerQualityGate.status === 'warn'
@@ -1167,10 +1449,24 @@ function emitMarkerCoverageSection(scoreResult: ScoreResult): void {
   }
 }
 
+/**
+ * Collects every planned marker assertion across all suite scenarios.
+ *
+ * @param {JsSuitePlan} suitePlan - Supplies the suite plan whose scenario marker assertions should be flattened.
+ * @returns {PlannedMarkerAssertion[]} All planned marker assertions in scenario order.
+ */
 function collectPlannedMarkerAssertions(suitePlan: JsSuitePlan): PlannedMarkerAssertion[] {
   return suitePlan.scenarios.flatMap((scenario) => scenario.markerAssertions ?? [])
 }
 
+/**
+ * Builds marker-review diagnostics from a suite plan.
+ *
+ * A `null` plan returns the shared empty diagnostic totals so callers can score generated output without branching.
+ *
+ * @param {JsSuitePlan | null} suitePlan - Supplies the suite plan to inspect, or `null` when no plan could be produced.
+ * @returns {MarkerReviewDiagnostics} Counts for canonical recoveries, placement conflicts, and placement corrections.
+ */
 function buildMarkerReviewDiagnostics(
   suitePlan: JsSuitePlan | null
 ): MarkerReviewDiagnostics {
@@ -1190,6 +1486,7 @@ function buildMarkerReviewDiagnostics(
     }
   }
 
+  // Placement conflicts are tracked on unresolved markers because they never became safe emitted assertions.
   const placementConflicts = collectUnresolvedMarkerAssertions(suitePlan).filter(
     (marker) => marker.reason === 'boundary-placement-conflict'
   ).length
@@ -1201,6 +1498,11 @@ function buildMarkerReviewDiagnostics(
   }
 }
 
+/**
+ * Logs canonical semantic-marker recovery events once per marker step.
+ *
+ * @param {JsSuitePlan | null} suitePlan - Supplies the suite plan whose recovered marker assertions should be reported; `null` produces no output.
+ */
 function emitRecoveredMarkerDiagnostics(suitePlan: JsSuitePlan | null): void {
   if (!suitePlan) {
     return
@@ -1222,6 +1524,11 @@ function emitRecoveredMarkerDiagnostics(suitePlan: JsSuitePlan | null): void {
   }
 }
 
+/**
+ * Warns when marker assertions had to be moved between scenarios.
+ *
+ * @param {JsSuitePlan | null} suitePlan - Supplies the suite plan whose placement corrections should be reported; `null` produces no output.
+ */
 function emitMarkerPlacementCorrections(suitePlan: JsSuitePlan | null): void {
   if (!suitePlan) {
     return
@@ -1243,6 +1550,12 @@ function emitMarkerPlacementCorrections(suitePlan: JsSuitePlan | null): void {
   }
 }
 
+/**
+ * Normalizes the most helpful hint text for an unresolved marker assertion.
+ *
+ * @param {UnresolvedSemanticMarkerAssertionResolution} marker - Supplies the unresolved marker whose proof text, target, query, or selector should be summarized.
+ * @returns {string} A single-line hint string, or `'none'` when the marker has no usable evidence text.
+ */
 function normalizeUnresolvedMarkerHint(
   marker: UnresolvedSemanticMarkerAssertionResolution
 ): string {
@@ -1251,6 +1564,12 @@ function normalizeUnresolvedMarkerHint(
   return normalized && normalized.length > 0 ? normalized : 'none'
 }
 
+/**
+ * Resolves the most specific source line available for an unresolved marker assertion.
+ *
+ * @param {UnresolvedSemanticMarkerAssertionResolution} marker - Supplies the unresolved marker whose explicit line or source-context line should be reported.
+ * @returns {string} The source line number as a string, or `'unknown'` when no finite line is available.
+ */
 function formatUnresolvedMarkerLine(
   marker: UnresolvedSemanticMarkerAssertionResolution
 ): string {
@@ -1258,6 +1577,12 @@ function formatUnresolvedMarkerLine(
   return Number.isFinite(line) ? String(line) : 'unknown'
 }
 
+/**
+ * Formats an unresolved semantic-marker warning for stderr output.
+ *
+ * @param {UnresolvedSemanticMarkerAssertionResolution} marker - Supplies the unresolved marker to describe.
+ * @returns {string} A single-line `MKR-03` warning with line, reason, guidance, and hint text.
+ */
 function formatUnresolvedMarkerWarning(
   marker: UnresolvedSemanticMarkerAssertionResolution
 ): string {
@@ -1272,6 +1597,14 @@ function formatUnresolvedMarkerWarning(
   )
 }
 
+/**
+ * Collects unique unresolved semantic-marker assertions across all scenarios.
+ *
+ * Marker step IDs are deduplicated so the same unresolved marker is only surfaced once.
+ *
+ * @param {JsSuitePlan} suitePlan - Supplies the suite plan whose unresolved marker assertions should be flattened.
+ * @returns {UnresolvedSemanticMarkerAssertionResolution[]} The deduplicated unresolved marker assertions.
+ */
 function collectUnresolvedMarkerAssertions(
   suitePlan: JsSuitePlan
 ): UnresolvedSemanticMarkerAssertionResolution[] {
@@ -1292,6 +1625,11 @@ function collectUnresolvedMarkerAssertions(
   return unresolvedMarkers
 }
 
+/**
+ * Warns for every unresolved semantic marker in a suite plan.
+ *
+ * @param {JsSuitePlan | null} suitePlan - Supplies the suite plan to inspect; `null` produces no output.
+ */
 function emitUnresolvedMarkerWarnings(suitePlan: JsSuitePlan | null): void {
   if (!suitePlan) {
     return
@@ -1303,6 +1641,11 @@ function emitUnresolvedMarkerWarnings(suitePlan: JsSuitePlan | null): void {
   }
 }
 
+/**
+ * Warns when the generated test still requires manual review.
+ *
+ * @param {ScoreResult} scoreResult - Supplies the scoring result whose review requirement and blockers should be reported.
+ */
 function emitLowConfidenceBanner(scoreResult: ScoreResult): void {
   if (!scoreResult.requiresReview) {
     return
@@ -1319,12 +1662,20 @@ function emitLowConfidenceBanner(scoreResult: ScoreResult): void {
   }
 }
 
+/**
+ * Emits targeted improvement hints for weak scoring dimensions.
+ *
+ * @param {ScoreResult} scoreResult - Supplies the scoring result that determines which hints should be shown.
+ * @param {QueryResult[]} [queryResults=[]] - Supplies the generated query set so query-quality hints can mention test-id overuse.
+ * @param {ReturnType<typeof analyzeBoundaryIsolation>} [boundaryIssues=analyzeBoundaryIsolation('')] - Supplies precomputed boundary issues; the empty-analysis default skips recomputation by callers that have none.
+ */
 function emitScoreHints(
   scoreResult: ScoreResult,
   queryResults: QueryResult[] = [],
   boundaryIssues = analyzeBoundaryIsolation('')
 ): void {
   if (scoreResult.dimensions.queryQuality < 60) {
+    // Test-id heavy output usually means Taro could not recover accessible affordances from the recording or repo.
     const testIdCount = queryResults.filter((queryResult) => {
       return isTestIdQueryMethod(queryResult.method)
     }).length
@@ -1359,6 +1710,11 @@ function emitScoreHints(
   }
 }
 
+/**
+ * Logs the cleanup operations applied during recording analysis.
+ *
+ * @param {AnalyzedRecording} analyzedRecording - Supplies the analyzed recording whose cleanup diagnostics should be summarized.
+ */
 function summarizeCleanup(analyzedRecording: AnalyzedRecording): void {
   const { diagnostics } = analyzedRecording
   const parts: string[] = []
@@ -1394,6 +1750,12 @@ function summarizeCleanup(analyzedRecording: AnalyzedRecording): void {
   log(pc.dim('[taro]') + ` Recording cleanup: ${parts.join(', ')}`)
 }
 
+/**
+ * Counts emitted and unresolved marker assertions across planned scenarios.
+ *
+ * @param {JsSuitePlan['scenarios']} scenarios - Supplies the planned scenarios whose marker totals should be aggregated.
+ * @returns {Pick<MarkerCoverageTotals, 'emitted' | 'unresolved'>} Aggregate emitted and unresolved marker counts.
+ */
 function countPlannedScenarioMarkers(
   scenarios: JsSuitePlan['scenarios']
 ): Pick<MarkerCoverageTotals, 'emitted' | 'unresolved'> {
@@ -1409,6 +1771,14 @@ function countPlannedScenarioMarkers(
   )
 }
 
+/**
+ * Builds the marker-coverage totals that should feed generated-test scoring.
+ *
+ * When no suite plan exists, emitted markers stay at `0` and totals fall back to analysis diagnostics.
+ *
+ * @param {{ analyzedRecording: AnalyzedRecording, suitePlan: JsSuitePlan | null }} params - Supplies the analyzed recording and optional suite plan that produced marker assertions.
+ * @returns {MarkerCoverageTotals} Detected, emitted, and unresolved semantic-marker totals.
+ */
 function buildMarkerCoverageSummary(params: {
   analyzedRecording: AnalyzedRecording
   suitePlan: JsSuitePlan | null
@@ -1427,6 +1797,7 @@ function buildMarkerCoverageSummary(params: {
 
   const plannedMarkerTotals = countPlannedScenarioMarkers(suitePlan.scenarios)
   const unresolved = plannedMarkerTotals.unresolved
+  // Use the higher total so scoring does not undercount markers when analysis and planning observed different subsets.
   const detected = Math.max(
     preservedMarkers + unresolved,
     plannedMarkerTotals.emitted + unresolved
@@ -1439,6 +1810,15 @@ function buildMarkerCoverageSummary(params: {
   }
 }
 
+/**
+ * Merges marker-related analysis back into the normalized recording steps.
+ *
+ * Steps without stable IDs are left untouched because they cannot be matched safely to analyzed state.
+ *
+ * @param {NormalizedRecording} recording - Supplies the normalized recording that generation continues to use.
+ * @param {AnalyzedRecording} analyzedRecording - Supplies the analyzed recording whose marker state and metadata should be merged back in.
+ * @returns {NormalizedRecording} A copy of the recording with matched step metadata enriched from analysis.
+ */
 function mergeAnalyzedStepState(
   recording: NormalizedRecording,
   analyzedRecording: AnalyzedRecording
@@ -1463,6 +1843,7 @@ function mergeAnalyzedStepState(
 
       return {
         ...step,
+        // Marker fields are only copied when analysis produced them so we do not overwrite recorder data with `undefined`.
         ...(analyzedStep.semanticMarkerCandidate
           ? { semanticMarkerCandidate: analyzedStep.semanticMarkerCandidate }
           : {}),
@@ -1481,6 +1862,13 @@ function mergeAnalyzedStepState(
   }
 }
 
+/**
+ * Returns the analyzed intent groups or a single fallback group when none were inferred.
+ *
+ * @param {AnalyzedRecording} analyzedRecording - Supplies the analyzed recording whose intent groups should drive test grouping.
+ * @param {string} fallbackTitle - Supplies the fallback group name when no intent groups are available.
+ * @returns {ItGroup[]} The inferred intent groups, or one fallback group containing every analyzed step.
+ */
 function toItGroups(analyzedRecording: AnalyzedRecording, fallbackTitle: string): ItGroup[] {
   if (analyzedRecording.intentGroups.length > 0) {
     return analyzedRecording.intentGroups
@@ -1494,6 +1882,12 @@ function toItGroups(analyzedRecording: AnalyzedRecording, fallbackTitle: string)
   ]
 }
 
+/**
+ * Converts a query descriptor into a scorer-friendly query result.
+ *
+ * @param {QueryDescriptor} descriptor - Supplies the learned or preserved query descriptor to normalize.
+ * @returns {QueryResult} The normalized query result with query text, quality, method, and source line.
+ */
 function queryDescriptorToResult(descriptor: QueryDescriptor): QueryResult {
   return {
     query: descriptor.raw ?? descriptor.target ?? descriptor.method,
@@ -1503,6 +1897,12 @@ function queryDescriptorToResult(descriptor: QueryDescriptor): QueryResult {
   }
 }
 
+/**
+ * Checks whether an unknown metadata value is a query descriptor.
+ *
+ * @param {unknown} value - Supplies the metadata value to narrow before reading query fields from it.
+ * @returns {value is QueryDescriptor} `true` when the value is an object with a string `method` field.
+ */
 function isQueryDescriptor(value: unknown): value is QueryDescriptor {
   return (
     typeof value === 'object' &&
@@ -1512,11 +1912,23 @@ function isQueryDescriptor(value: unknown): value is QueryDescriptor {
   )
 }
 
+/**
+ * Returns the preserved query descriptor attached to a normalized step, if present.
+ *
+ * @param {NormalizedStep} step - Supplies the step whose metadata may already contain a trusted query descriptor.
+ * @returns {QueryDescriptor | undefined} The preserved query descriptor, or `undefined` when metadata does not contain one.
+ */
 function getStepQueryDescriptor(step: NormalizedStep): QueryDescriptor | undefined {
   const query = step.metadata?.query
   return isQueryDescriptor(query) ? query : undefined
 }
 
+/**
+ * Groups baseline selector descriptors by the step they belong to.
+ *
+ * @param {SelectorDescriptor[]} selectors - Supplies the selector descriptors to group by `stepId`.
+ * @returns {Map<StepId, SelectorDescriptor[]>} A map from step ID to the selectors recorded for that step.
+ */
 function groupSelectorsByStepId(
   selectors: SelectorDescriptor[]
 ): Map<StepId, SelectorDescriptor[]> {
@@ -1531,6 +1943,13 @@ function groupSelectorsByStepId(
   return grouped
 }
 
+/**
+ * Merges new selector-resolution warnings into an existing resolution without duplicating entries.
+ *
+ * @param {SelectorResolutionResult} resolution - Supplies the existing selector-resolution result.
+ * @param {string[]} warnings - Supplies additional warnings gathered while trying alternate selectors.
+ * @returns {SelectorResolutionResult} The original result when no warnings were added, otherwise a copy with merged warnings.
+ */
 function mergeSelectorResolutionWarnings(
   resolution: SelectorResolutionResult,
   warnings: string[]
@@ -1546,6 +1965,15 @@ function mergeSelectorResolutionWarnings(
   }
 }
 
+/**
+ * Applies a selector-resolution result to a normalized step's metadata.
+ *
+ * Resolved queries are copied into `metadata.query`; unresolved results only record the resolution details.
+ *
+ * @param {NormalizedStep} step - Supplies the step to enrich with selector-resolution metadata.
+ * @param {SelectorResolutionResult} resolution - Supplies the resolution outcome to attach to the step.
+ * @returns {NormalizedStep} A copy of the step with updated selector-resolution metadata.
+ */
 function applySelectorResolution(
   step: NormalizedStep,
   resolution: SelectorResolutionResult
@@ -1560,6 +1988,12 @@ function applySelectorResolution(
   }
 }
 
+/**
+ * Checks whether replaying a step can reveal more DOM state for later selector resolution.
+ *
+ * @param {NormalizedStep} step - Supplies the step that may advance the page into a more informative state.
+ * @returns {boolean} `true` for interactions that can expose additional UI; otherwise `false`.
+ */
 function canSuccessfulReplayRevealAdditionalState(step: NormalizedStep): boolean {
   return (
     step.action === 'click' ||
@@ -1570,6 +2004,13 @@ function canSuccessfulReplayRevealAdditionalState(step: NormalizedStep): boolean
   )
 }
 
+/**
+ * Rebinds grouped steps to the latest step objects by step ID.
+ *
+ * @param {ItGroup[]} itGroups - Supplies the existing test groups whose step references should be refreshed.
+ * @param {NormalizedStep[]} steps - Supplies the latest step objects keyed by their stable step IDs.
+ * @returns {ItGroup[]} The groups with each step swapped for the latest matching step when available.
+ */
 function rehydrateItGroups(itGroups: ItGroup[], steps: NormalizedStep[]): ItGroup[] {
   const stepMap = new Map(steps.map((step) => [step.id, step]))
 
@@ -1579,6 +2020,13 @@ function rehydrateItGroups(itGroups: ItGroup[], steps: NormalizedStep[]): ItGrou
   }))
 }
 
+/**
+ * Rebinds every step reference inside a suite plan to the latest step objects.
+ *
+ * @param {JsSuitePlan} plan - Supplies the suite plan to refresh after selector resolution or analysis updates.
+ * @param {NormalizedStep[]} steps - Supplies the latest step objects keyed by step ID.
+ * @returns {JsSuitePlan} A copy of the plan with refreshed steps in groups, helpers, and scenarios.
+ */
 function rehydrateSuitePlan(plan: JsSuitePlan, steps: NormalizedStep[]): JsSuitePlan {
   const stepMap = new Map(steps.map((step) => [step.id, step]))
 
@@ -1598,10 +2046,24 @@ function rehydrateSuitePlan(plan: JsSuitePlan, steps: NormalizedStep[]): JsSuite
   }
 }
 
+/**
+ * Checks whether a step exists only to carry semantic-marker metadata.
+ *
+ * @param {NormalizedStep} step - Supplies the step to classify.
+ * @returns {boolean} `true` when the step is linked to a semantic marker or unresolved semantic marker.
+ */
 function isSemanticMarkerStep(step: NormalizedStep): boolean {
   return Boolean(step.semanticMarkerLink || step.unresolvedSemanticMarker)
 }
 
+/**
+ * Removes semantic-marker-only steps from generated `it()` groups.
+ *
+ * Empty groups are dropped after filtering.
+ *
+ * @param {ItGroup[]} itGroups - Supplies the grouped steps that will feed code generation.
+ * @returns {ItGroup[]} The filtered groups with marker-only steps removed.
+ */
 function stripSemanticMarkerStepsFromItGroups(itGroups: ItGroup[]): ItGroup[] {
   return itGroups
     .map((group) => ({
@@ -1611,6 +2073,14 @@ function stripSemanticMarkerStepsFromItGroups(itGroups: ItGroup[]): ItGroup[] {
     .filter((group) => group.steps.length > 0)
 }
 
+/**
+ * Removes semantic-marker-only steps from generated helper plans.
+ *
+ * Empty helpers are dropped after filtering.
+ *
+ * @param {JsSuitePlan['helpers']} helpers - Supplies the planned helpers to sanitize before code generation.
+ * @returns {JsSuitePlan['helpers']} The filtered helper list with marker-only steps removed.
+ */
 function stripSemanticMarkerStepsFromHelpers(helpers: JsSuitePlan['helpers']): JsSuitePlan['helpers'] {
   return helpers
     .map((helper) => ({
@@ -1620,6 +2090,15 @@ function stripSemanticMarkerStepsFromHelpers(helpers: JsSuitePlan['helpers']): J
     .filter((helper) => helper.steps.length > 0)
 }
 
+/**
+ * Removes semantic-marker-only steps from scenarios and prunes helper references that no longer exist.
+ *
+ * Scenarios are kept when they still contain steps, helper refs, or marker assertions.
+ *
+ * @param {JsSuitePlan['scenarios']} scenarios - Supplies the planned scenarios to sanitize before code generation.
+ * @param {JsSuitePlan['helpers']} helpers - Supplies the filtered helper list used to validate remaining helper references.
+ * @returns {JsSuitePlan['scenarios']} The filtered scenarios with stale helper references removed.
+ */
 function stripSemanticMarkerStepsFromScenarios(
   scenarios: JsSuitePlan['scenarios'],
   helpers: JsSuitePlan['helpers']
@@ -1640,6 +2119,12 @@ function stripSemanticMarkerStepsFromScenarios(
     )
 }
 
+/**
+ * Deduplicates query results by method, query text, and line number.
+ *
+ * @param {QueryResult[]} queryResults - Supplies the query results to deduplicate before scoring or code generation.
+ * @returns {QueryResult[]} The first occurrence of each unique query result.
+ */
 function dedupeQueryResults(queryResults: QueryResult[]): QueryResult[] {
   const seen = new Set<string>()
 
@@ -1654,10 +2139,24 @@ function dedupeQueryResults(queryResults: QueryResult[]): QueryResult[] {
   })
 }
 
+/**
+ * Returns the first baseline selector recorded for a flow, if any.
+ *
+ * @param {NormalizedRecording} recording - Supplies the normalized recording whose baseline selector list may seed visual capture.
+ * @returns {string | undefined} The first selector string, or `undefined` when no baseline selectors were recorded.
+ */
 function getPrimarySelector(recording: NormalizedRecording): string | undefined {
   return recording.baseline?.selectors[0]?.selector
 }
 
+/**
+ * Normalizes visible text candidates for page-landmark matching and filters out implementation-like values.
+ *
+ * URLs, DOM globals, selector fragments, and very short strings are rejected because they are poor visual landmarks.
+ *
+ * @param {string} [value] - Supplies the raw text candidate to normalize for landmark matching.
+ * @returns {string | null} The normalized landmark text, or `null` when the value should be ignored.
+ */
 function normalizeLandmarkCandidate(value?: string): string | null {
   const normalized = value?.replace(/\s+/g, ' ').trim()
   if (!normalized) {
@@ -1676,6 +2175,12 @@ function normalizeLandmarkCandidate(value?: string): string | null {
   return normalized
 }
 
+/**
+ * Returns the asserted document title from a recording, if the flow captured one.
+ *
+ * @param {NormalizedRecording} recording - Supplies the normalized recording whose title assertions should be inspected.
+ * @returns {string | undefined} The asserted page title, or `undefined` when no title assertion exists.
+ */
 function findExpectedPageTitle(recording: NormalizedRecording): string | undefined {
   const titleAssertion = recording.steps.find(
     (step) => step.action === 'assert' && step.target === 'document.title' && typeof step.value === 'string'
@@ -1683,6 +2188,12 @@ function findExpectedPageTitle(recording: NormalizedRecording): string | undefin
   return typeof titleAssertion?.value === 'string' ? titleAssertion.value : undefined
 }
 
+/**
+ * Collects up to five visible-text landmarks that should confirm the captured page.
+ *
+ * @param {NormalizedRecording} recording - Supplies the normalized recording whose baseline queries and key steps provide landmark text.
+ * @returns {string[]} Unique landmark strings ordered by discovery and capped at five entries.
+ */
 function collectExpectedLandmarks(recording: NormalizedRecording): string[] {
   const values = new Set<string>()
   const register = (candidate?: string) => {
@@ -1698,6 +2209,7 @@ function collectExpectedLandmarks(recording: NormalizedRecording): string[] {
   }
 
   for (const step of recording.steps) {
+    // Only interactions/assertions with user-visible targets are strong enough to validate the captured page.
     if (step.action !== 'click' && step.action !== 'assert' && step.action !== 'fill') {
       continue
     }
@@ -1711,6 +2223,15 @@ function collectExpectedLandmarks(recording: NormalizedRecording): string[] {
   return [...values].slice(0, 5)
 }
 
+/**
+ * Converts an absolute path into the most useful project-relative path for state and log output.
+ *
+ * Known auth-file suffixes are preserved even when the file sits outside the project root so persisted auth settings stay portable.
+ *
+ * @param {string} projectRoot - Supplies the project root used to relativize the path.
+ * @param {string} filePath - Supplies the file path to rewrite for state storage or logging.
+ * @returns {string} A project-relative path, an auth-like suffix, or `.` when the input is the project root.
+ */
 function toProjectRelativePath(projectRoot: string, filePath: string): string {
   const absoluteFilePath = resolve(filePath)
   const normalized = relative(projectRoot, absoluteFilePath).replace(/\\/g, '/')
@@ -1728,6 +2249,16 @@ function toProjectRelativePath(projectRoot: string, filePath: string): string {
   return normalized.length === 0 ? '.' : normalized
 }
 
+/**
+ * Resolves an optional CLI file argument to absolute and project-relative forms.
+ *
+ * Missing input bypasses resolution and returns `null`. Unreadable paths also return `null`
+ * after warning so visual-auth features can continue without failing generation.
+ *
+ * @param {string} projectRoot - Supplies the project root used to derive the persisted relative path.
+ * @param {string | undefined} inputPath - Supplies the optional CLI path; `undefined` bypasses all work.
+ * @returns {Promise<{ absolutePath: string, relativePath: string } | null>} The resolved absolute and relative paths, or `null` when the file should be ignored.
+ */
 async function resolveOptionalFilePath(
   projectRoot: string,
   inputPath: string | undefined
@@ -1752,6 +2283,15 @@ async function resolveOptionalFilePath(
   }
 }
 
+/**
+ * Checks whether this command run can support interactive visual-auth recovery.
+ *
+ * A forced interactive flag bypasses stdio TTY detection.
+ *
+ * @param {GenerateCommandContext} [context={}] - Supplies optional stdio handles to inspect instead of the process globals.
+ * @param {boolean} [forceInteractiveAuth=false] - Forces interactive auth support even when stdin or stdout is not a TTY.
+ * @returns {boolean} `true` when interactive auth recovery is allowed for this run.
+ */
 function hasInteractiveVisualAuthCapability(
   context: GenerateCommandContext = {},
   forceInteractiveAuth = false
@@ -1762,6 +2302,15 @@ function hasInteractiveVisualAuthCapability(
   )
 }
 
+/**
+ * Resolves the storage-state path Taro should reuse or save for visual authentication.
+ *
+ * When the learned auth profile is not already a `storageState` profile, the default Taro auth path is returned.
+ *
+ * @param {string} projectRoot - Supplies the project root used to expand the relative storage-state path.
+ * @param {TaroPlaywrightAuthProfile | null} auth - Supplies the current auth profile, or `null` to fall back to the default storage-state path.
+ * @returns {{ absolutePath: string, relativePath: string }} The absolute and project-relative storage-state path pair.
+ */
 function resolveVisualAuthStorageStatePath(
   projectRoot: string,
   auth: TaroPlaywrightAuthProfile | null
@@ -1778,16 +2327,24 @@ function resolveVisualAuthStorageStatePath(
   }
 }
 
+/**
+ * Resolves the directory where visual-capture screenshots should be stored.
+ *
+ * @param {string} projectRoot - Supplies the project root that owns the `.taro/playwright/screenshots` directory.
+ * @returns {string} The absolute screenshot artifact directory path.
+ */
 function resolveVisualCaptureScreenshotDir(projectRoot: string): string {
   return resolve(projectRoot, '.taro', 'playwright', 'screenshots')
 }
 
-type AuthPreflightStatus =
-  | 'not_required'
-  | 'unknown_recipe'
-  | 'authenticated'
-  | 'failed'
-
+/**
+ * Maps a visual-capture result into a concise auth preflight status for logging.
+ *
+ * When the recording has no URL or no visual state, the status is unknown and this returns `null`.
+ *
+ * @param {{ auth: TaroPlaywrightAuthProfile | null, url?: string, visualState: VisualState | null }} params - Supplies the auth profile, target URL, and visual capture result to classify.
+ * @returns {AuthPreflightStatus | null} The auth status label, or `null` when preflight status cannot be inferred.
+ */
 function resolveAuthPreflightStatus(params: {
   auth: TaroPlaywrightAuthProfile | null
   url?: string
@@ -1798,6 +2355,7 @@ function resolveAuthPreflightStatus(params: {
     return null
   }
 
+  // The auth summary is intentionally coarse because it drives operator guidance, not control flow.
   switch (visualState.status) {
     case 'auth-recovered':
       return 'authenticated'
@@ -1813,6 +2371,11 @@ function resolveAuthPreflightStatus(params: {
   }
 }
 
+/**
+ * Logs the auth preflight status when visual capture produced a meaningful auth outcome.
+ *
+ * @param {{ auth: TaroPlaywrightAuthProfile | null, url?: string, visualState: VisualState | null }} params - Supplies the auth profile, target URL, and visual state to summarize.
+ */
 function summarizeAuthPreflight(params: {
   auth: TaroPlaywrightAuthProfile | null
   url?: string
@@ -1826,6 +2389,11 @@ function summarizeAuthPreflight(params: {
   log(pc.dim('[taro]') + ` Auth status: ${status}`)
 }
 
+/**
+ * Logs the learned Playwright auth profile that will be reused for visual capture.
+ *
+ * @param {ResolvedTaroPackageProfile | null} packageProfile - Supplies the resolved package profile whose `playwrightAuth` setting should be reported.
+ */
 function summarizePlaywrightAuth(
   packageProfile: ResolvedTaroPackageProfile | null
 ): void {
@@ -1839,116 +2407,149 @@ function summarizePlaywrightAuth(
   )
 }
 
-function summarizeVisualState(visualState: VisualState | null): void {
-  if (!visualState) {
-    return
+/**
+ * Logs each visual-state warning on its own warning line.
+ *
+ * @param {VisualState} visualState - Supplies the visual state whose warning messages should be emitted.
+ */
+function summarizeVisualStateWarnings(visualState: VisualState): void {
+  for (const warning of visualState.warnings) {
+    console.warn(pc.yellow(`[taro] ${warning}`))
   }
+}
 
-  if (visualState.status === 'capture-failed') {
-    for (const warning of visualState.warnings) {
-      console.warn(pc.yellow(`[taro] ${warning}`))
-    }
-    return
+/**
+ * Logs the screenshot path for an auth checkpoint when one was captured.
+ *
+ * @param {VisualState} visualState - Supplies the visual state whose auth checkpoint screenshot should be reported.
+ */
+function summarizeAuthCheckpointScreenshot(visualState: VisualState): void {
+  if (visualState.screenshotPath) {
+    log(pc.dim('[taro]') + ` Auth checkpoint screenshot: ${visualState.screenshotPath}`)
   }
+}
 
-  if (visualState.status === 'auth-interrupted') {
-    const interrupt = visualState.interrupt
+/**
+ * Logs the screenshot path for a confirmed starting point when one was captured.
+ *
+ * @param {VisualState} visualState - Supplies the visual state whose starting-point screenshot should be reported.
+ */
+function summarizeStartingPointScreenshot(visualState: VisualState): void {
+  if (visualState.screenshotPath) {
+    log(pc.dim('[taro]') + ` Starting point screenshot: ${visualState.screenshotPath}`)
+  }
+}
+
+/**
+ * Logs the auth interruption details that explain why visual capture could not reach the target UI.
+ *
+ * @param {VisualState} visualState - Supplies the interrupted visual state to summarize.
+ */
+function summarizeAuthInterruptedVisualState(visualState: VisualState): void {
+  const interrupt = visualState.interrupt
+  console.warn(
+    pc.yellow('[taro] Visual context unavailable: authentication required before reaching the target UI.')
+  )
+
+  if (interrupt) {
+    // Show both the reached page and the expected page so the operator can repair the auth recipe quickly.
     console.warn(
-      pc.yellow('[taro] Visual context unavailable: authentication required before reaching the target UI.')
+      pc.yellow('[taro]') +
+        ` Reached: ${interrupt.reachedUrl}${interrupt.actualTitle ? ` (${interrupt.actualTitle})` : ''}`
     )
-    if (interrupt) {
+    if (interrupt.expectedUrl) {
+      console.warn(pc.yellow('[taro]') + ` Expected: ${interrupt.expectedUrl}`)
+    }
+    if (interrupt.expectedTitle) {
+      console.warn(pc.yellow('[taro]') + ` Expected title: ${interrupt.expectedTitle}`)
+    }
+    console.warn(pc.yellow('[taro]') + ` Signals: ${interrupt.signals.join(', ')}`)
+    if (interrupt.strategy === 'storageState' && interrupt.path) {
       console.warn(
         pc.yellow('[taro]') +
-          ` Reached: ${interrupt.reachedUrl}${interrupt.actualTitle ? ` (${interrupt.actualTitle})` : ''}`
+          ` Reuse or replace the saved storage state with --auth ${interrupt.path}.`
       )
-      if (interrupt.expectedUrl) {
-        console.warn(pc.yellow('[taro]') + ` Expected: ${interrupt.expectedUrl}`)
-      }
-      if (interrupt.expectedTitle) {
-        console.warn(pc.yellow('[taro]') + ` Expected title: ${interrupt.expectedTitle}`)
-      }
-      console.warn(pc.yellow('[taro]') + ` Signals: ${interrupt.signals.join(', ')}`)
-      if (interrupt.strategy === 'storageState' && interrupt.path) {
-        console.warn(
-          pc.yellow('[taro]') +
-            ` Reuse or replace the saved storage state with --auth ${interrupt.path}.`
-        )
-      } else if (interrupt.strategy === 'instructions' && interrupt.path) {
-        console.warn(
-          pc.yellow('[taro]') +
-            ` Review the saved auth instructions at ${interrupt.path}, or provide --auth for automatic session injection.`
-        )
-      } else {
-        console.warn(
-          pc.yellow('[taro]') +
-            ' Options: --auth <storageState.json>, --instructions <auth.md>, or --no-screenshots.'
-        )
-      }
+    } else if (interrupt.strategy === 'instructions' && interrupt.path) {
+      console.warn(
+        pc.yellow('[taro]') +
+          ` Review the saved auth instructions at ${interrupt.path}, or provide --auth for automatic session injection.`
+      )
+    } else {
+      console.warn(
+        pc.yellow('[taro]') +
+          ' Options: --auth <storageState.json>, --instructions <auth.md>, or --no-screenshots.'
+      )
     }
-    if (visualState.screenshotPath) {
-      log(pc.dim('[taro]') + ` Auth checkpoint screenshot: ${visualState.screenshotPath}`)
-    }
-    return
   }
 
-  if (visualState.status === 'auth-recovered') {
-    log(pc.dim('[taro]') + ' Visual auth recovered via Playwright runtime.')
-    if (visualState.authRecovery?.retryToExpectedUrl?.attempted) {
-      log(
-        pc.dim('[taro]') +
-          ` Retried recorded URL once after auth recovery: ${visualState.authRecovery.retryToExpectedUrl.targetUrl}`
-      )
-    }
-    if (visualState.startingPointConfirmed) {
-      log(pc.dim('[taro]') + ` Starting point confirmed: ${visualState.finalUrl}`)
-    }
-    if (visualState.authRecovery?.persistedAuthPath) {
-      log(
-        pc.dim('[taro]') +
-          ` Saved Playwright storageState: ${visualState.authRecovery.persistedAuthPath}`
-      )
-    }
-    if (visualState.screenshotPath) {
-      log(
-        pc.dim('[taro]') + ` Starting point screenshot: ${visualState.screenshotPath}`
-      )
-    }
-    return
+  summarizeAuthCheckpointScreenshot(visualState)
+}
+
+/**
+ * Logs the details for a visual state recovered through Playwright authentication.
+ *
+ * @param {VisualState} visualState - Supplies the recovered visual state to summarize.
+ */
+function summarizeRecoveredVisualState(visualState: VisualState): void {
+  // Successful recovery is worth logging in detail because it changes both confidence and future auth reuse.
+  log(pc.dim('[taro]') + ' Visual auth recovered via Playwright runtime.')
+  if (visualState.authRecovery?.retryToExpectedUrl?.attempted) {
+    log(
+      pc.dim('[taro]') +
+        ` Retried recorded URL once after auth recovery: ${visualState.authRecovery.retryToExpectedUrl.targetUrl}`
+    )
+  }
+  if (visualState.startingPointConfirmed) {
+    log(pc.dim('[taro]') + ` Starting point confirmed: ${visualState.finalUrl}`)
+  }
+  if (visualState.authRecovery?.persistedAuthPath) {
+    log(
+      pc.dim('[taro]') +
+        ` Saved Playwright storageState: ${visualState.authRecovery.persistedAuthPath}`
+    )
   }
 
-  if (
-    visualState.status === 'auth-recovery-failed' ||
+  summarizeStartingPointScreenshot(visualState)
+}
+
+/**
+ * Logs the details for a failed or timed-out Playwright auth recovery attempt.
+ *
+ * @param {VisualState} visualState - Supplies the failed recovery state to summarize.
+ */
+function summarizeFailedAuthRecoveryVisualState(visualState: VisualState): void {
+  // Failed recovery still preserves partial evidence such as instructions and screenshots for manual follow-up.
+  const label =
     visualState.status === 'auth-recovery-timed-out'
-  ) {
-    const label =
-      visualState.status === 'auth-recovery-timed-out'
-        ? 'Playwright authentication timed out.'
-        : 'Playwright authentication could not be completed.'
-    console.warn(pc.yellow(`[taro] ${label}`))
-    if (visualState.authRecovery?.instructionsPath) {
-      console.warn(
-        pc.yellow('[taro]') +
-          ` Visual auth instructions: ${visualState.authRecovery.instructionsPath}`
-      )
-    }
-    if (visualState.authRecovery?.retryToExpectedUrl?.attempted) {
-      const retry = visualState.authRecovery.retryToExpectedUrl
-      const failureDetail =
-        retry.outcome === 'failed' && retry.error ? ` (${retry.error})` : ''
-      console.warn(
-        pc.yellow('[taro]') +
-          ` Retried recorded URL once after auth recovery: ${retry.targetUrl}${failureDetail}`
-      )
-    }
-    if (visualState.screenshotPath) {
-      log(pc.dim('[taro]') + ` Auth checkpoint screenshot: ${visualState.screenshotPath}`)
-    }
-    for (const warning of visualState.warnings) {
-      console.warn(pc.yellow(`[taro] ${warning}`))
-    }
-    return
+      ? 'Playwright authentication timed out.'
+      : 'Playwright authentication could not be completed.'
+  console.warn(pc.yellow(`[taro] ${label}`))
+  if (visualState.authRecovery?.instructionsPath) {
+    console.warn(
+      pc.yellow('[taro]') +
+        ` Visual auth instructions: ${visualState.authRecovery.instructionsPath}`
+    )
+  }
+  if (visualState.authRecovery?.retryToExpectedUrl?.attempted) {
+    const retry = visualState.authRecovery.retryToExpectedUrl
+    const failureDetail =
+      retry.outcome === 'failed' && retry.error ? ` (${retry.error})` : ''
+    console.warn(
+      pc.yellow('[taro]') +
+        ` Retried recorded URL once after auth recovery: ${retry.targetUrl}${failureDetail}`
+    )
   }
 
+  summarizeAuthCheckpointScreenshot(visualState)
+  summarizeVisualStateWarnings(visualState)
+}
+
+/**
+ * Logs the generic captured visual state summary for non-auth-special cases.
+ *
+ * @param {VisualState} visualState - Supplies the captured visual state to summarize.
+ */
+function summarizeCapturedVisualState(visualState: VisualState): void {
   const parts = [visualState.reason]
   if (visualState.dialog?.title) {
     parts.push(`dialog=${visualState.dialog.title}`)
@@ -1961,22 +2562,61 @@ function summarizeVisualState(visualState: VisualState | null): void {
   }
 
   log(pc.dim('[taro]') + ` Visual state: ${parts.join(', ')}`)
-  if (visualState.startingPointConfirmed && visualState.screenshotPath) {
-    log(
-      pc.dim('[taro]') + ` Starting point screenshot: ${visualState.screenshotPath}`
-    )
+  if (visualState.startingPointConfirmed) {
+    summarizeStartingPointScreenshot(visualState)
   }
-  for (const warning of visualState.warnings) {
-    console.warn(pc.yellow(`[taro] ${warning}`))
-  }
+  summarizeVisualStateWarnings(visualState)
 }
 
+/**
+ * Logs the visual-capture outcome, including auth interruptions, recovery, and warnings.
+ *
+ * @param {VisualState | null} visualState - Supplies the visual state to summarize; `null` produces no output.
+ */
+function summarizeVisualState(visualState: VisualState | null): void {
+  if (!visualState) {
+    return
+  }
+
+  // Capture failures only have warning text, so keep the output limited to those actionable messages.
+  if (visualState.status === 'capture-failed') {
+    summarizeVisualStateWarnings(visualState)
+    return
+  }
+
+  if (visualState.status === 'auth-interrupted') {
+    summarizeAuthInterruptedVisualState(visualState)
+    return
+  }
+
+  if (visualState.status === 'auth-recovered') {
+    summarizeRecoveredVisualState(visualState)
+    return
+  }
+
+  if (
+    visualState.status === 'auth-recovery-failed' ||
+    visualState.status === 'auth-recovery-timed-out'
+  ) {
+    summarizeFailedAuthRecoveryVisualState(visualState)
+    return
+  }
+
+  summarizeCapturedVisualState(visualState)
+}
+
+/**
+ * Logs the strongest mock-analysis findings and policy warnings.
+ *
+ * @param {MockAnalysis | null} mockAnalysis - Supplies the mock analysis to summarize; `null` produces no output.
+ */
 function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
   if (!mockAnalysis) {
     return
   }
 
   const parts: string[] = []
+  // The summary line only includes high-signal counts; detailed examples are logged separately below.
   if (mockAnalysis.source === 'package-profile' && mockAnalysis.packagePath) {
     parts.push(`package=${mockAnalysis.packagePath}`)
   }
@@ -2056,12 +2696,22 @@ function summarizeMockAnalysis(mockAnalysis: MockAnalysis | null): void {
   }
 }
 
+/**
+ * Logs each suite-planning boundary warning as a separate warning line.
+ *
+ * @param {string[]} warnings - Supplies the boundary warnings to surface to the operator.
+ */
 function summarizeBoundaryWarnings(warnings: string[]): void {
   for (const warning of warnings) {
     console.warn(pc.yellow(`[taro] Boundary: ${warning}`))
   }
 }
 
+/**
+ * Logs the primary suite contract and synthesized-scenario count.
+ *
+ * @param {JsSuitePlan} plan - Supplies the suite plan whose contract planner output should be summarized.
+ */
 function summarizeSuiteContracts(plan: JsSuitePlan): void {
   if (plan.contracts.length === 0) {
     return
@@ -2078,6 +2728,11 @@ function summarizeSuiteContracts(plan: JsSuitePlan): void {
   )
 }
 
+/**
+ * Logs the resolved package profile or warns when generation is using generic defaults.
+ *
+ * @param {ResolvedTaroPackageProfile | null} packageProfile - Supplies the resolved package profile, or `null` when no learned profile matched the output path.
+ */
 function summarizeResolvedPackageProfile(
   packageProfile: ResolvedTaroPackageProfile | null
 ): void {
@@ -2100,6 +2755,14 @@ function summarizeResolvedPackageProfile(
   log(pc.dim('[taro]') + ` State profile: ${parts.join(', ')}`)
 }
 
+/**
+ * Audits generated code for boundary-policy violations and missing learned support wiring.
+ *
+ * @param {string} code - Supplies the generated test code to inspect.
+ * @param {ResolvedTaroPackageProfile | null} packageProfile - Supplies the resolved package profile whose forbid lists and boundary profiles should be enforced.
+ * @param {string | null} renderTargetFile - Supplies the concrete render-target file to inspect for protected boundary imports; `null` skips source discovery.
+ * @returns {Promise<string[]>} Human-readable boundary-policy warnings that should be surfaced or prepended to the generated file.
+ */
 async function auditBoundaryPolicy(
   code: string,
   packageProfile: ResolvedTaroPackageProfile | null,
@@ -2112,6 +2775,7 @@ async function auditBoundaryPolicy(
   }
 
   const warnings: string[] = []
+  // Source-level import discovery extends learned policy with repo-owned guardrails found on the chosen render target.
   const discoveredImports = renderTargetFile
     ? await discoverBoundaryImportsFromSource(renderTargetFile)
     : []
@@ -2154,6 +2818,7 @@ async function auditBoundaryPolicy(
   }
 
   for (const profile of packageProfile?.boundaryProfiles ?? []) {
+    // Shared/scaffolded factories must be imported when their target is mocked, otherwise the generated test bypasses learned setup.
     if (
       ['shared-module-factory', 'scaffolded-module-factory'].includes(profile.strategy) &&
       profile.supportImportPath &&
@@ -2182,6 +2847,12 @@ async function auditBoundaryPolicy(
   return warnings
 }
 
+/**
+ * Tokenizes free-form suite hints into lowercase alphanumeric search tokens.
+ *
+ * @param {string} value - Supplies the text to tokenize for render-target scoring.
+ * @returns {string[]} Tokens with length three or greater.
+ */
 function tokenizeSuiteHint(value: string): string[] {
   return value
     .toLowerCase()
@@ -2189,6 +2860,19 @@ function tokenizeSuiteHint(value: string): string[] {
     .filter((token) => token.length >= 3)
 }
 
+/**
+ * Scores how well a repo render-target candidate matches the current recording and suite plan.
+ *
+ * Recording text, page-confirmed terms, render-boundary shape, mock-analysis signals, and package ownership
+ * all contribute to the final score.
+ *
+ * @param {RepoRenderTargetCandidate} candidate - Supplies the render-target candidate to rank.
+ * @param {NormalizedRecording} recording - Supplies the normalized recording whose title and steps define user-facing context.
+ * @param {MockAnalysis | null} mockAnalysis - Supplies optional mock-analysis signals that can slightly boost likely matches.
+ * @param {JsSuitePlan} suitePlan - Supplies the planned suite so render-boundary shape can influence scoring.
+ * @param {{ packageProfile?: ResolvedTaroPackageProfile | null, visualState?: VisualState | null }} [options={}] - Supplies optional package-profile and live-page context that can boost likely matches.
+ * @returns {number} A relative fit score where higher values indicate a stronger render-target candidate.
+ */
 function scoreRenderTargetCandidate(
   candidate: RepoRenderTargetCandidate,
   recording: NormalizedRecording,
@@ -2249,6 +2933,14 @@ function scoreRenderTargetCandidate(
   return score
 }
 
+/**
+ * Selects the best repo render target from the available candidates.
+ *
+ * Candidates with non-positive scores are discarded, so this can return `null` even when candidates were provided.
+ *
+ * @param {{ candidates: RepoRenderTargetCandidate[], packageProfile?: ResolvedTaroPackageProfile | null, recording: NormalizedRecording, mockAnalysis: MockAnalysis | null, suitePlan: JsSuitePlan, visualState?: VisualState | null }} params - Supplies the candidates and the context needed to rank them.
+ * @returns {RepoRenderTargetCandidate | null} The highest-ranked render target, or `null` when none earns a positive score.
+ */
 function resolveRepoRenderTarget(params: {
   candidates: RepoRenderTargetCandidate[]
   packageProfile?: ResolvedTaroPackageProfile | null
@@ -2262,6 +2954,7 @@ function resolveRepoRenderTarget(params: {
     return null
   }
 
+  // Drop zero-score candidates entirely so weak textual overlap does not silently pick an arbitrary component.
   const ranked = candidates
     .map((candidate) => ({
       candidate,
@@ -2276,6 +2969,13 @@ function resolveRepoRenderTarget(params: {
   return ranked[0]?.candidate ?? null
 }
 
+/**
+ * Applies a resolved repo render target to a suite plan and clears placeholder warnings.
+ *
+ * @param {JsSuitePlan} suitePlan - Supplies the suite plan to update.
+ * @param {RepoRenderTargetCandidate | null} renderTarget - Supplies the resolved render target, or `null` to leave the plan unchanged.
+ * @returns {JsSuitePlan} The updated suite plan with a resolved render-boundary target and adjusted warnings.
+ */
 function applyRepoRenderTarget(
   suitePlan: JsSuitePlan,
   renderTarget: RepoRenderTargetCandidate | null
@@ -2300,10 +3000,27 @@ function applyRepoRenderTarget(
   }
 }
 
+/**
+ * Returns the recording URL from analyzed metadata or the first navigate step.
+ *
+ * @param {AnalyzedRecording} analyzedRecording - Supplies the analyzed recording whose canonical URL should be recovered.
+ * @returns {string | undefined} The recording URL, or `undefined` when the flow contains no navigable URL evidence.
+ */
 function findRecordingUrl(analyzedRecording: AnalyzedRecording): string | undefined {
   return analyzedRecording.url ?? analyzedRecording.steps.find((step) => step.action === 'navigate')?.target
 }
 
+/**
+ * Resolves baseline selectors into queries and rehydrates the recording state used for JS generation.
+ *
+ * When selector replay is possible, this replays the flow in a persistent browser so pre-step and post-step DOM
+ * states can both contribute to selector recovery. Without a URL, it falls back to per-selector resolution.
+ *
+ * @param {NormalizedRecording} recording - Supplies the normalized recording whose baseline selectors may need Playwright resolution.
+ * @param {ItGroup[]} itGroups - Supplies the grouped steps that should be rehydrated with any selector-resolution updates.
+ * @param {{ auth?: CaptureVisualStateAuthOptions | null, debugReporter?: SelectorDebugReporter }} [options] - Supplies optional Playwright auth and debug-reporting hooks for selector replay.
+ * @returns {Promise<{ itGroups: ItGroup[], queryResults: QueryResult[], recording: NormalizedRecording, warnings: string[] }>} The updated groups, deduplicated query results, refreshed recording, and unresolved-selector warnings.
+ */
 async function resolveJsGeneration(
   recording: NormalizedRecording,
   itGroups: ItGroup[],
@@ -2388,6 +3105,7 @@ async function resolveJsGeneration(
         let chosenResolution: SelectorResolutionResult | undefined
 
         if (preservedQuery) {
+          // Preserve recorder-learned queries whenever possible; they are usually safer than re-deriving from live DOM heuristics.
           chosenResolution = await resolveSelector(selectors[0]!, {
             debug: {
               inspectSource: 'preserved-query',
@@ -2398,6 +3116,7 @@ async function resolveJsGeneration(
           })
           debugReporter?.traceSelector(chosenResolution)
         } else {
+          // Try selectors in recorder order and keep the first success, but retain all warnings from failed attempts.
           for (const selector of selectors) {
             const resolution = await resolveSelector(selector, {
               debug: {
@@ -2428,6 +3147,7 @@ async function resolveJsGeneration(
 
         if (resolution.status === 'resolved') {
           unresolvedSelectorResolutions.delete(stepId)
+          // Only synthesize new query results when the query actually came from replay-time resolution.
           if (resolution.outcome !== 'preserved-query') {
             queryResults.push(queryDescriptorToResult(resolution.query))
           }
@@ -2466,6 +3186,7 @@ async function resolveJsGeneration(
           canSuccessfulReplayRevealAdditionalState(step) &&
           unresolvedSelectorResolutions.size > 0
         ) {
+          // Recheck unresolved selectors after state-changing actions because dialogs and lazy UI often appear one step later.
           for (const unresolvedStepId of unresolvedSelectorResolutions.keys()) {
             const stats = await resolveStepSelectors(unresolvedStepId, 'post-step')
             selectorsResolvedThisStep += stats.resolved
@@ -2534,6 +3255,7 @@ async function resolveJsGeneration(
         })
         debugReporter?.traceSelector(chosenResolution)
       } else {
+        // Without a stable replay URL, each selector gets one fresh browser attempt and we keep the best available outcome.
         for (const selector of selectors) {
           const resolution = await resolveSelector(selector, {
             debug: {
@@ -2593,12 +3315,26 @@ async function resolveJsGeneration(
   }
 }
 
+/**
+ * Logs each selector-resolution warning as a warning line.
+ *
+ * @param {string[]} warnings - Supplies the selector warnings to surface after JS generation resolution.
+ */
 function summarizeSelectorWarnings(warnings: string[]): void {
   for (const warning of warnings) {
     console.warn(pc.yellow(`[taro] ${warning}`))
   }
 }
 
+/**
+ * Captures visual state for the recording URL when screenshots or page confirmation are available.
+ *
+ * The capture prefers recorder-derived visual candidates, then an explicit selector, and finally page-level context.
+ * Missing URLs bypass capture entirely and return `null`.
+ *
+ * @param {{ analyzedRecording: AnalyzedRecording, auth?: TaroPlaywrightAuthProfile | null, authRecovery?: { enabled: boolean, instructionsPath?: string, persistedAuthPath?: string, saveStorageStatePath?: string, timeoutMs: number }, projectRoot: string, recording: NormalizedRecording, selector?: string, skipScreenshotArtifacts?: boolean, url?: string }} params - Supplies the analyzed recording, auth options, project paths, optional selector override, and the target URL.
+ * @returns {Promise<VisualState | null>} The captured visual state, or `null` when capture is not possible for this run.
+ */
 async function maybeCaptureVisualState(params: {
   analyzedRecording: AnalyzedRecording
   auth?: TaroPlaywrightAuthProfile | null
@@ -2645,6 +3381,7 @@ async function maybeCaptureVisualState(params: {
       }
     : null
 
+  // Prefer recorder-derived visual checkpoints because they are tied to meaningful user-visible moments in the flow.
   if (candidates.length > 0) {
     return captureVisualState(url, {
       auth: authOptions,
@@ -2657,6 +3394,7 @@ async function maybeCaptureVisualState(params: {
   }
 
   if (selector) {
+    // Fall back to the baseline selector when recorder intelligence could not isolate a clearer capture point.
     return captureVisualState(url, {
       auth: authOptions,
       authRecovery,
@@ -2676,6 +3414,14 @@ async function maybeCaptureVisualState(params: {
   })
 }
 
+/**
+ * Persists a newly recovered Playwright storage-state profile when visual auth succeeded.
+ *
+ * When no package profile is available, the recovered profile is returned without being saved to Taro state.
+ *
+ * @param {{ packageProfile: ResolvedTaroPackageProfile | null, projectRoot: string, visualState: VisualState | null }} params - Supplies the active package profile, repo root, and visual state that may contain recovered auth.
+ * @returns {Promise<TaroPlaywrightAuthProfile | null>} The recovered auth profile, or `null` when no new persisted auth was produced.
+ */
 async function persistRecoveredVisualAuth(params: {
   packageProfile: ResolvedTaroPackageProfile | null
   projectRoot: string
@@ -2696,6 +3442,7 @@ async function persistRecoveredVisualAuth(params: {
     source: 'manual',
   }
 
+  // Even when state persistence fails, return the recovered auth so the current run can still reuse it.
   if (!packageProfile) {
     console.warn(
       pc.yellow('[taro] Visual auth: storageState was saved, but no package profile was available to persist it in state.')
@@ -2728,6 +3475,13 @@ async function persistRecoveredVisualAuth(params: {
   return persistedAuth
 }
 
+/**
+ * Runs repo mock analysis and converts failures into a safe `null` result.
+ *
+ * @param {string} projectRoot - Supplies the repo root to analyze for mock conventions and policies.
+ * @param {ResolvedTaroPackageProfile | null} packageProfile - Supplies the active package profile whose conventions should inform mock analysis.
+ * @returns {Promise<MockAnalysis | null>} The mock analysis result, or `null` when analysis fails.
+ */
 async function maybeAnalyzeMocks(
   projectRoot: string,
   packageProfile: ResolvedTaroPackageProfile | null
@@ -2739,6 +3493,16 @@ async function maybeAnalyzeMocks(
   }
 }
 
+/**
+ * Verifies generated code and records the successful output in Taro state.
+ *
+ * Syntax verification failures terminate the process with exit code `2`. State refresh and history updates are best-effort
+ * and do not fail generation once the file has been written successfully.
+ *
+ * @param {{ code: string, outputPath: string, projectRoot: string, recordingFile: string, scoreResult: ScoreResult, packageProfile: ResolvedTaroPackageProfile | null }} params - Supplies the generated code, output file, repo root, source recording file, score result, and active package profile.
+ * @returns {Promise<void>} Resolves after verification and any best-effort state updates complete.
+ * @throws {never} Exits the process when post-write syntax verification fails.
+ */
 async function finalizeGeneratedOutput(params: {
   code: string
   outputPath: string
@@ -2750,6 +3514,7 @@ async function finalizeGeneratedOutput(params: {
   const { code, outputPath, projectRoot, recordingFile, scoreResult, packageProfile } = params
 
   const verification = verifySyntax(code, outputPath)
+  // Post-write syntax verification is a hard stop because emitting broken generated code is worse than failing the command.
   if (!verification.valid) {
     console.error(pc.red('[taro] Error: Post-write verification failed'))
     console.error(pc.red(`  ${verification.error}`))
@@ -2776,6 +3541,15 @@ async function finalizeGeneratedOutput(params: {
   }
 }
 
+/**
+ * Creates the internal `__generate` CLI command for recorder-to-RTL generation.
+ *
+ * The command loads the recorder export, grounds it against repo state and optional visual evidence,
+ * resolves selectors, generates the test file, updates Taro state, and exits through the findings envelope.
+ *
+ * @param {GenerateCommandContext} [context={}] - Supplies optional stdio handles used to detect whether interactive auth recovery is possible.
+ * @returns {Command} The configured Commander command instance for internal JS generation.
+ */
 export function createGenerateCommand(context: GenerateCommandContext = {}): Command {
   const generate = new Command('__generate')
 
@@ -2808,7 +3582,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
           : undefined,
       })
 
-      // 1. Verify file is accessible
+      // Fail fast before any repo analysis so the command never mutates state for a missing recording.
       try {
         await access(filePath)
       } catch {
@@ -2851,6 +3625,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
           pc.yellow('[taro] Visual auth: both --auth and --instructions were provided; preferring --auth for this run.')
         )
       }
+      // Explicit CLI auth always overrides learned profile auth so one-off recovery can be tested safely.
       let visualAuth: TaroPlaywrightAuthProfile | null =
         explicitAuthPath
           ? {
@@ -2880,8 +3655,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
       )
       const earlyAnalyzedRecording = analyzeRecording(normalizedRecording)
       const recordingUrl = findRecordingUrl(earlyAnalyzedRecording)
-      // Authentication preflight runs before repo grounding so Playwright-confirmed
-      // route and landmark evidence can steer context matching when available.
+      // Run visual preflight before repo grounding so live route/landmark evidence can influence package and render-target selection.
       let visualState = await maybeCaptureVisualState({
         analyzedRecording: earlyAnalyzedRecording,
         auth: visualAuth,
@@ -2943,6 +3717,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
       if (packageProfile) {
         const staleness = await detectPackageProfileStaleness(projectRoot, packageProfile)
         if (staleness.stale) {
+          // Refresh stale learned state before generation so helper imports and boundary policy come from current repo reality.
           log(
             pc.dim('[taro]') +
               ` Detected stale package profile ${packageProfile.packagePath}; refreshing before generation.`
@@ -2985,6 +3760,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
         outputPath: defaultOutputPath,
         matches: contextMatches,
       })
+      // Learned render targets and context-derived guesses are combined so repo evidence can fill gaps in state.
       const repoRenderTargets = [...contextRenderTargets, ...(packageProfile?.renderTargets ?? [])]
 
       if ((explicitAuthPath || explicitInstructionsPath) && packageProfile && visualAuth) {
@@ -3059,6 +3835,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
         fallbackTitle: normalizedRecording.title,
       })
 
+      // Repo render-target selection affects both the output location and the boundary support plan.
       const repoRenderTarget = resolveRepoRenderTarget({
         candidates: repoRenderTargets,
         packageProfile,
@@ -3154,6 +3931,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
         renderHelper: generationRenderHelper,
       })
       generated.code = applyBoundarySupport(generated.code, boundarySupportPlan)
+      // Boundary warnings are injected into the file so downstream reviewers see policy issues even outside CLI output.
       const boundaryPolicyWarnings = await auditBoundaryPolicy(
         generated.code,
         packageProfile,
@@ -3200,6 +3978,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
             analyzedRecording,
             code: existingCode,
           })
+          // Existing output is only replaced when the new generation is measurably better on coverage or quality.
           shouldOverwriteExistingOutput =
             compareOutputAssessments(candidateAssessment, existingAssessment) > 0
           logExistingOutputDecision({
@@ -3244,6 +4023,7 @@ export function createGenerateCommand(context: GenerateCommandContext = {}): Com
       emitScoreHints(scoreResult, resolvedJsGeneration?.queryResults ?? [], boundaryIssues)
 
       try {
+        // Materialize shared boundary helpers before writing the test that imports them.
         await materializeBoundarySupport(boundarySupportPlan)
         const result = await writeTestFile(generated.code, outputPath, {
           createDir: true,
