@@ -422,6 +422,54 @@ describe('filterNoiseSteps', () => {
       removedDoubleClickNoise: 0,
     })
   })
+
+  it('marks selector-target gestures as unsupported semantic proofs', () => {
+    const result = filterNoiseSteps([
+      createJsClickStep('js-step-1', 'Open drawer'),
+      {
+        ...createJsMarkerStep({
+          id: 'js-step-2',
+          target: '#drawer-title',
+          proofSubject: 'selector-target',
+        }),
+        semanticMarkerCandidate: {
+          ...createJsMarkerStep({
+            id: 'js-step-2',
+            target: '#drawer-title',
+            proofSubject: 'selector-target',
+          }).semanticMarkerCandidate!,
+          selector: {
+            stepId: 'js-step-2',
+            selector: '#drawer-title',
+            selectorKind: 'document.querySelector',
+          },
+        },
+        metadata: {
+          semanticMarkerCandidate: {
+            ...createJsMarkerStep({
+              id: 'js-step-2',
+              target: '#drawer-title',
+              proofSubject: 'selector-target',
+            }).semanticMarkerCandidate!,
+            selector: {
+              stepId: 'js-step-2',
+              selector: '#drawer-title',
+              selectorKind: 'document.querySelector',
+            },
+          },
+        },
+      },
+    ])
+
+    expect(result.steps[1]).toMatchObject({
+      unresolvedSemanticMarker: {
+        reason: 'unsupported-proof-subject',
+      },
+      semanticMarkerCandidate: {
+        status: 'unresolved',
+      },
+    })
+  })
 })
 
 describe('analyzeRecording', () => {
@@ -808,6 +856,21 @@ describe('inferIntentGroups', () => {
         selector: '.checkout-dialog',
       },
     ])
+  })
+
+  it('returns no visual capture candidates for non-dialog flows', () => {
+    expect(
+      findVisualCaptureCandidates(
+        analyzeRecording({
+          title: 'Simple flow',
+          rawStepCount: 2,
+          steps: [
+            { action: 'click', target: 'Save', originalType: 'click', source: 'json' },
+            { action: 'assert', target: 'Saved', originalType: 'assertElementVisible', source: 'json' },
+          ],
+        })
+      )
+    ).toEqual([])
   })
 
   it('keeps representative JSON fixtures behaviorally stable after cleanup and grouping', async () => {

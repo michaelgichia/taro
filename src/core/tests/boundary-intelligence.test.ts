@@ -151,4 +151,49 @@ describe('analyzeBoundaryIsolation', () => {
     )
     expect(calculateBoundaryIsolationScore(code)).toBeLessThan(100)
   })
+
+  it('handles parse failures and detects template-literal mocks, fragments, and indexed getAllByRole usage', () => {
+    expect(analyzeBoundaryIsolation('const broken = <div')).toEqual([])
+
+    const code = `
+      import { describe, expect, it, vi } from 'vitest'
+      import LeafDialog from './LeafDialog'
+
+      function prepareDialog() {
+        expect(true).toBe(true)
+      }
+
+      const renderSubject = () => render(<><LeafDialog /></>)
+
+      vi.mock(\`@/components/ui/modal\`, function () {
+        return {
+          Dialog: vi.fn(),
+          useOrdersQuery() {
+            return {}
+          },
+          useSaveMutation: vi.fn(),
+        }
+      })
+
+      describe('dialog', () => {
+        it('indexes buttons', () => {
+          prepareDialog()
+          renderSubject()
+          const buttons = screen.getAllByRole('button')
+          expect(buttons[0]).toBeDefined()
+          expect(screen.getByRole('heading')).toBeVisible()
+        })
+      })
+    `
+
+    expect(analyzeBoundaryIsolation(code)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: 'leaf-render-boundary' }),
+        expect.objectContaining({ kind: 'inline-hook-mock' }),
+        expect.objectContaining({ kind: 'helper-embedded-assertion' }),
+        expect.objectContaining({ kind: 'protected-ui-boundary-mock' }),
+        expect.objectContaining({ kind: 'positional-control-selection' }),
+      ])
+    )
+  })
 })

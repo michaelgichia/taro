@@ -288,6 +288,133 @@ describe('generateTestFromGroups', () => {
     expect(verifySyntax(generated.code, '/tmp/generated.test.tsx')).toEqual({ valid: true })
   })
 
+  it('wires matcher maps, helper marker placement, annotations, navigation, and custom render helpers', () => {
+    const generated = generateTestFromGroups(
+      'Annotated Flow',
+      [
+        {
+          name: 'annotated flow',
+          steps: [
+            {
+              id: 'step-nav',
+              action: 'navigate',
+              target: 'http://localhost:3000/details',
+              originalType: 'goto',
+              source: 'js',
+            },
+            {
+              id: 'step-assert',
+              action: 'assert',
+              target: 'Saved',
+              originalType: 'getByText',
+              source: 'js',
+            },
+          ],
+        },
+      ],
+      {
+        queryResults: [
+          {
+            query: "screen.getByText('Saved')",
+            matcher: '.toHaveTextContent("Saved")',
+          },
+        ],
+        helpers: [
+          {
+            name: 'prepareFlow',
+            sourceGroup: 'annotated flow',
+            purpose: 'Prepare the screen.',
+            assertionPolicy: 'sync-only',
+            steps: [
+              {
+                id: 'helper-step',
+                action: 'click',
+                target: 'Open',
+                originalType: 'click',
+                source: 'js',
+              },
+            ],
+          },
+        ],
+        scenarios: [
+          {
+            name: 'annotated flow',
+            goal: 'flow',
+            annotations: ['repo hint'],
+            steps: [
+              {
+                id: 'step-nav',
+                action: 'navigate',
+                target: 'http://localhost:3000/details',
+                originalType: 'goto',
+                source: 'js',
+              },
+              {
+                id: 'step-assert',
+                action: 'assert',
+                target: 'Saved',
+                originalType: 'getByText',
+                source: 'js',
+              },
+            ],
+            helperRefs: ['prepareFlow'],
+            requiresFreshRender: true,
+            markerAssertions: [
+              createMarkerAssertion({
+                markerStepId: 'marker-1',
+                anchorStepId: 'step-assert',
+                placement: {
+                  kind: 'after-helper',
+                  helperName: 'prepareFlow',
+                  stepId: 'helper-step',
+                },
+                proofKind: 'visible-text',
+                queryExpression: "screen.findByText('Loaded')",
+                proofText: 'Loaded',
+              }),
+              createMarkerAssertion({
+                markerStepId: 'marker-2',
+                anchorStepId: 'step-assert',
+                placement: {
+                  kind: 'after-step',
+                  stepId: 'step-assert',
+                },
+                proofKind: 'visible-text',
+                queryExpression: "screen.findByText('Saved')",
+                proofText: 'Saved',
+              }),
+              createMarkerAssertion({
+                markerStepId: 'marker-3',
+                anchorStepId: 'step-assert',
+                placement: {
+                  kind: 'after-step',
+                  stepId: 'step-assert',
+                },
+                proofKind: 'visible-text',
+                queryExpression: "screen.findByText('Done')",
+                proofText: 'Done',
+              }),
+            ],
+            unresolvedMarkerAssertions: [],
+          },
+        ],
+        renderHelper: {
+          name: 'renderWithProviders',
+          importPath: '@/tests/renderWithProviders',
+          importKind: 'named',
+        },
+      }
+    )
+
+    expect(generated.code).toContain("// repo hint")
+    expect(generated.code).toContain("renderWithProviders(")
+    expect(generated.code).toContain('await prepareFlow(user)')
+    expect(generated.code).toContain('// navigate: http://localhost:3000/details')
+    expect(generated.code).toContain('await waitFor(() =>')
+    expect(generated.code).toContain('.toHaveTextContent("Saved")')
+    expect(verifySyntax(generated.code, '/tmp/generated.test.tsx')).toEqual({ valid: true })
+  })
+
   it('uses setup helpers that return user plus render result for multi-test suites', () => {
     const generated = generateTestFromGroups(
       'Example Flow',

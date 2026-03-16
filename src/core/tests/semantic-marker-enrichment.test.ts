@@ -203,4 +203,34 @@ describe('enrichCanonicalSemanticMarkers', () => {
     expect(enriched.steps[1]?.semanticMarkerCandidate?.proofText).toBe('USD 4,800.')
     expect(enriched.steps[1]?.semanticMarkerCandidate?.canonicalRecovery).toBeUndefined()
   })
+
+  it('ignores weak or ambiguous source matches and keeps unresolved queries untouched', async () => {
+    const projectRoot = await createProject()
+    await mkdir(join(projectRoot, 'src'), { recursive: true })
+    await writeFile(
+      join(projectRoot, 'src', 'messages.ts'),
+      [
+        `export const first = "Please enter or select an item"`,
+        `export const second = "Please enter or select a customer"`,
+      ].join('\n'),
+      'utf-8'
+    )
+
+    const recording = createRecording('Please enter or')
+    const enriched = await enrichCanonicalSemanticMarkers({
+      contextMatches: [
+        {
+          filePath: 'src/messages.ts',
+          kind: 'source',
+          matchedTerms: ['Please enter or'],
+          score: 1,
+        },
+      ],
+      projectRoot,
+      recording,
+    })
+
+    expect(enriched.steps[1]?.semanticMarkerCandidate?.proofText).toBe('Please enter or')
+    expect(enriched.steps[1]?.semanticMarkerCandidate?.canonicalRecovery).toBeUndefined()
+  })
 })

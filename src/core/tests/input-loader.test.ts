@@ -50,6 +50,12 @@ describe('detectInputSource', () => {
       )
     ).toBe('js')
   })
+
+  it('rejects unsupported non-recorder text input', () => {
+    expect(() => detectInputSource('/tmp/notes.txt', 'plain text')).toThrow(
+      'Unsupported recording input'
+    )
+  })
 })
 
 describe('loadInput', () => {
@@ -154,6 +160,25 @@ describe('loadInput', () => {
         }),
       })
     )
+  })
+
+  it('preserves pre-existing JS step ids instead of replacing them', async () => {
+    const filePath = await writeTempFile(
+      'recording.js',
+      [
+        '/**',
+        ' * Example flow',
+        nestedEnvOptionsLine,
+        ' */',
+        "test('recording', async () => {",
+        "  await userEvent.click(screen.getByRole('button', {name: 'Save'}))",
+        '})',
+      ].join('\n')
+    )
+
+    const parsed = await loadInput(filePath)
+
+    expect(parsed.recording.steps[0]?.id).toBe('js-step-1')
   })
 
   it('loads unresolved dblClick semantic marker candidates through the shared JS boundary', async () => {

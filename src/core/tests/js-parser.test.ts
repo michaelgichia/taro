@@ -348,4 +348,238 @@ describe('parseJsRecording', () => {
       })
     )
   })
+
+  it('uses the docblock title fallback and captures goto, within queries, selector calls, and custom assertions', async () => {
+    const recording = await parseJsRecording(`
+      /**
+       * Checkout Summary - 16/03/2026 at 08:15:00
+       * @jest-environment-options {"mode":"test"}
+       */
+      async function flow() {
+        await page.goto('http://localhost:3000/checkout')
+        await userEvent.keyboard('{Escape}')
+        await userEvent.clear(screen.getByLabelText('Customer Name'))
+        expect(user.profile.name).toEqual('Ada')
+        within(screen.getByRole('dialog')).getByRole('button', { name: 'Confirm' })
+        document.querySelectorAll('.line-item')
+      }
+    `)
+
+    expect(recording.title).toContain('Checkout Summary')
+    expect(recording.title).toContain('16/03/2026')
+    expect(recording.environmentUrl).toBeUndefined()
+    expect(recording.steps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'navigate',
+          target: 'http://localhost:3000/checkout',
+          originalType: 'goto',
+        }),
+        expect.objectContaining({
+          action: 'keyDown',
+          target: '{Escape}',
+          value: undefined,
+          originalType: 'keyboard',
+        }),
+        expect.objectContaining({
+          action: 'fill',
+          target: 'Customer Name',
+          originalType: 'clear',
+          metadata: expect.objectContaining({
+            query: expect.objectContaining({
+              method: 'getByLabelText',
+              queryRoot: 'screen',
+            }),
+          }),
+        }),
+        expect.objectContaining({
+          action: 'assert',
+          target: 'user.profile.name',
+          value: 'Ada',
+          originalType: 'toEqual',
+        }),
+        expect.objectContaining({
+          action: 'assert',
+          target: 'Confirm',
+          originalType: 'getByRole',
+        }),
+      ])
+    )
+    expect(recording.queries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          method: 'getByRole',
+          queryRoot: 'within',
+          role: 'button',
+          name: 'Confirm',
+        }),
+      ])
+    )
+    expect(recording.selectors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          selector: '.line-item',
+          selectorKind: 'document.querySelectorAll',
+        }),
+      ])
+    )
+    expect(recording.querySelectorCalls).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          selector: '.line-item',
+        }),
+      ])
+    )
+    expect(recording.assertions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'custom',
+          target: 'user.profile.name',
+        }),
+        expect.objectContaining({
+          kind: 'query-result',
+          queryMethod: 'getByRole',
+          target: 'Confirm',
+        }),
+      ])
+    )
+  })
+
+  it('captures selector proof subjects, alert/status proofs, display values, and unknown userEvent methods', async () => {
+    const recording = await parseJsRecording(`
+      it('Semantic coverage', async () => {
+        await userEvent.dblClick(document.querySelector('#status'))
+        await userEvent.dblClick(screen.getByRole('alert'))
+        await userEvent.dblClick(screen.getByDisplayValue('KES 10.00'))
+        await userEvent.hover('preview')
+        screen.getByRole('status')
+      })
+    `)
+
+    expect(recording.semanticMarkerCandidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          proofSubject: 'selector-target',
+          selector: expect.objectContaining({ selector: '#status' }),
+        }),
+        expect.objectContaining({
+          proofSubject: 'visible-message',
+          query: expect.objectContaining({ role: 'alert' }),
+        }),
+        expect.objectContaining({
+          proofSubject: 'concrete-value',
+          query: expect.objectContaining({ method: 'getByDisplayValue' }),
+        }),
+      ])
+    )
+    expect(recording.steps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'unknown',
+          originalType: 'hover',
+          target: 'preview',
+        }),
+      ])
+    )
+    expect(recording.assertions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'query-result',
+          queryMethod: 'getByRole',
+          target: 'status',
+        }),
+      ])
+    )
+  })
+
+  it('covers environment parsing fallbacks, literal extraction, and unknown semantic proofs', async () => {
+    const recording = await parseJsRecording(`
+      /**
+       * Fallback Flow
+       * @jest-environment-options {"url":
+       */
+      it('Fallback Flow', async () => {
+        await userEvent.click(screen.getByRole('button'))
+        await userEvent.type(\`customer-\${1}\`, true)
+        await userEvent.dblClick(screen.queryByTitle('Preview'))
+        expect(this.formState).toEqual(3)
+      })
+    `)
+
+    expect(recording.environmentUrl).toBeUndefined()
+    expect(recording.steps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'click',
+          target: 'button',
+          metadata: expect.objectContaining({
+            query: expect.objectContaining({
+              role: 'button',
+              target: 'button',
+            }),
+          }),
+        }),
+        expect.objectContaining({
+          action: 'fill',
+          target: 'type',
+          value: 'true',
+        }),
+        expect.objectContaining({
+          action: 'click',
+          originalType: 'dblClick',
+          semanticMarkerCandidate: expect.objectContaining({
+            proofSubject: 'unknown',
+          }),
+        }),
+        expect.objectContaining({
+          action: 'assert',
+          target: 'this.formState',
+          value: '3',
+        }),
+      ])
+    )
+  })
+
+  it('covers document-root queries, template-literal selectors, selector fallbacks, and plain member targets', async () => {
+    const recording = await parseJsRecording(`
+      test('Document root flow', async () => {
+        await userEvent.click(document.getByText('Saved'))
+        await userEvent.click(document.querySelector(\`.dialog-title\`))
+        await userEvent.click(document.querySelector(selectorVar))
+        await userEvent.click(window.checkout.summary)
+        await userEvent.dblClick(screen.getByText('Preview'))
+      })
+    `)
+
+    expect(recording.queries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          queryRoot: 'document',
+          method: 'getByText',
+          target: 'Saved',
+        }),
+      ])
+    )
+    expect(recording.selectors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          selector: '.dialog-title',
+          selectorKind: 'document.querySelector',
+        }),
+      ])
+    )
+    expect(recording.steps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          target: 'window.checkout.summary',
+        }),
+        expect.objectContaining({
+          originalType: 'dblClick',
+          semanticMarkerCandidate: expect.objectContaining({
+            proofSubject: 'field-label',
+          }),
+        }),
+      ])
+    )
+  })
 })

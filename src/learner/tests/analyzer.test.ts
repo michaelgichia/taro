@@ -92,6 +92,74 @@ describe('analyzeTestFile', () => {
       expect.anything()
     )
   })
+
+  it('captures snake_case prefixes, negated matchers, and top-level setup patterns', () => {
+    const root = createSandbox()
+    const filePath = join(root, 'account_detail.test.ts')
+
+    writeFileSync(filePath, `
+      import { beforeEach, describe, expect, it } from 'vitest'
+      import localHelper from './local-helper'
+
+      beforeEach(() => {
+        localHelper()
+      })
+
+      function topLevelHelper() {
+        return true
+      }
+
+      describe('account_detail modal', () => {
+        it('should validate fields', () => {
+          expect(value).not.toBe('bad')
+          expect(screen.getByLabelText('Name')).toBeRequired()
+        })
+      })
+    `)
+
+    const result = analyzeTestFile(filePath)
+
+    expect(result.naming).toEqual({
+      pattern: 'snake_case',
+      describePrefix: 'account_detail modal',
+      itTemplate: 'should {description}',
+    })
+    expect(result.queries).toEqual({
+      preferred: ['getByLabelText'],
+      avoided: [],
+    })
+    expect(result.structure).toEqual({
+      describePerComponent: false,
+      helpersInDescribe: false,
+      setupLocation: 'inside-describe',
+    })
+  })
+
+  it('detects camelCase describe patterns and import filtering for package names', () => {
+    const root = createSandbox()
+    const filePath = join(root, 'camel-case.test.ts')
+
+    writeFileSync(filePath, `
+      import { describe, expect, test } from 'vitest'
+      import { render } from '@testing-library/react'
+      import runtime from '/virtual/runtime'
+      import localHelper from './local-helper'
+
+      describe('accountDetails', () => {
+        test('custom flow wording', () => {
+          expect(render).toHaveBeenCalled()
+        })
+      })
+    `)
+
+    const result = analyzeTestFile(filePath)
+
+    expect(result.naming?.pattern).toBe('camelCase')
+    expect(result.imports?.common).toEqual(
+      expect.arrayContaining(['vitest', '@testing-library/react'])
+    )
+    expect(result.imports?.common).not.toContain('.')
+  })
 })
 
 describe('extractConventions', () => {
@@ -147,5 +215,46 @@ describe('extractConventions', () => {
 
     expect(extractConventions(root)).toEqual(createEmptyConvention())
     expect(warnSpy).toHaveBeenCalledWith(`No test files found in ${root}`)
+  })
+
+  it('covers default naming/query fallbacks and outside-describe setup detection', () => {
+    const root = createSandbox()
+
+    writeFileSync(join(root, 'account.test.tsx'), `
+      import helper from './helper'
+      import { beforeEach, expect, it } from 'vitest'
+
+      beforeEach(() => {
+        helper()
+      })
+
+      function topLevelHelper() {
+        return helper()
+      }
+
+      it('works', () => {
+        expect(value).toHaveValue('ok')
+      })
+    `)
+
+    writeFileSync(join(root, 'account_detail.spec.tsx'), `
+      import { describe, expect, test } from 'vitest'
+
+      describe('account_detail', () => {
+        test('custom wording', () => {
+          expect(value).toBeDisabled()
+        })
+      })
+    `)
+
+    const result = extractConventions(root)
+
+    expect(result.naming.pattern).toBe('camelCase')
+    expect(result.naming.describePrefix).toBe('account_detail')
+    expect(result.naming.itTemplate).toBe('should {description}')
+    expect(result.structure.describePerComponent).toBe(true)
+    expect(result.structure.setupLocation).toBe('inside-describe')
+    expect(result.queries.preferred).toEqual([])
+    expect(result.imports.common).toEqual(expect.arrayContaining(['vitest']))
   })
 })

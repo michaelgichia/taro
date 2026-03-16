@@ -201,4 +201,173 @@ describe('groupDialogSteps', () => {
     })
   })
 
+  it('recognizes confirm dialogs, backdrop closes, alert assertions, and ESC aliases', () => {
+    resetDialogIdCounter()
+
+    const flows = groupDialogSteps([
+      createStep({
+        id: 'json-step-1',
+        selector: '[data-testid="open-confirm"]',
+        timestamp: 1_000,
+      }),
+      createStep({
+        id: 'json-step-2',
+        type: 'waitForSelector',
+        action: 'waitForSelector',
+        selector: '[role="alertdialog"]',
+        timestamp: 1_010,
+      }),
+      createStep({
+        id: 'json-step-3',
+        type: 'keyDown',
+        action: 'keyDown',
+        selector: 'div[contenteditable="true"]',
+        value: 'A',
+        timestamp: 1_020,
+      }),
+      createStep({
+        id: 'json-step-4',
+        selector: '.modal-backdrop',
+        target: '.modal-backdrop',
+        timestamp: 1_030,
+      }),
+      createStep({
+        id: 'json-step-5',
+        selector: '[data-testid="open-popover"]',
+        timestamp: 2_000,
+      }),
+      createStep({
+        id: 'json-step-6',
+        type: 'keyDown',
+        action: 'keyDown',
+        selector: 'body',
+        value: 'Esc',
+        timestamp: 2_010,
+      }),
+    ])
+
+    expect(flows.length).toBeGreaterThanOrEqual(2)
+    expect(flows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'confirm',
+          assertionStep: expect.objectContaining({ id: 'json-step-2' }),
+          contentSteps: [expect.objectContaining({ id: 'json-step-3' })],
+        }),
+        expect.objectContaining({
+          type: 'popover',
+          closeStep: expect.objectContaining({ id: 'json-step-6' }),
+        }),
+      ])
+    )
+  })
+
+  it('uses close keywords and keeps the last active dialog when the flow ends while open', () => {
+    resetDialogIdCounter()
+
+    const flows = groupDialogSteps([
+      createStep({
+        id: 'json-step-1',
+        selector: '[data-testid="show-modal"]',
+        target: '[data-testid="show-modal"]',
+        timestamp: 1_000,
+      }),
+      createStep({
+        id: 'json-step-2',
+        type: 'fill',
+        action: 'fill',
+        selector: 'input[name="email"]',
+        value: 'user@example.com',
+        timestamp: 1_010,
+      }),
+      createStep({
+        id: 'json-step-3',
+        type: 'click',
+        action: 'close',
+        selector: '.shell',
+        target: '.shell',
+        timestamp: 1_020,
+      }),
+      createStep({
+        id: 'json-step-4',
+        selector: '[data-testid="show-drawer"]',
+        target: '[data-testid="show-drawer"]',
+        timestamp: 2_000,
+      }),
+      createStep({
+        id: 'json-step-5',
+        type: 'fill',
+        action: 'fill',
+        selector: 'textarea',
+        value: 'notes',
+        timestamp: 2_010,
+      }),
+    ])
+
+    expect(flows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          closeStep: expect.objectContaining({ id: 'json-step-3' }),
+        }),
+        expect.objectContaining({
+          triggerStep: expect.objectContaining({ id: 'json-step-4' }),
+          contentSteps: [expect.objectContaining({ id: 'json-step-5' })],
+        }),
+      ])
+    )
+  })
+
+  it('treats explicit close selectors, dialog keywords, and untimestamped content as part of the flow', () => {
+    resetDialogIdCounter()
+
+    const flows = groupDialogSteps([
+      createStep({
+        id: 'json-step-1',
+        selector: '[data-testid="open-modal"]',
+        target: '[data-testid="open-modal"]',
+        timestamp: 1_000,
+      }),
+      createStep({
+        id: 'json-step-2',
+        type: 'assert',
+        action: 'assert',
+        selector: 'dialog still open',
+      }),
+      createStep({
+        id: 'json-step-3',
+        type: 'fill',
+        action: 'fill',
+        selector: 'input[name="email"]',
+        value: 'user@example.com',
+        timestamp: undefined,
+      }),
+      createStep({
+        id: 'json-step-4',
+        selector: '[aria-label="Close"]',
+        target: '[aria-label="Close"]',
+        timestamp: 1_020,
+      }),
+      createStep({
+        id: 'json-step-5',
+        selector: '[data-testid="open-drawer"]',
+        target: '[data-testid="open-drawer"]',
+        timestamp: 2_000,
+      }),
+    ])
+
+    expect(flows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          assertionStep: expect.objectContaining({ id: 'json-step-2' }),
+          contentSteps: [expect.objectContaining({ id: 'json-step-3' })],
+          closeStep: expect.objectContaining({ id: 'json-step-4' }),
+        }),
+        expect.objectContaining({
+          triggerStep: expect.objectContaining({ id: 'json-step-5' }),
+          contentSteps: [],
+        }),
+      ])
+    )
+  })
+
 })

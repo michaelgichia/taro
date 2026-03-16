@@ -74,6 +74,20 @@ function resolveTarget(runtime: RuntimeTarget, location: InstallLocation, cwd: s
 }
 
 describe('prompt runtime install builders', () => {
+  it('rejects mismatched runtime ids for the prompt-runtime wrappers', async () => {
+    const { cwd, home } = await createInstallContext()
+
+    expect(() => buildClaudeRuntimeOperations(resolveTarget('gemini', 'global', cwd, home))).toThrow(
+      'Claude runtime builder received gemini.'
+    )
+    expect(() => buildGeminiRuntimeOperations(resolveTarget('claude', 'global', cwd, home))).toThrow(
+      'Gemini runtime builder received claude.'
+    )
+    expect(() => buildOpenCodeRuntimeOperations(resolveTarget('claude', 'global', cwd, home))).toThrow(
+      'OpenCode runtime builder received claude.'
+    )
+  })
+
   it('installs Claude Code assets into the global .claude command namespace', async () => {
     const { cwd, home } = await createInstallContext()
     const target = resolveTarget('claude', 'global', cwd, home)

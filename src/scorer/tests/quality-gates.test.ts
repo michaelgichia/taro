@@ -172,4 +172,40 @@ describe('evaluateQualityGates', () => {
       ])
     )
   })
+
+  it('applies standalone test-id and helper-shape penalties without CSS selectors', () => {
+    const result = evaluateQualityGates(`
+      import { describe, expect, it } from 'vitest'
+
+      function setupModal() {
+        expect(true).toBe(true)
+      }
+
+      describe('details view', () => {
+        it('keeps a stable shell', () => {
+          const markup = '<div data-testid="details"></div>'
+          const tree = { child: { ready: true } }
+          expect(tree).toEqual({ child: { ready: true } })
+          expect(screen.getByTestId('details')).toBeTruthy()
+          foo?.()
+          setupModal()
+        })
+      })
+    `)
+
+    expect(result.criteria.queries).toBe(30)
+    expect(result.criteria.noFragility).toBeLessThan(100)
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'fragility',
+          message: expect.stringContaining('test ID'),
+        }),
+        expect.objectContaining({
+          type: 'fragility',
+          message: 'Setup helper contains assertions',
+        }),
+      ])
+    )
+  })
 })

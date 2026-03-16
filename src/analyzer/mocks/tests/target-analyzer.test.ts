@@ -111,6 +111,29 @@ describe('selectMockLibrary and decideMockExtraction', () => {
       )
     ).toBe('inline')
   })
+
+  it('falls back through fetch-mock, nock, and XHR defaults when stronger options are absent', () => {
+    expect(
+      selectMockLibrary(createApiCall(), [{ name: 'fetch-mock', isConfigured: false }])
+    ).toBe('fetch-mock')
+    expect(selectMockLibrary(createApiCall(), [{ name: 'nock', isConfigured: false }])).toBe(
+      'nock'
+    )
+    expect(
+      selectMockLibrary(createApiCall({ method: 'XMLHttpRequest' }), [{ name: 'nock', isConfigured: false }])
+    ).toBe('jest.fn')
+
+    expect(
+      decideMockExtraction(
+        createApiCall({
+          isExternal: false,
+          url: '/api/orders?draft=true',
+          httpMethod: 'PATCH',
+        }),
+        []
+      )
+    ).toBe('inline')
+  })
 })
 
 describe('suggestMockFilePath', () => {
@@ -193,5 +216,27 @@ describe('analyzeMockTargets and groupMockTargetsByApproach', () => {
     expect(target.mockLibrary).toBe('jest.fn')
     expect(target.extractionRecommendation).toBe('inline')
     expect(target.rationale).toContain('Using jest.fn')
+  })
+
+  it('learns configured libraries from codebase files and explains shared mock reuse', () => {
+    const [target] = analyzeMockTargets(
+      [createApiCall({ url: 'https://api.example.com/orders', httpMethod: 'GET' })],
+      {
+        codebaseFiles: [
+          {
+            path: 'src/test/msw.ts',
+            content: "import { setupWorker, http } from 'msw/'\nsetupWorker()\nhttp.get('/api')",
+          },
+          {
+            path: 'src/__mocks__/https://api.example.com/orders.mock.ts',
+            content: 'shared mock',
+          },
+        ],
+      }
+    )
+
+    expect(target.mockLibrary).toBe('msw')
+    expect(target.extractionRecommendation).toBe('shared')
+    expect(target.rationale).toContain('reusing existing mock (shared)')
   })
 })

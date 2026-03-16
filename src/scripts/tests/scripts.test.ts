@@ -9,17 +9,22 @@ import {
 } from '../../../scripts/build-claude.js'
 import {
   getCodexBuildPaths,
+  main as codexMain,
   resolveGlobalCodexSkillDirs,
   runCodexBuild,
+  runInstallOrExit,
+  shouldRunAsMain,
 } from '../../../scripts/build-codex.js'
 import {
   ensureStructuralScaffold,
+  main as buildHooksMain,
   scaffoldDirectories,
 } from '../../../scripts/build-hooks.js'
 
 const require = createRequire(import.meta.url)
 const { buildVitestArgs, runVitest } = require('../../../scripts/run-tests.cjs')
 const {
+  cleanSubject,
   detectRepoUrl,
   determineRange,
   generateChangelog,
@@ -44,6 +49,19 @@ describe('build-hooks.js', () => {
       join('/repo', scaffoldDirectories.at(-1) ?? ''),
       { recursive: true }
     )
+    expect(log).toHaveBeenCalledWith('[taro] Structural scaffold verified.')
+  })
+
+  it('delegates main() to ensureStructuralScaffold', async () => {
+    const mkdirImpl = vi.fn(async () => undefined)
+    const log = vi.fn()
+
+    await buildHooksMain('/repo', {
+      mkdirImpl,
+      log,
+    })
+
+    expect(mkdirImpl).toHaveBeenCalled()
     expect(log).toHaveBeenCalledWith('[taro] Structural scaffold verified.')
   })
 })
@@ -123,6 +141,21 @@ describe('build-claude.js', () => {
 })
 
 describe('build-codex.js', () => {
+  it('exits with status 1 when an install step returns no status code', () => {
+    const exit = vi.fn()
+
+    runInstallOrExit(['--codex', '--local'], {
+      spawnImpl: vi.fn(() => ({ status: null })),
+      nodeBin: '/node',
+      installEntrypoint: '/repo/bin/install.js',
+      rootDir: '/repo',
+      env: {},
+      exit,
+    })
+
+    expect(exit).toHaveBeenCalledWith(1)
+  })
+
   it('resolves global skill directories from local installed skill names', async () => {
     const readdirImpl = vi.fn(async () => [
       { name: 'rtl-generate', isDirectory: () => true },
@@ -156,6 +189,20 @@ describe('build-codex.js', () => {
         globalCodexSkillNamespaceDir: '/home/.codex/skills/@taro-test',
       })
     ).resolves.toEqual([])
+  })
+
+  it('rethrows unexpected readdir failures when resolving global skill directories', async () => {
+    const error = new Error('permission denied')
+
+    await expect(
+      resolveGlobalCodexSkillDirs({
+        readdirImpl: vi.fn(async () => {
+          throw error
+        }),
+        localCodexSkillNamespaceDir: '/repo/.codex/skills/@taro-test',
+        globalCodexSkillNamespaceDir: '/home/.codex/skills/@taro-test',
+      })
+    ).rejects.toBe(error)
   })
 
   it('removes local/global Codex assets and runs local then global installs', async () => {
@@ -205,6 +252,34 @@ describe('build-codex.js', () => {
       expect.objectContaining({ cwd: '/repo', env: { TEST: '1' }, stdio: 'inherit' })
     )
     expect(exit).not.toHaveBeenCalled()
+    expect(log).toHaveBeenCalledWith('[taro] Codex build/install complete.')
+  })
+
+  it('exposes CLI detection and main() without changing build behavior', async () => {
+    expect(shouldRunAsMain('/repo/scripts/build-codex.js', 'file:///repo/scripts/build-codex.js')).toBe(
+      true
+    )
+    expect(shouldRunAsMain('/repo/scripts/build-codex.js', 'file:///repo/scripts/other.js')).toBe(
+      false
+    )
+
+    const log = vi.fn()
+    const rmImpl = vi.fn(async () => undefined)
+    const spawnImpl = vi.fn(() => ({ status: 0 }))
+
+    await codexMain({
+      rootDir: '/repo',
+      homeDir: '/home/tester',
+      installEntrypoint: '/repo/bin/install.js',
+      nodeBin: '/node',
+      env: { TEST: '1' },
+      rmImpl,
+      readdirImpl: vi.fn(async () => []),
+      spawnImpl,
+      log,
+      exit: vi.fn(),
+    })
+
     expect(log).toHaveBeenCalledWith('[taro] Codex build/install complete.')
   })
 })
@@ -263,6 +338,13 @@ describe('generate-changelog.cjs', () => {
     })
   })
 
+  it('keeps default range values when flags are missing values', () => {
+    expect(parseArgs(['--from', '--to'])).toEqual({
+      from: '--to',
+      to: 'HEAD',
+    })
+  })
+
   it('falls back to remote.origin.url when origin get-url is unavailable', () => {
     const execImpl = vi.fn((command) => {
       if (command === 'git remote get-url origin') {
@@ -289,6 +371,36 @@ describe('generate-changelog.cjs', () => {
       to: 'v1.2.0',
       heading: '### Changes in v1.2.0\n',
     })
+  })
+
+  it('uses the explicit to ref when --from and --to are both provided', () => {
+    const execImpl = vi.fn()
+
+    expect(determineRange({ from: 'v1.0.0', to: 'v1.1.0' }, execImpl)).toEqual({
+      from: 'v1.0.0',
+      to: 'v1.1.0',
+      heading: '### Changes in v1.1.0\n',
+    })
+  })
+
+  it('throws when HEAD is tagged but no previous tag can be found', () => {
+    const execImpl = vi.fn((command) => {
+      if (command === 'git tag --points-at HEAD') return 'v1.2.0'
+      if (command === 'git describe --tags --abbrev=0 HEAD^') return ''
+      throw new Error(`unexpected command: ${command}`)
+    })
+
+    expect(() => determineRange({ from: '', to: 'HEAD' }, execImpl)).toThrow(
+      'Could not find a previous tag before v1.2.0.'
+    )
+  })
+
+  it('falls back to the merge commit subject when the commit body has no extracted title', () => {
+    const execImpl = vi.fn(() => 'Merge pull request #12 from branch')
+
+    expect(
+      cleanSubject('abc123', 'Merge pull request #12 from branch', execImpl)
+    ).toBe('Merge pull request #12 from branch')
   })
 
   it('prints categorized changelog entries and deduplicates repeated subjects', () => {
@@ -354,5 +466,20 @@ describe('generate-changelog.cjs', () => {
 
     expect(log).toHaveBeenCalledWith('No new changes found between v1.0.0 and HEAD.')
     expect(exit).toHaveBeenCalledWith(0)
+  })
+
+  it('reports repository detection failures through the error logger', () => {
+    const error = vi.fn()
+    const exit = vi.fn()
+    const execImpl = vi.fn(() => {
+      throw new Error('missing origin')
+    })
+
+    generateChangelog([], { execImpl, log: vi.fn(), error, exit })
+
+    expect(error).toHaveBeenCalledWith(
+      'Could not detect repository URL from git remote "origin".'
+    )
+    expect(exit).toHaveBeenCalledWith(1)
   })
 })

@@ -86,6 +86,8 @@ describe('element-analyzer', () => {
   describe('analyzeElementProperties', () => {
     beforeEach(() => {
       vi.clearAllMocks();
+      inspectElementMock.mockReset()
+      vi.mocked(mockPage.$eval).mockReset()
     });
 
     it('should return null when element not found', async () => {
@@ -140,6 +142,101 @@ describe('element-analyzer', () => {
       )
     })
 
+    it('prefers role queries for interactive elements with visible text and supports parent-label lookup', async () => {
+      const documentQuerySelectorMock = vi.fn().mockReturnValue(null)
+      const oldDocument = globalThis.document
+      Object.defineProperty(globalThis, 'document', {
+        configurable: true,
+        value: {
+          querySelector: documentQuerySelectorMock,
+        },
+      })
+
+      inspectElementMock
+        .mockResolvedValueOnce({
+          tagName: 'button',
+          textContent: 'Save changes',
+          ariaRole: 'button',
+          ariaLabel: undefined,
+          nameAttr: undefined,
+          id: '',
+          classes: [],
+          isVisible: true,
+          isDisabled: false,
+        })
+        .mockResolvedValueOnce({
+          tagName: 'textarea',
+          textContent: '',
+          ariaRole: undefined,
+          ariaLabel: undefined,
+          nameAttr: undefined,
+          id: '',
+          classes: [],
+          isVisible: true,
+          isDisabled: false,
+        })
+
+      vi.mocked(mockPage.$eval)
+        .mockImplementationOnce(async (_selector, callback) =>
+          callback({ id: '', closest: () => null } as unknown as Element)
+        )
+        .mockImplementationOnce(async (_selector, callback) =>
+          callback({ placeholder: '' } as unknown as Element)
+        )
+        .mockImplementationOnce(async (_selector, callback) =>
+          callback({ getAttribute: () => '' } as unknown as Element)
+        )
+        .mockImplementationOnce(async (_selector, callback) =>
+          callback({
+            id: '',
+            closest: () => ({ textContent: 'Notes' }),
+          } as unknown as Element)
+        )
+        .mockImplementationOnce(async (_selector, callback) =>
+          callback({ placeholder: '' } as unknown as Element)
+        )
+        .mockImplementationOnce(async (_selector, callback) =>
+          callback({ getAttribute: () => '' } as unknown as Element)
+        )
+
+      try {
+        const buttonResult = await analyzeElementProperties(mockPage, '#save-button')
+        const textareaResult = await analyzeElementProperties(mockPage, '#notes')
+
+        expect(buttonResult).toEqual(
+          expect.objectContaining({
+            isInteractive: true,
+            preferredQuery: expect.objectContaining({
+              method: 'getByRole',
+              args: ['button', { name: 'Save changes' }],
+            }),
+            alternatives: expect.arrayContaining([
+              expect.objectContaining({
+                method: 'getByText',
+                args: ['Save changes', { exact: true }],
+              }),
+            ]),
+          })
+        )
+
+        expect(textareaResult).toEqual(
+          expect.objectContaining({
+            hasAccessibleName: true,
+            isInteractive: true,
+            preferredQuery: expect.objectContaining({
+              method: 'getByLabelText',
+              args: ['Notes'],
+            }),
+          })
+        )
+      } finally {
+        Object.defineProperty(globalThis, 'document', {
+          configurable: true,
+          value: oldDocument,
+        })
+      }
+    })
+
     it('uses alt text for images and falls back to a generic role when no good strategy exists', async () => {
       inspectElementMock
         .mockResolvedValueOnce({
@@ -191,6 +288,122 @@ describe('element-analyzer', () => {
           priority: 99,
         })
       )
+    })
+
+    it('falls back to data-test-id attributes when present under the alternate attribute name', async () => {
+      inspectElementMock.mockResolvedValue({
+        tagName: 'div',
+        textContent: '',
+        ariaRole: undefined,
+        ariaLabel: undefined,
+        nameAttr: undefined,
+        id: '',
+        classes: [],
+        isVisible: true,
+        isDisabled: false,
+      })
+
+      vi.mocked(mockPage.$eval)
+        .mockImplementationOnce(async (_selector, callback) =>
+          callback({ id: '', closest: () => null } as unknown as Element)
+        )
+        .mockImplementationOnce(async (_selector, callback) =>
+          callback({ placeholder: '' } as unknown as Element)
+        )
+        .mockImplementationOnce(async (_selector, callback) =>
+          callback({
+            getAttribute: (name: string) => (name === 'data-test-id' ? 'legacy-test-id' : null),
+          } as unknown as Element)
+        )
+
+      const result = await analyzeElementProperties(mockPage, '#legacy')
+
+      expect(result?.preferredQuery).toEqual(
+        expect.objectContaining({
+          method: 'getByTestId',
+          args: ['legacy-test-id'],
+        })
+      )
+    })
+
+    it('evaluates label and alt-text callbacks against the DOM when the element has an id', async () => {
+      const oldDocument = globalThis.document
+      Object.defineProperty(globalThis, 'document', {
+        configurable: true,
+        value: {
+          querySelector: vi.fn().mockReturnValue({ textContent: 'Email Address' }),
+        },
+      })
+
+      inspectElementMock
+        .mockResolvedValueOnce({
+          tagName: 'input',
+          textContent: '',
+          ariaRole: undefined,
+          ariaLabel: undefined,
+          nameAttr: undefined,
+          id: 'email',
+          classes: [],
+          isVisible: true,
+          isDisabled: false,
+        })
+        .mockResolvedValueOnce({
+          tagName: 'img',
+          textContent: '',
+          ariaRole: undefined,
+          ariaLabel: undefined,
+          nameAttr: undefined,
+          id: '',
+          classes: [],
+          isVisible: true,
+          isDisabled: false,
+        })
+
+      vi.mocked(mockPage.$eval)
+        .mockImplementationOnce(async (_selector, callback) =>
+          callback({ id: 'email', closest: () => null } as unknown as Element)
+        )
+        .mockImplementationOnce(async (_selector, callback) =>
+          callback({ placeholder: '' } as unknown as Element)
+        )
+        .mockImplementationOnce(async (_selector, callback) =>
+          callback({ getAttribute: () => '' } as unknown as Element)
+        )
+        .mockImplementationOnce(async (_selector, callback) =>
+          callback({ id: '', closest: () => null } as unknown as Element)
+        )
+        .mockImplementationOnce(async (_selector, callback) =>
+          callback({ placeholder: '' } as unknown as Element)
+        )
+        .mockImplementationOnce(async (_selector, callback) =>
+          callback({ alt: 'Hero image' } as unknown as Element)
+        )
+        .mockImplementationOnce(async (_selector, callback) =>
+          callback({ getAttribute: () => '' } as unknown as Element)
+        )
+
+      try {
+        const fieldResult = await analyzeElementProperties(mockPage, '#email')
+        const imageResult = await analyzeElementProperties(mockPage, '#hero-image')
+
+        expect(fieldResult?.preferredQuery).toEqual(
+          expect.objectContaining({
+            method: 'getByLabelText',
+            args: ['Email Address'],
+          })
+        )
+        expect(imageResult?.preferredQuery).toEqual(
+          expect.objectContaining({
+            method: 'getByAltText',
+            args: ['Hero image'],
+          })
+        )
+      } finally {
+        Object.defineProperty(globalThis, 'document', {
+          configurable: true,
+          value: oldDocument,
+        })
+      }
     })
   });
 });

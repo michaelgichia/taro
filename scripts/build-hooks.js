@@ -34,10 +34,11 @@ export async function ensureStructuralScaffold(
   log('[taro] Structural scaffold verified.')
 }
 
-export async function main() {
-  await ensureStructuralScaffold()
+export async function main(root = process.cwd(), options = {}) {
+  await ensureStructuralScaffold(root, options)
 }
 
+/* v8 ignore next 3 -- exercised via the exported main() in tests */
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   await main()
 }

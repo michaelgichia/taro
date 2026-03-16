@@ -59,6 +59,46 @@ describe('inspectElement', () => {
     })
   })
 
+  it('handles SVG class names and hidden elements without marking them disabled', async () => {
+    vi.stubGlobal('window', {
+      getComputedStyle: () => ({
+        display: 'none',
+        visibility: 'hidden',
+        opacity: '0',
+      }),
+    })
+
+    const elementHandle = {
+      evaluate: vi.fn(async (callback: (element: Element) => unknown) =>
+        callback({
+          tagName: 'svg',
+          textContent: '',
+          getAttribute: () => null,
+          id: '',
+          className: {
+            baseVal: 'icon graphic',
+          },
+        } as unknown as Element)
+      ),
+    }
+
+    const page = {
+      $: vi.fn().mockResolvedValue(elementHandle),
+    }
+
+    await expect(inspectElement(page as never, '#icon')).resolves.toEqual({
+      tagName: 'svg',
+      textContent: '',
+      ariaRole: undefined,
+      ariaLabel: undefined,
+      nameAttr: undefined,
+      id: '',
+      classes: ['icon', 'graphic'],
+      isVisible: false,
+      isDisabled: false,
+    })
+  })
+
   it('returns null when evaluating the element fails', async () => {
     const page = {
       $: vi.fn().mockResolvedValue({

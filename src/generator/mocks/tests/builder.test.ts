@@ -121,6 +121,66 @@ describe('buildMock', () => {
     expect(undiciDecision.code).toContain('new MockAgent()')
     expect(undiciDecision.code).toContain("method: 'PATCH'")
   })
+
+  it('covers post/patch/default MSW handlers, fallback jest mocks, and invalid URL parsing', () => {
+    const postDecision = buildMock(
+      createTarget({
+        mockLibrary: 'msw',
+        method: 'POST',
+        url: 'https://api.example.com/error',
+      }),
+      createApiCall()
+    )
+    const patchDecision = buildMock(
+      createTarget({
+        mockLibrary: 'msw',
+        method: 'PATCH',
+        url: 'https://api.example.com/list',
+      }),
+      createApiCall()
+    )
+    const deleteDecision = buildMock(
+      createTarget({
+        mockLibrary: 'msw',
+        method: 'DELETE',
+        url: 'https://api.example.com/users/1',
+      }),
+      createApiCall()
+    )
+    const allDecision = buildMock(
+      createTarget({
+        mockLibrary: 'msw',
+        method: 'TRACE',
+        url: 'https://example.com/status',
+      }),
+      createApiCall()
+    )
+    const unknownJestDecision = buildMock(
+      createTarget({
+        mockLibrary: 'jest.fn',
+        method: 'OPTIONS',
+      }),
+      createApiCall()
+    )
+    const invalidNockDecision = buildMock(
+      createTarget({
+        mockLibrary: 'nock',
+        url: 'not a valid url',
+        extractionRecommendation: 'file',
+      }),
+      createApiCall()
+    )
+
+    expect(postDecision.code).toContain('{ status: 201 }')
+    expect(postDecision.code).toContain('"error"')
+    expect(patchDecision.code).toContain("http.patch('https://api.example.com/list'")
+    expect(deleteDecision.code).toContain("http.delete('https://api.example.com/users/1'")
+    expect(deleteDecision.code).toContain('{ ok: true }')
+    expect(allDecision.code).toContain("http.all('https://example.com/status'")
+    expect(unknownJestDecision.code).toContain('jest.fn().mockResolvedValue')
+    expect(invalidNockDecision.code).toContain("nock('http://localhost:3000')")
+    expect(invalidNockDecision.code).toContain(".get('not a valid url')")
+  })
 })
 
 describe('buildMocks', () => {
@@ -184,6 +244,14 @@ describe('generateMockFile', () => {
 
     expect(content).not.toContain('beforeAll(() => setupMocks());')
   })
+
+  it('handles empty mock file inputs without imports or hooks', () => {
+    const content = generateMockFile([])
+
+    expect(content).toContain('export function setupMocks()')
+    expect(content).toContain('export function teardownMocks()')
+    expect(content).not.toContain("import {")
+  })
 })
 
 describe('generateInlineMock', () => {
@@ -200,5 +268,20 @@ describe('generateInlineMock', () => {
     expect(inlineCode).toContain("import { sinon } from 'sinon';")
     expect(inlineCode).toContain('// Setup mock for https://api.example.com/users')
     expect(inlineCode).toContain('// Cleanup after test')
+  })
+
+  it('returns setup-only inline code when the mock has no imports or teardown hints', () => {
+    const inlineCode = generateInlineMock(
+      buildMock(
+        createTarget({
+          mockLibrary: 'jest.fn',
+          method: 'POST',
+        }),
+        createApiCall()
+      )
+    )
+
+    expect(inlineCode).toContain('// Setup mock for https://api.example.com/users')
+    expect(inlineCode).not.toContain("import {")
   })
 })

@@ -154,6 +154,15 @@ export async function runCodexBuild(options = {}) {
   log('[taro] Codex build/install complete.')
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  await runCodexBuild()
+export function shouldRunAsMain(argv1 = process.argv[1], moduleUrl = import.meta.url) {
+  return Boolean(argv1) && moduleUrl === pathToFileURL(argv1).href
+}
+
+export async function main(options = {}) {
+  await runCodexBuild(options)
+}
+
+/* v8 ignore next 3 -- exercised via the exported main() in tests */
+if (shouldRunAsMain()) {
+  await main()
 }
