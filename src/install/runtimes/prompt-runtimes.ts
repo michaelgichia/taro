@@ -1,11 +1,11 @@
-import { TARO_REFERENCE_FILES } from '../reference-files.js'
-import { buildRuntimeOperationsFromAssets } from '../runtime-launcher.js'
+import { TARO_REFERENCE_FILES } from '#install/reference-files.ts'
+import { buildRuntimeOperationsFromAssets } from '#install/runtime-launcher.ts'
 import type {
   InstallFileOperation,
   ResolvedInstallTarget,
   RuntimeAssetDefinition,
   RuntimeTarget,
-} from '../types.js'
+} from '#install/types.ts'
 
 type PromptRuntimeTarget = Extract<RuntimeTarget, 'claude' | 'gemini' | 'opencode'>
 

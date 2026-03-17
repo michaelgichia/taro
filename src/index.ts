@@ -7,17 +7,18 @@
 
 import { Command } from 'commander'
 import pc from 'picocolors'
-import { createGenerateCommand } from './cli/commands/generate.js'
-import { createInitCommand } from './cli/commands/init.js'
+
+import { createGenerateCommand } from '#cli/commands/generate.ts'
+import { createInitCommand } from '#cli/commands/init.ts'
 import {
   applyInstallOptions,
   createInstallCommand,
   runInstallCommand,
-} from './cli/commands/install.js'
-import { createRefreshCommand } from './cli/commands/refresh.js'
-import { createVersionCommand } from './cli/commands/version.js'
-import type { InstallCommandOptions } from './install/types.js'
-import { TARO_VERSION } from './version.js'
+} from '#cli/commands/install.ts'
+import { createRefreshCommand } from '#cli/commands/refresh.ts'
+import { createVersionCommand } from '#cli/commands/version.ts'
+import type { InstallCommandOptions } from '#install/types.ts'
+import { TARO_VERSION } from '#version.ts'
 
 const program = new Command()
 

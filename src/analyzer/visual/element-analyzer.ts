@@ -1,5 +1,6 @@
 import { Page } from 'playwright';
-import { ElementInfo, inspectElement } from './inspector.js';
+
+import { inspectElement } from '#analyzer/visual/inspector.ts';
 
 /**
  * Query strategy for Testing Library
@@ -157,49 +158,6 @@ export async function analyzeElementProperties(
     hasAccessibleName,
     isInteractive,
   };
-}
-
-/**
- * Gets all interactive elements on the page with their query strategies
- * @param page - The Playwright page object
- * @returns Promise<Array<{ selector: string; properties: AccessibilityProperties }>>
- */
-export async function analyzePageElements(
-  page: Page
-): Promise<Array<{ selector: string; properties: AccessibilityProperties }>> {
-  const results: Array<{ selector: string; properties: AccessibilityProperties }> = [];
-  
-  // Find common interactive element selectors
-  const selectors = [
-    'button', 'a', 'input', 'select', 'textarea', 
-    '[role="button"]', '[role="link"]', '[role="checkbox"]', 
-    '[role="radio"]', '[role="textbox"]'
-  ];
-
-  for (const sel of selectors) {
-    const elements = await page.$$(sel);
-    
-    for (const element of elements) {
-      const selector = await element.evaluate((el) => {
-        // Generate a unique selector
-        if (el.id) return `#${el.id}`;
-        if (el.getAttribute('data-testid')) return `[data-testid="${el.getAttribute('data-testid')}"]`;
-        if (el.className && typeof el.className === 'object' && 'baseVal' in el.className) {
-          return el.tagName.toLowerCase();
-        }
-        const classList = el.classList ? Array.from(el.classList) : [];
-        const classes = classList.filter((c: string) => !c.includes('Mui')).join('.');
-        return classes ? `${el.tagName.toLowerCase()}.${classes}` : el.tagName.toLowerCase();
-      });
-
-      const properties = await analyzeElementProperties(page, sel);
-      if (properties) {
-        results.push({ selector, properties });
-      }
-    }
-  }
-
-  return results;
 }
 
 /**

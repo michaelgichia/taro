@@ -1,12 +1,12 @@
 const { execSync } = require('child_process');
 
-function run(command) {
-  return execSync(command, { encoding: 'utf8' }).trim();
+function run(command, execImpl = execSync) {
+  return execImpl(command, { encoding: 'utf8' }).trim();
 }
 
-function tryRun(command) {
+function tryRun(command, execImpl = execSync) {
   try {
-    return run(command);
+    return run(command, execImpl);
   } catch {
     return '';
   }
@@ -20,8 +20,10 @@ function normalizeRepoUrl(url) {
     .replace(/^ssh:\/\/git@github\.com\//, 'https://github.com/');
 }
 
-function detectRepoUrl() {
-  const originUrl = tryRun('git remote get-url origin') || tryRun('git config --get remote.origin.url');
+function detectRepoUrl(execImpl = execSync) {
+  const originUrl =
+    tryRun('git remote get-url origin', execImpl) ||
+    tryRun('git config --get remote.origin.url', execImpl);
   if (originUrl) {
     return normalizeRepoUrl(originUrl);
   }
@@ -50,8 +52,8 @@ function parseArgs(argv) {
   return options;
 }
 
-function findCurrentTag() {
-  const tags = tryRun('git tag --points-at HEAD');
+function findCurrentTag(execImpl = execSync) {
+  const tags = tryRun('git tag --points-at HEAD', execImpl);
   if (!tags) {
     return '';
   }
@@ -59,7 +61,7 @@ function findCurrentTag() {
   return tags.split('\n').map((tag) => tag.trim()).find(Boolean) || '';
 }
 
-function determineRange(options) {
+function determineRange(options, execImpl = execSync) {
   if (options.from) {
     return {
       from: options.from,
@@ -70,9 +72,9 @@ function determineRange(options) {
     };
   }
 
-  const currentTag = findCurrentTag();
+  const currentTag = findCurrentTag(execImpl);
   if (currentTag) {
-    const previousTag = tryRun('git describe --tags --abbrev=0 HEAD^');
+    const previousTag = tryRun('git describe --tags --abbrev=0 HEAD^', execImpl);
     if (!previousTag) {
       throw new Error(`Could not find a previous tag before ${currentTag}.`);
     }
@@ -84,7 +86,7 @@ function determineRange(options) {
     };
   }
 
-  const lastTag = run('git describe --tags --abbrev=0');
+  const lastTag = run('git describe --tags --abbrev=0', execImpl);
   return {
     from: lastTag,
     to: options.to || 'HEAD',
@@ -92,8 +94,8 @@ function determineRange(options) {
   };
 }
 
-function getCommitBody(hash) {
-  return tryRun(`git show -s --format=%B ${hash}`);
+function getCommitBody(hash, execImpl = execSync) {
+  return tryRun(`git show -s --format=%B ${hash}`, execImpl);
 }
 
 function extractPrNumber(subject) {
@@ -110,12 +112,12 @@ function extractPrNumber(subject) {
   return null;
 }
 
-function getMergeCommitTitle(hash, subject) {
+function getMergeCommitTitle(hash, subject, execImpl = execSync) {
   if (!/^Merge pull request #\d+/i.test(subject)) {
     return subject;
   }
 
-  const body = getCommitBody(hash);
+  const body = getCommitBody(hash, execImpl);
   const lines = body
     .split('\n')
     .map((line) => line.trim())
@@ -124,74 +126,104 @@ function getMergeCommitTitle(hash, subject) {
   return lines[1] || subject;
 }
 
-function cleanSubject(hash, subject) {
-  return getMergeCommitTitle(hash, subject).replace(/\s+\(#\d+\)$/, '');
+function cleanSubject(hash, subject, execImpl = execSync) {
+  return getMergeCommitTitle(hash, subject, execImpl).replace(/\s+\(#\d+\)$/, '');
 }
 
-try {
-  const options = parseArgs(process.argv.slice(2));
-  const repoUrl = detectRepoUrl();
-  const range = determineRange(options);
-  const commitsRaw = tryRun(`git log ${range.from}..${range.to} --pretty=format:"%h|%s"`);
+function generateChangelog(argv, options = {}) {
+  const execImpl = options.execImpl ?? execSync
+  const log = options.log ?? console.log
+  const error = options.error ?? console.error
+  const exit = options.exit ?? process.exit
 
-  if (!commitsRaw) {
-    console.log(`No new changes found between ${range.from} and ${range.to}.`);
-    process.exit(0);
+  try {
+    const parsedArgs = parseArgs(argv);
+    const repoUrl = detectRepoUrl(execImpl);
+    const range = determineRange(parsedArgs, execImpl);
+    const commitsRaw = tryRun(
+      `git log ${range.from}..${range.to} --pretty=format:"%h|%s"`,
+      execImpl
+    );
+
+    if (!commitsRaw) {
+      log(`No new changes found between ${range.from} and ${range.to}.`);
+      exit(0);
+      return;
+    }
+
+    const categorized = {
+      Added: [],
+      Fixed: [],
+      Changed: [],
+    };
+    const seenEntries = new Set();
+    const seenSubjects = new Set();
+
+    for (const line of commitsRaw.split('\n')) {
+      const separatorIndex = line.indexOf('|');
+      if (separatorIndex === -1) {
+        continue;
+      }
+
+      const hash = line.slice(0, separatorIndex);
+      const subject = line.slice(separatorIndex + 1);
+      const prNumber = extractPrNumber(subject);
+      const prLink = prNumber ? ` [PR #${prNumber}](${repoUrl}/pull/${prNumber})` : '';
+      const cleanedSubject = cleanSubject(hash, subject, execImpl);
+      const entry = `- ${cleanedSubject} ([${hash}](${repoUrl}/commit/${hash}))${prLink}`;
+      const lowerSubject = cleanedSubject.toLowerCase();
+      const entryKey = prNumber ? `pr:${prNumber}` : `subject:${lowerSubject}`;
+
+      if (seenEntries.has(entryKey) || seenSubjects.has(lowerSubject)) {
+        continue;
+      }
+
+      seenEntries.add(entryKey);
+      seenSubjects.add(lowerSubject);
+
+      if (lowerSubject.startsWith('feat')) {
+        categorized.Added.push(entry);
+      } else if (lowerSubject.startsWith('fix')) {
+        categorized.Fixed.push(entry);
+      } else {
+        categorized.Changed.push(entry);
+      }
+    }
+
+    log(range.heading);
+
+    for (const [category, items] of Object.entries(categorized)) {
+      if (items.length === 0) {
+        continue;
+      }
+
+      log(`#### ${category}`);
+      for (const item of items) {
+        log(item);
+      }
+      log('');
+    }
+  } catch (caughtError) {
+    error(caughtError.message || 'Error generating changelog. Ensure you have at least one previous tag.');
+    exit(1);
   }
+}
 
-  const categorized = {
-    Added: [],
-    Fixed: [],
-    Changed: [],
-  };
-  const seenEntries = new Set();
-  const seenSubjects = new Set();
+module.exports = {
+  cleanSubject,
+  detectRepoUrl,
+  determineRange,
+  extractPrNumber,
+  findCurrentTag,
+  generateChangelog,
+  getCommitBody,
+  getMergeCommitTitle,
+  normalizeRepoUrl,
+  parseArgs,
+  run,
+  tryRun,
+}
 
-  for (const line of commitsRaw.split('\n')) {
-    const separatorIndex = line.indexOf('|');
-    if (separatorIndex === -1) {
-      continue;
-    }
-
-    const hash = line.slice(0, separatorIndex);
-    const subject = line.slice(separatorIndex + 1);
-    const prNumber = extractPrNumber(subject);
-    const prLink = prNumber ? ` [PR #${prNumber}](${repoUrl}/pull/${prNumber})` : '';
-    const cleanedSubject = cleanSubject(hash, subject);
-    const entry = `- ${cleanedSubject} ([${hash}](${repoUrl}/commit/${hash}))${prLink}`;
-    const lowerSubject = cleanedSubject.toLowerCase();
-    const entryKey = prNumber ? `pr:${prNumber}` : `subject:${lowerSubject}`;
-
-    if (seenEntries.has(entryKey) || seenSubjects.has(lowerSubject)) {
-      continue;
-    }
-
-    seenEntries.add(entryKey);
-    seenSubjects.add(lowerSubject);
-
-    if (lowerSubject.startsWith('feat')) {
-      categorized.Added.push(entry);
-    } else if (lowerSubject.startsWith('fix')) {
-      categorized.Fixed.push(entry);
-    } else {
-      categorized.Changed.push(entry);
-    }
-  }
-
-  console.log(range.heading);
-
-  for (const [category, items] of Object.entries(categorized)) {
-    if (items.length === 0) {
-      continue;
-    }
-
-    console.log(`#### ${category}`);
-    for (const item of items) {
-      console.log(item);
-    }
-    console.log('');
-  }
-} catch (error) {
-  console.error(error.message || 'Error generating changelog. Ensure you have at least one previous tag.');
-  process.exit(1);
+if (require.main === module) {
+  generateChangelog(process.argv.slice(2))
 }

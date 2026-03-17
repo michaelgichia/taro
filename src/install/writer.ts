@@ -1,17 +1,18 @@
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+
 import {
   classifyAssetConflict,
   createOwnedFile,
   createOwnershipManifest,
-} from './manifest.js'
+} from '#install/manifest.ts'
 import type {
   InstallAssetConflict,
   InstallOwnedFile,
   InstallOwnershipManifest,
   PlannedInstallTarget,
   RuntimeInstallResult,
-} from './types.js'
+} from '#install/types.ts'
 
 export interface ReplaceConfirmationRequest {
   target: PlannedInstallTarget

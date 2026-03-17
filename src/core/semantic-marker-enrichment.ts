@@ -1,5 +1,13 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+
+import {
+  isLabelTextQueryMethod,
+  isPlaceholderTextQueryMethod,
+  isRoleQueryMethod,
+  isTestIdQueryMethod,
+  isTextQueryMethod,
+} from '#core/query-policy.ts'
 import type {
   JsBaselineMetadata,
   NormalizedRecording,
@@ -7,16 +15,9 @@ import type {
   QueryDescriptor,
   SemanticMarkerCandidate,
   SemanticMarkerCanonicalRecovery,
-} from '../types/recording.js'
-import {
-  isLabelTextQueryMethod,
-  isPlaceholderTextQueryMethod,
-  isRoleQueryMethod,
-  isTestIdQueryMethod,
-  isTextQueryMethod,
-} from './query-policy.js'
+} from '#types/recording.ts'
 
-export interface SemanticMarkerContextMatch {
+interface SemanticMarkerContextMatch {
   filePath: string
   kind: 'source' | 'test'
   matchedTerms: string[]
@@ -32,7 +33,7 @@ interface RecoveryCandidate {
 const STRING_LITERAL_REGEX =
   /(?<quote>['"`])(?<value>(?:\\.|(?!\k<quote>)[^\\\r\n]){4,})\k<quote>/g
 const HIDDEN_EVIDENCE_PATTERN =
-  /data-testid|data-test-id|getBy(?:TestId|Role|Text|LabelText|PlaceholderText)|findBy(?:TestId|Role|Text|LabelText|PlaceholderText)|querySelector|nth-(?:of-type|child)|\.css-[\w-]+|#radix-[\w-]+|^\.\w|^\#\w|^\//i
+  /data-testid|data-test-id|getBy(?:TestId|Role|Text|LabelText|PlaceholderText)|findBy(?:TestId|Role|Text|LabelText|PlaceholderText)|querySelector|nth-(?:of-type|child)|\.css-[\w-]+|#radix-[\w-]+|^\.\w|^#\w|^\//i
 
 function normalizeText(value?: string): string | undefined {
   const normalized = value?.replace(/\s+/g, ' ').trim()
@@ -45,35 +46,6 @@ function escapeSingleQuote(value: string): string {
 
 function looksLikeHiddenEvidence(value: string): boolean {
   return HIDDEN_EVIDENCE_PATTERN.test(value)
-}
-
-function tokenize(value: string): string[] {
-  return value
-    .toLowerCase()
-    .split(/[^a-z0-9]+/i)
-    .filter((token) => token.length > 0)
-}
-
-function isTokenCompatible(fragment: string, candidate: string): boolean {
-  const fragmentTokens = tokenize(fragment)
-  const candidateTokens = tokenize(candidate)
-  if (fragmentTokens.length === 0 || candidateTokens.length === 0) {
-    return false
-  }
-
-  let searchIndex = 0
-  for (const token of fragmentTokens) {
-    const foundIndex = candidateTokens.findIndex(
-      (candidateToken, index) => index >= searchIndex && candidateToken.startsWith(token)
-    )
-    if (foundIndex === -1) {
-      return false
-    }
-
-    searchIndex = foundIndex + 1
-  }
-
-  return true
 }
 
 function buildRecoveredQuery(
@@ -156,10 +128,6 @@ function scoreRecoveryCandidate(
   const fragmentLower = fragment.toLowerCase()
   const candidateLower = candidateText.toLowerCase()
   if (candidateLower === fragmentLower || !candidateLower.includes(fragmentLower)) {
-    return Number.NEGATIVE_INFINITY
-  }
-
-  if (!isTokenCompatible(fragment, candidateText)) {
     return Number.NEGATIVE_INFINITY
   }
 

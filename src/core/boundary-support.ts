@@ -1,18 +1,19 @@
-import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
-import { dirname, join, relative, resolve } from 'node:path'
+import { access, mkdir, writeFile } from 'node:fs/promises'
+import { dirname, relative, resolve } from 'node:path'
+
 import {
   classifyBoundaryKind,
   discoverBoundaryImportsFromSource,
   getBoundaryGuardrailReason,
-} from './boundary-learning.js'
+} from '#core/boundary-learning.ts'
 import type {
   RepoRenderTargetCandidate,
   ResolvedTaroPackageProfile,
   TaroBoundaryKind,
   TaroBoundaryProfile,
-} from '../types/state.js'
+} from '#types/state.ts'
 
-export interface BoundarySupportFilePlan {
+interface BoundarySupportFilePlan {
   path: string
   content: string
   lowConfidence: boolean
@@ -433,12 +434,4 @@ export async function materializeBoundarySupport(plan: BoundarySupportPlan): Pro
 
 export function applyBoundarySupport(code: string, plan: BoundarySupportPlan): string {
   return buildBoundarySupportPrefix(code, plan)
-}
-
-export async function readBoundarySupportFile(filePath: string): Promise<string | null> {
-  try {
-    return await readFile(filePath, 'utf-8')
-  } catch {
-    return null
-  }
 }

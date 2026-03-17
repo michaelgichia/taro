@@ -4,44 +4,88 @@ import { spawnSync } from 'node:child_process'
 import { rm } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
-const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..')
-const nodeBin = process.execPath
-const installEntrypoint = join(rootDir, 'bin', 'install.js')
-const localClaudePackageDirs = [
-  join(rootDir, '.claude', 'commands', '@taro-dev', 'rtl'),
-  join(rootDir, '.claude', 'commands', '@tayo-dev', 'rtl'),
-]
-const globalClaudePackageDir = join(homedir(), '.claude', 'commands', '@taro-dev', 'rtl')
-const legacyGlobalClaudePackageDir = join(homedir(), '.claude', 'commands', '@tayo-dev', 'rtl')
-
-function runInstall(args) {
-  const result = spawnSync(nodeBin, [installEntrypoint, ...args], {
-    cwd: rootDir,
-    stdio: 'inherit',
-    env: process.env,
-  })
-
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1)
+export function getClaudeBuildPaths(rootDir, homeDirectory = homedir()) {
+  return {
+    localClaudePackageDirs: [
+      join(rootDir, '.claude', 'commands', '@taro-dev', 'rtl'),
+      join(rootDir, '.claude', 'commands', '@tayo-dev', 'rtl'),
+    ],
+    globalClaudePackageDir: join(homeDirectory, '.claude', 'commands', '@taro-dev', 'rtl'),
+    legacyGlobalClaudePackageDir: join(homeDirectory, '.claude', 'commands', '@tayo-dev', 'rtl'),
   }
 }
 
-for (const localClaudePackageDir of localClaudePackageDirs) {
-  console.log(`[taro] Removing existing local Claude commands at ${localClaudePackageDir}...`)
-  await rm(localClaudePackageDir, { recursive: true, force: true })
+export function runInstallOrExit(args, options) {
+  const {
+    spawnImpl,
+    nodeBin,
+    installEntrypoint,
+    rootDir,
+    env,
+    exit = process.exit,
+  } = options
+  const result = spawnImpl(nodeBin, [installEntrypoint, ...args], {
+    cwd: rootDir,
+    stdio: 'inherit',
+    env,
+  })
+
+  if (result.status !== 0) {
+    exit(result.status ?? 1)
+  }
 }
 
-console.log('[taro] Installing Claude commands locally...')
-runInstall(['--claude', '--local'])
+export async function runClaudeBuild(options = {}) {
+  const rootDir =
+    options.rootDir ?? join(dirname(fileURLToPath(import.meta.url)), '..')
+  const nodeBin = options.nodeBin ?? process.execPath
+  const installEntrypoint = options.installEntrypoint ?? join(rootDir, 'bin', 'install.js')
+  const env = options.env ?? process.env
+  const remove = options.rmImpl ?? rm
+  const log = options.log ?? console.log
+  const spawnImpl = options.spawnImpl ?? spawnSync
+  const exit = options.exit ?? process.exit
+  const paths = getClaudeBuildPaths(rootDir, options.homeDir ?? homedir())
 
-console.log(`[taro] Removing existing global Claude commands at ${globalClaudePackageDir}...`)
-await rm(globalClaudePackageDir, { recursive: true, force: true })
-console.log(`[taro] Removing legacy global Claude commands at ${legacyGlobalClaudePackageDir}...`)
-await rm(legacyGlobalClaudePackageDir, { recursive: true, force: true })
+  for (const localClaudePackageDir of paths.localClaudePackageDirs) {
+    log(`[taro] Removing existing local Claude commands at ${localClaudePackageDir}...`)
+    await remove(localClaudePackageDir, { recursive: true, force: true })
+  }
 
-console.log('[taro] Installing Claude commands globally...')
-runInstall(['--claude', '--global'])
+  log('[taro] Installing Claude commands locally...')
+  runInstallOrExit(['--claude', '--local'], {
+    spawnImpl,
+    nodeBin,
+    installEntrypoint,
+    rootDir,
+    env,
+    exit,
+  })
 
-console.log('[taro] Claude build/install complete.')
+  log(`[taro] Removing existing global Claude commands at ${paths.globalClaudePackageDir}...`)
+  await remove(paths.globalClaudePackageDir, { recursive: true, force: true })
+  log(
+    `[taro] Removing legacy global Claude commands at ${paths.legacyGlobalClaudePackageDir}...`
+  )
+  await remove(paths.legacyGlobalClaudePackageDir, { recursive: true, force: true })
+
+  log('[taro] Installing Claude commands globally...')
+  runInstallOrExit(['--claude', '--global'], {
+    spawnImpl,
+    nodeBin,
+    installEntrypoint,
+    rootDir,
+    env,
+    exit,
+  })
+
+  log('[taro] Claude build/install complete.')
+}
+
+export function shouldRunAsMain(argv1 = process.argv[1], moduleUrl = import.meta.url) {
+  return Boolean(argv1 && moduleUrl === pathToFileURL(argv1).href)
+}
+
+if (shouldRunAsMain()) await runClaudeBuild()

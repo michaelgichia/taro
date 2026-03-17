@@ -1,32 +1,31 @@
-import { access, readdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
+import { readdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, relative, resolve } from 'node:path'
+
 import pc from 'picocolors'
 import { z } from 'zod'
-import {
-  analyzeTestFile,
-  deriveConventions,
-  extractRenderTargetCandidatesFromFile,
-  findTestFiles,
-  readTestFiles,
-} from './convention-intelligence.js'
+
 import {
   classifyBoundaryKind,
   collectBoundaryLearning,
   getBoundaryGuardrailReason,
   summarizeBoundaryProfiles,
-} from './boundary-learning.js'
+} from '#core/boundary-learning.ts'
 import {
+  analyzeTestFile,
+  deriveConventions,
+  extractRenderTargetCandidatesFromFile,
+  readTestFiles,
+} from '#core/convention-intelligence.ts'
+import {
+  ensureProjectStateDir,
   findReadableProjectStatePath,
   getProjectStatePath,
-  ensureProjectStateDir,
-} from '../project-state.js'
-import { DEFAULT_CONVENTIONS } from '../types/conventions.js'
+} from '#project-state.ts'
 import type {
-  ConventionFile,
   ConventionsSchema,
+  ImportStyle,
   InteractionContractKind,
   InteractionContractPattern,
-  ImportStyle,
   MockInstabilityWarning,
   MockPattern,
   MockRecommendation,
@@ -34,20 +33,13 @@ import type {
   MockTargetUsage,
   MutationLifecyclePattern,
   MutationLifecycleStage,
-} from '../types/conventions.js'
-import type { ScoreResult } from '../types/score.js'
+} from '#types/conventions.ts'
+import type { ScoreResult } from '#types/score.ts'
 import type {
-  RepoRenderTargetCandidate,
+  ResolvedTaroPackageProfile,
   TaroBoundaryExemplarProfile,
   TaroBoundaryGuardrailReason,
   TaroBoundaryKind,
-  TaroBoundaryPayloadSource,
-  TaroBoundaryProfile,
-  TaroBoundaryStrategy,
-  TaroPlaywrightAuthDetectedAt,
-  TaroPlaywrightAuthProfile,
-  TaroQueryHookPolicy,
-  ResolvedTaroPackageProfile,
   TaroExemplarProfile,
   TaroFileExtension,
   TaroFixtureRootKind,
@@ -58,6 +50,8 @@ import type {
   TaroOverrides,
   TaroPackageOverrides,
   TaroPackageProfile,
+  TaroPlaywrightAuthDetectedAt,
+  TaroPlaywrightAuthProfile,
   TaroProviderWrapperProfile,
   TaroRenderHelperProfile,
   TaroSharedMockFactoryProfile,
@@ -67,8 +61,8 @@ import type {
   TaroStateSummary,
   TaroStateSummaryPackage,
   TaroTestRunner,
-} from '../types/state.js'
-import { TARO_VERSION } from '../version.js'
+} from '#types/state.ts'
+import { TARO_VERSION } from '#version.ts'
 
 const STATE_VERSION = 1
 const GENERATED_TEST_HISTORY_LIMIT = 200
@@ -423,7 +417,7 @@ interface ScanStateOptions {
   existingState?: TaroState | null
 }
 
-interface ScanStateResult {
+export interface ScanStateResult {
   state: TaroState
   summary: TaroStateSummary
 }
@@ -1469,11 +1463,11 @@ async function collectMockStoreResources(
 
   const files: string[] = []
 
-  async function walk(dir: string): Promise<void> {
-    if (files.length >= MAX_EVIDENCE) {
-      return
-    }
+  function hasReachedMockStoreEvidenceLimit(): boolean {
+    return files.length >= MAX_EVIDENCE
+  }
 
+  async function walk(dir: string): Promise<void> {
     let entries
     try {
       entries = await readdir(dir, { withFileTypes: true })
@@ -1482,7 +1476,7 @@ async function collectMockStoreResources(
     }
 
     for (const entry of entries) {
-      if (files.length >= MAX_EVIDENCE) {
+      if (hasReachedMockStoreEvidenceLimit()) {
         return
       }
 
@@ -1935,7 +1929,7 @@ async function writeTaroSummary(projectRoot: string, state: TaroState): Promise<
   await rename(tempPath, summaryPath)
 }
 
-export async function scanProjectState(
+async function scanProjectState(
   projectRoot: string,
   options: ScanStateOptions = {}
 ): Promise<ScanStateResult> {
@@ -2192,6 +2186,21 @@ async function getLatestPackageEvidence(projectRoot: string, profile: TaroPackag
   }
 }
 
+export const __stateTestUtils = {
+  collectMockStoreResources,
+  collectFixtureDirs,
+  collectProviderWrappers,
+  collectRenderHelpers,
+  deriveInteractionContracts,
+  detectMockInstabilityInFiles,
+  findPackageDescriptors,
+  getLatestPackageEvidence,
+  hasReachedMockStoreEvidenceLimit: (fileCount: number) => fileCount >= MAX_EVIDENCE,
+  hasConfigFile,
+  inferFileExtension,
+  scanProjectState,
+}
+
 export async function detectPackageProfileStaleness(
   projectRoot: string,
   profile: TaroPackageProfile
@@ -2205,7 +2214,7 @@ export async function detectPackageProfileStaleness(
     }
   }
 
-  const latestEvidence = await getLatestPackageEvidence(projectRoot, profile)
+  const latestEvidence = await __stateTestUtils.getLatestPackageEvidence(projectRoot, profile)
   if (latestEvidence.latestMtimeMs === 0) {
     return {
       stale: false,

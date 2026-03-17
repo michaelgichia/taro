@@ -1,13 +1,14 @@
-import { readdir, readFile } from 'node:fs/promises'
-import { extname, isAbsolute, join, relative } from 'node:path'
+import { readdir,readFile } from 'node:fs/promises'
+import { extname, join, relative } from 'node:path'
+
 import type {
   ConventionFile,
   ConventionsSchema,
   ImportStyle,
   MockPattern,
-} from '../types/conventions.js'
-import type { RepoRenderTargetCandidate } from '../types/state.js'
-import { DEFAULT_CONVENTIONS } from '../types/conventions.js'
+} from '#types/conventions.ts'
+import { DEFAULT_CONVENTIONS } from '#types/conventions.ts'
+import type { RepoRenderTargetCandidate } from '#types/state.ts'
 
 const SKIP_DIRS = new Set([
   'node_modules',
@@ -101,17 +102,6 @@ export async function analyzeTestFile(filePath: string): Promise<ConventionFile>
     mockPattern,
     hasHelperWithExpect: detectHelperWithExpect(content),
   }
-}
-
-export async function analyzeSingleTestFile(
-  projectRoot: string,
-  filePath: string
-): Promise<ConventionFile> {
-  const normalizedPath = isAbsolute(filePath)
-    ? filePath
-    : join(projectRoot, filePath)
-
-  return analyzeTestFile(normalizedPath)
 }
 
 function detectHelperWithExpect(content: string): boolean {
@@ -257,17 +247,7 @@ export function extractRenderTargetCandidatesFromFile(
   return candidates
 }
 
-export async function discoverRepoRenderTargets(
-  projectRoot: string
-): Promise<RepoRenderTargetCandidate[]> {
-  const testFiles = await readTestFiles(projectRoot)
-
-  return testFiles
-    .flatMap((file) => extractRenderTargetCandidatesFromFile(projectRoot, file))
-    .sort((left, right) => {
-      return (
-        left.sourceTestFile.localeCompare(right.sourceTestFile) ||
-        left.symbol.localeCompare(right.symbol)
-      )
-    })
+export const __conventionIntelligenceTestUtils = {
+  detectFileExtension,
+  detectFolderPattern,
 }

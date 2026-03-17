@@ -1,22 +1,23 @@
 import { createHash } from 'node:crypto'
+
 import type {
   InstallAssetConflict,
   InstallAssetConflictKind,
   InstallAssetKind,
   InstallLocation,
-  InstallOwnershipManifest,
   InstallOwnedFile,
+  InstallOwnershipManifest,
   RuntimeTarget,
-} from './types.js'
+} from '#install/types.ts'
 
-export interface CreateOwnershipManifestParams {
+interface CreateOwnershipManifestParams {
   runtime: RuntimeTarget
   location: InstallLocation
   files: InstallOwnedFile[]
   generatedAt?: string
 }
 
-export interface ClassifyAssetConflictParams {
+interface ClassifyAssetConflictParams {
   targetPath: string
   existingContent?: string | null
   manifest?: InstallOwnershipManifest | null

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-import { readdir, readFile } from 'node:fs/promises'
+import { readdir,readFile } from 'node:fs/promises'
+
 import { findReadableStatePath } from './state-paths.js'
 
 async function readJson(path) {

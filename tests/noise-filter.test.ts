@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { filterNoiseSteps } from './src/parser/steps/noise-filter.js';
-import type { RecordingStep } from './src/types/recording.js';
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import { filterNoiseSteps } from '#parser/steps/noise-filter.ts';
+import type { RecordingStep } from '#types/recording.ts';
 
 describe('filterNoiseSteps', () => {
   beforeEach(() => {
@@ -70,5 +71,50 @@ describe('filterNoiseSteps', () => {
     ];
     const result = filterNoiseSteps(steps);
     expect(result).toHaveLength(5);
+  });
+
+  it('keeps scroll steps without timestamps because they cannot be classified safely', () => {
+    const steps: RecordingStep[] = [
+      { id: 'step_1', type: 'scroll', action: 'scroll', target: 'body', selector: 'body' },
+    ];
+
+    expect(filterNoiseSteps(steps)).toEqual(steps);
+  });
+
+  it('marks filtered noise in metadata when debugging metadata already exists', () => {
+    const steps: RecordingStep[] = [
+      {
+        id: 'step_1',
+        type: 'doubleClick',
+        action: 'doubleClick',
+        target: '#btn',
+        selector: '#btn',
+        metadata: {},
+      },
+      {
+        id: 'step_2',
+        type: 'click',
+        action: 'mouseenter',
+        target: 'body',
+        selector: 'body',
+        metadata: {},
+      },
+    ];
+
+    const result = filterNoiseSteps(steps);
+
+    expect(result).toHaveLength(2);
+    expect(result[0].metadata).toEqual(
+      expect.objectContaining({
+        isNoiseFiltered: true,
+        noiseReason: 'dblClick filtered',
+      })
+    );
+    expect(result[1].metadata).toEqual(
+      expect.objectContaining({
+        isNoiseFiltered: true,
+        noiseReason: 'cursor movement filtered',
+      })
+    );
   });
 });

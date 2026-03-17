@@ -1,3 +1,8 @@
+import {
+  isLabelTextQueryMethod,
+  isPlaceholderTextQueryMethod,
+  isTextQueryMethod,
+} from '#core/query-policy.ts'
 import type {
   AnalyzedRecording,
   IntentGroup,
@@ -9,20 +14,15 @@ import type {
   SemanticMarkerLink,
   SemanticMarkerProofSubject,
   UnresolvedSemanticMarker,
-} from '../types/recording.js'
-import {
-  isLabelTextQueryMethod,
-  isPlaceholderTextQueryMethod,
-  isTextQueryMethod,
-} from './query-policy.js'
+} from '#types/recording.ts'
 
-export interface VisualCaptureCandidate {
+interface VisualCaptureCandidate {
   groupName: string
   reason: 'dialog-state' | 'ambiguous-ui'
   selector?: string
 }
 
-export interface NoiseFilterResult {
+interface NoiseFilterResult {
   steps: NormalizedStep[]
   diagnostics: Pick<
     RecordingDiagnostics,
@@ -460,6 +460,14 @@ function annotateSemanticMarkers(steps: NormalizedStep[]): NormalizedStep[] {
 
     return step
   })
+}
+
+export const __recordingIntelligenceTestUtils = {
+  buildSemanticMarkerAnchor,
+  buildSemanticMarkerLink,
+  findNearestPriorMajorTransitionStep,
+  isIconOnlyText,
+  isMajorTransitionStep,
 }
 
 function isSameClickTarget(current: NormalizedStep, candidate: NormalizedStep): boolean {

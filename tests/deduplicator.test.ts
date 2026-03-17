@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { deduplicateSteps } from './src/parser/steps/deduplicator.js';
-import type { RecordingStep } from './src/types/recording.js';
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import { deduplicateSteps } from '#parser/steps/deduplicator.ts';
+import type { RecordingStep } from '#types/recording.ts';
 
 describe('deduplicateSteps', () => {
   beforeEach(() => {
@@ -60,5 +61,36 @@ describe('deduplicateSteps', () => {
     expect(result).toHaveLength(2);
     expect(result[0].id).toBe('step_1');
     expect(result[1].id).toBe('step_3');
+  });
+
+  it('treats untimestamped duplicate clicks as rapid duplicates and falls back to target matching', () => {
+    const steps: RecordingStep[] = [
+      { id: 'step_1', type: 'doubleClick', action: 'doubleClick', target: '#submit' },
+      { id: 'step_2', type: 'click', action: 'click', target: '#submit' },
+    ];
+
+    expect(deduplicateSteps(steps)).toEqual([steps[0]]);
+  });
+
+  it('stops scanning once a later click is outside the threshold window', () => {
+    const steps: RecordingStep[] = [
+      { id: 'step_1', type: 'click', action: 'click', target: '#submit', selector: '#submit', timestamp: 1000 },
+      { id: 'step_2', type: 'click', action: 'click', target: '#submit', selector: '#submit', timestamp: 1700 },
+      { id: 'step_3', type: 'click', action: 'click', target: '#submit', selector: '#submit', timestamp: 1750 },
+    ];
+
+    const result = deduplicateSteps(steps);
+
+    expect(result).toEqual([steps[0], steps[1]]);
+  });
+
+  it('skips non-click steps while continuing to deduplicate later click clusters', () => {
+    const steps: RecordingStep[] = [
+      { id: 'step_0', type: 'change', action: 'fill', target: '#name', selector: '#name', timestamp: 900 },
+      { id: 'step_1', type: 'click', action: 'click', target: '#submit', selector: '#submit', timestamp: 1000 },
+      { id: 'step_2', type: 'click', action: 'click', target: '#submit', selector: '#submit', timestamp: 1200 },
+    ];
+
+    expect(deduplicateSteps(steps)).toEqual([steps[0], steps[1]]);
   });
 });

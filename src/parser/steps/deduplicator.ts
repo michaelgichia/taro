@@ -8,7 +8,7 @@
  * 4. Return filtered list preserving original order
  */
 
-import type { RecordingStep } from '../../types/recording.js';
+import type { RecordingStep } from '#types/recording.ts';
 
 const RAPID_CLICK_THRESHOLD_MS = 500;
 
@@ -85,5 +85,3 @@ export function deduplicateSteps(steps: RecordingStep[]): RecordingStep[] {
   // Filter out duplicates, preserving original order
   return steps.filter(step => !duplicateIds.has(step.id));
 }
-
-export { deduplicateSteps as default };

@@ -1,5 +1,5 @@
-import type { InstallFileOperation, ResolvedInstallTarget } from '../types.js'
-import { buildPromptRuntimeOperations } from './prompt-runtimes.js'
+import { buildPromptRuntimeOperations } from '#install/runtimes/prompt-runtimes.ts'
+import type { InstallFileOperation, ResolvedInstallTarget } from '#install/types.ts'
 
 export function buildClaudeRuntimeOperations(
   target: ResolvedInstallTarget,

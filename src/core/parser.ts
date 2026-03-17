@@ -5,17 +5,18 @@
  */
 
 import { readFile } from 'node:fs/promises'
+
 import type {
   AssertedEvent,
   ChromeRecorderExport,
-  ChromeStep,
   ChromeRecorderSettings,
-  StepId,
+  ChromeStep,
   NormalizedAction,
   NormalizedRecording,
   NormalizedStep,
-} from '../types/recording.js'
-import { createStepId } from '../types/recording.js'
+  StepId,
+} from '#types/recording.ts'
+import { createStepId } from '#types/recording.ts'
 
 function getFirstSelector(selectors?: string[][]): string | undefined {
   if (!selectors || selectors.length === 0) return undefined

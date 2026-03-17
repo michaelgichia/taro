@@ -5,12 +5,12 @@ import type {
   NormalizedStep,
   ParsedJsInput,
   QueryDescriptor,
+  SelectorDescriptor,
   SemanticMarkerCandidate,
   SemanticMarkerLink,
-  SelectorDescriptor,
   StepId,
   UnresolvedSemanticMarker,
-} from '../types/recording.js'
+} from '#types/recording.ts'
 
 type EvidenceMaps = {
   assertions: Map<StepId, AssertionDescriptor[]>

@@ -1,4 +1,5 @@
 import { stdin, stdout } from 'node:process'
+
 import type {
   InstallCommandOptions,
   InstallLocation,
@@ -7,8 +8,8 @@ import type {
   NormalizedInstallOptions,
   RuntimeLocationSelections,
   RuntimeTarget,
-} from './types.js'
-import { SUPPORTED_RUNTIMES } from './types.js'
+} from '#install/types.ts'
+import { SUPPORTED_RUNTIMES } from '#install/types.ts'
 
 export class InstallValidationError extends Error {
   constructor(message: string) {

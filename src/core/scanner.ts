@@ -3,29 +3,21 @@
  * Persistent convention learning now lives in .taro/state.json via src/core/state.ts.
  */
 
-import pc from 'picocolors'
 import { readFile } from 'node:fs/promises'
+
+import pc from 'picocolors'
+
 import {
-  analyzeSingleTestFile,
-  analyzeTestFile,
-  deriveConventions,
-  discoverRepoRenderTargets,
   findTestFiles,
   readTestFiles,
-} from './convention-intelligence.js'
-import { findRepoFallbackPackageProfile, initTaroState, refreshTaroState, writeTaroState, readTaroState } from './state.js'
-import { findReadableProjectStatePath } from '../project-state.js'
-import { DEFAULT_CONVENTIONS } from '../types/conventions.js'
-import type { ConventionFile, ConventionsSchema } from '../types/conventions.js'
-import type { RepoRenderTargetCandidate } from '../types/state.js'
+} from '#core/convention-intelligence.ts'
+import { findRepoFallbackPackageProfile, initTaroState, readTaroState, refreshTaroState, writeTaroState } from '#core/state.ts'
+import { findReadableProjectStatePath } from '#project-state.ts'
+import type { ConventionFile, ConventionsSchema } from '#types/conventions.ts'
+import { DEFAULT_CONVENTIONS } from '#types/conventions.ts'
 
-export type { RepoRenderTargetCandidate } from '../types/state.js'
-export type { TestFileContent } from './convention-intelligence.js'
+export type { TestFileContent } from '#core/convention-intelligence.ts'
 export {
-  analyzeSingleTestFile,
-  analyzeTestFile,
-  deriveConventions,
-  discoverRepoRenderTargets,
   findTestFiles,
   readTestFiles,
 }

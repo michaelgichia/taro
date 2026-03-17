@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { resolveAssetSource, resolvePackageRoot } from './assets.js'
-import type { InstallFileOperation, ResolvedInstallTarget, RuntimeAssetDefinition } from './types.js'
 
-export const TARO_RUNTIME_COMMAND_PLACEHOLDER = '{{TARO_RUNTIME_COMMAND}}'
+import { resolveAssetSource, resolvePackageRoot } from '#install/assets.ts'
+import type { InstallFileOperation, ResolvedInstallTarget, RuntimeAssetDefinition } from '#install/types.ts'
+
+const TARO_RUNTIME_COMMAND_PLACEHOLDER = '{{TARO_RUNTIME_COMMAND}}'
 
 interface RuntimeLauncherContext {
   packageRoot?: string

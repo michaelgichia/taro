@@ -4,21 +4,10 @@
  */
 
 import * as babelParser from '@babel/parser'
-import _traverse from '@babel/traverse'
 import type { NodePath } from '@babel/traverse'
+import _traverse from '@babel/traverse'
 import * as t from '@babel/types'
-import {
-  createStepId,
-  type AssertionDescriptor,
-  type ItGroup,
-  type NormalizedAction,
-  type NormalizedStep,
-  type QueryDescriptor,
-  type QueryQuality,
-  type SemanticMarkerCandidate,
-  type SemanticMarkerProofSubject,
-  type SelectorDescriptor,
-} from '../types/recording.js'
+
 import {
   classifySupportedQueryMethod,
   isDisplayValueQueryMethod,
@@ -26,7 +15,19 @@ import {
   isRoleQueryMethod,
   isSupportedTestingLibraryQueryMethod,
   isTextQueryMethod,
-} from './query-policy.js'
+} from '#core/query-policy.ts'
+import {
+  type AssertionDescriptor,
+  createStepId,
+  type ItGroup,
+  type NormalizedAction,
+  type NormalizedStep,
+  type QueryDescriptor,
+  type QueryQuality,
+  type SelectorDescriptor,
+  type SemanticMarkerCandidate,
+  type SemanticMarkerProofSubject,
+} from '#types/recording.ts'
 
 // ESM interop for @babel/traverse
 const traverse = (_traverse as any).default ?? _traverse
@@ -57,7 +58,7 @@ export function classifyQuery(method: string): QueryQuality {
  * @param code - The JS file content
  * @returns The URL string or undefined if not found
  */
-export function extractEnvironmentUrl(code: string): string | undefined {
+function extractEnvironmentUrl(code: string): string | undefined {
   const match = code.match(/@jest-environment-options\s*(\{[^}]+\})/)
   if (!match) {
     return undefined
@@ -324,7 +325,7 @@ function mapAssertionKind(subject?: string): AssertionDescriptor['kind'] {
 }
 
 function fallbackDocCommentTitle(code: string): string | undefined {
-  const titleMatch = code.match(/\/\*\*\s*\n\s*\*\s*([^@\*]+)/)
+  const titleMatch = code.match(/\/\*\*\s*\n\s*\*\s*([^@*]+)/)
   const title = titleMatch?.[1]?.trim()
   return title ? title.replace(/\s+at\s+\d{1,2}:\d{2}:\d{2}/, '').replace(/-/g, ' ') : undefined
 }
@@ -468,6 +469,13 @@ function looksLikeVisibleMessage(value?: string): boolean {
   }
 
   return /^(please|saved|success|error|warning|failed|updated|deleted)\b/i.test(value)
+}
+
+export const __jsParserTestUtils = {
+  extractPlainObject,
+  looksLikeConcreteValue,
+  looksLikeVisibleMessage,
+  sliceSource,
 }
 
 function classifySemanticMarkerProofSubject(

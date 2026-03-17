@@ -5,7 +5,7 @@
 
 import * as babelParser from '@babel/parser'
 
-export interface VerificationResult {
+interface VerificationResult {
   valid: boolean
   error?: string
 }

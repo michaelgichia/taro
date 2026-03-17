@@ -1,7 +1,18 @@
 import { mkdir } from 'node:fs/promises'
 import { dirname } from 'node:path'
+
 import pc from 'picocolors'
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright'
+import { type Browser, type BrowserContext, chromium,type Page } from 'playwright'
+
+import {
+  getUnsupportedSelectorReason,
+  isDisplayValueQueryMethod,
+  isLabelTextQueryMethod,
+  isPlaceholderTextQueryMethod,
+  isTestIdQueryMethod,
+  isTextQueryMethod,
+  toSingularAsyncQueryMethod
+} from '#core/query-policy.ts'
 import type {
   DialogState,
   ElementInfo,
@@ -24,21 +35,12 @@ import type {
   StepId,
   UnresolvedSemanticMarker,
   VisualState,
-} from '../types/recording.js'
-import type { TaroPlaywrightAuthStrategy } from '../types/state.js'
-import {
-  getUnsupportedSelectorReason,
-  isDisplayValueQueryMethod,
-  isLabelTextQueryMethod,
-  isPlaceholderTextQueryMethod,
-  isTestIdQueryMethod,
-  isTextQueryMethod,
-  toSingularAsyncQueryMethod
-} from './query-policy.js'
+} from '#types/recording.ts'
+import type { TaroPlaywrightAuthStrategy } from '#types/state.ts'
 
 /**
  * Maps HTML tag names to implied ARIA roles.
- * Used by buildQuery to determine accessible query method.
+ * Used by deriveAccessibleQuery to determine accessible query method.
  */
 const ROLE_MAP: Record<string, string> = {
   button: 'button',
@@ -79,16 +81,43 @@ function escapeSingleQuote(str: string): string {
   return str.replace(/'/g, "\\'")
 }
 
-/**
- * Sanitizes a CSS selector to be used as a testId.
- * Replaces non-alphanumeric characters with hyphens and trims leading/trailing hyphens.
- */
-function sanitizeSelectorForTestId(selector: string): string {
-  return selector.replace(/[^a-zA-Z0-9-]/g, '-').replace(/^-+|-+$/g, '')
-}
-
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unknown error'
+}
+
+function looksLikeCssSelector(target: string): boolean {
+  const normalized = target.trim()
+  if (!normalized) {
+    return false
+  }
+
+  const descendantTagSelector = normalized.split(/\s+/)
+  if (
+    descendantTagSelector.length > 1 &&
+    descendantTagSelector.every((segment) => /^[a-z][a-z0-9-]*$/.test(segment))
+  ) {
+    return true
+  }
+
+  return (
+    /^[#.[]/.test(normalized) ||
+    /^[a-z][a-z0-9-]*(?:[.#[:>+~])/.test(normalized) ||
+    /^(button|input|select|textarea|a|img|h[1-6])$/.test(normalized) ||
+    /^(css|xpath|text|id|data-testid|data-test-id|role)=/i.test(normalized)
+  )
+}
+
+function resolveElementProbeLocator(
+  page: Page,
+  selector: string
+): import('playwright').Locator {
+  if (looksLikeCssSelector(selector)) {
+    return page.locator(selector).first()
+  }
+
+  // Visual-state probes sometimes receive recorder target text such as
+  // "Add Item". Treat those as visible-text checks instead of CSS.
+  return page.getByText(selector, { exact: true }).first()
 }
 
 function isRetryablePlaywrightOpenError(error: unknown): boolean {
@@ -106,26 +135,26 @@ async function waitForRetryDelay(delayMs: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, delayMs))
 }
 
-export interface FoundSelectorInspectionResult {
+interface FoundSelectorInspectionResult {
   status: 'found'
   element: ElementInfo
 }
 
-export interface MissingSelectorInspectionResult {
+interface MissingSelectorInspectionResult {
   status: 'selector-not-found'
 }
 
-export interface FailedSelectorInspectionResult {
+interface FailedSelectorInspectionResult {
   status: 'inspection-failed'
   error: string
 }
 
-export type SelectorInspectionResult =
+type SelectorInspectionResult =
   | FoundSelectorInspectionResult
   | MissingSelectorInspectionResult
   | FailedSelectorInspectionResult
 
-export interface ResolveSelectorOptions {
+interface ResolveSelectorOptions {
   debug?: {
     inspectSource?: SelectorResolutionInspectSource
     phase?: SelectorResolutionPhase
@@ -141,7 +170,7 @@ export interface ResolveSelectorOptions {
 }
 
 async function readElementInfo(page: Page, selector: string): Promise<ElementInfo> {
-  const locator = page.locator(selector).first()
+  const locator = resolveElementProbeLocator(page, selector)
   const elementInfo = await locator.evaluate((el: Element) => {
     const htmlEl = el as HTMLElement
     type LabelableElement =
@@ -381,7 +410,7 @@ function isIconOnlyText(value?: string): boolean {
   return normalized.length <= 2 && !/[a-z0-9]/i.test(normalized)
 }
 
-function getQueryScope(query: QueryDescriptor): string | undefined {
+function getQueryScope(query: QueryDescriptor): string {
   if (query.raw) {
     const match = query.raw.match(/^(.*)\.(?:get|find|query)(?:All)?By[A-Za-z]+\(.+\)$/)
     if (match?.[1]) {
@@ -389,15 +418,7 @@ function getQueryScope(query: QueryDescriptor): string | undefined {
     }
   }
 
-  if (query.queryRoot === 'screen') {
-    return 'screen'
-  }
-
-  if (query.queryRoot === 'within') {
-    return 'screen'
-  }
-
-  return undefined
+  return 'screen'
 }
 
 function buildScopedQueryExpression(
@@ -408,21 +429,14 @@ function buildScopedQueryExpression(
     target?: string
     name?: string
   }
-): string | undefined {
+): string {
   const scope = getQueryScope(query)
-  if (!scope) {
-    return undefined
-  }
 
   if (method === 'findByRole' && options.role && options.name) {
     return `${scope}.${method}('${escapeSingleQuote(options.role)}', { name: '${escapeSingleQuote(options.name)}' })`
   }
 
-  if (!options.target) {
-    return undefined
-  }
-
-  return `${scope}.${method}('${escapeSingleQuote(options.target)}')`
+  return `${scope}.${method}('${escapeSingleQuote(options.target ?? '')}')`
 }
 
 function buildAsyncQueryDescriptor(
@@ -433,11 +447,8 @@ function buildAsyncQueryDescriptor(
     target?: string
     name?: string
   }
-): QueryDescriptor | undefined {
+): QueryDescriptor {
   const raw = buildScopedQueryExpression(query, options.method, options)
-  if (!raw) {
-    return undefined
-  }
 
   return {
     ...query,
@@ -524,10 +535,6 @@ function resolveRoleNameAssertion(
     name: accessibleName,
   })
 
-  if (!asyncQuery) {
-    return undefined
-  }
-
   const assertion = buildAssertion(step, candidate, asyncQuery, 'role-name')
   return assertion
     ? {
@@ -553,10 +560,6 @@ function resolveVisibleTextAssertion(
     method: 'findByText',
     target: proofText,
   })
-
-  if (!asyncQuery) {
-    return undefined
-  }
 
   const assertion = buildAssertion(step, candidate, asyncQuery, 'visible-text')
   return assertion
@@ -587,10 +590,6 @@ function resolveVisibleValueAssertion(
     target: proofText,
   })
 
-  if (!asyncQuery) {
-    return undefined
-  }
-
   const assertion = buildAssertion(step, candidate, asyncQuery, 'visible-value')
   return assertion
     ? {
@@ -610,10 +609,6 @@ function resolveFieldContextAssertion(
   const proofText = normalizeProofText(candidate.proofText ?? query.target ?? candidate.target)
   if (!proofText) {
     return toUnresolvedAssertion(step, 'missing-query', candidate)
-  }
-
-  if (isIconOnlyText(proofText)) {
-    return toUnresolvedAssertion(step, 'icon-only-target', candidate)
   }
 
   if (GENERIC_FIELD_CONTEXT_PATTERN.test(proofText)) {
@@ -979,13 +974,13 @@ export interface CaptureVisualStateAuthOptions {
   strategy: TaroPlaywrightAuthStrategy
 }
 
-export interface CaptureVisualStateExpectations {
+interface CaptureVisualStateExpectations {
   landmarks?: string[]
   title?: string
   url?: string
 }
 
-export interface CaptureVisualStateRecoveryOptions {
+interface CaptureVisualStateRecoveryOptions {
   enabled: boolean
   instructionsPath?: string
   persistedAuthPath?: string
@@ -993,7 +988,7 @@ export interface CaptureVisualStateRecoveryOptions {
   timeoutMs: number
 }
 
-export interface CaptureVisualStateOptions {
+interface CaptureVisualStateOptions {
   auth?: CaptureVisualStateAuthOptions | null
   authRecovery?: CaptureVisualStateRecoveryOptions
   expected?: CaptureVisualStateExpectations
@@ -1438,17 +1433,15 @@ async function attemptAuthRecovery(params: {
         }
       }
 
+      const targetUrl = expected?.url
       if (
         canNavigateToExpectedUrl &&
+        targetUrl &&
         shouldRetryExpectedUrlDuringAuthRecovery({
           expected,
           snapshot,
         })
       ) {
-        const targetUrl = expected?.url
-        if (!targetUrl) {
-          continue
-        }
 
         canNavigateToExpectedUrl = false
         try {
@@ -1726,26 +1719,7 @@ export function deriveAccessibleQuery(info: ElementInfo): QueryResult | null {
   return null
 }
 
-/**
- * Legacy helper retained for scoring/reporting until generation consumes
- * SelectorResolutionResult directly in Phase 14-02.
- */
-export function buildQuery(info: ElementInfo, selector: string): QueryResult {
-  const accessibleQuery = deriveAccessibleQuery(info)
-  if (accessibleQuery) {
-    return accessibleQuery
-  }
-
-  // Priority 5: Fallback to getByTestId (fragile)
-  const sanitized = sanitizeSelectorForTestId(selector)
-  return {
-    method: 'getByTestId',
-    quality: 'fragile' as QueryQuality,
-    query: `screen.getByTestId('${sanitized}')`,
-  }
-}
-
-export async function inspectSelector(
+async function inspectSelector(
   url: string,
   cssSelector: string,
   timeoutMs = 5000
@@ -1947,37 +1921,8 @@ export function selectMatcher(info: ElementInfo, action: string): string {
 }
 
 /**
- * Inspects a single element on a page using a runtime-owned Playwright browser.
- *
- * @param url - URL to navigate to
- * @param cssSelector - CSS selector to locate element
- * @param timeoutMs - Timeout for navigation (default 5000ms)
- * @returns ElementInfo or null if element not found/error occurs
- */
-export async function inspectElement(
-  url: string,
-  cssSelector: string,
-  timeoutMs = 5000
-): Promise<ElementInfo | null> {
-  const inspection = await inspectSelector(url, cssSelector, timeoutMs)
-  if (inspection.status === 'found') {
-    return inspection.element
-  }
-
-  if (inspection.status === 'inspection-failed') {
-    console.warn(
-      pc.yellow('[taro]') +
-        pc.dim(' QRY-02:') +
-        ` Failed to inspect element ${cssSelector} on ${url}: ${inspection.error}`
-    )
-  }
-
-  return null
-}
-
-/**
  * Inspects multiple elements on a page using a single Playwright browser instance.
- * More efficient than calling inspectElement multiple times.
+ * More efficient than opening a fresh browser session per selector.
  *
  * @param url - URL to navigate to
  * @param selectors - Array of CSS selectors to locate elements
@@ -2081,7 +2026,7 @@ export interface ReplayStepDebugTrace {
   timeoutMs: number
 }
 
-export interface ReplayStepResult {
+interface ReplayStepResult {
   debug?: ReplayStepDebugTrace
   replayed: boolean
   warning?: string
@@ -2233,9 +2178,6 @@ export async function replayStep(
       case 'click':
         await resolvedLocator.locator.click({ timeout: timeoutMs })
         break
-      case 'doubleClick':
-        await resolvedLocator.locator.dblclick({ timeout: timeoutMs })
-        break
       case 'fill':
         if (step.value != null) {
           // For fill actions, the recording target is often placeholder text.
@@ -2268,8 +2210,6 @@ export async function replayStep(
       case 'select':
         await resolvedLocator.locator.click({ timeout: timeoutMs })
         break
-      default:
-        return { replayed: true, debug: debugBase }
     }
 
     const playwrightAction =
@@ -2279,9 +2219,7 @@ export async function replayStep(
           ? 'locator.click()'
           : action === 'click'
             ? 'locator.click()'
-            : action === 'doubleClick'
-              ? 'locator.dblclick()'
-              : `${action}()`
+            : `${action}()`
 
     return {
       replayed: true,
@@ -2320,11 +2258,7 @@ export async function replayStep(
                   ? `page.keyboard.press('${escapeSingleQuote(step.key)}')`
                   : action === 'fill' && step.value != null
                     ? `locator.fill('${escapeSingleQuote(step.value)}')`
-                    : action === 'click'
-                      ? 'locator.click()'
-                      : action === 'select'
-                        ? 'locator.click()'
-                        : `${action}()`,
+                    : 'locator.click()',
             result: 'failed',
             error: message,
           }
@@ -2344,18 +2278,11 @@ export function createPageInspector(
   page: Page
 ): (url: string, cssSelector: string, timeoutMs?: number) => Promise<SelectorInspectionResult> {
   return async (_url: string, cssSelector: string, _timeoutMs?: number): Promise<SelectorInspectionResult> => {
-    try {
-      const element = await readOptionalElementInfo(page, cssSelector)
-      if (!element) {
-        return { status: 'selector-not-found' }
-      }
-      return { status: 'found', element }
-    } catch (error) {
-      return {
-        status: 'inspection-failed',
-        error: `Page inspector failed for ${cssSelector}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      }
+    const element = await readOptionalElementInfo(page, cssSelector)
+    if (!element) {
+      return { status: 'selector-not-found' }
     }
+    return { status: 'found', element }
   }
 }
 
