@@ -235,7 +235,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             overrides: context.overrides,
           }),
           onDone: {
-            target: 'refiningProfile',
+            target: 'analyzingRecording',
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             actions: assign(({ event }) => {
               const out = (event as any).output
