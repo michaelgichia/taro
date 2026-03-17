@@ -58,13 +58,13 @@ Read only the files that apply to the current problem:
 
 Keep discovery narrow and deliberate.
 
-- Default cap: inspect at most 5 repo files before generation planning.
+- Default cap: inspect at most 10 repo files before generation planning.
 - Prioritize target source, nearest sibling test, shared mock setup, nearest fixture store, then config.
 - If uncertainty remains after that cap, stop expanding scope and report the limitation instead of scanning blindly.
 
 When you do repo inspection beyond Taro's own console output, report:
 
-- `Surface scan: {N}/5 files`
+- `Surface scan: {N}/10 files`
 - `Selected files: [...]`
 - `Skipped expansions: [...]`
 

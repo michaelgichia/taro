@@ -56,12 +56,12 @@ Execute the Taro generation workflow end-to-end.
 2. Confirm the recording path and stop if the input is missing or not `.js`.
 3. Write the generated test next to the inferred component when the owning render target is resolved. If it is not resolved, write the boundary-draft fallback next to the recording. Do not overwrite an existing intended output.
 4. Keep repository exploration intentionally small:
-   - inspect at most 5 repo files for discovery before generation
-   - `references/*` reads do not count toward the 5-file cap
+   - inspect at most 10 repo files for discovery before generation
+   - `references/*` reads do not count toward the 10-file cap
    - prioritize: target source, nearest sibling test, shared mock setup, nearest fixture store, then config only if needed
-   - if uncertainty remains after 5 files, stop expanding scope and report the limitation explicitly
+   - if uncertainty remains after 10 files, stop expanding scope and report the limitation explicitly
 5. When repo inspection happens, include:
-   - `Surface scan: {N}/5 files`
+   - `Surface scan: {N}/10 files`
    - `Selected files: [...]`
    - `Skipped expansions: [...]`
 6. Recover semantic intent before discussing code changes.
