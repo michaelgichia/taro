@@ -21,6 +21,7 @@ const EXPECTED_SKILLS = [
   '@taro-test/rtl-init',
   '@taro-test/rtl-mocks',
   '@taro-test/rtl-refresh',
+  '@taro-test/rtl-target',
 ] as const
 const EXPECTED_GENERATE_REFERENCES = [
   'assertion-markers.md',
@@ -120,6 +121,7 @@ describe('buildCodexOperations', () => {
     expect(operations.map((operation) => operation.entrypoint)).toContain('$@taro-test/rtl-help')
     expect(operations.map((operation) => operation.entrypoint)).toContain('$@taro-test/rtl-init')
     expect(operations.map((operation) => operation.entrypoint)).toContain('$@taro-test/rtl-generate-i')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('$@taro-test/rtl-target')
     expect(operations.map((operation) => operation.entrypoint)).toContain('$@taro-test/rtl-refresh')
   })
 
@@ -157,6 +159,13 @@ describe('buildCodexOperations', () => {
     expect(interactiveGenerateSkill).toContain(
       `Run \`${target.runtimeCommand} __generate -i <recording-file>\``
     )
+
+    const targetSkill = await readFile(
+      join(target.destinationDirectory, 'skills', '@taro-test', 'rtl-target', 'SKILL.md'),
+      'utf8'
+    )
+    expect(targetSkill).toContain('$@taro-test/rtl-target')
+    expect(targetSkill).toContain(`Run \`${target.runtimeCommand} __target <component-file>\``)
 
     const installedGenerateReferences = (
       await readdir(join(target.destinationDirectory, 'skills', '@taro-test', 'rtl-generate', 'references'))

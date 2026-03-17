@@ -1,0 +1,195 @@
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
+import { stripVTControlCharacters } from 'node:util'
+
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import { createTargetCommand } from '#cli/commands/target.ts'
+
+const sandboxes: string[] = []
+
+afterEach(async () => {
+  await Promise.all(sandboxes.splice(0).map((root) => rm(root, { recursive: true, force: true })))
+})
+
+class ProcessExitSignal {
+  constructor(public readonly code: number) {}
+}
+
+async function createSandbox(label: string) {
+  const root = await mkdtemp(join(tmpdir(), `taro-target-${label}-`))
+  sandboxes.push(root)
+  await mkdir(root, { recursive: true })
+  return root
+}
+
+async function runTarget(
+  args: string[],
+  cwdPath: string,
+  context?: Parameters<typeof createTargetCommand>[0]
+) {
+  const command = createTargetCommand(context)
+  const stderrChunks: string[] = []
+  const stdoutChunks: string[] = []
+  const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
+    stderrChunks.push(String(chunk))
+    return true
+  })
+  const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+    stdoutChunks.push(String(chunk))
+    return true
+  })
+  const exitSpy = vi.spyOn(process, 'exit').mockImplementation((code?: number) => {
+    throw new ProcessExitSignal(code ?? 0)
+  })
+  const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+  const originalCwd = process.cwd()
+  let thrown: unknown
+  let exitCode: number | undefined
+
+  process.chdir(cwdPath)
+
+  try {
+    await command.parseAsync(args, { from: 'user' })
+  } catch (error) {
+    if (error instanceof ProcessExitSignal) {
+      exitCode = error.code
+    } else {
+      thrown = error
+    }
+  } finally {
+    process.chdir(originalCwd)
+    stderrSpy.mockRestore()
+    stdoutSpy.mockRestore()
+    exitSpy.mockRestore()
+    warnSpy.mockRestore()
+    errorSpy.mockRestore()
+  }
+
+  return {
+    errors: stripVTControlCharacters(errorSpy.mock.calls.flat().join('\n')),
+    exitCode,
+    logs: stripVTControlCharacters(stderrChunks.join('')),
+    stdout: stripVTControlCharacters(stdoutChunks.join('')),
+    thrown,
+    warnings: stripVTControlCharacters(warnSpy.mock.calls.flat().join('\n')),
+  }
+}
+
+describe('createTargetCommand', () => {
+  it('generates a colocated test from a default-export component file', async () => {
+    const root = await createSandbox('component-only')
+    const componentPath = join(root, 'src', 'CheckoutForm.tsx')
+    await mkdir(dirname(componentPath), { recursive: true })
+    await writeFile(
+      componentPath,
+      [
+        "export default function CheckoutForm() {",
+        "  return (",
+        "    <form>",
+        "      <h1>Checkout</h1>",
+        "      <label htmlFor='email'>Email</label>",
+        "      <input id='email' type='email' />",
+        "      <button type='submit'>Submit order</button>",
+        "    </form>",
+        "  )",
+        "}",
+        '',
+      ].join('\n'),
+      'utf-8'
+    )
+
+    const result = await runTarget([componentPath], root)
+    const outputPath = join(root, 'src', 'CheckoutForm.test.tsx')
+    const written = await readFile(outputPath, 'utf-8')
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.exitCode).toBe(0)
+    expect(written).toContain("import CheckoutForm from './CheckoutForm'")
+    expect(written).toContain("render(<CheckoutForm />)")
+    expect(written).toContain("expect(screen.getByRole('heading', { name: 'Checkout' }))")
+    expect(written).toContain("expect(screen.getByLabelText('Email'))")
+    expect(written).toContain("expect(screen.getByRole('button', { name: 'Submit order' }))")
+  })
+
+  it('uses the provided component path as the output target even when a recording is supplied', async () => {
+    const root = await createSandbox('recording-backed')
+    const componentPath = join(root, 'src', 'CheckoutForm.tsx')
+    const recordingPath = join(root, 'checkout-flow.js')
+    await mkdir(dirname(componentPath), { recursive: true })
+    await writeFile(
+      componentPath,
+      [
+        'export function CheckoutForm() {',
+        '  return <h1>Checkout</h1>',
+        '}',
+        '',
+      ].join('\n'),
+      'utf-8'
+    )
+    await writeFile(
+      recordingPath,
+      [
+        "const { screen } = require('@testing-library/dom')",
+        "const { default: userEvent } = require('@testing-library/user-event')",
+        '',
+        "test('Checkout flow', async () => {",
+        "  await userEvent.click(screen.getByText('Continue'))",
+        "  expect(screen.getByText('Review order')).toBeInTheDocument()",
+        '})',
+        '',
+      ].join('\n'),
+      'utf-8'
+    )
+
+    const result = await runTarget([componentPath, '--recording', recordingPath], root)
+    const outputPath = join(root, 'src', 'CheckoutForm.test.tsx')
+    const written = await readFile(outputPath, 'utf-8')
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.exitCode).toBe(0)
+    expect(written).toContain("import { CheckoutForm } from './CheckoutForm'")
+    expect(written).toContain("render(<CheckoutForm />)")
+    expect(written).toContain("await user.click(screen.getByText('Continue'))")
+    expect(written).not.toContain('render(<App />)')
+  })
+
+  it('emits blocking findings when the component surface is too opaque to infer safely', async () => {
+    const root = await createSandbox('opaque-component')
+    const componentPath = join(root, 'src', 'DashboardShell.tsx')
+    await mkdir(dirname(componentPath), { recursive: true })
+    await writeFile(
+      componentPath,
+      [
+        'import { LayoutShell } from "./LayoutShell"',
+        '',
+        'export default function DashboardShell() {',
+        '  return <LayoutShell />',
+        '}',
+        '',
+      ].join('\n'),
+      'utf-8'
+    )
+
+    const result = await runTarget([componentPath], root)
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stdout).toContain('=== taro:findings:start ===')
+    expect(result.stdout).toContain('[BLOCKING] component-target')
+    expect(result.stdout).toContain('opaque child components')
+  })
+
+  it('rejects test files as target inputs', async () => {
+    const root = await createSandbox('reject-test-file')
+    const componentPath = join(root, 'src', 'CheckoutForm.test.tsx')
+    await mkdir(dirname(componentPath), { recursive: true })
+    await writeFile(componentPath, 'export default function CheckoutFormTest() { return null }\n', 'utf-8')
+
+    const result = await runTarget([componentPath], root)
+
+    expect(result.exitCode).toBe(2)
+    expect(result.logs).toContain('Target component must be a source module')
+  })
+})

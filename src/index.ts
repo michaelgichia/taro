@@ -16,6 +16,7 @@ import {
   runInstallCommand,
 } from '#cli/commands/install.ts'
 import { createRefreshCommand } from '#cli/commands/refresh.ts'
+import { createTargetCommand } from '#cli/commands/target.ts'
 import { createVersionCommand } from '#cli/commands/version.ts'
 import type { InstallCommandOptions } from '#install/types.ts'
 import { TARO_VERSION } from '#version.ts'
@@ -28,6 +29,8 @@ if (process.argv[2] === '__generate') {
   await createInitCommand().parseAsync(process.argv.slice(3), { from: 'user' })
 } else if (process.argv[2] === '__refresh') {
   await createRefreshCommand().parseAsync(process.argv.slice(3), { from: 'user' })
+} else if (process.argv[2] === '__target') {
+  await createTargetCommand().parseAsync(process.argv.slice(3), { from: 'user' })
 } else {
   applyInstallOptions(program)
 

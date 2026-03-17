@@ -60,6 +60,7 @@ export interface TaroSignal<T> {
 export interface RepoRenderTargetCandidate {
   symbol: string
   importPath: string
+  importKind?: 'default' | 'named'
   sourceTestFile: string
   helperNames: string[]
   usesWithin: boolean

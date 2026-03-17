@@ -44,10 +44,10 @@ That command builds Taro, installs the Codex skill surface into this repo's `./.
 
 ## Runtime Entrypoints
 
-- Claude Code: `/@taro-test/rtl:help`, `/@taro-test/rtl:init`, `/@taro-test/rtl:refresh`, `/@taro-test/rtl:generate`, `/@taro-test/rtl:generate-i`
-- Gemini CLI: `/@taro-test/rtl:help`, `/@taro-test/rtl:init`, `/@taro-test/rtl:refresh`, `/@taro-test/rtl:generate`, `/@taro-test/rtl:generate-i`
-- OpenCode: `/@taro-test/rtl-help`, `/@taro-test/rtl-init`, `/@taro-test/rtl-refresh`, `/@taro-test/rtl-generate`, `/@taro-test/rtl-generate-i`
-- Codex: `$@taro-test/rtl-help`, `$@taro-test/rtl-init`, `$@taro-test/rtl-refresh`, `$@taro-test/rtl-generate`, `$@taro-test/rtl-generate-i`
+- Claude Code: `/@taro-test/rtl:help`, `/@taro-test/rtl:init`, `/@taro-test/rtl:refresh`, `/@taro-test/rtl:generate`, `/@taro-test/rtl:generate-i`, `/@taro-test/rtl:target`
+- Gemini CLI: `/@taro-test/rtl:help`, `/@taro-test/rtl:init`, `/@taro-test/rtl:refresh`, `/@taro-test/rtl:generate`, `/@taro-test/rtl:generate-i`, `/@taro-test/rtl:target`
+- OpenCode: `/@taro-test/rtl-help`, `/@taro-test/rtl-init`, `/@taro-test/rtl-refresh`, `/@taro-test/rtl-generate`, `/@taro-test/rtl-generate-i`, `/@taro-test/rtl-target`
+- Codex: `$@taro-test/rtl-help`, `$@taro-test/rtl-init`, `$@taro-test/rtl-refresh`, `$@taro-test/rtl-generate`, `$@taro-test/rtl-generate-i`, `$@taro-test/rtl-target`
 
 ## Refresh Maintenance
 
@@ -62,11 +62,12 @@ If you need a newer package version first, rerun `pnpm dlx @taro-test/rtl@latest
 
 ## Generation Rules
 
-1. Provide a Testing Library Recorder `.js` export.
+1. Provide a Testing Library Recorder `.js` export for `generate`, or provide a component file path for `target`.
 2. Run the runtime-native `init` entrypoint first when Taro has just been installed or reinstalled.
 3. When Taro infers the owning render target, it must write the generated test next to the inferred component.
-4. If no render target can be inferred, the fallback boundary draft is written next to the recording. Existing generated outputs are never overwritten.
-5. Draft-quality output is reported explicitly through score, blockers, and boundary warnings.
+4. When `target` is used, Taro must write the generated test next to the supplied component.
+5. If no render target can be inferred, the fallback boundary draft is written next to the recording. Existing generated outputs are never overwritten.
+6. Draft-quality output is reported explicitly through score, blockers, and boundary warnings.
 
 The exact module execution order for generation is documented in [PIPELINE.md](./PIPELINE.md).
 

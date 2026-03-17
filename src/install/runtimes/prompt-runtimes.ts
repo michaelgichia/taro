@@ -40,6 +40,13 @@ const PROMPT_RUNTIME_ASSETS: Record<PromptRuntimeTarget, RuntimeAssetDefinition[
       entrypoint: '/@taro-test/rtl:generate-i',
     },
     {
+      id: 'target',
+      kind: 'command',
+      sourceSegments: ['commands', 'claude', '@taro-test', 'rtl', 'target.md'],
+      destinationSegments: ['commands', '@taro-test', 'rtl', 'target.md'],
+      entrypoint: '/@taro-test/rtl:target',
+    },
+    {
       id: 'refresh',
       kind: 'command',
       sourceSegments: ['commands', 'claude', '@taro-test', 'rtl', 'refresh.md'],
@@ -83,6 +90,13 @@ const PROMPT_RUNTIME_ASSETS: Record<PromptRuntimeTarget, RuntimeAssetDefinition[
       entrypoint: '/@taro-test/rtl:generate-i',
     },
     {
+      id: 'target',
+      kind: 'command',
+      sourceSegments: ['commands', 'gemini', '@taro-test', 'rtl', 'target.toml'],
+      destinationSegments: ['commands', '@taro-test', 'rtl', 'target.toml'],
+      entrypoint: '/@taro-test/rtl:target',
+    },
+    {
       id: 'refresh',
       kind: 'command',
       sourceSegments: ['commands', 'gemini', '@taro-test', 'rtl', 'refresh.toml'],
@@ -118,6 +132,13 @@ const PROMPT_RUNTIME_ASSETS: Record<PromptRuntimeTarget, RuntimeAssetDefinition[
       sourceSegments: ['commands', 'opencode', '@taro-test', 'rtl-generate-i.md'],
       destinationSegments: ['commands', '@taro-test', 'rtl-generate-i.md'],
       entrypoint: '/@taro-test/rtl-generate-i',
+    },
+    {
+      id: 'target',
+      kind: 'command',
+      sourceSegments: ['commands', 'opencode', '@taro-test', 'rtl-target.md'],
+      destinationSegments: ['commands', '@taro-test', 'rtl-target.md'],
+      entrypoint: '/@taro-test/rtl-target',
     },
     {
       id: 'refresh',

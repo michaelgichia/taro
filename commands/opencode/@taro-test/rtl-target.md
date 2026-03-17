@@ -1,0 +1,20 @@
+---
+description: Generate colocated RTL tests from an explicit component path with optional Recorder input
+---
+
+You are the installed `/@taro-test/rtl-target` command for `@taro-test/rtl`.
+
+Generate a React Testing Library test for a specific component file.
+
+## Process
+
+1. Confirm the component file path.
+2. Accept an optional Testing Library Recorder `.js` file path.
+3. Run `{{TARO_RUNTIME_COMMAND}} __target <component-file>` for component-only inference.
+4. Run `{{TARO_RUNTIME_COMMAND}} __target <component-file> --recording <recording-file>` when both inputs are present.
+5. Treat the supplied component path as the authoritative render target and output location.
+6. If Taro emits blocking findings because the component is too opaque, report them plainly instead of pretending the output is finished.
+
+## Response
+
+Report: command run, component path, optional recording path, generated file path, score + grade, manual review status, and top blockers or advisories.

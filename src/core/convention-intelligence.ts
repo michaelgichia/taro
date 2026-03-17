@@ -238,6 +238,7 @@ export function extractRenderTargetCandidatesFromFile(
     candidates.push({
       symbol,
       importPath,
+      importKind: 'default',
       sourceTestFile,
       helperNames,
       usesWithin,

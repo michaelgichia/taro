@@ -32,6 +32,13 @@ const CODEX_SKILL_ASSETS: RuntimeAssetDefinition[] = [
     entrypoint: '$@taro-test/rtl-generate-i',
   },
   {
+    id: 'target',
+    kind: 'skill',
+    sourceSegments: ['agents', 'taro-target.md'],
+    destinationSegments: ['skills', '@taro-test', 'rtl-target', 'SKILL.md'],
+    entrypoint: '$@taro-test/rtl-target',
+  },
+  {
     id: 'refresh',
     kind: 'skill',
     sourceSegments: ['agents', 'taro-refresh.md'],

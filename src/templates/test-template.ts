@@ -8,6 +8,7 @@ import type { NormalizedAction } from '#types/recording.ts'
 interface RenderTargetImport {
   symbol: string
   importPath: string
+  importKind?: 'default' | 'named'
 }
 
 interface RenderHelperImport {
@@ -51,7 +52,9 @@ export function importBlock(
     }
     if (options.renderTarget) {
       lines.push(
-        `const ${options.renderTarget.symbol} = require('${options.renderTarget.importPath}').default`
+        options.renderTarget.importKind === 'named'
+          ? `const { ${options.renderTarget.symbol} } = require('${options.renderTarget.importPath}')`
+          : `const ${options.renderTarget.symbol} = require('${options.renderTarget.importPath}').default`
       )
     }
     if (options.renderHelper) {
@@ -72,7 +75,11 @@ export function importBlock(
     lines.push("import userEvent from '@testing-library/user-event'")
   }
   if (options.renderTarget) {
-    lines.push(`import ${options.renderTarget.symbol} from '${options.renderTarget.importPath}'`)
+    lines.push(
+      options.renderTarget.importKind === 'named'
+        ? `import { ${options.renderTarget.symbol} } from '${options.renderTarget.importPath}'`
+        : `import ${options.renderTarget.symbol} from '${options.renderTarget.importPath}'`
+    )
   }
   if (options.renderHelper) {
     lines.push(

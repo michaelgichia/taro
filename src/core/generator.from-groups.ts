@@ -191,6 +191,7 @@ export function generateTestFromGroups(
       ? {
           symbol: renderTarget.symbol,
           importPath: renderTarget.importPath,
+          importKind: renderTarget.importKind,
         }
       : null,
     renderHelper: renderHelper
