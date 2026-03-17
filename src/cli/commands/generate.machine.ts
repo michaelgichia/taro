@@ -220,6 +220,13 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
         },
       },
       refreshingProfile: {
+        entry: ({ context }: CtxArg) => {
+          const profilePath = context.packageProfile?.packagePath ?? '.'
+          log(pc.dim('[taro]') + ` Detected stale package profile ${profilePath}; refreshing before generation.`)
+          if (context.staleness?.reason) {
+            console.warn(pc.yellow(context.staleness.reason))
+          }
+        },
         invoke: {
           src: 'refreshProfileActor',
           input: ({ context }: CtxArg) => ({
@@ -248,15 +255,20 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
         entry: ({ context }: CtxArg) => {
           if (context.bootstrappedState?.summary.warnings.length) {
             for (const w of context.bootstrappedState.summary.warnings) {
-              process.stderr.write(pc.yellow(`[taro] State: ${w}`) + '\n')
+              console.warn(pc.yellow(w))
             }
           }
           if (context.hadState === false) log(pc.dim('[taro]') + ' Bootstrapped .taro/state.json from current repo tests.')
-          if (context.contextMatches?.length) log(pc.dim('[taro]') + ` Context matches found.`)
+          if (context.contextMatches?.length) {
+            log(pc.dim('[taro]') + ` Context matches:\n${formatContextMatchesSummary(context.contextMatches)}`)
+          }
           if (context.contextProfileReason && context.packageProfile) {
             log(pc.dim('[taro]') + ` Context-selected package profile ${context.packageProfile.packagePath}: ${context.contextProfileReason}.`)
           }
           summarizeResolvedPackageProfile(context.packageProfile ?? null)
+          if (context.packageProfile?.appliedOverrides?.length) {
+            log(pc.dim('[taro]') + ` Applied overrides for ${context.packageProfile.packagePath}: ${context.packageProfile.appliedOverrides.join(', ')}`)
+          }
           summarizePlaywrightAuth(context.packageProfile ?? null)
           if (context.normalizedRecording) {
             log(pc.green('Parsed:') + ` ${pc.bold(context.normalizedRecording.title)} — ${context.normalizedRecording.steps.length} steps`)
@@ -270,6 +282,8 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             projectRoot: context.projectRoot,
             visualState: context.visualState,
             visualAuth: context.visualAuth,
+            explicitAuthPath: context.explicitAuthPath,
+            explicitInstructionsPath: context.explicitInstructionsPath,
           }),
           onDone: {
             target: 'analyzingMocks',
@@ -346,7 +360,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
       resolvingSelectors: {
         entry: ({ context }: CtxArg) => {
           if (context.boundarySupportPlan?.warnings.length) {
-            for (const w of context.boundarySupportPlan.warnings) process.stderr.write(pc.yellow(`[taro] Boundary support: ${w}`) + '\n')
+            for (const w of context.boundarySupportPlan.warnings) console.warn(pc.yellow(w))
           }
           if (context.jsSuitePlan) {
             summarizeBoundaryWarnings(context.jsSuitePlan.warnings)
@@ -448,7 +462,12 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             },
           ],
           // intentional: preserve existing on assessment error
-          onError: { target: 'done' },
+          onError: {
+            target: 'done',
+            actions: () => {
+              console.warn(pc.yellow('Existing output could not be assessed cleanly, so Taro will preserve it instead of overwriting blindly.'))
+            },
+          },
         },
       },
       writing: {
@@ -471,10 +490,10 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
           emitMarkerPlacementCorrections(context.hydratedSuitePlan ?? null)
           emitUnresolvedMarkerWarnings(context.hydratedSuitePlan ?? null)
           for (const w of context.boundaryPolicyWarnings ?? []) {
-            process.stderr.write(pc.yellow(`[taro] Boundary policy: ${w}`) + '\n')
+            console.warn(pc.yellow(`Boundary policy: ${w}`))
           }
           if (context.boundarySupportPlan?.requiresReview) {
-            process.stderr.write(pc.yellow('[taro] Boundary support requires manual review because one or more collaborators were scaffolded with generic defaults.') + '\n')
+            console.warn(pc.yellow('Boundary support requires manual review because one or more collaborators were scaffolded with generic defaults.'))
           }
         },
         invoke: {

@@ -2970,7 +2970,7 @@ export type RefineProfileActorInput = Pick<GenerateMachineContext,
 export type RefreshProfileActorInput = Pick<GenerateMachineContext,
   'projectRoot' | 'contextMatches' | 'overrides'>
 export type AnalyzeRecordingActorInput = Pick<GenerateMachineContext,
-  'normalizedRecording' | 'packageProfile' | 'projectRoot' | 'visualState' | 'visualAuth'>
+  'normalizedRecording' | 'packageProfile' | 'projectRoot' | 'visualState' | 'visualAuth' | 'explicitAuthPath' | 'explicitInstructionsPath'>
 export type AnalyzeMocksActorInput = Pick<GenerateMachineContext,
   'projectRoot' | 'packageProfile'>
 export type PlanGenerationActorInput = Pick<GenerateMachineContext,
@@ -2992,8 +2992,9 @@ export type FinalizeActorInput = Pick<GenerateMachineContext,
 
 // Guards
 export const generateMachineGuards = {
-  isProfileStale: ({ context }: { context: GenerateMachineContext }) =>
-    Boolean(context.staleness?.stale),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  isProfileStale: ({ context, event }: { context: GenerateMachineContext; event: any }) =>
+    Boolean(event.output?.staleness?.stale ?? context.staleness?.stale),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   shouldWrite: ({ context, event }: { context: GenerateMachineContext; event: any }) => {
     const existingCode = event.output?.existingCode ?? context.existingCode

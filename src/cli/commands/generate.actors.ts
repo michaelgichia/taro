@@ -238,7 +238,7 @@ export const refreshProfileActor = fromPromise(
 
 export const analyzeRecordingActor = fromPromise(
   async ({ input }: { input: AnalyzeRecordingActorInput }) => {
-    const { normalizedRecording, packageProfile, projectRoot, visualState, visualAuth } = input
+    const { normalizedRecording, packageProfile, projectRoot, visualState, visualAuth, explicitAuthPath, explicitInstructionsPath } = input
     const analyzedRecording = analyzeRecording(normalizedRecording!)
     const markerAwareRecording = mergeAnalyzedStepState(normalizedRecording!, analyzedRecording)
     const recoveredVisualAuth = await persistRecoveredVisualAuth({
@@ -246,6 +246,30 @@ export const analyzeRecordingActor = fromPromise(
       projectRoot,
       visualState: visualState ?? null,
     })
+
+    // Persist explicit auth (--auth or --instructions flag) if a package profile is available
+    const explicitAuth = explicitAuthPath ?? explicitInstructionsPath
+    if (explicitAuth && visualAuth) {
+      if (!packageProfile) {
+        console.warn(pc.yellow('Visual auth: using the explicit auth path for this run, but no package profile was available to persist it.'))
+      } else {
+        try {
+          const persisted = await persistPlaywrightAuthProfile(projectRoot, packageProfile.packagePath, visualAuth)
+          if (persisted) {
+            process.stderr.write(
+              pc.dim('[taro]') +
+                ` Persisted visual auth for package ${packageProfile.packagePath}: ${visualAuth.strategy}=${visualAuth.path}` +
+                '\n'
+            )
+          } else {
+            console.warn(pc.yellow('Visual auth: resolved the auth path for this run but could not persist it in state.'))
+          }
+        } catch {
+          console.warn(pc.yellow('Visual auth: resolved the auth path for this run but could not persist it in state.'))
+        }
+      }
+    }
+
     const updatedVisualAuth = recoveredVisualAuth ?? visualAuth ?? null
     return {
       analyzedRecording,
@@ -436,8 +460,13 @@ export const assessOutputActor = fromPromise(
     let existingCode: string | null = null
     try {
       existingCode = await readFile(outputPath!, 'utf-8')
-    } catch {
-      return { existingCode: null, existingAssessment: null, shouldOverwrite: true }
+    } catch (err: unknown) {
+      const code = (err as NodeJS.ErrnoException)?.code
+      if (code === 'ENOENT') {
+        return { existingCode: null, existingAssessment: null, shouldOverwrite: true }
+      }
+      // Other errors (EISDIR, EACCES, etc.) — cannot assess, preserve existing
+      throw err
     }
     const existingAssessment = await assessOutputAgainstRecording({
       analyzedRecording: analyzedRecording!,
