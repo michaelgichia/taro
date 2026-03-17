@@ -1,13 +1,14 @@
 import { readFile } from 'node:fs/promises'
 import { extname } from 'node:path'
-import { parseJsRecording, type JsParseResult } from './js-parser.js'
+
+import { type JsParseResult, parseJsRecording } from '#core/js-parser.ts'
 import {
   createStepId,
   type NormalizedRecording,
   type NormalizedStep,
   type ParsedJsInput,
   type RecordingSource,
-} from '../types/recording.js'
+} from '#types/recording.ts'
 
 const JSON_EXTENSIONS = new Set(['.json'])
 const JS_EXTENSIONS = new Set(['.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx'])

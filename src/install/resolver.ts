@@ -1,8 +1,9 @@
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { buildRuntimeCommand, resolveRuntimeEntrypointPath } from './runtime-launcher.js'
-import type { InstallSelection, ResolvedInstallTarget } from './types.js'
-import { RUNTIME_REGISTRY } from './registry.js'
+
+import { RUNTIME_REGISTRY } from '#install/registry.ts'
+import { buildRuntimeCommand, resolveRuntimeEntrypointPath } from '#install/runtime-launcher.ts'
+import type { InstallSelection, ResolvedInstallTarget } from '#install/types.ts'
 
 interface ResolveInstallTargetsContext {
   cwd?: string

@@ -10,7 +10,7 @@
  * - click, fill, select, change, navigate, keyPress, assert
  */
 
-import type { RecordingStep, StepType } from '../../types/recording.js';
+import type { RecordingStep, StepType } from '#types/recording.ts';
 
 const INTENTIONAL_SCROLL_THRESHOLD_MS = 2000;
 
@@ -32,13 +32,6 @@ const INTENTIONAL_STEP_TYPES: StepType[] = [
   'waitForSelector',
   'keyDown',
   'navigate',
-];
-
-/**
- * Step types that might be noise depending on context
- */
-const POTENTIALLY_NOISE_STEP_TYPES: StepType[] = [
-  'scroll',
 ];
 
 /**
@@ -157,5 +150,3 @@ export function filterNoiseSteps(steps: RecordingStep[]): RecordingStep[] {
 
   return filteredSteps;
 }
-
-export { filterNoiseSteps as default };

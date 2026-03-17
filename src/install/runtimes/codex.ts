@@ -1,6 +1,6 @@
-import { TARO_REFERENCE_FILES } from '../reference-files.js'
-import { buildRuntimeOperationsFromAssets } from '../runtime-launcher.js'
-import type { InstallFileOperation, ResolvedInstallTarget, RuntimeAssetDefinition } from '../types.js'
+import { TARO_REFERENCE_FILES } from '#install/reference-files.ts'
+import { buildRuntimeOperationsFromAssets } from '#install/runtime-launcher.ts'
+import type { InstallFileOperation, ResolvedInstallTarget, RuntimeAssetDefinition } from '#install/types.ts'
 
 const CODEX_SKILL_ASSETS: RuntimeAssetDefinition[] = [
   {

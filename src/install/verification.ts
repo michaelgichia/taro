@@ -1,7 +1,8 @@
 import { execFile } from 'node:child_process'
 import { access } from 'node:fs/promises'
 import { promisify } from 'node:util'
-import type { PlannedInstallTarget, RuntimeVerificationResult } from './types.js'
+
+import type { PlannedInstallTarget, RuntimeVerificationResult } from '#install/types.ts'
 
 const execFileAsync = promisify(execFile)
 

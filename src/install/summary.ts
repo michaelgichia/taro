@@ -1,13 +1,15 @@
 import { homedir } from 'node:os'
 import { relative } from 'node:path'
-import { createInterface } from 'node:readline/promises'
 import { stdin, stdout } from 'node:process'
+import { createInterface } from 'node:readline/promises'
+
 import pc from 'picocolors'
+
 import type {
   InstallExecutionResult,
   InstallPlan,
   ResolvedInstallTarget,
-} from './types.js'
+} from '#install/types.ts'
 
 interface PromptIO {
   input?: typeof stdin

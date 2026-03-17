@@ -13,7 +13,7 @@
  * Time window: related steps within 30s are grouped
  */
 
-import type { RecordingStep, StepType } from '../../types/recording.js';
+import type { RecordingStep } from '#types/recording.ts';
 
 export type DialogType = 'modal' | 'drawer' | 'popover' | 'confirm' | 'form';
 
@@ -343,5 +343,3 @@ export function groupDialogSteps(steps: RecordingStep[]): DialogFlow[] {
 export function resetDialogIdCounter(): void {
   dialogIdCounter = 0;
 }
-
-export default groupDialogSteps;

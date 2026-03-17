@@ -4,21 +4,24 @@
  */
 
 import { Command } from 'commander';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
-import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
-import { parseRecording } from './parser.js';
-import type { AccessibilityProperties } from '../analyzer/visual/element-analyzer.js';
-import type { NormalizedRecording } from '../types/recording.js';
-import { detectApiCalls, filterMockableCalls, groupApiCallsByDomain, type ApiCallInfo } from '../analyzer/mocks/detector.js';
-import { analyzeMockTargets, type MockTarget } from '../analyzer/mocks/target-analyzer.js';
-import { buildMocks, generateMockFile, type MockDecision } from '../generator/mocks/builder.js';
-import { orchestrateWithScoring, preWriteAudit, postWriteVerification, scoreTest } from '../scorer/index.js';
-import { learnConventions, getConventions } from '../learner/index.js';
+
+import { type ApiCallInfo, detectApiCalls, groupApiCallsByDomain } from '#analyzer/mocks/detector.ts';
+import { analyzeMockTargets,type MockTarget } from '#analyzer/mocks/target-analyzer.ts';
+import type { AccessibilityProperties } from '#analyzer/visual/element-analyzer.ts';
+import { parseRecording } from '#core/parser.ts';
+import { buildMocks,type MockDecision } from '#generator/mocks/builder.ts';
+import { getConventions, learnConventions } from '#learner/index.ts';
+import { scoreTest } from '#scorer/index.ts';
+import { postWriteVerification } from '#scorer/post-verify.ts';
+import { preWriteAudit } from '#scorer/pre-audit.ts';
+import type { NormalizedRecording } from '#types/recording.ts';
 
 /**
  * Visual inspection context passed to generator
  */
-export interface VisualInspectionContext {
+interface VisualInspectionContext {
   enabled: boolean;
   url?: string;
   elements?: Map<string, AccessibilityProperties>;
@@ -28,7 +31,7 @@ export interface VisualInspectionContext {
 /**
  * Mock inspection context passed to generator
  */
-export interface MockInspectionContext {
+interface MockInspectionContext {
   enabled: boolean;
   apiCalls?: ApiCallInfo[];
   mockTargets?: MockTarget[];
@@ -38,7 +41,7 @@ export interface MockInspectionContext {
 /**
  * Main orchestrator options
  */
-export interface OrchestratorOptions {
+interface OrchestratorOptions {
   recordingPath: string;
   outputPath?: string;
   visual?: boolean;
@@ -163,7 +166,7 @@ export async function run(options: OrchestratorOptions): Promise<void> {
     // 4f: Learn from generated test for future runs
     console.log('   📚 Learning conventions from generated test...');
     try {
-      const conventions = learnConventions(process.cwd());
+      learnConventions(process.cwd());
       console.log(`   ✓ Convention learning complete`);
     } catch (error) {
       console.log(`   ⚠ Convention learning skipped: ${error instanceof Error ? error.message : 'Unknown error'}`);

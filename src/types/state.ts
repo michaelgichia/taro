@@ -1,19 +1,19 @@
 import type {
   ConventionsSchema,
+  ImportStyle,
   InteractionContractKind,
   InteractionContractPattern,
-  ImportStyle,
   MockInstabilityWarning,
   MockPattern,
   MockRecommendation,
   MockTargetUsage,
   MutationLifecyclePattern,
-} from './conventions.js'
+} from '#types/conventions.ts'
 import type {
   ScoreDimensions,
   ScoreReason,
   ScoreSignals,
-} from './score.js'
+} from '#types/score.ts'
 
 export type TaroStateConfidence = 'low' | 'medium' | 'high'
 export type TaroTestRunner = 'vitest' | 'jest' | 'unknown'

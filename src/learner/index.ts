@@ -9,17 +9,13 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { findReadableProjectStatePathSync } from '../project-state.js';
-import { extractConventions } from './analyzer.js';
-import { ConventionStore, createStore } from './storage.js';
-import {
-  TestConvention,
-  ConventionKey,
-  createEmptyConvention
-} from './types.js';
 
-export type { TestConvention, ConventionKey };
-export { createEmptyConvention, ConventionStore, createStore };
+import { extractConventions } from '#learner/analyzer.ts';
+import { ConventionStore, createStore } from '#learner/storage.ts';
+import {
+  createEmptyConvention,
+  TestConvention} from '#learner/types.ts';
+import { findReadableProjectStatePathSync } from '#project-state.ts';
 
 /**
  * Find test directories in a project
@@ -284,11 +280,3 @@ export class InMemoryConventionStore {
     target.imports.common = Array.from(importSet);
   }
 }
-
-export default {
-  learnConventions,
-  getConventions,
-  ConventionStore,
-  InMemoryConventionStore,
-  createStore
-};

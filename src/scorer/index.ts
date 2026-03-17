@@ -2,13 +2,14 @@
  * Main scorer module - orchestrates test quality evaluation
  */
 
-import { writeFileSync, existsSync } from 'fs';
-import { evaluateQualityGates } from './quality-gates.js';
-import { preWriteAudit, AuditResult } from './pre-audit.js';
-import { postWriteVerification, VerificationResult } from './post-verify.js';
-import { QualityScore, ScoringResult } from './types.js';
+import { writeFileSync } from 'fs';
 
-export interface Recording {
+import { postWriteVerification,VerificationResult } from '#scorer/post-verify.ts';
+import { AuditResult, preWriteAudit } from '#scorer/pre-audit.ts';
+import { evaluateQualityGates } from '#scorer/quality-gates.ts';
+import { QualityScore, ScoringResult } from '#scorer/types.ts';
+
+interface Recording {
   id: string;
   name: string;
   steps: Array<{
@@ -18,13 +19,13 @@ export interface Recording {
   }>;
 }
 
-export interface OrchestrateOptions {
+interface OrchestrateOptions {
   recording: Recording;
   outputPath: string;
   generateTest: (recording: Recording) => string;
 }
 
-export interface OrchestrateResult {
+interface OrchestrateResult {
   success: boolean;
   outputPath?: string;
   audit?: AuditResult;
@@ -112,8 +113,3 @@ export function orchestrateWithScoring(options: OrchestrateOptions): Orchestrate
     score
   };
 }
-
-export { QualityScore, QualityIssue, QualityCriteria } from './types.js';
-export { evaluateQualityGates } from './quality-gates.js';
-export { preWriteAudit, AuditResult } from './pre-audit.js';
-export { postWriteVerification, VerificationResult } from './post-verify.js';

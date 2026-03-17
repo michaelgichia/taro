@@ -5,8 +5,8 @@
  * selected mock library (MSW, jest.fn, sinon, etc.)
  */
 
-import type { MockTarget } from '../../analyzer/mocks/target-analyzer.js';
-import type { ApiCallInfo } from '../../analyzer/mocks/detector.js';
+import type { ApiCallInfo } from '#analyzer/mocks/detector.ts';
+import type { MockTarget } from '#analyzer/mocks/target-analyzer.ts';
 
 /**
  * Decision about how to generate the mock
@@ -45,7 +45,7 @@ const SAMPLE_RESPONSES: Record<string, unknown> = {
 /**
  * Generate mock code for MSW (Mock Service Worker)
  */
-function buildMswMock(target: MockTarget, apiCall: ApiCallInfo): MockDecision {
+function buildMswMock(target: MockTarget): MockDecision {
   const imports: string[] = ['http', 'HttpResponse'];
   const method = target.method.toLowerCase();
   
@@ -97,7 +97,7 @@ function buildMswMock(target: MockTarget, apiCall: ApiCallInfo): MockDecision {
 /**
  * Generate mock code for jest.fn()
  */
-function buildJestFnMock(target: MockTarget, apiCall: ApiCallInfo): MockDecision {
+function buildJestFnMock(target: MockTarget): MockDecision {
   const responseType = inferResponseType(target.url);
   const sampleResponse = SAMPLE_RESPONSES[responseType] || SAMPLE_RESPONSES.json;
 
@@ -131,7 +131,7 @@ function buildJestFnMock(target: MockTarget, apiCall: ApiCallInfo): MockDecision
 /**
  * Generate mock code for sinon
  */
-function buildSinonMock(target: MockTarget, apiCall: ApiCallInfo): MockDecision {
+function buildSinonMock(target: MockTarget): MockDecision {
   const responseType = inferResponseType(target.url);
   const sampleResponse = SAMPLE_RESPONSES[responseType] || SAMPLE_RESPONSES.json;
 
@@ -153,7 +153,7 @@ sinon.restore();`,
 /**
  * Generate mock code for fetch-mock
  */
-function buildFetchMockMock(target: MockTarget, apiCall: ApiCallInfo): MockDecision {
+function buildFetchMockMock(target: MockTarget): MockDecision {
   const responseType = inferResponseType(target.url);
   const sampleResponse = SAMPLE_RESPONSES[responseType] || SAMPLE_RESPONSES.json;
 
@@ -173,7 +173,7 @@ ${mockCode};`,
 /**
  * Generate mock code for nock
  */
-function buildNockMock(target: MockTarget, apiCall: ApiCallInfo): MockDecision {
+function buildNockMock(target: MockTarget): MockDecision {
   const responseType = inferResponseType(target.url);
   const sampleResponse = SAMPLE_RESPONSES[responseType] || SAMPLE_RESPONSES.json;
 
@@ -196,7 +196,7 @@ nock.cleanAll();`,
 /**
  * Generate mock code for undici MockAgent
  */
-function buildUndiciMock(target: MockTarget, apiCall: ApiCallInfo): MockDecision {
+function buildUndiciMock(target: MockTarget): MockDecision {
   const responseType = inferResponseType(target.url);
   const sampleResponse = SAMPLE_RESPONSES[responseType] || SAMPLE_RESPONSES.json;
 
@@ -267,23 +267,23 @@ function getPath(url: string): string {
 /**
  * Main function to build mock code from a mock target
  */
-export function buildMock(target: MockTarget, apiCall: ApiCallInfo): MockDecision {
+export function buildMock(target: MockTarget, _apiCall: ApiCallInfo): MockDecision {
   switch (target.mockLibrary) {
     case 'msw':
-      return buildMswMock(target, apiCall);
+      return buildMswMock(target);
     case 'jest.fn':
-      return buildJestFnMock(target, apiCall);
+      return buildJestFnMock(target);
     case 'sinon':
-      return buildSinonMock(target, apiCall);
+      return buildSinonMock(target);
     case 'fetch-mock':
-      return buildFetchMockMock(target, apiCall);
+      return buildFetchMockMock(target);
     case 'nock':
-      return buildNockMock(target, apiCall);
+      return buildNockMock(target);
     case 'undici':
-      return buildUndiciMock(target, apiCall);
+      return buildUndiciMock(target);
     default:
       // Default to jest.fn
-      return buildJestFnMock(target, apiCall);
+      return buildJestFnMock(target);
   }
 }
 
@@ -377,13 +377,8 @@ export function generateMockFile(
  * Generate inline mock code for a single test
  */
 export function generateInlineMock(
-  decision: MockDecision,
-  options?: {
-    framework?: 'vitest' | 'jest';
-  }
+  decision: MockDecision
 ): string {
-  const framework = options?.framework || 'jest';
-
   let code = '';
 
   // Add imports if inline

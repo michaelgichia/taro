@@ -1,25 +1,25 @@
-import type { MockAnalysis } from './mock-intelligence.js'
-import { resolveSemanticMarkerAssertion } from './resolver.js'
+import type { MockAnalysis } from '#core/mock-intelligence.ts'
+import { resolveSemanticMarkerAssertion } from '#core/resolver.ts'
 import type {
   AnalyzedRecording,
   ItGroup,
   JsDetectedInteractionContract,
   JsHelperPlan,
   JsInteractionCompanionState,
-  PlannedMarkerAssertion,
-  PlannedMarkerAssertionDiagnostics,
   JsScenarioPlan,
   JsStateSafetyAssessment,
   NormalizedRecording,
   NormalizedStep,
+  PlannedMarkerAssertion,
+  PlannedMarkerAssertionDiagnostics,
   SemanticMarkerCandidate,
   StepId,
   UnresolvedSemanticMarker,
   UnresolvedSemanticMarkerAssertionResolution,
-} from '../types/recording.js'
+} from '#types/recording.ts'
 
-export type RenderBoundaryKind = 'module' | 'component' | 'unknown'
-export type BoundaryConfidence = 'high' | 'medium' | 'low'
+type RenderBoundaryKind = 'module' | 'component' | 'unknown'
+type BoundaryConfidence = 'high' | 'medium' | 'low'
 
 export interface RenderBoundaryAssessment {
   kind: RenderBoundaryKind
@@ -581,7 +581,7 @@ function assessStateSafety(params: {
   }
 }
 
-export function assessRenderBoundary(params: {
+function assessRenderBoundary(params: {
   recording: NormalizedRecording
   mockAnalysis: MockAnalysis | null
 }): RenderBoundaryAssessment {

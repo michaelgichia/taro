@@ -1,8 +1,9 @@
 import * as babelParser from '@babel/parser'
-import _traverse from '@babel/traverse'
 import type { NodePath } from '@babel/traverse'
+import _traverse from '@babel/traverse'
 import * as t from '@babel/types'
-import { getBoundaryGuardrailReason } from './boundary-learning.js'
+
+import { getBoundaryGuardrailReason } from '#core/boundary-learning.ts'
 
 const traverse = (_traverse as any).default ?? _traverse
 
@@ -17,7 +18,7 @@ const TEST_CALLBACKS = new Set([
   'afterAll',
 ])
 
-export type BoundaryIssueKind =
+type BoundaryIssueKind =
   | 'leaf-render-boundary'
   | 'inline-hook-mock'
   | 'helper-embedded-assertion'
@@ -167,6 +168,11 @@ function collectRenderedComponentNames(
       collectRenderedComponentNames(child, names)
     }
   }
+}
+
+export const __boundaryIntelligenceTestUtils = {
+  collectRenderedComponentNames,
+  getCalleeName,
 }
 
 export function analyzeBoundaryIsolation(code: string): BoundaryIssue[] {

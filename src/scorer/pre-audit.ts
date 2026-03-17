@@ -2,8 +2,8 @@
  * Pre-write audit for test files - validates structure before file creation
  */
 
-import { parse } from '@typescript-eslint/typescript-estree';
-import { evaluateQualityGates, StructureRules, QueryRules } from './quality-gates.js';
+
+import { evaluateQualityGates } from '#scorer/quality-gates.ts';
 
 export interface AuditResult {
   valid: boolean;
@@ -139,5 +139,3 @@ function performStructuralChecks(code: string): { blocking: string[]; warnings: 
 
   return { blocking, warnings };
 }
-
-export type { StructureRules, QueryRules } from './quality-gates.js';

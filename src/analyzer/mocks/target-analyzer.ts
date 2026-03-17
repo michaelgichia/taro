@@ -6,7 +6,7 @@
  * on the detected API calls.
  */
 
-import type { ApiCallInfo } from './detector.js';
+import type { ApiCallInfo } from '#analyzer/mocks/detector.ts';
 
 /**
  * Information about a mock target
@@ -33,7 +33,7 @@ export interface MockTarget {
 /**
  * Mock library detected in the codebase
  */
-export interface MockLibrary {
+interface MockLibrary {
   /** Library name */
   name: 'msw' | 'jest.fn' | 'sinon' | 'fetch-mock' | 'undici' | 'nock';
   /** Version if detectable */
@@ -47,7 +47,7 @@ export interface MockLibrary {
 /**
  * Configuration for mock target analysis
  */
-export interface MockTargetAnalysisConfig {
+interface MockTargetAnalysisConfig {
   /** Preferred mock library (if multiple available) */
   preferredLibrary?: MockLibrary['name'];
   /** Maximum inline mock complexity */
@@ -256,12 +256,6 @@ export function decideMockExtraction(
     return 'extracted';
   }
 
-  // Complex responses should be extracted
-  const complexity = estimateMockComplexity(apiCall);
-  if (complexity > 10) {
-    return 'extracted';
-  }
-
   // Default to inline for simple cases
   return 'inline';
 }
@@ -288,6 +282,10 @@ function estimateMockComplexity(apiCall: ApiCallInfo): number {
   }
 
   return complexity;
+}
+
+export const __targetAnalyzerTestUtils = {
+  estimateMockComplexity,
 }
 
 /**

@@ -1,10 +1,12 @@
-import * as babelParser from '@babel/parser'
-import _traverse from '@babel/traverse'
-import type { NodePath } from '@babel/traverse'
-import * as t from '@babel/types'
 import { readFile } from 'node:fs/promises'
 import { relative } from 'node:path'
-import type { MutationLifecyclePattern } from '../types/conventions.js'
+
+import * as babelParser from '@babel/parser'
+import type { NodePath } from '@babel/traverse'
+import _traverse from '@babel/traverse'
+import * as t from '@babel/types'
+
+import type { MutationLifecyclePattern } from '#types/conventions.ts'
 import type {
   RepoRenderTargetCandidate,
   TaroBoundaryExemplarProfile,
@@ -17,21 +19,21 @@ import type {
   TaroProviderWrapperProfile,
   TaroRenderHelperProfile,
   TaroStateConfidence,
-} from '../types/state.js'
+} from '#types/state.ts'
 
 const traverse = (_traverse as any).default ?? _traverse
 
-export interface BoundaryLearningTestFile {
+interface BoundaryLearningTestFile {
   path: string
   content: string
 }
 
-export interface BoundaryLearningResult {
+interface BoundaryLearningResult {
   profiles: TaroBoundaryProfile[]
   exemplars: TaroBoundaryExemplarProfile[]
 }
 
-export interface BoundaryImportReference {
+interface BoundaryImportReference {
   target: string
   importedNames: string[]
   kind: TaroBoundaryKind
@@ -219,10 +221,6 @@ export function classifyBoundaryKind(target: string): TaroBoundaryKind {
   return 'unknown'
 }
 
-export function isForbiddenBoundaryTarget(target: string, exportedNames: string[] = []): boolean {
-  return getBoundaryGuardrailReason(target, exportedNames) !== null
-}
-
 function inferPayloadSource(importPath: string | null): TaroBoundaryPayloadSource {
   if (!importPath) {
     return 'unknown'
@@ -325,6 +323,15 @@ function pushUnique(target: string[], value: string | null | undefined): void {
   if (!target.includes(value)) {
     target.push(value)
   }
+}
+
+export const __boundaryLearningTestUtils = {
+  getStringLiteral,
+  inferPayloadSource,
+  pushUnique,
+  resolveImportedBinding,
+  strategyPriority,
+  isComponentLikeExportName,
 }
 
 function inferStrategy(params: {

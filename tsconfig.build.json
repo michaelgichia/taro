@@ -4,10 +4,15 @@
     "noEmit": false,
     "outDir": "./dist",
     "rootDir": "./src",
+    "baseUrl": ".",
+    "paths": {
+      "#*.ts": ["src/*.ts"]
+    },
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "allowImportingTsExtensions": false,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
     "plugins": []
   },
   "include": ["src/**/*"],

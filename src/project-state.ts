@@ -1,10 +1,10 @@
-import { access, mkdir } from 'node:fs/promises'
 import { existsSync, mkdirSync } from 'node:fs'
+import { access, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
-export const TARO_STATE_DIRNAME = '.taro'
+const TARO_STATE_DIRNAME = '.taro'
 
-export function getProjectStateDir(projectRoot: string): string {
+function getProjectStateDir(projectRoot: string): string {
   return join(projectRoot, TARO_STATE_DIRNAME)
 }
 

@@ -2,9 +2,10 @@
  * Post-write verification for test files - validates file after creation
  */
 
-import { readFileSync, existsSync } from 'fs';
 import { parse } from '@typescript-eslint/typescript-estree';
-import { detectRepoContractIssues } from '../core/repo-contracts.js';
+import { existsSync, readFileSync } from 'fs';
+
+import { detectRepoContractIssues } from '#core/repo-contracts.ts';
 
 export interface VerificationResult {
   valid: boolean;
@@ -58,9 +59,8 @@ export function postWriteVerification(filePath: string): VerificationResult {
   }
 
   // Check for valid TypeScript syntax
-  let ast: ASTNode | undefined;
   try {
-    ast = parse(code, { 
+    parse(code, { 
       loc: true, 
       range: true,
       jsx: true,
@@ -83,7 +83,7 @@ export function postWriteVerification(filePath: string): VerificationResult {
   }
 
   // Check for required imports
-  const importChecks = checkRequiredImports(code, ast);
+  const importChecks = checkRequiredImports(code);
   errors.push(...importChecks.errors);
   warnings.push(...importChecks.warnings);
 
@@ -106,7 +106,7 @@ export function postWriteVerification(filePath: string): VerificationResult {
 /**
  * Check for required imports
  */
-function checkRequiredImports(code: string, ast: ASTNode): { errors: string[]; warnings: string[] } {
+function checkRequiredImports(code: string): { errors: string[]; warnings: string[] } {
   const errors: string[] = [];
   const warnings: string[] = [];
 

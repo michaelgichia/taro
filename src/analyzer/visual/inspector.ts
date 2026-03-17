@@ -1,9 +1,9 @@
-import { chromium, type Browser, type Page } from 'playwright';
+import { type Page } from 'playwright';
 
 /**
  * Element information extracted from the DOM
  */
-export interface ElementInfo {
+interface ElementInfo {
   tagName: string;
   textContent: string;
   ariaRole?: string;
@@ -13,25 +13,6 @@ export interface ElementInfo {
   classes: string[];
   isVisible: boolean;
   isDisabled: boolean;
-}
-
-/**
- * Launches a local Playwright browser for runtime visual inspection.
- */
-export async function launchBrowser(): Promise<Browser> {
-  return chromium.launch({ headless: true });
-}
-
-/**
- * Captures a screenshot of the current page
- * @param page - The Playwright page object
- * @param path - The file path to save the screenshot
- */
-export async function captureScreenshot(page: Page, path: string): Promise<void> {
-  await page.screenshot({
-    path,
-    fullPage: true,
-  });
 }
 
 /**
@@ -88,43 +69,8 @@ export async function inspectElement(
     });
 
     return elementInfo;
-  } catch (error) {
+  } catch {
     // Element not found - return null as per spec
     return null;
   }
-}
-
-/**
- * Navigates to a URL with timeout handling
- * @param page - The Playwright page object
- * @param url - The URL to navigate to
- * @param timeout - Timeout in milliseconds (default 30000)
- * @returns Promise<boolean> - True if navigation succeeded
- */
-export async function navigateToUrl(
-  page: Page,
-  url: string,
-  timeout: number = 30000
-): Promise<boolean> {
-  try {
-    await page.goto(url, { timeout, waitUntil: 'domcontentloaded' });
-    return true;
-  } catch (error) {
-    throw new Error(
-      `Failed to load URL "${url}" after ${timeout}ms. ` +
-      'Ensure the app is running and the URL is correct.'
-    );
-  }
-}
-
-/**
- * Gets accessibility tree for the page
- * @param page - The Playwright page object
- * @returns Promise<string> - Accessibility tree snapshot
- */
-export async function getAccessibilityTree(page: Page): Promise<string> {
-  // Use Playwright's accessibility API
-  // @ts-expect-error - Playwright accessibility is available on CDPPage
-  const snapshot = await page.accessibility.snapshot();
-  return JSON.stringify(snapshot, null, 2);
 }

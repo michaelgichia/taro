@@ -1,0 +1,11 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignore": [
+    "coverage/**",
+    "hooks/**",
+    "src/**/constant.ts",
+    "src/**/utils.ts",
+    "src/**/types.ts",
+    "src/types/**/*.ts"
+  ]
+}

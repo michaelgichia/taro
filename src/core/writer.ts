@@ -6,12 +6,12 @@
 import { access, mkdir, writeFile } from 'node:fs/promises'
 import { dirname, extname, resolve } from 'node:path'
 
-export interface WriteOptions {
+interface WriteOptions {
   createDir?: boolean
   overwriteExisting?: boolean
 }
 
-export interface WriteResult {
+interface WriteResult {
   filePath: string
   created: boolean
   overwritten: boolean

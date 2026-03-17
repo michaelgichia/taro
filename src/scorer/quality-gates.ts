@@ -3,7 +3,8 @@
  */
 
 import { parse } from '@typescript-eslint/typescript-estree';
-import { QualityScore, QualityCriteria, QualityIssue } from './types.js';
+
+import { QualityIssue, QualityScore } from '#scorer/types.ts';
 
 interface ASTNode {
   type: string;
@@ -35,7 +36,7 @@ export function evaluateQualityGates(code: string): QualityScore {
       ecmaVersion: 2020,
       sourceType: 'module'
     }) as unknown as ParsedAST;
-  } catch (error) {
+  } catch {
     issues.push({
       type: 'structure',
       severity: 'error',
@@ -416,14 +417,4 @@ function getCalleeName(callee: ASTNode): string {
     return getCalleeName(callee.callee);
   }
   return '';
-}
-
-export interface StructureRules {
-  requireDescribe: boolean;
-  requireTest: boolean;
-}
-
-export interface QueryRules {
-  preferRobust: boolean;
-  disallowTestId: boolean;
 }
