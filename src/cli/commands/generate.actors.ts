@@ -87,7 +87,11 @@ import { parseJsRecording } from '#core/js-parser.ts'
 
 export const validateFileActor = fromPromise(
   async ({ input }: { input: ValidateFileActorInput }) => {
-    await access(input.filePath)
+    try {
+      await access(input.filePath)
+    } catch {
+      throw new Error(`File not found or not accessible: ${input.filePath}`)
+    }
   }
 )
 
@@ -474,6 +478,11 @@ export const finalizeActor = fromPromise(
         testFile: outputPath!,
         scoreResult: scoreResult!,
       })
+      process.stderr.write(
+        pc.dim('[taro]') +
+          ` Updated .taro/state.json for package ${packageProfile?.packagePath ?? '.'}.` +
+          '\n'
+      )
     } catch {
       // state updates are best-effort
     }

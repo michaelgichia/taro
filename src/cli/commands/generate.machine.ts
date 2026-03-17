@@ -5,6 +5,7 @@ import pc from 'picocolors'
 import type { GenerateMachineContext } from '#cli/commands/generate.utils.ts'
 import {
   generateMachineGuards,
+  formatContextMatchesSummary,
   summarizeAuthPreflight,
   summarizeVisualState,
   summarizePageConfirmedContext,

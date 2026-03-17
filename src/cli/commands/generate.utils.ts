@@ -2994,10 +2994,16 @@ export type FinalizeActorInput = Pick<GenerateMachineContext,
 export const generateMachineGuards = {
   isProfileStale: ({ context }: { context: GenerateMachineContext }) =>
     Boolean(context.staleness?.stale),
-  shouldWrite: ({ context }: { context: GenerateMachineContext }) =>
-    !context.existingCode ||
-    compareOutputAssessments(context.candidateAssessment!, context.existingAssessment!) > 0,
-  shouldKeepExisting: ({ context }: { context: GenerateMachineContext }) =>
-    Boolean(context.existingCode) &&
-    compareOutputAssessments(context.candidateAssessment!, context.existingAssessment!) <= 0,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  shouldWrite: ({ context, event }: { context: GenerateMachineContext; event: any }) => {
+    const existingCode = event.output?.existingCode ?? context.existingCode
+    const existingAssessment = event.output?.existingAssessment ?? context.existingAssessment
+    return !existingCode || compareOutputAssessments(context.candidateAssessment!, existingAssessment!) > 0
+  },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  shouldKeepExisting: ({ context, event }: { context: GenerateMachineContext; event: any }) => {
+    const existingCode = event.output?.existingCode ?? context.existingCode
+    const existingAssessment = event.output?.existingAssessment ?? context.existingAssessment
+    return Boolean(existingCode) && compareOutputAssessments(context.candidateAssessment!, existingAssessment!) <= 0
+  },
 }
