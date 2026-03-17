@@ -62,14 +62,13 @@ const GENERIC_FIELD_CONTEXT_PATTERN =
 
 const FIELD_LABEL_HINT_PATTERN =
   /\b(name|email|phone|pin|quantity|amount|reference|description|notes?|comment|code|search|address|date|time|password|customer|type|number)\b/i
-const AUTH_PATH_PATTERN =
-  /\b(login|log-?in|sign-?in|auth|oauth|sso|verify|verification|mfa|two[- ]factor|checkpoint|challenge)\b/i
 const AUTH_COPY_PATTERN =
   /\b(sign in|log in|continue with|single sign-on|sso|password|verification code|one-time code|two-factor|2fa|multi-factor|mfa|confirm it'?s you)\b/i
 
 const PLAYWRIGHT_CAPTURE_FAILURE_PREFIX = 'Playwright visual capture failed.'
 const PLAYWRIGHT_SELECTOR_INSPECTION_ERROR_PREFIX = 'Playwright selector inspection failed.'
 const PLAYWRIGHT_AUTH_RECOVERY_POLL_MS = 1000
+const PLAYWRIGHT_AUTH_RECOVERY_RETRY_LIMIT = 5
 const PLAYWRIGHT_PAGE_CONFIRMATION_POLL_MS = 250
 const PLAYWRIGHT_OPEN_RETRY_LIMIT = 3
 const PLAYWRIGHT_OPEN_RETRY_DELAY_MS = 2000
@@ -797,7 +796,7 @@ function normalizeComparableText(value?: string | null): string {
   return value?.replace(/\s+/g, ' ').trim().toLowerCase() ?? ''
 }
 
-function urlsMateriallyDiffer(expectedUrl?: string, actualUrl?: string): boolean {
+export function urlsMateriallyDiffer(expectedUrl?: string, actualUrl?: string): boolean {
   if (!expectedUrl || !actualUrl) {
     return false
   }
@@ -913,9 +912,6 @@ async function detectAuthCheckpoint(
     }))
 
   const authSignals = new Set<string>(bodyAnalysis.authSignals)
-  if (AUTH_PATH_PATTERN.test(reachedUrl)) {
-    authSignals.add('auth-route')
-  }
   if (AUTH_COPY_PATTERN.test(options.actualTitle)) {
     authSignals.add('auth-title')
   }
@@ -1356,8 +1352,12 @@ async function attemptAuthRecovery(params: {
   const deadline = Date.now() + recovery.timeoutMs
   const AUTH_RECOVERY_HEARTBEAT_MS = 30_000
   let lastHeartbeatAt = Date.now()
+  let latestSnapshot: VisualPageSnapshot | undefined
+  let persistedAuthPath: string | undefined
+  let retryAttemptCount = 0
   let retryToExpectedUrl:
     | {
+        attemptCount?: number
         attempted: true
         completedAt?: string
         error?: string
@@ -1365,28 +1365,26 @@ async function attemptAuthRecovery(params: {
         targetUrl: string
       }
     | undefined
-  // Tracks whether a navigation to the expected URL is allowed.
-  // Reset to true each time an auth interrupt is detected so that after
-  // the user re-authenticates, Taro can navigate to the expected URL again.
-  let canNavigateToExpectedUrl = true
 
   try {
     while (Date.now() <= deadline) {
       const snapshot = await inspectVisualPage(page, { expected, selector })
+      latestSnapshot = snapshot
 
       const now = Date.now()
       if (now - lastHeartbeatAt >= AUTH_RECOVERY_HEARTBEAT_MS) {
         const remainingSec = Math.max(0, Math.round((deadline - now) / 1000))
         console.log(
-          pc.dim('[taro]') + ` Still waiting for sign-in… ${remainingSec}s remaining.`
+          pc.dim('[taro]') +
+            ` Still waiting for authentication… ${remainingSec}s remaining.`
         )
         lastHeartbeatAt = now
       }
 
-      if (snapshot.authCheckpoint.interrupt) {
-        // User is back at an auth page (e.g. navigation redirected to login).
-        // Allow navigation again so the next successful auth triggers a retry.
-        canNavigateToExpectedUrl = true
+      if (!snapshot.authCheckpoint.interrupt && recovery.saveStorageStatePath && !persistedAuthPath) {
+        await mkdir(dirname(recovery.saveStorageStatePath), { recursive: true })
+        await context.storageState({ path: recovery.saveStorageStatePath })
+        persistedAuthPath = recovery.persistedAuthPath
       }
 
       if (
@@ -1396,9 +1394,10 @@ async function attemptAuthRecovery(params: {
           snapshot,
         })
       ) {
-        if (recovery.saveStorageStatePath) {
+        if (recovery.saveStorageStatePath && !persistedAuthPath) {
           await mkdir(dirname(recovery.saveStorageStatePath), { recursive: true })
           await context.storageState({ path: recovery.saveStorageStatePath })
+          persistedAuthPath = recovery.persistedAuthPath
         }
         const screenshotPath = await capturePageScreenshot(
           page,
@@ -1410,7 +1409,7 @@ async function attemptAuthRecovery(params: {
           authRecovery: {
             completedAt: new Date().toISOString(),
             instructionsPath: recovery.instructionsPath,
-            persistedAuthPath: recovery.persistedAuthPath,
+            persistedAuthPath,
             retryToExpectedUrl,
             startedAt,
             status: 'succeeded',
@@ -1435,29 +1434,29 @@ async function attemptAuthRecovery(params: {
 
       const targetUrl = expected?.url
       if (
-        canNavigateToExpectedUrl &&
         targetUrl &&
+        retryAttemptCount < PLAYWRIGHT_AUTH_RECOVERY_RETRY_LIMIT &&
         shouldRetryExpectedUrlDuringAuthRecovery({
           expected,
           snapshot,
         })
       ) {
-
-        canNavigateToExpectedUrl = false
+        retryAttemptCount += 1
         try {
           await page.goto(targetUrl, {
             timeout: Math.max(1, deadline - Date.now()),
             waitUntil: 'domcontentloaded',
           })
           retryToExpectedUrl = {
+            attemptCount: retryAttemptCount,
             attempted: true,
             completedAt: new Date().toISOString(),
             outcome: 'succeeded',
             targetUrl,
           }
-          continue
         } catch (error) {
           retryToExpectedUrl = {
+            attemptCount: retryAttemptCount,
             attempted: true,
             completedAt: new Date().toISOString(),
             error: getErrorMessage(error),
@@ -1465,6 +1464,16 @@ async function attemptAuthRecovery(params: {
             targetUrl,
           }
         }
+
+        const remainingMsAfterRetry = deadline - Date.now()
+        if (remainingMsAfterRetry <= 0) {
+          break
+        }
+
+        await page.waitForTimeout(
+          Math.min(PLAYWRIGHT_AUTH_RECOVERY_POLL_MS, remainingMsAfterRetry)
+        )
+        continue
       }
 
       const remainingMs = deadline - Date.now()
@@ -1475,23 +1484,26 @@ async function attemptAuthRecovery(params: {
       await page.waitForTimeout(Math.min(PLAYWRIGHT_AUTH_RECOVERY_POLL_MS, remainingMs))
     }
 
+    const finalSnapshot = latestSnapshot
+
     return {
       authRecovery: {
         completedAt: new Date().toISOString(),
         instructionsPath: recovery.instructionsPath,
-        persistedAuthPath: recovery.persistedAuthPath,
+        persistedAuthPath,
         retryToExpectedUrl,
         startedAt,
         status: 'timed-out',
         timeoutMs: recovery.timeoutMs,
       },
       capturedAt: new Date().toISOString(),
-      dialog: initialInterrupt.dialog,
-      element: initialInterrupt.element,
-      finalUrl: initialInterrupt.finalUrl,
+      dialog: finalSnapshot?.dialog ?? initialInterrupt.dialog,
+      element: finalSnapshot?.element ?? initialInterrupt.element,
+      finalUrl: finalSnapshot?.authCheckpoint.reachedUrl ?? initialInterrupt.finalUrl,
       interrupt: initialInterrupt.interrupt,
-      matchedLandmarks: initialInterrupt.matchedLandmarks,
-      pageTitle: initialInterrupt.pageTitle,
+      matchedLandmarks:
+        finalSnapshot?.authCheckpoint.matchedLandmarks ?? initialInterrupt.matchedLandmarks,
+      pageTitle: finalSnapshot?.pageTitle ?? initialInterrupt.pageTitle,
       reason,
       screenshotPath: initialInterrupt.screenshotPath,
       selector,
@@ -1503,25 +1515,27 @@ async function attemptAuthRecovery(params: {
     }
   } catch (error) {
     const message = getErrorMessage(error)
+    const finalSnapshot = latestSnapshot
 
     return {
       authRecovery: {
         completedAt: new Date().toISOString(),
         error: message,
         instructionsPath: recovery.instructionsPath,
-        persistedAuthPath: recovery.persistedAuthPath,
+        persistedAuthPath,
         retryToExpectedUrl,
         startedAt,
         status: 'failed',
         timeoutMs: recovery.timeoutMs,
       },
       capturedAt: new Date().toISOString(),
-      dialog: initialInterrupt.dialog,
-      element: initialInterrupt.element,
-      finalUrl: initialInterrupt.finalUrl,
+      dialog: finalSnapshot?.dialog ?? initialInterrupt.dialog,
+      element: finalSnapshot?.element ?? initialInterrupt.element,
+      finalUrl: finalSnapshot?.authCheckpoint.reachedUrl ?? initialInterrupt.finalUrl,
       interrupt: initialInterrupt.interrupt,
-      matchedLandmarks: initialInterrupt.matchedLandmarks,
-      pageTitle: initialInterrupt.pageTitle,
+      matchedLandmarks:
+        finalSnapshot?.authCheckpoint.matchedLandmarks ?? initialInterrupt.matchedLandmarks,
+      pageTitle: finalSnapshot?.pageTitle ?? initialInterrupt.pageTitle,
       reason,
       screenshotPath: initialInterrupt.screenshotPath,
       selector,
@@ -1584,7 +1598,7 @@ export async function captureVisualState(
         const timeoutSec = Math.round((options.authRecovery.timeoutMs ?? 0) / 1000)
         console.log(
           pc.dim('[taro]') +
-            ` Auth required — complete sign-in in the browser window. Waiting up to ${timeoutSec}s.`
+            ` Auth required — complete authentication in the browser window. Waiting up to ${timeoutSec}s.`
         )
         return await attemptAuthRecovery({
           auth: options.auth,

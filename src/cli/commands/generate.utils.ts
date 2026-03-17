@@ -34,6 +34,7 @@ import {
   openCapturePage,
   replayStep,
   resolveSelector,
+  urlsMateriallyDiffer,
 } from '#core/resolver.ts'
 import { scoreGeneratedTest } from '#core/scorer.ts'
 import {
@@ -1490,10 +1491,10 @@ export function groupSelectorsByStepId(
 /**
  * Merges new selector-resolution warnings into an existing resolution without duplicating entries.
  */
-export function mergeSelectorResolutionWarnings(
-  resolution: SelectorResolutionResult,
+export function mergeSelectorResolutionWarnings<T extends SelectorResolutionResult>(
+  resolution: T,
   warnings: string[]
-): SelectorResolutionResult {
+): T {
   const mergedWarnings = Array.from(new Set([...resolution.warnings, ...warnings]))
   if (mergedWarnings.length === resolution.warnings.length) {
     return resolution
@@ -1519,6 +1520,36 @@ export function applySelectorResolution(
       selectorResolution: resolution,
       ...(resolution.status === 'resolved' ? { query: resolution.query } : {}),
     },
+  }
+}
+
+function toUnexpectedPageSelectorResolution(params: {
+  actualUrl: string
+  expectedUrl: string
+  phase: SelectorResolutionPhase
+  selector: SelectorDescriptor
+}): UnresolvedSelectorResolutionResult {
+  const { actualUrl, expectedUrl, phase, selector } = params
+  const reason =
+    `Playwright replay page did not reach the recorded URL. ` +
+    `Expected ${expectedUrl}, reached ${actualUrl}.`
+
+  return {
+    debug: {
+      cssSelector: selector.selector,
+      inspectSource: 'persistent-page',
+      pageUrl: actualUrl,
+      phase,
+      reason,
+      result: 'unresolved',
+    },
+    status: 'unresolved',
+    outcome: 'unexpected-page',
+    stepId: selector.stepId,
+    selector,
+    url: actualUrl,
+    reason,
+    warnings: [reason],
   }
 }
 
@@ -1936,9 +1967,11 @@ export function summarizeAuthInterruptedVisualState(visualState: VisualState): v
 export function summarizeRecoveredVisualState(visualState: VisualState): void {
   log(pc.dim('[taro]') + ' Visual auth recovered via Playwright runtime.')
   if (visualState.authRecovery?.retryToExpectedUrl?.attempted) {
+    const retryAttemptCount = visualState.authRecovery.retryToExpectedUrl.attemptCount ?? 1
+    const retryLabel = retryAttemptCount === 1 ? 'once' : `${retryAttemptCount} times`
     log(
       pc.dim('[taro]') +
-        ` Retried recorded URL once after auth recovery: ${visualState.authRecovery.retryToExpectedUrl.targetUrl}`
+        ` Retried recorded URL ${retryLabel} after auth recovery: ${visualState.authRecovery.retryToExpectedUrl.targetUrl}`
     )
   }
   if (visualState.startingPointConfirmed) {
@@ -1971,11 +2004,19 @@ export function summarizeFailedAuthRecoveryVisualState(visualState: VisualState)
   }
   if (visualState.authRecovery?.retryToExpectedUrl?.attempted) {
     const retry = visualState.authRecovery.retryToExpectedUrl
+    const retryAttemptCount = retry.attemptCount ?? 1
+    const retryLabel = retryAttemptCount === 1 ? 'once' : `${retryAttemptCount} times`
     const failureDetail =
       retry.outcome === 'failed' && retry.error ? ` (${retry.error})` : ''
     console.warn(
       pc.yellow('[taro]') +
-        ` Retried recorded URL once after auth recovery: ${retry.targetUrl}${failureDetail}`
+        ` Retried recorded URL ${retryLabel} after auth recovery: ${retry.targetUrl}${failureDetail}`
+    )
+  }
+  if (visualState.authRecovery?.persistedAuthPath) {
+    console.warn(
+      pc.yellow('[taro]') +
+        ` Saved Playwright storageState: ${visualState.authRecovery.persistedAuthPath}`
     )
   }
 
@@ -2463,6 +2504,8 @@ export async function resolveJsGeneration(
       const page = captureSession.page
       const inspect = createPageInspector(page)
       const unresolvedSelectorResolutions = new Map<StepId, UnresolvedSelectorResolutionResult>()
+      const replayPageUrl =
+        typeof page.url === 'function' ? page.url() : recording.url!
 
       const resolveStepSelectors = async (
         stepId: StepId,
@@ -2524,46 +2567,83 @@ export async function resolveJsGeneration(
         return { resolved: 0 }
       }
 
-      for (const step of recording.steps) {
-        const stepId = step.id
-        let selectorsResolvedThisStep = 0
-
-        if (stepId && selectorStepIds.has(stepId)) {
-          const stats = await resolveStepSelectors(stepId, 'pre-step')
-          selectorsResolvedThisStep += stats.resolved
-        }
-
-        const replayResult = await replayStep(page, step, {
-          collectDebug: debugReporter?.enabled,
+      if (urlsMateriallyDiffer(recording.url!, replayPageUrl)) {
+        const mismatchWarning =
+          `Step replay skipped: replay page did not reach the recorded URL. ` +
+          `Expected ${recording.url!}, reached ${replayPageUrl}.`
+        debugReporter?.traceBrowserFailure({
+          authStrategy: options?.auth?.strategy,
+          error: mismatchWarning,
+          url: recording.url!,
         })
-        debugReporter?.traceReplay(replayResult.debug)
-        if (!replayResult.replayed && replayResult.warning) {
-          console.warn(
-            pc.yellow('[taro]') +
-              pc.dim(' Step replay: ') +
-              replayResult.warning
-          )
-        }
+        console.warn(pc.yellow('[taro]') + ` ${mismatchWarning}`)
 
-        if (
-          replayResult.replayed &&
-          canSuccessfulReplayRevealAdditionalState(step) &&
-          unresolvedSelectorResolutions.size > 0
-        ) {
-          for (const unresolvedStepId of unresolvedSelectorResolutions.keys()) {
-            const stats = await resolveStepSelectors(unresolvedStepId, 'post-step')
+        for (const [stepId, selectors] of selectorGroups.entries()) {
+          const currentStep = updatedSteps.get(stepId) ?? stepMap.get(stepId)
+          if (!currentStep) {
+            continue
+          }
+
+          const stepWarnings: string[] = []
+          let chosenResolution: UnresolvedSelectorResolutionResult | undefined
+          for (const selector of selectors) {
+            const resolution = toUnexpectedPageSelectorResolution({
+              actualUrl: replayPageUrl,
+              expectedUrl: recording.url!,
+              phase: 'fallback-no-replay',
+              selector,
+            })
+            debugReporter?.traceSelector(resolution)
+            stepWarnings.push(...resolution.warnings)
+            chosenResolution ??= resolution
+          }
+
+          const resolution = mergeSelectorResolutionWarnings(chosenResolution!, stepWarnings)
+          updatedSteps.set(stepId, applySelectorResolution(currentStep, resolution))
+          unresolvedSelectorResolutions.set(stepId, resolution)
+        }
+      } else {
+        for (const step of recording.steps) {
+          const stepId = step.id
+          let selectorsResolvedThisStep = 0
+
+          if (stepId && selectorStepIds.has(stepId)) {
+            const stats = await resolveStepSelectors(stepId, 'pre-step')
             selectorsResolvedThisStep += stats.resolved
           }
-        }
 
-        debugReporter?.traceStepSummary({
-          action: step.action,
-          replayed: replayResult.replayed,
-          selectorsResolved: selectorsResolvedThisStep,
-          selectorsStillUnresolved: unresolvedSelectorResolutions.size,
-          stepId: stepId ?? '(unknown)',
-          warningCount: replayResult.warning ? 1 : 0,
-        })
+          const replayResult = await replayStep(page, step, {
+            collectDebug: debugReporter?.enabled,
+          })
+          debugReporter?.traceReplay(replayResult.debug)
+          if (!replayResult.replayed && replayResult.warning) {
+            console.warn(
+              pc.yellow('[taro]') +
+                pc.dim(' Step replay: ') +
+                replayResult.warning
+            )
+          }
+
+          if (
+            replayResult.replayed &&
+            canSuccessfulReplayRevealAdditionalState(step) &&
+            unresolvedSelectorResolutions.size > 0
+          ) {
+            for (const unresolvedStepId of unresolvedSelectorResolutions.keys()) {
+              const stats = await resolveStepSelectors(unresolvedStepId, 'post-step')
+              selectorsResolvedThisStep += stats.resolved
+            }
+          }
+
+          debugReporter?.traceStepSummary({
+            action: step.action,
+            replayed: replayResult.replayed,
+            selectorsResolved: selectorsResolvedThisStep,
+            selectorsStillUnresolved: unresolvedSelectorResolutions.size,
+            stepId: stepId ?? '(unknown)',
+            warningCount: replayResult.warning ? 1 : 0,
+          })
+        }
       }
 
       for (const resolution of unresolvedSelectorResolutions.values()) {
@@ -2765,10 +2845,7 @@ export async function persistRecoveredVisualAuth(params: {
   visualState: VisualState | null
 }): Promise<TaroPlaywrightAuthProfile | null> {
   const { packageProfile, projectRoot, visualState } = params
-  if (
-    visualState?.status !== 'auth-recovered' ||
-    !visualState.authRecovery?.persistedAuthPath
-  ) {
+  if (!visualState?.authRecovery?.persistedAuthPath) {
     return null
   }
 

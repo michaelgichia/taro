@@ -1661,12 +1661,13 @@ describe('captureVisualState', () => {
     )
     expect(result?.authRecovery?.retryToExpectedUrl).toEqual(
       expect.objectContaining({
+        attemptCount: 5,
         attempted: true,
         outcome: 'succeeded',
         targetUrl: 'http://localhost:3000/dashboard',
       })
     )
-    expect(session.page.goto).toHaveBeenCalledTimes(2)
+    expect(session.page.goto).toHaveBeenCalledTimes(6)
     expect(session.page.goto).toHaveBeenLastCalledWith('http://localhost:3000/dashboard', {
       timeout: expect.any(Number),
       waitUntil: 'domcontentloaded',
@@ -1676,7 +1677,7 @@ describe('captureVisualState', () => {
   it('recovers auth in interactive runs and persists storage state', async () => {
     const session = createPlaywrightSession([
       {
-        authSignals: ['auth-route'],
+        authSignals: ['auth-copy'],
         dialog: null,
         elements: {
           '#save': null,
@@ -1820,7 +1821,7 @@ describe('captureVisualState', () => {
     })
   })
 
-  it('records retry metadata when the post-auth deep-link retry fails', async () => {
+  it('caps post-auth deep-link retries at five attempts when the expected route stays unavailable', async () => {
     const session = createPlaywrightSession([
       {
         dialog: null,
@@ -1833,9 +1834,9 @@ describe('captureVisualState', () => {
       },
     ])
 
-    session.page.goto
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error('page.goto: Timeout 1000ms exceeded.'))
+    session.page.goto.mockResolvedValueOnce(undefined).mockImplementation(async () => {
+      throw new Error('page.goto: Timeout 1000ms exceeded.')
+    })
 
     const result = await captureVisualState('http://localhost:3000/dashboard', {
       authRecovery: {
@@ -1856,13 +1857,70 @@ describe('captureVisualState', () => {
     expect(result?.status).toBe('auth-recovery-timed-out')
     expect(result?.authRecovery?.retryToExpectedUrl).toEqual(
       expect.objectContaining({
+        attemptCount: 5,
         attempted: true,
         error: 'page.goto: Timeout 1000ms exceeded.',
         outcome: 'failed',
         targetUrl: 'http://localhost:3000/dashboard',
       })
     )
-    expect(session.page.goto).toHaveBeenCalledTimes(2)
+    expect(session.page.goto).toHaveBeenCalledTimes(6)
+  })
+
+  it('saves storage state before full starting-point confirmation and reuses the latest timeout snapshot', async () => {
+    const session = createPlaywrightSession([
+      {
+        authSignals: ['auth-copy'],
+        dialog: null,
+        elements: {
+          '#save': null,
+        },
+        matchedLandmarks: [],
+        title: 'Sign In',
+        url: 'http://localhost:3000/login',
+      },
+      {
+        dialog: null,
+        elements: {
+          '#save': null,
+        },
+        matchedLandmarks: [],
+        title: 'DigiTax',
+        url: 'http://localhost:3000/',
+      },
+    ])
+
+    const result = await captureVisualState('http://localhost:3000/dashboard', {
+      authRecovery: {
+        enabled: true,
+        persistedAuthPath: '.taro/playwright/.auth/user.json',
+        saveStorageStatePath: '/tmp/playwright/.auth/user.json',
+        timeoutMs: 1000,
+      },
+      expected: {
+        landmarks: ['Checkout Dialog'],
+        title: 'Checkout Dialog',
+        url: 'http://localhost:3000/dashboard',
+      },
+      reason: 'dialog-detected',
+      screenshotDir: '/tmp/taro-visual',
+      selector: '#save',
+      timeoutMs: 1000,
+    })
+
+    expect(result?.status).toBe('auth-recovery-timed-out')
+    expect(result?.authRecovery).toEqual(
+      expect.objectContaining({
+        persistedAuthPath: '.taro/playwright/.auth/user.json',
+        status: 'timed-out',
+      })
+    )
+    expect(result?.finalUrl).toBe('http://localhost:3000/')
+    expect(result?.pageTitle).toBe('DigiTax')
+    expect(session.context.storageState).toHaveBeenCalledWith({
+      path: '/tmp/playwright/.auth/user.json',
+    })
+    expect(session.page.goto).toHaveBeenCalledTimes(6)
   })
 })
 
@@ -2606,7 +2664,7 @@ describe('captureVisualState - additional branches', () => {
   it('emits auth-interrupted state when no auth recovery is enabled', async () => {
     createPlaywrightSession([
       {
-        authSignals: ['auth-route'],
+        authSignals: ['auth-copy'],
         dialog: null,
         elements: { '#save': null },
         matchedLandmarks: [],
@@ -3650,7 +3708,7 @@ describe('captureVisualState - auth recovery error path', () => {
   it('returns auth-recovery-failed when inspectVisualPage throws during recovery', async () => {
     const session = createPlaywrightSession([
       {
-        authSignals: ['auth-route'],
+        authSignals: ['auth-copy'],
         dialog: null,
         elements: { '#save': null },
         matchedLandmarks: [],
@@ -3693,7 +3751,7 @@ describe('captureVisualState - shouldRetryExpectedUrlDuringAuthRecovery', () => 
   it('does not attempt redirect navigation when expected URL is not set during recovery', async () => {
     const session = createPlaywrightSession([
       {
-        authSignals: ['auth-route'],
+        authSignals: ['auth-copy'],
         dialog: null,
         elements: { '#save': null },
         matchedLandmarks: [],
@@ -4615,7 +4673,7 @@ describe('captureVisualState - heartbeat logging during auth recovery', () => {
 
     // Verify the heartbeat message was logged (lines 1386-1391)
     expect(logSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Still waiting for sign-in')
+      expect.stringContaining('Still waiting for authentication')
     )
 
     dateNowSpy.mockRestore()
