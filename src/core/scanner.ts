@@ -94,6 +94,11 @@ export async function persistConventions(
       confidence: 'low',
       evidence: ['Persisted from compatibility scanner'],
     },
+    jestDomSetup: {
+      value: 'per-test-import',
+      confidence: 'low',
+      evidence: ['Persisted from compatibility scanner'],
+    },
     mockPattern: {
       value: conventions.mockPattern,
       confidence: conventions.testFiles.length > 0 ? 'high' : 'low',

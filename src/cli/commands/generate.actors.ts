@@ -408,6 +408,8 @@ export const generateCodeActor = fromPromise(
         outputPath: outputPath!,
         conventions,
         runner: packageProfile?.effectiveRunner ?? 'unknown',
+        jestDomImportPath:
+          packageProfile?.jestDomSetup?.value === 'global-setup' ? null : undefined,
         queryResults: resolvedJsGeneration?.queryResults ?? [],
         helpers: generationHelpers,
         scenarios: generationScenarios,

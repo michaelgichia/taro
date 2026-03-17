@@ -358,6 +358,8 @@ export function createTargetCommand(context: TargetCommandContext = {}): Command
               outputPath,
               conventions,
               runner: packageProfile?.effectiveRunner ?? 'unknown',
+              jestDomImportPath:
+                packageProfile?.jestDomSetup?.value === 'global-setup' ? null : undefined,
               queryResults,
               helpers: jsSuitePlan.helpers,
               scenarios: jsSuitePlan.scenarios,
@@ -449,6 +451,8 @@ export function createTargetCommand(context: TargetCommandContext = {}): Command
             outputPath,
             conventions,
             runner: packageProfile?.effectiveRunner ?? 'unknown',
+            jestDomImportPath:
+              packageProfile?.jestDomSetup?.value === 'global-setup' ? null : undefined,
             queryResults,
             renderTarget,
             renderHelper,

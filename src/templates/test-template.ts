@@ -20,7 +20,7 @@ interface RenderHelperImport {
 interface ImportBlockOptions {
   renderTarget?: RenderTargetImport | null
   renderHelper?: RenderHelperImport | null
-  jestDomImportPath?: string
+  jestDomImportPath?: string | null
   needsWithin?: boolean
   needsWaitFor?: boolean
 }
@@ -40,13 +40,16 @@ export function importBlock(
   if (!options.renderHelper) {
     testingLibraryMembers.unshift('render')
   }
-  const jestDomImportPath = options.jestDomImportPath ?? '@testing-library/jest-dom'
+  const jestDomImportPath =
+    options.jestDomImportPath === undefined
+      ? '@testing-library/jest-dom'
+      : options.jestDomImportPath
 
   if (importStyle === 'cjs') {
-    const lines = [
-      `const { ${testingLibraryMembers.join(', ')} } = require('@testing-library/react')`,
-      `require('${jestDomImportPath}')`,
-    ]
+    const lines = [`const { ${testingLibraryMembers.join(', ')} } = require('@testing-library/react')`]
+    if (jestDomImportPath) {
+      lines.push(`require('${jestDomImportPath}')`)
+    }
     if (hasUserEvents) {
       lines.push("const userEvent = require('@testing-library/user-event')")
     }
@@ -67,10 +70,10 @@ export function importBlock(
     return lines.join('\n')
   }
   // ESM (default)
-  const lines = [
-    `import { ${testingLibraryMembers.join(', ')} } from '@testing-library/react'`,
-    `import '${jestDomImportPath}'`,
-  ]
+  const lines = [`import { ${testingLibraryMembers.join(', ')} } from '@testing-library/react'`]
+  if (jestDomImportPath) {
+    lines.push(`import '${jestDomImportPath}'`)
+  }
   if (hasUserEvents) {
     lines.push("import userEvent from '@testing-library/user-event'")
   }

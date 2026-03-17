@@ -111,6 +111,49 @@ describe('initTaroState', () => {
     expect(result.state.packages['packages/legacy']?.runner.value).toBe('jest')
   })
 
+  it('learns global jest-dom setup from configured Vitest setup files', async () => {
+    const examplePackage = join(projectRoot, 'packages', 'example-app')
+
+    await mkdir(join(examplePackage, 'src', 'tests'), { recursive: true })
+    await writeFile(
+      join(examplePackage, 'package.json'),
+      JSON.stringify({ name: '@repo/example-app', devDependencies: { vitest: '^3.0.0' } }, null, 2),
+      'utf-8'
+    )
+    await writeFile(
+      join(examplePackage, 'vitest.config.ts'),
+      `
+        import { defineConfig } from 'vitest/config'
+
+        export default defineConfig({
+          test: {
+            setupFiles: ['./src/tests/setup.ts'],
+          },
+        })
+      `,
+      'utf-8'
+    )
+    await writeFile(
+      join(examplePackage, 'src', 'tests', 'setup.ts'),
+      "import '@testing-library/jest-dom/vitest'\n",
+      'utf-8'
+    )
+    await writeFile(
+      join(examplePackage, 'src', 'example-app.test.tsx'),
+      "import { describe, expect, it } from 'vitest'\ndescribe('example-app', () => { it('works', () => expect(true).toBe(true)) })",
+      'utf-8'
+    )
+
+    const result = await initTaroState(projectRoot)
+
+    expect(result.state.packages['packages/example-app']?.jestDomSetup).toEqual(
+      expect.objectContaining({
+        value: 'global-setup',
+        confidence: 'high',
+      })
+    )
+  })
+
   it('assigns unmatched root-level tests to the nearest available package when no root descriptor exists', async () => {
     await rm(join(projectRoot, 'package.json'), { force: true })
 
@@ -1408,6 +1451,11 @@ describe('detectPackageProfileStaleness - additional cases', () => {
       },
       importStyle: { value: 'esm' as const, confidence: 'low' as const, evidence: [] },
       runner: { value: 'unknown' as const, confidence: 'low' as const, evidence: [] },
+      jestDomSetup: {
+        value: 'per-test-import' as const,
+        confidence: 'low' as const,
+        evidence: ['No configured global jest-dom setup detected.'],
+      },
       mockPattern: { value: 'vi.mock' as const, confidence: 'low' as const, evidence: [] },
       folderPattern: { value: 'colocated' as const, confidence: 'low' as const, evidence: [] },
       fileExtension: { value: 'ts' as const, confidence: 'low' as const, evidence: [] },
@@ -1438,6 +1486,56 @@ describe('detectPackageProfileStaleness - additional cases', () => {
     expect(staleness.reason).toContain('invalid')
   })
 
+  it('returns stale when the package profile predates jest-dom setup detection', async () => {
+    const staleness = await detectPackageProfileStaleness(projectRoot, {
+      packagePath: '.',
+      packageName: null,
+      scannedAt: new Date().toISOString(),
+      testFileCount: 0,
+      conventions: {
+        scannedAt: '',
+        projectRoot: '.',
+        importStyle: 'esm' as const,
+        mockPattern: 'vi.mock' as const,
+        testFiles: [],
+        folderPattern: 'colocated' as const,
+        fileExtension: 'ts' as const,
+      },
+      importStyle: { value: 'esm' as const, confidence: 'low' as const, evidence: [] },
+      runner: { value: 'unknown' as const, confidence: 'low' as const, evidence: [] },
+      jestDomSetup: {
+        value: 'per-test-import' as const,
+        confidence: 'low' as const,
+        evidence: [],
+      },
+      mockPattern: { value: 'vi.mock' as const, confidence: 'low' as const, evidence: [] },
+      folderPattern: { value: 'colocated' as const, confidence: 'low' as const, evidence: [] },
+      fileExtension: { value: 'ts' as const, confidence: 'low' as const, evidence: [] },
+      renderHelpers: [],
+      providerWrappers: [],
+      renderTargets: [],
+      repeatedMockTargets: [],
+      sharedMockFactories: [],
+      boundaryProfiles: [],
+      boundaryExemplars: [],
+      interactionContracts: [],
+      inlineSafeMockTargets: [],
+      mutationLifecycles: [],
+      instabilityWarnings: [],
+      mockRecommendations: [],
+      fixtureRoots: [],
+      exemplars: [],
+      playwrightAuth: null,
+      warnings: [],
+    })
+
+    expect(staleness).toEqual({
+      stale: true,
+      reason: 'Package profile predates jest-dom setup detection and should be refreshed.',
+      latestEvidencePath: null,
+    })
+  })
+
   it('returns not stale when no evidence files exist', async () => {
     // Provide a minimal profile with no test files and no package.json at a non-existent path
     const fakeProfile = {
@@ -1456,6 +1554,11 @@ describe('detectPackageProfileStaleness - additional cases', () => {
       },
       importStyle: { value: 'esm' as const, confidence: 'low' as const, evidence: [] },
       runner: { value: 'unknown' as const, confidence: 'low' as const, evidence: [] },
+      jestDomSetup: {
+        value: 'per-test-import' as const,
+        confidence: 'low' as const,
+        evidence: ['No configured global jest-dom setup detected.'],
+      },
       mockPattern: { value: 'vi.mock' as const, confidence: 'low' as const, evidence: [] },
       folderPattern: { value: 'colocated' as const, confidence: 'low' as const, evidence: [] },
       fileExtension: { value: 'ts' as const, confidence: 'low' as const, evidence: [] },

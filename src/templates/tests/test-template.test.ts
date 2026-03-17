@@ -78,6 +78,18 @@ describe('importBlock', () => {
 
     expect(esm).toContain("import renderCheckout from '#test/render-checkout.ts'")
   })
+
+  it('omits jest-dom imports when the package registers them globally', () => {
+    const esm = importBlock(false, 'esm', {
+      jestDomImportPath: null,
+    })
+    const cjs = importBlock(false, 'cjs', {
+      jestDomImportPath: null,
+    })
+
+    expect(esm).not.toContain('@testing-library/jest-dom')
+    expect(cjs).not.toContain('@testing-library/jest-dom')
+  })
 })
 
 describe('stepTemplate', () => {
