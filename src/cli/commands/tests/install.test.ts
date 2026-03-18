@@ -87,6 +87,9 @@ describe('runInstallCommand', () => {
       readFile(join(sandbox.home, '.claude', 'commands', '@taro-test', 'rtl', 'refresh.md'), 'utf8')
     ).resolves.toContain(`${runtimeCommand} __refresh`)
     await expect(
+      readFile(join(sandbox.home, '.claude', 'commands', '@taro-test', 'rtl', 'overrides.md'), 'utf8')
+    ).resolves.toContain(`${runtimeCommand} __overrides`)
+    await expect(
       readFile(join(sandbox.home, '.codex', 'skills', '@taro-test', 'rtl-init', 'SKILL.md'), 'utf8')
     ).resolves.toContain('$@taro-test/rtl-init')
     await expect(
@@ -95,6 +98,12 @@ describe('runInstallCommand', () => {
         'utf8'
       )
     ).resolves.toContain('$@taro-test/rtl-refresh')
+    await expect(
+      readFile(
+        join(sandbox.home, '.codex', 'skills', '@taro-test', 'rtl-overrides', 'SKILL.md'),
+        'utf8'
+      )
+    ).resolves.toContain('$@taro-test/rtl-overrides')
   })
 
   it('reports update results on rerun in non-interactive mode', async () => {

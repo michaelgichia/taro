@@ -20,6 +20,7 @@ const EXPECTED_SKILLS = [
   '@taro-test/rtl-help',
   '@taro-test/rtl-init',
   '@taro-test/rtl-mocks',
+  '@taro-test/rtl-overrides',
   '@taro-test/rtl-refresh',
   '@taro-test/rtl-target',
 ] as const
@@ -123,6 +124,7 @@ describe('buildCodexOperations', () => {
     expect(operations.map((operation) => operation.entrypoint)).toContain('$@taro-test/rtl-generate-i')
     expect(operations.map((operation) => operation.entrypoint)).toContain('$@taro-test/rtl-target')
     expect(operations.map((operation) => operation.entrypoint)).toContain('$@taro-test/rtl-refresh')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('$@taro-test/rtl-overrides')
   })
 
   it('installs the same packaged skill surface into a local .codex directory', async () => {
@@ -200,5 +202,12 @@ describe('buildCodexOperations', () => {
       'utf8'
     )
     expect(refreshSkill).toContain('$@taro-test/rtl-refresh')
+
+    const overridesSkill = await readFile(
+      join(target.destinationDirectory, 'skills', '@taro-test', 'rtl-overrides', 'SKILL.md'),
+      'utf8'
+    )
+    expect(overridesSkill).toContain('$@taro-test/rtl-overrides')
+    expect(overridesSkill).toContain(`Run \`${target.runtimeCommand} __overrides\``)
   })
 })

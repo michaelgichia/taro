@@ -53,6 +53,13 @@ const PROMPT_RUNTIME_ASSETS: Record<PromptRuntimeTarget, RuntimeAssetDefinition[
       destinationSegments: ['commands', '@taro-test', 'rtl', 'refresh.md'],
       entrypoint: '/@taro-test/rtl:refresh',
     },
+    {
+      id: 'overrides',
+      kind: 'command',
+      sourceSegments: ['commands', 'claude', '@taro-test', 'rtl', 'overrides.md'],
+      destinationSegments: ['commands', '@taro-test', 'rtl', 'overrides.md'],
+      entrypoint: '/@taro-test/rtl:overrides',
+    },
     ...TARO_REFERENCE_FILES.map((fileName) => ({
       id: `generate-reference-${fileName.replace(/\.md$/, '')}`,
       kind: 'command' as const,
@@ -103,6 +110,13 @@ const PROMPT_RUNTIME_ASSETS: Record<PromptRuntimeTarget, RuntimeAssetDefinition[
       destinationSegments: ['commands', '@taro-test', 'rtl', 'refresh.toml'],
       entrypoint: '/@taro-test/rtl:refresh',
     },
+    {
+      id: 'overrides',
+      kind: 'command',
+      sourceSegments: ['commands', 'gemini', '@taro-test', 'rtl', 'overrides.toml'],
+      destinationSegments: ['commands', '@taro-test', 'rtl', 'overrides.toml'],
+      entrypoint: '/@taro-test/rtl:overrides',
+    },
   ],
   opencode: [
     {
@@ -146,6 +160,13 @@ const PROMPT_RUNTIME_ASSETS: Record<PromptRuntimeTarget, RuntimeAssetDefinition[
       sourceSegments: ['commands', 'opencode', '@taro-test', 'rtl-refresh.md'],
       destinationSegments: ['commands', '@taro-test', 'rtl-refresh.md'],
       entrypoint: '/@taro-test/rtl-refresh',
+    },
+    {
+      id: 'overrides',
+      kind: 'command',
+      sourceSegments: ['commands', 'opencode', '@taro-test', 'rtl-overrides.md'],
+      destinationSegments: ['commands', '@taro-test', 'rtl-overrides.md'],
+      entrypoint: '/@taro-test/rtl-overrides',
     },
   ],
 }

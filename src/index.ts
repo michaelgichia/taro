@@ -15,6 +15,7 @@ import {
   createInstallCommand,
   runInstallCommand,
 } from '#cli/commands/install.ts'
+import { createOverridesCommand } from '#cli/commands/overrides.ts'
 import { createRefreshCommand } from '#cli/commands/refresh.ts'
 import { createTargetCommand } from '#cli/commands/target.ts'
 import { createVersionCommand } from '#cli/commands/version.ts'
@@ -27,6 +28,8 @@ if (process.argv[2] === '__generate') {
   await createGenerateCommand().parseAsync(process.argv.slice(3), { from: 'user' })
 } else if (process.argv[2] === '__init') {
   await createInitCommand().parseAsync(process.argv.slice(3), { from: 'user' })
+} else if (process.argv[2] === '__overrides') {
+  await createOverridesCommand().parseAsync(process.argv.slice(3), { from: 'user' })
 } else if (process.argv[2] === '__refresh') {
   await createRefreshCommand().parseAsync(process.argv.slice(3), { from: 'user' })
 } else if (process.argv[2] === '__target') {
@@ -43,7 +46,7 @@ if (process.argv[2] === '__generate') {
     .helpOption('-h, --help', 'Display help for command')
     .addHelpText(
       'after',
-      '\nAfter install, use the runtime-native Taro help/init/generate/refresh entrypoints.'
+      '\nAfter install, use the runtime-native Taro help/init/overrides/generate/refresh entrypoints.'
     )
     .action(async () => {
       await runInstallCommand(program.optsWithGlobals() as InstallCommandOptions)

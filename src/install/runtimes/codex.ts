@@ -45,6 +45,13 @@ const CODEX_SKILL_ASSETS: RuntimeAssetDefinition[] = [
     destinationSegments: ['skills', '@taro-test', 'rtl-refresh', 'SKILL.md'],
     entrypoint: '$@taro-test/rtl-refresh',
   },
+  {
+    id: 'overrides',
+    kind: 'skill',
+    sourceSegments: ['agents', 'taro-overrides.md'],
+    destinationSegments: ['skills', '@taro-test', 'rtl-overrides', 'SKILL.md'],
+    entrypoint: '$@taro-test/rtl-overrides',
+  },
   ...TARO_REFERENCE_FILES.map((fileName) => ({
     id: `generate-reference-${fileName.replace(/\.md$/, '')}`,
     kind: 'skill' as const,
