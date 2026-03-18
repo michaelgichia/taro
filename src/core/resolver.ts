@@ -72,6 +72,7 @@ const PLAYWRIGHT_AUTH_RECOVERY_RETRY_LIMIT = 5
 const PLAYWRIGHT_PAGE_CONFIRMATION_POLL_MS = 250
 const PLAYWRIGHT_OPEN_RETRY_LIMIT = 3
 const PLAYWRIGHT_OPEN_RETRY_DELAY_MS = 2000
+const PLAYWRIGHT_STEP_REPLAY_TIMEOUT_MS = 5000
 
 /**
  * Escapes single quotes in strings for use in generated query code.
@@ -2052,6 +2053,108 @@ interface ResolvedStepLocator {
   value?: string
 }
 
+interface SkippedReplaySelector {
+  reason: string
+  source: ReplayLocatorSource
+  value: string
+}
+
+function isPlaywrightTimeoutError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false
+  }
+
+  return /timeout/i.test(error.name) || /timeout/i.test(error.message)
+}
+
+async function waitForReplayLocator(
+  locator: import('playwright').Locator,
+  timeoutMs: number
+): Promise<void> {
+  await locator.waitFor({ state: 'visible', timeout: timeoutMs })
+}
+
+async function summarizeReplayLocatorState(
+  locator: import('playwright').Locator
+): Promise<string | null> {
+  const summary = await locator
+    .evaluateAll((elements) => {
+      const isVisible = (element: Element): boolean => {
+        const htmlElement = element as HTMLElement
+        const style = window.getComputedStyle(htmlElement)
+        const rect = htmlElement.getBoundingClientRect()
+        return (
+          style.display !== 'none' &&
+          style.visibility !== 'hidden' &&
+          style.opacity !== '0' &&
+          rect.width > 0 &&
+          rect.height > 0
+        )
+      }
+
+      const disabledCount = elements.filter((element) => {
+        const htmlElement = element as HTMLElement & { disabled?: boolean }
+        return (
+          htmlElement.disabled === true ||
+          htmlElement.getAttribute('aria-disabled') === 'true'
+        )
+      }).length
+
+      const texts = elements
+        .map((element) => (element.textContent ?? '').trim())
+        .filter((text) => text.length > 0)
+        .slice(0, 3)
+
+      return {
+        count: elements.length,
+        disabledCount,
+        texts,
+        visibleCount: elements.filter(isVisible).length,
+      }
+    })
+    .catch(() => null)
+
+  if (!summary) {
+    return null
+  }
+
+  const parts = [
+    `matches=${summary.count}`,
+    `visible=${summary.visibleCount}`,
+    `disabled=${summary.disabledCount}`,
+  ]
+
+  if (summary.texts.length > 0) {
+    parts.push(`texts=${summary.texts.map((text) => JSON.stringify(text)).join('|')}`)
+  }
+
+  return parts.join(', ')
+}
+
+function getSkippedReplaySelector(step: NormalizedStep): SkippedReplaySelector | null {
+  const queryMeta = step.metadata?.query as
+    | { method: string; target?: string; role?: string; name?: string }
+    | undefined
+
+  // If Taro has semantic query evidence, prefer replaying that over CSS heuristics.
+  if (queryMeta?.method) {
+    return null
+  }
+
+  const selectorMeta = step.metadata?.selector as { selector?: string } | undefined
+  const selector = selectorMeta?.selector ?? step.target
+  const reason = getUnsupportedSelectorReason(selector)
+  if (!selector || !reason) {
+    return null
+  }
+
+  return {
+    reason,
+    source: selectorMeta?.selector ? 'metadata.selector' : 'step.target',
+    value: selector,
+  }
+}
+
 /**
  * Resolves a Playwright Locator for a given step, trying metadata.selector,
  * metadata.query, and step.target as fallbacks.
@@ -2060,15 +2163,6 @@ function resolveStepLocator(
   page: Page,
   step: NormalizedStep
 ): ResolvedStepLocator {
-  const selectorMeta = step.metadata?.selector as { selector?: string } | undefined
-  if (selectorMeta?.selector) {
-    return {
-      locator: page.locator(selectorMeta.selector).first(),
-      source: 'metadata.selector',
-      value: selectorMeta.selector,
-    }
-  }
-
   const queryMeta = step.metadata?.query as
     | { method: string; target?: string; role?: string; name?: string }
     | undefined
@@ -2077,6 +2171,15 @@ function resolveStepLocator(
       locator: queryToPlaywrightLocator(page, queryMeta),
       source: 'metadata.query',
       value: formatQueryDescriptorForDebug(queryMeta),
+    }
+  }
+
+  const selectorMeta = step.metadata?.selector as { selector?: string } | undefined
+  if (selectorMeta?.selector) {
+    return {
+      locator: page.locator(selectorMeta.selector).first(),
+      source: 'metadata.selector',
+      value: selectorMeta.selector,
     }
   }
 
@@ -2118,7 +2221,7 @@ export async function replayStep(
     timeoutMs?: number
   } = {}
 ): Promise<ReplayStepResult> {
-  const timeoutMs = options.timeoutMs ?? 3000
+  const timeoutMs = options.timeoutMs ?? PLAYWRIGHT_STEP_REPLAY_TIMEOUT_MS
   const action = step.action
   const noopActions: NormalizedAction[] = ['assert', 'unknown', 'waitForSelector', 'scroll', 'doubleClick']
   const debugBase: ReplayStepDebugTrace | undefined = options.collectDebug
@@ -2170,6 +2273,23 @@ export async function replayStep(
       }
     }
 
+    const skippedSelector = getSkippedReplaySelector(step)
+    if (skippedSelector) {
+      return {
+        replayed: false,
+        debug: debugBase
+          ? {
+              ...debugBase,
+              locatorSource: skippedSelector.source,
+              locatorValue: skippedSelector.value,
+              playwrightAction: `skip volatile selector ${JSON.stringify(skippedSelector.value)}`,
+              result: 'skipped',
+              error: skippedSelector.reason,
+            }
+          : undefined,
+      }
+    }
+
     const resolvedLocator = resolveStepLocator(page, step)
     if (!resolvedLocator.locator) {
       return {
@@ -2190,6 +2310,7 @@ export async function replayStep(
 
     switch (action) {
       case 'click':
+        await waitForReplayLocator(resolvedLocator.locator, timeoutMs)
         await resolvedLocator.locator.click({ timeout: timeoutMs })
         break
       case 'fill':
@@ -2200,6 +2321,7 @@ export async function replayStep(
           const placeholderLocator = page.getByPlaceholder(target)
           const placeholderCount = await placeholderLocator.count().catch(() => 0)
           if (placeholderCount === 1) {
+            await waitForReplayLocator(placeholderLocator, timeoutMs)
             await placeholderLocator.click({ timeout: timeoutMs })
             await placeholderLocator.fill(step.value, { timeout: timeoutMs })
             return {
@@ -2216,12 +2338,14 @@ export async function replayStep(
                 : undefined,
             }
           } else {
+            await waitForReplayLocator(resolvedLocator.locator, timeoutMs)
             await resolvedLocator.locator.click({ timeout: timeoutMs })
             await resolvedLocator.locator.fill(step.value, { timeout: timeoutMs })
           }
         }
         break
       case 'select':
+        await waitForReplayLocator(resolvedLocator.locator, timeoutMs)
         await resolvedLocator.locator.click({ timeout: timeoutMs })
         break
     }
@@ -2249,14 +2373,26 @@ export async function replayStep(
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
-    const truncated = message.length > 120 ? message.slice(0, 120) + '...' : message
-    const resolvedLocator: Pick<ResolvedStepLocator, 'source' | 'value'> =
+    const resolvedLocator: ResolvedStepLocator =
       action === 'navigate' || action === 'keyDown'
         ? {
+            locator: null,
             source: action === 'navigate' ? 'step.target' : 'none',
             value: action === 'navigate' ? step.target : step.key,
           }
         : resolveStepLocator(page, step)
+    const locatorSummary =
+      action === 'navigate' || action === 'keyDown' || !resolvedLocator.locator
+        ? null
+        : await summarizeReplayLocatorState(resolvedLocator.locator)
+    const enrichedMessage =
+      isPlaywrightTimeoutError(error) && locatorSummary
+        ? `${message} [${locatorSummary}]`
+        : message
+    const truncated =
+      enrichedMessage.length > 240
+        ? enrichedMessage.slice(0, 240) + '...'
+        : enrichedMessage
     return {
       replayed: false,
       warning: `${action} on ${step.target ?? '(unknown)'} failed: ${truncated}`,
@@ -2274,7 +2410,7 @@ export async function replayStep(
                     ? `locator.fill('${escapeSingleQuote(step.value)}')`
                     : 'locator.click()',
             result: 'failed',
-            error: message,
+            error: enrichedMessage,
           }
         : undefined,
     }
