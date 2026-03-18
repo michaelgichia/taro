@@ -768,11 +768,13 @@ describe('replayStep', () => {
         count: vi.fn().mockResolvedValue(1),
         click: placeholderClickMock,
         fill: placeholderFillMock,
+        waitFor: vi.fn().mockResolvedValue(undefined),
       })),
       locator: vi.fn(() => ({
         first: () => ({
           click: vi.fn().mockResolvedValue(undefined),
           fill: vi.fn().mockResolvedValue(undefined),
+          waitFor: vi.fn().mockResolvedValue(undefined),
         }),
       })),
       title: vi.fn().mockResolvedValue('Workspace'),
@@ -807,13 +809,13 @@ describe('replayStep', () => {
       })
     )
     expect(placeholderClickMock).toHaveBeenCalled()
-    expect(placeholderFillMock).toHaveBeenCalledWith('Acme Corp', { timeout: 3000 })
+    expect(placeholderFillMock).toHaveBeenCalledWith('Acme Corp', { timeout: 5000 })
   })
 
   it('falls back to the resolved locator for fill/select actions and truncates long failures', async () => {
     const fallbackClickMock = vi.fn().mockResolvedValue(undefined)
     const fallbackFillMock = vi.fn().mockResolvedValue(undefined)
-    const selectClickMock = vi.fn().mockRejectedValue(new Error('x'.repeat(140)))
+    const selectClickMock = vi.fn().mockRejectedValue(new Error('x'.repeat(250)))
     const page = {
       getByPlaceholder: vi.fn(() => ({
         count: vi.fn().mockResolvedValue(0),
@@ -823,10 +825,13 @@ describe('replayStep', () => {
           selector === '[data-testid="status"]'
             ? {
                 click: selectClickMock,
+                waitFor: vi.fn().mockResolvedValue(undefined),
+                evaluateAll: vi.fn().mockResolvedValue(null),
               }
             : {
                 click: fallbackClickMock,
                 fill: fallbackFillMock,
+                waitFor: vi.fn().mockResolvedValue(undefined),
               },
       })),
       title: vi.fn().mockResolvedValue('Workspace'),
@@ -859,7 +864,7 @@ describe('replayStep', () => {
       })
     )
     expect(fallbackClickMock).toHaveBeenCalled()
-    expect(fallbackFillMock).toHaveBeenCalledWith('Acme Corp', { timeout: 3000 })
+    expect(fallbackFillMock).toHaveBeenCalledWith('Acme Corp', { timeout: 5000 })
 
     const selectResult = await replayStep(
       page as unknown as Page,
@@ -2779,7 +2784,7 @@ describe('replayStep - additional branches', () => {
     const clickMock = vi.fn().mockResolvedValue(undefined)
     const page = {
       locator: vi.fn(() => ({
-        first: () => ({ click: clickMock }),
+        first: () => ({ click: clickMock, waitFor: vi.fn().mockResolvedValue(undefined) }),
       })),
       title: vi.fn().mockResolvedValue('App'),
       url: vi.fn().mockReturnValue('http://localhost:3000'),
@@ -2807,7 +2812,7 @@ describe('replayStep - additional branches', () => {
 
   it('replays click using metadata.query when selector metadata is absent', async () => {
     const clickMock = vi.fn().mockResolvedValue(undefined)
-    const getByRoleMock = vi.fn(() => ({ click: clickMock }))
+    const getByRoleMock = vi.fn(() => ({ click: clickMock, waitFor: vi.fn().mockResolvedValue(undefined) }))
     const page = {
       getByRole: getByRoleMock,
       title: vi.fn().mockResolvedValue('App'),
@@ -2862,7 +2867,11 @@ describe('replayStep - additional branches', () => {
     const clickMock = vi.fn().mockRejectedValue(new Error('element not attached'))
     const page = {
       locator: vi.fn(() => ({
-        first: () => ({ click: clickMock }),
+        first: () => ({
+          click: clickMock,
+          waitFor: vi.fn().mockResolvedValue(undefined),
+          evaluateAll: vi.fn().mockResolvedValue(null),
+        }),
       })),
       title: vi.fn().mockResolvedValue('App'),
       url: vi.fn().mockReturnValue('http://localhost:3000'),
@@ -2942,7 +2951,7 @@ describe('replayStep - additional branches', () => {
         count: vi.fn().mockResolvedValue(0),
       })),
       locator: vi.fn(() => ({
-        first: () => ({ click: clickMock, fill: fillMock }),
+        first: () => ({ click: clickMock, fill: fillMock, waitFor: vi.fn().mockResolvedValue(undefined) }),
       })),
       title: vi.fn().mockResolvedValue('App'),
       url: vi.fn().mockReturnValue('http://localhost:3000'),
@@ -2964,7 +2973,7 @@ describe('replayStep - additional branches', () => {
     expect(result.debug?.playwrightAction).toBe("locator.fill('user@example.com')")
     expect(result.debug?.locatorSource).toBe('step.target')
     expect(clickMock).toHaveBeenCalled()
-    expect(fillMock).toHaveBeenCalledWith('user@example.com', { timeout: 3000 })
+    expect(fillMock).toHaveBeenCalledWith('user@example.com', { timeout: 5000 })
   })
 
   it('handles fill action when step.value is undefined', async () => {
@@ -2998,7 +3007,7 @@ describe('replayStep - additional branches', () => {
     const clickMock = vi.fn().mockResolvedValue(undefined)
     const page = {
       locator: vi.fn(() => ({
-        first: () => ({ click: clickMock }),
+        first: () => ({ click: clickMock, waitFor: vi.fn().mockResolvedValue(undefined) }),
       })),
       title: vi.fn().mockResolvedValue('App'),
       url: vi.fn().mockReturnValue('http://localhost:3000'),
@@ -3103,7 +3112,11 @@ describe('replayStep - error path playwrightAction for various actions', () => {
   it('records locator.click() for error path of click action without debug', async () => {
     const page = {
       locator: vi.fn(() => ({
-        first: () => ({ click: vi.fn().mockRejectedValue(new Error('click failed')) }),
+        first: () => ({
+          click: vi.fn().mockRejectedValue(new Error('click failed')),
+          waitFor: vi.fn().mockResolvedValue(undefined),
+          evaluateAll: vi.fn().mockResolvedValue(null),
+        }),
       })),
       title: vi.fn().mockResolvedValue('App'),
       url: vi.fn().mockReturnValue('http://localhost:3000'),
@@ -3140,6 +3153,8 @@ describe('replayStep - error path playwrightAction for various actions', () => {
         first: () => ({
           click: clickMock,
           fill: vi.fn().mockRejectedValue(new Error('action error')),
+          waitFor: vi.fn().mockResolvedValue(undefined),
+          evaluateAll: vi.fn().mockResolvedValue(null),
         }),
       })),
       getByPlaceholder: vi.fn(() => ({
@@ -3175,11 +3190,13 @@ describe('replayStep - fill placeholder path without debug', () => {
         count: vi.fn().mockResolvedValue(1),
         click: placeholderClickMock,
         fill: placeholderFillMock,
+        waitFor: vi.fn().mockResolvedValue(undefined),
       })),
       locator: vi.fn(() => ({
         first: () => ({
           click: vi.fn().mockResolvedValue(undefined),
           fill: vi.fn().mockResolvedValue(undefined),
+          waitFor: vi.fn().mockResolvedValue(undefined),
         }),
       })),
       title: vi.fn().mockResolvedValue('App'),
@@ -3201,7 +3218,7 @@ describe('replayStep - fill placeholder path without debug', () => {
     expect(result.replayed).toBe(true)
     expect(result.debug).toBeUndefined()
     expect(placeholderClickMock).toHaveBeenCalled()
-    expect(placeholderFillMock).toHaveBeenCalledWith('user@example.com', { timeout: 3000 })
+    expect(placeholderFillMock).toHaveBeenCalledWith('user@example.com', { timeout: 5000 })
   })
 })
 
@@ -3299,7 +3316,7 @@ describe('replayStep - formatQueryDescriptorForDebug empty return', () => {
   it('records locator value as method() when metadata.query has no role and no target', async () => {
     const clickMock = vi.fn().mockResolvedValue(undefined)
     const page = {
-      getByText: vi.fn(() => ({ click: clickMock })),
+      getByText: vi.fn(() => ({ click: clickMock, waitFor: vi.fn().mockResolvedValue(undefined) })),
       title: vi.fn().mockResolvedValue('App'),
       url: vi.fn().mockReturnValue('http://localhost:3000'),
     }
@@ -3326,19 +3343,20 @@ describe('replayStep - formatQueryDescriptorForDebug empty return', () => {
 describe('replayStep - metadata.query branches (queryToPlaywrightLocator)', () => {
   function makePageWithMethods() {
     const page = {
-      getByText: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined) })),
-      getByLabel: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined) })),
+      getByText: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined), waitFor: vi.fn().mockResolvedValue(undefined) })),
+      getByLabel: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined), waitFor: vi.fn().mockResolvedValue(undefined) })),
       getByPlaceholder: vi.fn(() => ({
         count: vi.fn().mockResolvedValue(0),
         click: vi.fn().mockResolvedValue(undefined),
         fill: vi.fn().mockResolvedValue(undefined),
+        waitFor: vi.fn().mockResolvedValue(undefined),
       })),
-      getByTestId: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined) })),
-      getByTitle: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined) })),
-      getByAltText: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined) })),
-      getByRole: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined) })),
+      getByTestId: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined), waitFor: vi.fn().mockResolvedValue(undefined) })),
+      getByTitle: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined), waitFor: vi.fn().mockResolvedValue(undefined) })),
+      getByAltText: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined), waitFor: vi.fn().mockResolvedValue(undefined) })),
+      getByRole: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined), waitFor: vi.fn().mockResolvedValue(undefined) })),
       locator: vi.fn(() => ({
-        first: () => ({ click: vi.fn().mockResolvedValue(undefined) }),
+        first: () => ({ click: vi.fn().mockResolvedValue(undefined), waitFor: vi.fn().mockResolvedValue(undefined) }),
       })),
       title: vi.fn().mockResolvedValue('App'),
       url: vi.fn().mockReturnValue('http://localhost:3000'),
@@ -3467,7 +3485,8 @@ describe('replayStep - metadata.query branches (queryToPlaywrightLocator)', () =
       // because queryToPlaywrightLocator returns page.locator(...) directly (not .first())
       locator: vi.fn(() => ({
         click: clickMock,
-        first: () => ({ click: clickMock }),
+        waitFor: vi.fn().mockResolvedValue(undefined),
+        first: () => ({ click: clickMock, waitFor: vi.fn().mockResolvedValue(undefined) }),
       })),
       title: vi.fn().mockResolvedValue('App'),
       url: vi.fn().mockReturnValue('http://localhost:3000'),
@@ -3514,7 +3533,7 @@ describe('replayStep - metadata.query branches (queryToPlaywrightLocator)', () =
   it('uses getByPlaceholder locator when metadata.query method is getByPlaceholderText', async () => {
     const clickMock = vi.fn().mockResolvedValue(undefined)
     const page = {
-      getByPlaceholder: vi.fn(() => ({ click: clickMock })),
+      getByPlaceholder: vi.fn(() => ({ click: clickMock, waitFor: vi.fn().mockResolvedValue(undefined) })),
       title: vi.fn().mockResolvedValue('App'),
       url: vi.fn().mockReturnValue('http://localhost:3000'),
     }
@@ -3563,7 +3582,7 @@ describe('replayStep - success path playwrightAction string', () => {
     const clickMock = vi.fn().mockResolvedValue(undefined)
     const page = {
       locator: vi.fn(() => ({
-        first: () => ({ click: clickMock }),
+        first: () => ({ click: clickMock, waitFor: vi.fn().mockResolvedValue(undefined) }),
       })),
       title: vi.fn().mockResolvedValue('App'),
       url: vi.fn().mockReturnValue('http://localhost:3000'),
@@ -3590,7 +3609,7 @@ describe('replayStep - success path playwrightAction string', () => {
     const clickMock = vi.fn().mockResolvedValue(undefined)
     const page = {
       locator: vi.fn(() => ({
-        first: () => ({ click: clickMock }),
+        first: () => ({ click: clickMock, waitFor: vi.fn().mockResolvedValue(undefined) }),
       })),
       title: vi.fn().mockResolvedValue('App'),
       url: vi.fn().mockReturnValue('http://localhost:3000'),
@@ -3615,7 +3634,7 @@ describe('replayStep - success path playwrightAction string', () => {
     const clickMock = vi.fn().mockResolvedValue(undefined)
     const page = {
       locator: vi.fn(() => ({
-        first: () => ({ click: clickMock }),
+        first: () => ({ click: clickMock, waitFor: vi.fn().mockResolvedValue(undefined) }),
       })),
       title: vi.fn().mockResolvedValue('App'),
       url: vi.fn().mockReturnValue('http://localhost:3000'),
@@ -3643,7 +3662,12 @@ describe('replayStep - success path playwrightAction string', () => {
         count: vi.fn().mockResolvedValue(0),
       })),
       locator: vi.fn(() => ({
-        first: () => ({ click: clickMock, fill: fillMock }),
+        first: () => ({
+          click: clickMock,
+          fill: fillMock,
+          waitFor: vi.fn().mockResolvedValue(undefined),
+          evaluateAll: vi.fn().mockResolvedValue(null),
+        }),
       })),
       title: vi.fn().mockResolvedValue('App'),
       url: vi.fn().mockReturnValue('http://localhost:3000'),
@@ -3671,7 +3695,11 @@ describe('replayStep - success path playwrightAction string', () => {
     const clickMock = vi.fn().mockRejectedValue(new Error('select failed'))
     const page = {
       locator: vi.fn(() => ({
-        first: () => ({ click: clickMock }),
+        first: () => ({
+          click: clickMock,
+          waitFor: vi.fn().mockResolvedValue(undefined),
+          evaluateAll: vi.fn().mockResolvedValue(null),
+        }),
       })),
       title: vi.fn().mockResolvedValue('App'),
       url: vi.fn().mockReturnValue('http://localhost:3000'),
@@ -5460,6 +5488,7 @@ describe('replayStep - fill and error fallbacks', () => {
         count: vi.fn().mockResolvedValue(1),
         click: placeholderClickMock,
         fill: placeholderFillMock,
+        waitFor: vi.fn().mockResolvedValue(undefined),
       })),
       getByText: vi.fn(() => ({
         click: vi.fn().mockResolvedValue(undefined),
@@ -5507,6 +5536,8 @@ describe('replayStep - fill and error fallbacks', () => {
       locator: vi.fn(() => ({
         first: () => ({
           click: vi.fn().mockRejectedValue('click blew up'),
+          waitFor: vi.fn().mockResolvedValue(undefined),
+          evaluateAll: vi.fn().mockResolvedValue(null),
         }),
       })),
       title: vi.fn().mockResolvedValue('Workspace'),
@@ -5547,11 +5578,13 @@ describe('replayStep - fill and error fallbacks', () => {
         count: vi.fn().mockResolvedValue(1),
         click: placeholderClickMock,
         fill: placeholderFillMock,
+        waitFor: vi.fn().mockResolvedValue(undefined),
       })),
       locator: vi.fn(() => ({
         first: () => ({
           click: vi.fn().mockResolvedValue(undefined),
           fill: vi.fn().mockResolvedValue(undefined),
+          waitFor: vi.fn().mockResolvedValue(undefined),
         }),
       })),
       title: vi.fn().mockResolvedValue('Workspace'),
