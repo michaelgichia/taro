@@ -2,6 +2,7 @@
 import { fromPromise } from 'xstate'
 import { access, readFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
+import { spawn } from 'node:child_process'
 import pc from 'picocolors'
 
 import { normalizeJsBaseline } from '#core/baseline-normalizer.ts'
@@ -42,6 +43,7 @@ import type {
   RefineProfileActorInput,
   RefreshProfileActorInput,
   ResolveSelectorsActorInput,
+  RunHealthCommandsActorInput,
   SearchContextActorInput,
   ValidateFileActorInput,
   WriteOutputActorInput,
@@ -518,6 +520,43 @@ export const finalizeActor = fromPromise(
       )
     } catch {
       // state updates are best-effort
+    }
+  }
+)
+
+function runCommand(cmd: string, cwd: string): Promise<{ exitCode: number }> {
+  return new Promise((resolve) => {
+    const child = spawn(cmd, { shell: true, cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+    child.stdout?.on('data', (chunk: Buffer) => {
+      for (const line of chunk.toString().trimEnd().split('\n')) {
+        process.stderr.write(pc.dim('[taro:health]') + ' ' + line + '\n')
+      }
+    })
+    child.stderr?.on('data', (chunk: Buffer) => {
+      for (const line of chunk.toString().trimEnd().split('\n')) {
+        process.stderr.write(pc.dim('[taro:health]') + ' ' + line + '\n')
+      }
+    })
+    child.on('close', (code) => resolve({ exitCode: code ?? 1 }))
+  })
+}
+
+export const runHealthCommandsActor = fromPromise(
+  async ({ input }: { input: RunHealthCommandsActorInput }) => {
+    const { overrides, projectRoot } = input
+    const commands = overrides?.healthCommands
+    if (!commands || commands.length === 0) return
+    process.stderr.write(pc.dim('[taro]') + ' Running health checks...\n')
+    for (const cmd of commands) {
+      process.stderr.write(pc.dim('[taro:health]') + ` $ ${cmd}\n`)
+      const { exitCode } = await runCommand(cmd, projectRoot)
+      if (exitCode !== 0) {
+        process.stderr.write(
+          pc.yellow(`[taro:health] ⚠ '${cmd}' exited with code ${exitCode}`) + '\n'
+        )
+      } else {
+        process.stderr.write(pc.dim(`[taro:health] ✓ ${cmd}`) + '\n')
+      }
     }
   }
 )

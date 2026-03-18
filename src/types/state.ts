@@ -236,6 +236,7 @@ export interface TaroPackageOverrides {
 
 export interface TaroOverrides {
   packages?: Record<string, TaroPackageOverrides>
+  healthCommands?: string[]
 }
 
 export interface ResolvedTaroPackageProfile extends TaroPackageProfile {

@@ -48,6 +48,7 @@ export type GenerateMachineActors = {
   assessOutputActor: ReturnType<typeof fromPromise>
   writeOutputActor: ReturnType<typeof fromPromise>
   finalizeActor: ReturnType<typeof fromPromise>
+  runHealthCommandsActor: ReturnType<typeof fromPromise>
 }
 
 export function createGenerateMachine(actors: GenerateMachineActors) {
@@ -521,7 +522,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             packageProfile: context.packageProfile,
           }),
           onDone: {
-            target: 'done',
+            target: 'runningHealthChecks',
             actions: ({ context }: CtxArg) => {
               const action = context.shouldOverwrite ? pc.yellow('Updated') : pc.green('Created')
               log(`${action}: ${pc.bold(context.outputPath!)}`)
@@ -529,6 +530,17 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             },
           },
           onError: { target: 'failed', actions: assign({ error: ({ event }) => event.error as Error }) },
+        },
+      },
+      runningHealthChecks: {
+        invoke: {
+          src: 'runHealthCommandsActor',
+          input: ({ context }: CtxArg) => ({
+            overrides: context.overrides,
+            projectRoot: context.projectRoot,
+          }),
+          onDone: { target: 'done' },
+          onError: { target: 'done' },
         },
       },
       done: {

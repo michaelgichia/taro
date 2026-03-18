@@ -410,6 +410,7 @@ const taroOverridesSchema = z.object({
       })
     )
     .optional(),
+  healthCommands: z.array(z.string()).optional(),
 })
 
 interface PackageDescriptor {

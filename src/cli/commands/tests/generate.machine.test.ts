@@ -41,6 +41,7 @@ const makeAllActors = (overrides: Partial<Record<string, ReturnType<typeof fromP
   assessOutputActor: noopReturn({ existingCode: null, existingAssessment: null, shouldOverwrite: false }),
   writeOutputActor: noop,
   finalizeActor: noop,
+  runHealthCommandsActor: noop,
   ...overrides,
 })
 

@@ -3076,6 +3076,7 @@ export type WriteOutputActorInput = Pick<GenerateMachineContext,
   'generatedCode' | 'outputPath' | 'shouldOverwrite' | 'boundarySupportPlan'>
 export type FinalizeActorInput = Pick<GenerateMachineContext,
   'generatedCode' | 'outputPath' | 'projectRoot' | 'filePath' | 'scoreResult' | 'packageProfile'>
+export type RunHealthCommandsActorInput = Pick<GenerateMachineContext, 'overrides' | 'projectRoot'>
 
 // Guards
 export const generateMachineGuards = {
