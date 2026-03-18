@@ -171,6 +171,7 @@ describe('convention-intelligence', () => {
       {
         symbol: 'OrdersPage',
         importPath: './OrdersPage',
+        importKind: 'default',
         sourceTestFile: 'src/Widget.test.tsx',
         helperNames: ['openDialog'],
         usesWithin: true,
@@ -178,6 +179,7 @@ describe('convention-intelligence', () => {
       {
         symbol: 'Modal',
         importPath: './Modal',
+        importKind: 'default',
         sourceTestFile: 'src/Widget.test.tsx',
         helperNames: ['openDialog'],
         usesWithin: true,
@@ -188,5 +190,23 @@ describe('convention-intelligence', () => {
   it('exposes folder and extension defaults for empty convention sets', () => {
     expect(__conventionIntelligenceTestUtils.detectFolderPattern([], '/repo')).toBe('unknown')
     expect(__conventionIntelligenceTestUtils.detectFileExtension([])).toBe('ts')
+  })
+
+  it('detects tests/ subdirectory pattern', () => {
+    const root = '/repo'
+    const files = [
+      { path: '/repo/src/core/tests/scanner.test.ts', importStyle: 'esm' as const, hasDescribeBlock: true, mockPattern: 'none' as const, hasHelperWithExpect: false },
+      { path: '/repo/src/analyzer/tests/inspector.test.ts', importStyle: 'esm' as const, hasDescribeBlock: true, mockPattern: 'none' as const, hasHelperWithExpect: false },
+    ]
+    expect(__conventionIntelligenceTestUtils.detectFolderPattern(files, root)).toBe('tests')
+  })
+
+  it('detects mixed pattern when __tests__ and tests/ both appear', () => {
+    const root = '/repo'
+    const files = [
+      { path: '/repo/src/__tests__/foo.test.ts', importStyle: 'esm' as const, hasDescribeBlock: false, mockPattern: 'none' as const, hasHelperWithExpect: false },
+      { path: '/repo/src/bar/tests/bar.test.ts', importStyle: 'esm' as const, hasDescribeBlock: false, mockPattern: 'none' as const, hasHelperWithExpect: false },
+    ]
+    expect(__conventionIntelligenceTestUtils.detectFolderPattern(files, root)).toBe('mixed')
   })
 })

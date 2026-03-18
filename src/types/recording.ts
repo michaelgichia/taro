@@ -152,6 +152,7 @@ export interface VisualAuthRecovery {
   instructionsPath?: string
   persistedAuthPath?: string
   retryToExpectedUrl?: {
+    attemptCount?: number
     attempted: boolean
     completedAt?: string
     error?: string
@@ -430,6 +431,7 @@ export type SelectorResolutionOutcome =
   | 'inspection-failed'
   | 'selector-not-found'
   | 'selector-inaccessible'
+  | 'unexpected-page'
   | 'unsupported-selector'
 export type SelectorResolutionPhase = 'pre-step' | 'post-step' | 'fallback-no-replay'
 export type SelectorResolutionInspectSource =
@@ -473,6 +475,7 @@ export interface UnresolvedSelectorResolutionResult
     | 'inspection-failed'
     | 'selector-not-found'
     | 'selector-inaccessible'
+    | 'unexpected-page'
     | 'unsupported-selector'
   reason: string
   inspectionError?: string

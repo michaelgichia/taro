@@ -46,6 +46,7 @@ import type {
   TaroFixtureRootProfile,
   TaroGeneratedTestRecord,
   TaroInteractionContractProfile,
+  TaroJestDomSetup,
   TaroMockStoreResource,
   TaroOverrides,
   TaroPackageOverrides,
@@ -102,6 +103,11 @@ const PLAYWRIGHT_AUTH_DIRS = [
   'e2e/.auth',
   'tests/e2e/.auth',
 ] as const
+const TEST_CONFIG_FILE_REGEX = /^(?:vitest|vite|jest)\.config\.[cm]?[jt]sx?$/u
+const JEST_DOM_IMPORT_REGEX =
+  /(?:import\s+['"]@testing-library\/jest-dom(?:\/vitest)?['"]|require\(\s*['"]@testing-library\/jest-dom(?:\/vitest)?['"]\s*\))/u
+const SETUP_FILE_CONFIG_REGEX =
+  /\bsetupFiles(?:AfterEnv)?\s*:\s*(\[[\s\S]*?\]|['"`][^'"`]+['"`])/g
 const STAGE_PATTERNS: Record<MutationLifecycleStage, RegExp[]> = {
   loading: [/\bisLoading\b/i, /\bloading\b/i, /\bpending\b/i, /\bsubmitting\b/i, /toBeDisabled\(/],
   success: [
@@ -120,8 +126,9 @@ const STAGE_PATTERNS: Record<MutationLifecycleStage, RegExp[]> = {
 const confidenceSchema = z.enum(['low', 'medium', 'high'])
 const importStyleSchema = z.enum(['esm', 'cjs'])
 const testRunnerSchema = z.enum(['vitest', 'jest', 'unknown'])
+const jestDomSetupSchema = z.enum(['per-test-import', 'global-setup'])
 const mockPatternSchema = z.enum(['vi.mock', 'jest.mock', 'none'])
-const folderPatternSchema = z.enum(['colocated', '__tests__', 'mixed', 'unknown'])
+const folderPatternSchema = z.enum(['colocated', '__tests__', 'tests', 'mixed', 'unknown'])
 const fileExtensionSchema = z.enum(['ts', 'tsx', 'js', 'jsx', 'mixed'])
 const fixtureRootKindSchema = z.enum(['mock-store', 'mocks', 'fixtures', 'factories'])
 const boundaryKindSchema = z.enum([
@@ -319,6 +326,11 @@ const packageProfileSchema = z.object({
   conventions: conventionsSchema,
   importStyle: taroSignalSchema(importStyleSchema),
   runner: taroSignalSchema(testRunnerSchema),
+  jestDomSetup: taroSignalSchema(jestDomSetupSchema).default({
+    value: 'per-test-import',
+    confidence: 'low',
+    evidence: [],
+  }),
   mockPattern: taroSignalSchema(mockPatternSchema),
   folderPattern: taroSignalSchema(folderPatternSchema),
   fileExtension: taroSignalSchema(fileExtensionSchema),
@@ -398,6 +410,7 @@ const taroOverridesSchema = z.object({
       })
     )
     .optional(),
+  healthCommands: z.array(z.string()).optional(),
 })
 
 interface PackageDescriptor {
@@ -1161,6 +1174,204 @@ async function hasConfigFile(packageRoot: string, prefix: string): Promise<boole
   }
 }
 
+function getTestConfigRoots(projectRoot: string, packageRoot: string): string[] {
+  return [...new Set([resolve(packageRoot), resolve(projectRoot)])]
+}
+
+async function listTestConfigFiles(root: string): Promise<string[]> {
+  try {
+    const entries = await readdir(root)
+    return entries
+      .filter((entry) => TEST_CONFIG_FILE_REGEX.test(entry))
+      .sort()
+      .map((entry) => join(root, entry))
+  } catch {
+    return []
+  }
+}
+
+function extractQuotedStringValues(value: string): string[] {
+  return [
+    ...new Set(
+      [...value.matchAll(/['"`]([^'"`]+)['"`]/g)]
+        .map((match) => match[1]?.trim())
+        .filter((match): match is string => Boolean(match))
+    ),
+  ]
+}
+
+function extractSetupFileEntriesFromConfig(content: string): string[] {
+  const entries: string[] = []
+  for (const match of content.matchAll(SETUP_FILE_CONFIG_REGEX)) {
+    entries.push(...extractQuotedStringValues(match[1] ?? ''))
+  }
+
+  return [...new Set(entries)]
+}
+
+function toStringList(value: unknown): string[] {
+  if (typeof value === 'string') {
+    return [value]
+  }
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.filter((item): item is string => typeof item === 'string')
+}
+
+function getNestedValue(source: unknown, path: string[]): unknown {
+  let current = source
+  for (const segment of path) {
+    if (!current || typeof current !== 'object') {
+      return undefined
+    }
+
+    current = (current as Record<string, unknown>)[segment]
+  }
+
+  return current
+}
+
+function extractSetupFileEntriesFromPackageJson(raw: unknown): string[] {
+  return [
+    ...new Set([
+      ...toStringList(getNestedValue(raw, ['vitest', 'setupFiles'])),
+      ...toStringList(getNestedValue(raw, ['vitest', 'test', 'setupFiles'])),
+      ...toStringList(getNestedValue(raw, ['jest', 'setupFiles'])),
+      ...toStringList(getNestedValue(raw, ['jest', 'setupFilesAfterEnv'])),
+    ]),
+  ]
+}
+
+function resolveConfiguredPath(baseDir: string, rawPath: string): string {
+  const trimmed = rawPath.trim()
+  if (trimmed.startsWith('<rootDir>/')) {
+    return resolve(baseDir, trimmed.slice('<rootDir>/'.length))
+  }
+
+  return resolve(baseDir, trimmed)
+}
+
+async function collectConfiguredSetupFiles(
+  projectRoot: string,
+  packageRoot: string
+): Promise<Map<string, string[]>> {
+  const setupFiles = new Map<string, Set<string>>()
+
+  for (const root of getTestConfigRoots(projectRoot, packageRoot)) {
+    for (const configPath of await listTestConfigFiles(root)) {
+      let content = ''
+      try {
+        content = await readFile(configPath, 'utf-8')
+      } catch {
+        continue
+      }
+
+      const sourcePath = relative(projectRoot, configPath).replace(/\\/g, '/')
+      for (const entry of extractSetupFileEntriesFromConfig(content)) {
+        const resolvedPath = resolveConfiguredPath(dirname(configPath), entry)
+        const sources = setupFiles.get(resolvedPath) ?? new Set<string>()
+        sources.add(sourcePath)
+        setupFiles.set(resolvedPath, sources)
+      }
+    }
+
+    const packageJsonPath = join(root, 'package.json')
+    try {
+      const parsed = JSON.parse(await readFile(packageJsonPath, 'utf-8')) as unknown
+      const sourcePath = relative(projectRoot, packageJsonPath).replace(/\\/g, '/')
+      for (const entry of extractSetupFileEntriesFromPackageJson(parsed)) {
+        const resolvedPath = resolveConfiguredPath(root, entry)
+        const sources = setupFiles.get(resolvedPath) ?? new Set<string>()
+        sources.add(sourcePath)
+        setupFiles.set(resolvedPath, sources)
+      }
+    } catch {
+      // Package metadata is optional for test setup detection.
+    }
+  }
+
+  return new Map(
+    [...setupFiles.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([path, sources]) => [path, [...sources].sort()])
+  )
+}
+
+async function collectJestDomEvidenceFiles(
+  projectRoot: string,
+  packageRoot: string
+): Promise<string[]> {
+  const candidates = new Set<string>()
+
+  for (const root of getTestConfigRoots(projectRoot, packageRoot)) {
+    candidates.add(join(root, 'package.json'))
+    for (const configPath of await listTestConfigFiles(root)) {
+      candidates.add(configPath)
+    }
+  }
+
+  for (const setupFile of (await collectConfiguredSetupFiles(projectRoot, packageRoot)).keys()) {
+    candidates.add(setupFile)
+  }
+
+  return [...candidates]
+}
+
+async function detectJestDomSetup(
+  projectRoot: string,
+  descriptor: PackageDescriptor,
+  testFiles: TestFileContent[],
+  runner: TaroSignal<TaroTestRunner>
+): Promise<TaroSignal<TaroJestDomSetup>> {
+  const configuredSetupFiles = await collectConfiguredSetupFiles(projectRoot, descriptor.root)
+
+  for (const [setupFile, sources] of configuredSetupFiles) {
+    let content = ''
+    try {
+      content = await readFile(setupFile, 'utf-8')
+    } catch {
+      continue
+    }
+
+    if (!JEST_DOM_IMPORT_REGEX.test(content)) {
+      continue
+    }
+
+    const relativeSetupPath = relative(projectRoot, setupFile).replace(/\\/g, '/')
+    return {
+      value: 'global-setup',
+      confidence: 'high',
+      evidence: [
+        ...sources.map((source) => `${source}: setupFiles -> ${relativeSetupPath}`),
+        `${relativeSetupPath}: imports @testing-library/jest-dom`,
+      ].slice(0, MAX_EVIDENCE),
+    }
+  }
+
+  const directImportFiles = testFiles.filter((file) => JEST_DOM_IMPORT_REGEX.test(file.content))
+  if (directImportFiles.length > 0) {
+    return {
+      value: 'per-test-import',
+      confidence: 'high',
+      evidence: directImportFiles
+        .map((file) => `${relative(projectRoot, file.path).replace(/\\/g, '/')}: imports @testing-library/jest-dom`)
+        .slice(0, MAX_EVIDENCE),
+    }
+  }
+
+  return {
+    value: 'per-test-import',
+    confidence: runner.value === 'unknown' ? 'low' : 'medium',
+    evidence: [
+      configuredSetupFiles.size > 0
+        ? 'Scanned configured test setup files without global jest-dom registration.'
+        : 'No configured global jest-dom setup detected.',
+    ],
+  }
+}
+
 async function detectRunner(
   packageRoot: string,
   packageKey: string,
@@ -1349,6 +1560,7 @@ async function buildPackageProfile(
 
   const warnings: string[] = []
   const runner = await detectRunner(descriptor.root, descriptor.key, files)
+  const jestDomSetup = await detectJestDomSetup(projectRoot, descriptor, files, runner)
 
   if (runner.value === 'unknown') {
     warnings.push('Runner could not be detected confidently from local tests/config.')
@@ -1399,6 +1611,7 @@ async function buildPackageProfile(
     conventions,
     importStyle: inferImportStyle(conventions),
     runner,
+    jestDomSetup,
     mockPattern: inferMockPattern(conventions),
     folderPattern: inferFolderPattern(conventions),
     fileExtension: inferFileExtension(conventions),
@@ -1563,6 +1776,11 @@ function deriveLegacyPackageProfile(
     importStyle: inferImportStyle(normalized),
     runner: {
       value: 'unknown',
+      confidence: 'low',
+      evidence: ['Migrated from legacy conventions.json'],
+    },
+    jestDomSetup: {
+      value: 'per-test-import',
       confidence: 'low',
       evidence: ['Migrated from legacy conventions.json'],
     },
@@ -2150,15 +2368,21 @@ async function getLatestPackageEvidence(projectRoot: string, profile: TaroPackag
     candidates.add(join(projectRoot, file.path))
   }
 
-  try {
-    const entries = await readdir(packageRoot)
-    for (const entry of entries) {
-      if (/^(vitest|jest)\.config\./.test(entry) || PLAYWRIGHT_CONFIG_FILES.includes(entry as typeof PLAYWRIGHT_CONFIG_FILES[number])) {
-        candidates.add(join(packageRoot, entry))
+  for (const candidate of await collectJestDomEvidenceFiles(projectRoot, packageRoot)) {
+    candidates.add(candidate)
+  }
+
+  for (const root of getTestConfigRoots(projectRoot, packageRoot)) {
+    try {
+      const entries = await readdir(root)
+      for (const entry of entries) {
+        if (PLAYWRIGHT_CONFIG_FILES.includes(entry as typeof PLAYWRIGHT_CONFIG_FILES[number])) {
+          candidates.add(join(root, entry))
+        }
       }
+    } catch {
+      // Best-effort only.
     }
-  } catch {
-    // Best-effort only.
   }
 
   if (profile.playwrightAuth?.path) {
@@ -2205,6 +2429,14 @@ export async function detectPackageProfileStaleness(
   projectRoot: string,
   profile: TaroPackageProfile
 ): Promise<TaroPackageProfileStaleness> {
+  if (profile.jestDomSetup.evidence.length === 0) {
+    return {
+      stale: true,
+      reason: 'Package profile predates jest-dom setup detection and should be refreshed.',
+      latestEvidencePath: null,
+    }
+  }
+
   const scannedAtMs = Date.parse(profile.scannedAt)
   if (!Number.isFinite(scannedAtMs)) {
     return {

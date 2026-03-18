@@ -707,6 +707,37 @@ test('Reveal flow', async () => {
     expect(debugOutput).toContain('"kind":"replay-attempt"');
   });
 
+  it("skips step replay when the replay page is redirected away from the recorded URL", async () => {
+    const fixture = await createRecordingFixture("selector-replay-redirected");
+    const redirectedUrl =
+      "http://localhost:3001/?redirect_url=http%3A%2F%2Flocalhost%3A3001%2Fdashboard%2Forgs%2Forganisation_01J19WTB4J3DZYD730T2K58KRF%2Fapps%2Fbusiness_01JCK47QRT925ZFTVZGJAVPQE7%3Ftab%3Dsales";
+
+    openCapturePageMock.mockResolvedValue({
+      browser: { close: vi.fn(async () => undefined) },
+      page: {
+        url: vi.fn(() => redirectedUrl),
+      },
+    });
+
+    const result = await runGenerate([fixture.recordingPath], fixture.outputDir);
+    const written = await readFile(
+      deriveOutputPath(fixture.recordingPath),
+      "utf-8",
+    );
+
+    expect(result.thrown).toBeUndefined();
+    expect(result.warnings).toContain(
+      "Step replay skipped: replay page did not reach the recorded URL. Expected http://localhost:3001/dashboard/orgs/organisation_01J19WTB4J3DZYD730T2K58KRF/apps/business_01JCK47QRT925ZFTVZGJAVPQE7?tab=sales, reached http://localhost:3001/?redirect_url=http%3A%2F%2Flocalhost%3A3001%2Fdashboard%2Forgs%2Forganisation_01J19WTB4J3DZYD730T2K58KRF%2Fapps%2Fbusiness_01JCK47QRT925ZFTVZGJAVPQE7%3Ftab%3Dsales.",
+    );
+    expect(result.warnings).toContain(
+      "QRY-03 [js-step-13] unresolved selector div.css-19bb58m: Playwright replay page did not reach the recorded URL. Expected http://localhost:3001/dashboard/orgs/organisation_01J19WTB4J3DZYD730T2K58KRF/apps/business_01JCK47QRT925ZFTVZGJAVPQE7?tab=sales, reached http://localhost:3001/?redirect_url=http%3A%2F%2Flocalhost%3A3001%2Fdashboard%2Forgs%2Forganisation_01J19WTB4J3DZYD730T2K58KRF%2Fapps%2Fbusiness_01JCK47QRT925ZFTVZGJAVPQE7%3Ftab%3Dsales.",
+    );
+    expect(replayStepMock).not.toHaveBeenCalled();
+    expect(written).toContain(
+      "Playwright replay page did not reach the recorded URL.",
+    );
+  });
+
   it("emits browser-open debug traces when the step replay browser cannot start", async () => {
     const fixture = await createRecordingFixture("selector-debug-browser-open");
     openCapturePageMock.mockRejectedValue(new Error("browser blocked"));
@@ -1944,10 +1975,82 @@ test('Example flow', async () => {
       "Retried recorded URL once after auth recovery: http://localhost:3001/dashboard (page.goto: Timeout 3000ms exceeded.)",
     );
     expect(result.warnings).toContain(
+      "Saved Playwright storageState: .taro/playwright/.auth/user.json",
+    );
+    expect(result.warnings).toContain(
       "Timed out waiting 300s for manual authentication.",
     );
     expect(result.errors).toBe("");
     expect(result.exitCode).toBe(0);
+  });
+
+  it("reuses a saved storageState even when auth recovery timed out before full page confirmation", async () => {
+    const fixture = await createRecordingFixture("auth-timeout-reuses-storage");
+    captureVisualStateMock.mockResolvedValue({
+      authRecovery: {
+        completedAt: new Date().toISOString(),
+        persistedAuthPath: ".taro/playwright/.auth/user.json",
+        retryToExpectedUrl: {
+          attempted: true,
+          completedAt: new Date().toISOString(),
+          outcome: "succeeded",
+          targetUrl: "http://localhost:3001/dashboard",
+        },
+        startedAt: new Date().toISOString(),
+        status: "timed-out",
+        timeoutMs: 300000,
+      },
+      capturedAt: new Date().toISOString(),
+      dialog: null,
+      element: null,
+      finalUrl: "http://localhost:3001/",
+      interrupt: {
+        kind: "auth-required",
+        actualTitle: "Sign In",
+        expectedTitle: "DigiTax",
+        expectedUrl: "http://localhost:3001/dashboard",
+        reachedUrl: "http://localhost:3001/login",
+        signals: ["route-mismatch"],
+        strategy: "instructions",
+      },
+      pageTitle: "DigiTax",
+      reason: "dialog-state",
+      screenshotPath: "/tmp/taro-login-timeout.png",
+      selector: "#save",
+      status: "auth-recovery-timed-out",
+      url: "http://localhost:3001/dashboard",
+      warnings: ["Timed out waiting 300s for manual authentication."],
+    });
+
+    const result = await runGenerate(
+      [fixture.recordingPath],
+      fixture.outputDir,
+      {
+        input: { isTTY: true },
+        output: { isTTY: true },
+      },
+    );
+    const stateModule = await import("#core/state.ts");
+
+    expect(result.thrown).toBeUndefined();
+    expect(openCapturePageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        auth: {
+          path: expect.stringMatching(/\.taro\/playwright\/\.auth\/user\.json$/),
+          strategy: "storageState",
+        },
+      }),
+    );
+    expect(
+      vi.mocked(stateModule.persistPlaywrightAuthProfile),
+    ).toHaveBeenCalledWith(
+      expect.any(String),
+      ".",
+      expect.objectContaining({
+        path: ".taro/playwright/.auth/user.json",
+        strategy: "storageState",
+      }),
+    );
   });
 
   it("keeps zero marker conversion warning-only after writing output", async () => {
@@ -2034,11 +2137,13 @@ describe('Example flow', () => {
     expect(result.errors).toBe("");
     expect(result.logs).toContain("Existing output detected:");
     expect(result.logs).toContain(
-      "Keeping the existing test because it already matches or exceeds",
+      "Existing output will be updated because Taro kept the higher-scored suite and merged distinct tests from the alternate draft.",
     );
-    expect(result.logs).not.toContain(`Updated: ${outputPath}`);
+    expect(result.logs).toContain("Preserved 1 distinct test block from the alternate suite.");
+    expect(result.logs).toContain(`Updated: ${outputPath}`);
     expect(result.logs).not.toContain(`Created: ${outputPath}`);
-    expect(written).toBe(existingTest);
+    expect(written).toContain("it('covers the full example flow'");
+    expect(written).toContain("expect(await screen.findByRole('heading', { name: 'Review Example' }))");
   });
 
   it("updates an existing test when generation improves recorder-flow coverage", async () => {
@@ -2083,10 +2188,11 @@ describe('Example flow', () => {
     expect(result.thrown).toBeUndefined();
     expect(result.errors).toBe("");
     expect(result.logs).toContain(
-      "Existing output will be updated because the new generation improves flow coverage or overall quality.",
+      "Existing output will be updated because Taro kept the higher-scored suite and merged distinct tests from the alternate draft.",
     );
+    expect(result.logs).toContain("Preserved 1 distinct test block from the alternate suite.");
     expect(result.logs).toContain(`Updated: ${outputPath}`);
-    expect(written).not.toContain("it('is stale'");
+    expect(written).toContain("it('is stale'");
     expect(written).toContain("Open Example Flow");
     expect(written).toContain("Customer Reference");
     expect(written).toContain("Review Example");
@@ -3310,8 +3416,9 @@ test('baseline', () => { render(<FeatureFlow />) })`,
       [fixture.recordingPath],
       fixture.outputDir,
     );
+    const written = await readFile(testFilePath, "utf-8");
 
     expect(result.thrown).toBeUndefined();
-    expect(result.logs).toContain("FeatureFlow.test.tsx");
+    expect(written).toContain("import FeatureFlow from './FeatureFlow'");
   });
 });

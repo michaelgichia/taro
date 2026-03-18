@@ -30,6 +30,7 @@ export interface GenerateFromGroupsOptions {
   outputPath?: string
   conventions?: ConventionsSchema
   runner?: TaroTestRunner
+  jestDomImportPath?: string | null
   queryResults?: QueryResult[]
   helpers?: JsHelperPlan[]
   scenarios?: JsScenarioPlan[]

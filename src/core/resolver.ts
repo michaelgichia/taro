@@ -62,17 +62,17 @@ const GENERIC_FIELD_CONTEXT_PATTERN =
 
 const FIELD_LABEL_HINT_PATTERN =
   /\b(name|email|phone|pin|quantity|amount|reference|description|notes?|comment|code|search|address|date|time|password|customer|type|number)\b/i
-const AUTH_PATH_PATTERN =
-  /\b(login|log-?in|sign-?in|auth|oauth|sso|verify|verification|mfa|two[- ]factor|checkpoint|challenge)\b/i
 const AUTH_COPY_PATTERN =
   /\b(sign in|log in|continue with|single sign-on|sso|password|verification code|one-time code|two-factor|2fa|multi-factor|mfa|confirm it'?s you)\b/i
 
 const PLAYWRIGHT_CAPTURE_FAILURE_PREFIX = 'Playwright visual capture failed.'
 const PLAYWRIGHT_SELECTOR_INSPECTION_ERROR_PREFIX = 'Playwright selector inspection failed.'
 const PLAYWRIGHT_AUTH_RECOVERY_POLL_MS = 1000
+const PLAYWRIGHT_AUTH_RECOVERY_RETRY_LIMIT = 5
 const PLAYWRIGHT_PAGE_CONFIRMATION_POLL_MS = 250
 const PLAYWRIGHT_OPEN_RETRY_LIMIT = 3
 const PLAYWRIGHT_OPEN_RETRY_DELAY_MS = 2000
+const PLAYWRIGHT_STEP_REPLAY_TIMEOUT_MS = 5000
 
 /**
  * Escapes single quotes in strings for use in generated query code.
@@ -83,6 +83,41 @@ function escapeSingleQuote(str: string): string {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unknown error'
+}
+
+function looksLikeCssSelector(target: string): boolean {
+  const normalized = target.trim()
+  if (!normalized) {
+    return false
+  }
+
+  const descendantTagSelector = normalized.split(/\s+/)
+  if (
+    descendantTagSelector.length > 1 &&
+    descendantTagSelector.every((segment) => /^[a-z][a-z0-9-]*$/.test(segment))
+  ) {
+    return true
+  }
+
+  return (
+    /^[#.[]/.test(normalized) ||
+    /^[a-z][a-z0-9-]*(?:[.#[:>+~])/.test(normalized) ||
+    /^(button|input|select|textarea|a|img|h[1-6])$/.test(normalized) ||
+    /^(css|xpath|text|id|data-testid|data-test-id|role)=/i.test(normalized)
+  )
+}
+
+function resolveElementProbeLocator(
+  page: Page,
+  selector: string
+): import('playwright').Locator {
+  if (looksLikeCssSelector(selector)) {
+    return page.locator(selector).first()
+  }
+
+  // Visual-state probes sometimes receive recorder target text such as
+  // "Add Item". Treat those as visible-text checks instead of CSS.
+  return page.getByText(selector, { exact: true }).first()
 }
 
 function isRetryablePlaywrightOpenError(error: unknown): boolean {
@@ -135,7 +170,7 @@ interface ResolveSelectorOptions {
 }
 
 async function readElementInfo(page: Page, selector: string): Promise<ElementInfo> {
-  const locator = page.locator(selector).first()
+  const locator = resolveElementProbeLocator(page, selector)
   const elementInfo = await locator.evaluate((el: Element) => {
     const htmlEl = el as HTMLElement
     type LabelableElement =
@@ -762,7 +797,7 @@ function normalizeComparableText(value?: string | null): string {
   return value?.replace(/\s+/g, ' ').trim().toLowerCase() ?? ''
 }
 
-function urlsMateriallyDiffer(expectedUrl?: string, actualUrl?: string): boolean {
+export function urlsMateriallyDiffer(expectedUrl?: string, actualUrl?: string): boolean {
   if (!expectedUrl || !actualUrl) {
     return false
   }
@@ -878,9 +913,6 @@ async function detectAuthCheckpoint(
     }))
 
   const authSignals = new Set<string>(bodyAnalysis.authSignals)
-  if (AUTH_PATH_PATTERN.test(reachedUrl)) {
-    authSignals.add('auth-route')
-  }
   if (AUTH_COPY_PATTERN.test(options.actualTitle)) {
     authSignals.add('auth-title')
   }
@@ -1321,8 +1353,12 @@ async function attemptAuthRecovery(params: {
   const deadline = Date.now() + recovery.timeoutMs
   const AUTH_RECOVERY_HEARTBEAT_MS = 30_000
   let lastHeartbeatAt = Date.now()
+  let latestSnapshot: VisualPageSnapshot | undefined
+  let persistedAuthPath: string | undefined
+  let retryAttemptCount = 0
   let retryToExpectedUrl:
     | {
+        attemptCount?: number
         attempted: true
         completedAt?: string
         error?: string
@@ -1330,28 +1366,26 @@ async function attemptAuthRecovery(params: {
         targetUrl: string
       }
     | undefined
-  // Tracks whether a navigation to the expected URL is allowed.
-  // Reset to true each time an auth interrupt is detected so that after
-  // the user re-authenticates, Taro can navigate to the expected URL again.
-  let canNavigateToExpectedUrl = true
 
   try {
     while (Date.now() <= deadline) {
       const snapshot = await inspectVisualPage(page, { expected, selector })
+      latestSnapshot = snapshot
 
       const now = Date.now()
       if (now - lastHeartbeatAt >= AUTH_RECOVERY_HEARTBEAT_MS) {
         const remainingSec = Math.max(0, Math.round((deadline - now) / 1000))
         console.log(
-          pc.dim('[taro]') + ` Still waiting for sign-in… ${remainingSec}s remaining.`
+          pc.dim('[taro]') +
+            ` Still waiting for authentication… ${remainingSec}s remaining.`
         )
         lastHeartbeatAt = now
       }
 
-      if (snapshot.authCheckpoint.interrupt) {
-        // User is back at an auth page (e.g. navigation redirected to login).
-        // Allow navigation again so the next successful auth triggers a retry.
-        canNavigateToExpectedUrl = true
+      if (!snapshot.authCheckpoint.interrupt && recovery.saveStorageStatePath && !persistedAuthPath) {
+        await mkdir(dirname(recovery.saveStorageStatePath), { recursive: true })
+        await context.storageState({ path: recovery.saveStorageStatePath })
+        persistedAuthPath = recovery.persistedAuthPath
       }
 
       if (
@@ -1361,9 +1395,10 @@ async function attemptAuthRecovery(params: {
           snapshot,
         })
       ) {
-        if (recovery.saveStorageStatePath) {
+        if (recovery.saveStorageStatePath && !persistedAuthPath) {
           await mkdir(dirname(recovery.saveStorageStatePath), { recursive: true })
           await context.storageState({ path: recovery.saveStorageStatePath })
+          persistedAuthPath = recovery.persistedAuthPath
         }
         const screenshotPath = await capturePageScreenshot(
           page,
@@ -1375,7 +1410,7 @@ async function attemptAuthRecovery(params: {
           authRecovery: {
             completedAt: new Date().toISOString(),
             instructionsPath: recovery.instructionsPath,
-            persistedAuthPath: recovery.persistedAuthPath,
+            persistedAuthPath,
             retryToExpectedUrl,
             startedAt,
             status: 'succeeded',
@@ -1400,29 +1435,29 @@ async function attemptAuthRecovery(params: {
 
       const targetUrl = expected?.url
       if (
-        canNavigateToExpectedUrl &&
         targetUrl &&
+        retryAttemptCount < PLAYWRIGHT_AUTH_RECOVERY_RETRY_LIMIT &&
         shouldRetryExpectedUrlDuringAuthRecovery({
           expected,
           snapshot,
         })
       ) {
-
-        canNavigateToExpectedUrl = false
+        retryAttemptCount += 1
         try {
           await page.goto(targetUrl, {
             timeout: Math.max(1, deadline - Date.now()),
             waitUntil: 'domcontentloaded',
           })
           retryToExpectedUrl = {
+            attemptCount: retryAttemptCount,
             attempted: true,
             completedAt: new Date().toISOString(),
             outcome: 'succeeded',
             targetUrl,
           }
-          continue
         } catch (error) {
           retryToExpectedUrl = {
+            attemptCount: retryAttemptCount,
             attempted: true,
             completedAt: new Date().toISOString(),
             error: getErrorMessage(error),
@@ -1430,6 +1465,16 @@ async function attemptAuthRecovery(params: {
             targetUrl,
           }
         }
+
+        const remainingMsAfterRetry = deadline - Date.now()
+        if (remainingMsAfterRetry <= 0) {
+          break
+        }
+
+        await page.waitForTimeout(
+          Math.min(PLAYWRIGHT_AUTH_RECOVERY_POLL_MS, remainingMsAfterRetry)
+        )
+        continue
       }
 
       const remainingMs = deadline - Date.now()
@@ -1440,23 +1485,26 @@ async function attemptAuthRecovery(params: {
       await page.waitForTimeout(Math.min(PLAYWRIGHT_AUTH_RECOVERY_POLL_MS, remainingMs))
     }
 
+    const finalSnapshot = latestSnapshot
+
     return {
       authRecovery: {
         completedAt: new Date().toISOString(),
         instructionsPath: recovery.instructionsPath,
-        persistedAuthPath: recovery.persistedAuthPath,
+        persistedAuthPath,
         retryToExpectedUrl,
         startedAt,
         status: 'timed-out',
         timeoutMs: recovery.timeoutMs,
       },
       capturedAt: new Date().toISOString(),
-      dialog: initialInterrupt.dialog,
-      element: initialInterrupt.element,
-      finalUrl: initialInterrupt.finalUrl,
+      dialog: finalSnapshot?.dialog ?? initialInterrupt.dialog,
+      element: finalSnapshot?.element ?? initialInterrupt.element,
+      finalUrl: finalSnapshot?.authCheckpoint.reachedUrl ?? initialInterrupt.finalUrl,
       interrupt: initialInterrupt.interrupt,
-      matchedLandmarks: initialInterrupt.matchedLandmarks,
-      pageTitle: initialInterrupt.pageTitle,
+      matchedLandmarks:
+        finalSnapshot?.authCheckpoint.matchedLandmarks ?? initialInterrupt.matchedLandmarks,
+      pageTitle: finalSnapshot?.pageTitle ?? initialInterrupt.pageTitle,
       reason,
       screenshotPath: initialInterrupt.screenshotPath,
       selector,
@@ -1468,25 +1516,27 @@ async function attemptAuthRecovery(params: {
     }
   } catch (error) {
     const message = getErrorMessage(error)
+    const finalSnapshot = latestSnapshot
 
     return {
       authRecovery: {
         completedAt: new Date().toISOString(),
         error: message,
         instructionsPath: recovery.instructionsPath,
-        persistedAuthPath: recovery.persistedAuthPath,
+        persistedAuthPath,
         retryToExpectedUrl,
         startedAt,
         status: 'failed',
         timeoutMs: recovery.timeoutMs,
       },
       capturedAt: new Date().toISOString(),
-      dialog: initialInterrupt.dialog,
-      element: initialInterrupt.element,
-      finalUrl: initialInterrupt.finalUrl,
+      dialog: finalSnapshot?.dialog ?? initialInterrupt.dialog,
+      element: finalSnapshot?.element ?? initialInterrupt.element,
+      finalUrl: finalSnapshot?.authCheckpoint.reachedUrl ?? initialInterrupt.finalUrl,
       interrupt: initialInterrupt.interrupt,
-      matchedLandmarks: initialInterrupt.matchedLandmarks,
-      pageTitle: initialInterrupt.pageTitle,
+      matchedLandmarks:
+        finalSnapshot?.authCheckpoint.matchedLandmarks ?? initialInterrupt.matchedLandmarks,
+      pageTitle: finalSnapshot?.pageTitle ?? initialInterrupt.pageTitle,
       reason,
       screenshotPath: initialInterrupt.screenshotPath,
       selector,
@@ -1549,7 +1599,7 @@ export async function captureVisualState(
         const timeoutSec = Math.round((options.authRecovery.timeoutMs ?? 0) / 1000)
         console.log(
           pc.dim('[taro]') +
-            ` Auth required — complete sign-in in the browser window. Waiting up to ${timeoutSec}s.`
+            ` Auth required — complete authentication in the browser window. Waiting up to ${timeoutSec}s.`
         )
         return await attemptAuthRecovery({
           auth: options.auth,
@@ -2003,6 +2053,108 @@ interface ResolvedStepLocator {
   value?: string
 }
 
+interface SkippedReplaySelector {
+  reason: string
+  source: ReplayLocatorSource
+  value: string
+}
+
+function isPlaywrightTimeoutError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false
+  }
+
+  return /timeout/i.test(error.name) || /timeout/i.test(error.message)
+}
+
+async function waitForReplayLocator(
+  locator: import('playwright').Locator,
+  timeoutMs: number
+): Promise<void> {
+  await locator.waitFor({ state: 'visible', timeout: timeoutMs })
+}
+
+async function summarizeReplayLocatorState(
+  locator: import('playwright').Locator
+): Promise<string | null> {
+  const summary = await locator
+    .evaluateAll((elements) => {
+      const isVisible = (element: Element): boolean => {
+        const htmlElement = element as HTMLElement
+        const style = window.getComputedStyle(htmlElement)
+        const rect = htmlElement.getBoundingClientRect()
+        return (
+          style.display !== 'none' &&
+          style.visibility !== 'hidden' &&
+          style.opacity !== '0' &&
+          rect.width > 0 &&
+          rect.height > 0
+        )
+      }
+
+      const disabledCount = elements.filter((element) => {
+        const htmlElement = element as HTMLElement & { disabled?: boolean }
+        return (
+          htmlElement.disabled === true ||
+          htmlElement.getAttribute('aria-disabled') === 'true'
+        )
+      }).length
+
+      const texts = elements
+        .map((element) => (element.textContent ?? '').trim())
+        .filter((text) => text.length > 0)
+        .slice(0, 3)
+
+      return {
+        count: elements.length,
+        disabledCount,
+        texts,
+        visibleCount: elements.filter(isVisible).length,
+      }
+    })
+    .catch(() => null)
+
+  if (!summary) {
+    return null
+  }
+
+  const parts = [
+    `matches=${summary.count}`,
+    `visible=${summary.visibleCount}`,
+    `disabled=${summary.disabledCount}`,
+  ]
+
+  if (summary.texts.length > 0) {
+    parts.push(`texts=${summary.texts.map((text) => JSON.stringify(text)).join('|')}`)
+  }
+
+  return parts.join(', ')
+}
+
+function getSkippedReplaySelector(step: NormalizedStep): SkippedReplaySelector | null {
+  const queryMeta = step.metadata?.query as
+    | { method: string; target?: string; role?: string; name?: string }
+    | undefined
+
+  // If Taro has semantic query evidence, prefer replaying that over CSS heuristics.
+  if (queryMeta?.method) {
+    return null
+  }
+
+  const selectorMeta = step.metadata?.selector as { selector?: string } | undefined
+  const selector = selectorMeta?.selector ?? step.target
+  const reason = getUnsupportedSelectorReason(selector)
+  if (!selector || !reason) {
+    return null
+  }
+
+  return {
+    reason,
+    source: selectorMeta?.selector ? 'metadata.selector' : 'step.target',
+    value: selector,
+  }
+}
+
 /**
  * Resolves a Playwright Locator for a given step, trying metadata.selector,
  * metadata.query, and step.target as fallbacks.
@@ -2011,15 +2163,6 @@ function resolveStepLocator(
   page: Page,
   step: NormalizedStep
 ): ResolvedStepLocator {
-  const selectorMeta = step.metadata?.selector as { selector?: string } | undefined
-  if (selectorMeta?.selector) {
-    return {
-      locator: page.locator(selectorMeta.selector).first(),
-      source: 'metadata.selector',
-      value: selectorMeta.selector,
-    }
-  }
-
   const queryMeta = step.metadata?.query as
     | { method: string; target?: string; role?: string; name?: string }
     | undefined
@@ -2028,6 +2171,15 @@ function resolveStepLocator(
       locator: queryToPlaywrightLocator(page, queryMeta),
       source: 'metadata.query',
       value: formatQueryDescriptorForDebug(queryMeta),
+    }
+  }
+
+  const selectorMeta = step.metadata?.selector as { selector?: string } | undefined
+  if (selectorMeta?.selector) {
+    return {
+      locator: page.locator(selectorMeta.selector).first(),
+      source: 'metadata.selector',
+      value: selectorMeta.selector,
     }
   }
 
@@ -2069,7 +2221,7 @@ export async function replayStep(
     timeoutMs?: number
   } = {}
 ): Promise<ReplayStepResult> {
-  const timeoutMs = options.timeoutMs ?? 3000
+  const timeoutMs = options.timeoutMs ?? PLAYWRIGHT_STEP_REPLAY_TIMEOUT_MS
   const action = step.action
   const noopActions: NormalizedAction[] = ['assert', 'unknown', 'waitForSelector', 'scroll', 'doubleClick']
   const debugBase: ReplayStepDebugTrace | undefined = options.collectDebug
@@ -2121,6 +2273,23 @@ export async function replayStep(
       }
     }
 
+    const skippedSelector = getSkippedReplaySelector(step)
+    if (skippedSelector) {
+      return {
+        replayed: false,
+        debug: debugBase
+          ? {
+              ...debugBase,
+              locatorSource: skippedSelector.source,
+              locatorValue: skippedSelector.value,
+              playwrightAction: `skip volatile selector ${JSON.stringify(skippedSelector.value)}`,
+              result: 'skipped',
+              error: skippedSelector.reason,
+            }
+          : undefined,
+      }
+    }
+
     const resolvedLocator = resolveStepLocator(page, step)
     if (!resolvedLocator.locator) {
       return {
@@ -2141,6 +2310,7 @@ export async function replayStep(
 
     switch (action) {
       case 'click':
+        await waitForReplayLocator(resolvedLocator.locator, timeoutMs)
         await resolvedLocator.locator.click({ timeout: timeoutMs })
         break
       case 'fill':
@@ -2151,6 +2321,7 @@ export async function replayStep(
           const placeholderLocator = page.getByPlaceholder(target)
           const placeholderCount = await placeholderLocator.count().catch(() => 0)
           if (placeholderCount === 1) {
+            await waitForReplayLocator(placeholderLocator, timeoutMs)
             await placeholderLocator.click({ timeout: timeoutMs })
             await placeholderLocator.fill(step.value, { timeout: timeoutMs })
             return {
@@ -2167,12 +2338,14 @@ export async function replayStep(
                 : undefined,
             }
           } else {
+            await waitForReplayLocator(resolvedLocator.locator, timeoutMs)
             await resolvedLocator.locator.click({ timeout: timeoutMs })
             await resolvedLocator.locator.fill(step.value, { timeout: timeoutMs })
           }
         }
         break
       case 'select':
+        await waitForReplayLocator(resolvedLocator.locator, timeoutMs)
         await resolvedLocator.locator.click({ timeout: timeoutMs })
         break
     }
@@ -2200,14 +2373,26 @@ export async function replayStep(
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
-    const truncated = message.length > 120 ? message.slice(0, 120) + '...' : message
-    const resolvedLocator: Pick<ResolvedStepLocator, 'source' | 'value'> =
+    const resolvedLocator: ResolvedStepLocator =
       action === 'navigate' || action === 'keyDown'
         ? {
+            locator: null,
             source: action === 'navigate' ? 'step.target' : 'none',
             value: action === 'navigate' ? step.target : step.key,
           }
         : resolveStepLocator(page, step)
+    const locatorSummary =
+      action === 'navigate' || action === 'keyDown' || !resolvedLocator.locator
+        ? null
+        : await summarizeReplayLocatorState(resolvedLocator.locator)
+    const enrichedMessage =
+      isPlaywrightTimeoutError(error) && locatorSummary
+        ? `${message} [${locatorSummary}]`
+        : message
+    const truncated =
+      enrichedMessage.length > 240
+        ? enrichedMessage.slice(0, 240) + '...'
+        : enrichedMessage
     return {
       replayed: false,
       warning: `${action} on ${step.target ?? '(unknown)'} failed: ${truncated}`,
@@ -2225,7 +2410,7 @@ export async function replayStep(
                     ? `locator.fill('${escapeSingleQuote(step.value)}')`
                     : 'locator.click()',
             result: 'failed',
-            error: message,
+            error: enrichedMessage,
           }
         : undefined,
     }

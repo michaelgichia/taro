@@ -2,6 +2,7 @@
 import { fromPromise } from 'xstate'
 import { access, readFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
+import { spawn } from 'node:child_process'
 import pc from 'picocolors'
 
 import { normalizeJsBaseline } from '#core/baseline-normalizer.ts'
@@ -42,6 +43,7 @@ import type {
   RefineProfileActorInput,
   RefreshProfileActorInput,
   ResolveSelectorsActorInput,
+  RunHealthCommandsActorInput,
   SearchContextActorInput,
   ValidateFileActorInput,
   WriteOutputActorInput,
@@ -64,6 +66,7 @@ import {
   mergeAnalyzedStepState,
   normalizeComparablePath,
   persistRecoveredVisualAuth,
+  reconcileExistingOutput,
   rebaseRenderHelperImportPath,
   resolvePackageProfileFromContextMatches,
   resolveRenderTargetFile,
@@ -112,10 +115,12 @@ export const loadStateActor = fromPromise(
       .catch(() => false)
     const bootstrappedState = await loadOrBootstrapTaroState(projectRoot)
     const overrides = await readTaroOverrides(projectRoot)
-    const defaultOutputPath = deriveOutputPath(input.filePath)
+    const colocatedOutputPath = deriveOutputPath(input.filePath)
     const packageProfile = resolveTaroPackageProfile(
-      bootstrappedState.state, projectRoot, defaultOutputPath, overrides
+      bootstrappedState.state, projectRoot, colocatedOutputPath, overrides
     )
+    const folderPattern = packageProfile?.folderPattern.value
+    const defaultOutputPath = deriveOutputPath(input.filePath, folderPattern)
     const explicitAuthPath = await resolveOptionalFilePath(projectRoot, commandOptions.auth)
     const explicitInstructionsPath = await resolveOptionalFilePath(
       projectRoot, commandOptions.instructions
@@ -131,7 +136,7 @@ export const loadStateActor = fromPromise(
         : explicitInstructionsPath
           ? { strategy: 'instructions' as const, path: explicitInstructionsPath.relativePath, detectedAt: 'generate' as const, source: 'manual' as const }
           : packageProfile?.playwrightAuth ?? null
-    return { hadState, bootstrappedState, overrides, packageProfile, explicitAuthPath, explicitInstructionsPath, visualAuth }
+    return { hadState, bootstrappedState, overrides, packageProfile, defaultOutputPath, explicitAuthPath, explicitInstructionsPath, visualAuth }
   }
 )
 
@@ -408,6 +413,8 @@ export const generateCodeActor = fromPromise(
         outputPath: outputPath!,
         conventions,
         runner: packageProfile?.effectiveRunner ?? 'unknown',
+        jestDomImportPath:
+          packageProfile?.jestDomSetup?.value === 'global-setup' ? null : undefined,
         queryResults: resolvedJsGeneration?.queryResults ?? [],
         helpers: generationHelpers,
         scenarios: generationScenarios,
@@ -456,14 +463,21 @@ export const generateCodeActor = fromPromise(
 
 export const assessOutputActor = fromPromise(
   async ({ input }: { input: AssessOutputActorInput }) => {
-    const { outputPath, generatedCode, analyzedRecording } = input
+    const { outputPath, generatedCode, analyzedRecording, candidateAssessment } = input
     let existingCode: string | null = null
     try {
       existingCode = await readFile(outputPath!, 'utf-8')
     } catch (err: unknown) {
       const code = (err as NodeJS.ErrnoException)?.code
       if (code === 'ENOENT') {
-        return { existingCode: null, existingAssessment: null, shouldOverwrite: true }
+        const outputResolution = await reconcileExistingOutput({
+          analyzedRecording: analyzedRecording!,
+          candidateAssessment: candidateAssessment!,
+          candidateCode: generatedCode!,
+          existingAssessment: null,
+          existingCode: null,
+        })
+        return { existingCode: null, existingAssessment: null, outputResolution }
       }
       // Other errors (EISDIR, EACCES, etc.) — cannot assess, preserve existing
       throw err
@@ -472,13 +486,20 @@ export const assessOutputActor = fromPromise(
       analyzedRecording: analyzedRecording!,
       code: existingCode,
     })
-    const candidateParsed = await parseJsRecording(generatedCode!)
-    const candidateFlowCoverage = buildFlowCoverageSummary(analyzedRecording!, generatedCode!)
-    const scoreResult = scoreGeneratedTest(generatedCode!, {
-      queryResults: mapParsedQueriesToResults(candidateParsed),
+    const resolvedCandidateAssessment = candidateAssessment ?? {
+      flowCoverage: buildFlowCoverageSummary(analyzedRecording!, generatedCode!),
+      scoreResult: scoreGeneratedTest(generatedCode!, {
+        queryResults: mapParsedQueriesToResults(await parseJsRecording(generatedCode!)),
+      }),
+    }
+    const outputResolution = await reconcileExistingOutput({
+      analyzedRecording: analyzedRecording!,
+      candidateAssessment: resolvedCandidateAssessment,
+      candidateCode: generatedCode!,
+      existingAssessment,
+      existingCode,
     })
-    const candidateAssessment = { flowCoverage: candidateFlowCoverage, scoreResult }
-    return { existingCode, existingAssessment, candidateAssessment, shouldOverwrite: false }
+    return { existingCode, existingAssessment, outputResolution }
   }
 )
 
@@ -514,6 +535,43 @@ export const finalizeActor = fromPromise(
       )
     } catch {
       // state updates are best-effort
+    }
+  }
+)
+
+function runCommand(cmd: string, cwd: string): Promise<{ exitCode: number }> {
+  return new Promise((resolve) => {
+    const child = spawn(cmd, { shell: true, cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+    child.stdout?.on('data', (chunk: Buffer) => {
+      for (const line of chunk.toString().trimEnd().split('\n')) {
+        process.stderr.write(pc.dim('[taro:health]') + ' ' + line + '\n')
+      }
+    })
+    child.stderr?.on('data', (chunk: Buffer) => {
+      for (const line of chunk.toString().trimEnd().split('\n')) {
+        process.stderr.write(pc.dim('[taro:health]') + ' ' + line + '\n')
+      }
+    })
+    child.on('close', (code) => resolve({ exitCode: code ?? 1 }))
+  })
+}
+
+export const runHealthCommandsActor = fromPromise(
+  async ({ input }: { input: RunHealthCommandsActorInput }) => {
+    const { overrides, projectRoot } = input
+    const commands = overrides?.healthCommands
+    if (!commands || commands.length === 0) return
+    process.stderr.write(pc.dim('[taro]') + ' Running health checks...\n')
+    for (const cmd of commands) {
+      process.stderr.write(pc.dim('[taro:health]') + ` $ ${cmd}\n`)
+      const { exitCode } = await runCommand(cmd, projectRoot)
+      if (exitCode !== 0) {
+        process.stderr.write(
+          pc.yellow(`[taro:health] ⚠ '${cmd}' exited with code ${exitCode}`) + '\n'
+        )
+      } else {
+        process.stderr.write(pc.dim(`[taro:health] ✓ ${cmd}`) + '\n')
+      }
     }
   }
 )

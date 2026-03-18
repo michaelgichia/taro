@@ -17,7 +17,8 @@ import type {
 
 export type TaroStateConfidence = 'low' | 'medium' | 'high'
 export type TaroTestRunner = 'vitest' | 'jest' | 'unknown'
-export type TaroFolderPattern = 'colocated' | '__tests__' | 'mixed' | 'unknown'
+export type TaroJestDomSetup = 'per-test-import' | 'global-setup'
+export type TaroFolderPattern = 'colocated' | '__tests__' | 'tests' | 'mixed' | 'unknown'
 export type TaroFileExtension = 'ts' | 'tsx' | 'js' | 'jsx' | 'mixed'
 export type TaroFixtureRootKind = 'mock-store' | 'mocks' | 'fixtures' | 'factories'
 export type TaroPlaywrightAuthStrategy = 'storageState' | 'instructions'
@@ -60,6 +61,7 @@ export interface TaroSignal<T> {
 export interface RepoRenderTargetCandidate {
   symbol: string
   importPath: string
+  importKind?: 'default' | 'named'
   sourceTestFile: string
   helperNames: string[]
   usesWithin: boolean
@@ -156,6 +158,7 @@ export interface TaroPackageProfile {
   conventions: ConventionsSchema
   importStyle: TaroSignal<ImportStyle>
   runner: TaroSignal<TaroTestRunner>
+  jestDomSetup: TaroSignal<TaroJestDomSetup>
   mockPattern: TaroSignal<MockPattern>
   folderPattern: TaroSignal<TaroFolderPattern>
   fileExtension: TaroSignal<TaroFileExtension>
@@ -233,6 +236,7 @@ export interface TaroPackageOverrides {
 
 export interface TaroOverrides {
   packages?: Record<string, TaroPackageOverrides>
+  healthCommands?: string[]
 }
 
 export interface ResolvedTaroPackageProfile extends TaroPackageProfile {

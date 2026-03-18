@@ -112,14 +112,20 @@ describe('prompt runtime install builders', () => {
     const refreshContent = await expectFile(
       join(home, '.claude', 'commands', '@taro-test', 'rtl', 'refresh.md')
     )
+    const overridesContent = await expectFile(
+      join(home, '.claude', 'commands', '@taro-test', 'rtl', 'overrides.md')
+    )
 
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl:help')
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl:init')
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl:generate-i')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl:target')
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl:refresh')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl:overrides')
     expect(helpContent).toContain('/@taro-test/rtl:help')
     expect(initContent).toContain(`${target.runtimeCommand} __init`)
     expect(refreshContent).toContain(`${target.runtimeCommand} __refresh`)
+    expect(overridesContent).toContain(`${target.runtimeCommand} __overrides`)
     expect(operations.map((operation) => operation.relativeDestinationPath)).toContain(
       'commands/@taro-test/rtl/references/assertion-markers.md'
     )
@@ -137,11 +143,19 @@ describe('prompt runtime install builders', () => {
     const interactiveGenerateContent = await expectFile(
       join(cwd, '.claude', 'commands', '@taro-test', 'rtl', 'generate-i.md')
     )
+    const targetContent = await expectFile(
+      join(cwd, '.claude', 'commands', '@taro-test', 'rtl', 'target.md')
+    )
+    const overridesContent = await expectFile(
+      join(cwd, '.claude', 'commands', '@taro-test', 'rtl', 'overrides.md')
+    )
     expect(generateContent).toContain('allowed-tools:')
     expect(generateContent).toContain('references/assertion-markers.md')
     expect(interactiveGenerateContent).toContain(
       `${target.runtimeCommand} __generate -i <recording-file>`
     )
+    expect(targetContent).toContain(`${target.runtimeCommand} __target <component-file>`)
+    expect(overridesContent).toContain(`${target.runtimeCommand} __overrides`)
 
     const installedGenerateReferences = (
       await readdir(join(cwd, '.claude', 'commands', '@taro-test', 'rtl', 'references'))
@@ -165,14 +179,20 @@ describe('prompt runtime install builders', () => {
     const refreshContent = await expectFile(
       join(home, '.gemini', 'commands', '@taro-test', 'rtl', 'refresh.toml')
     )
+    const overridesContent = await expectFile(
+      join(home, '.gemini', 'commands', '@taro-test', 'rtl', 'overrides.toml')
+    )
 
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl:help')
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl:init')
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl:generate-i')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl:target')
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl:refresh')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl:overrides')
     expect(helpContent).toContain('/@taro-test/rtl:help')
     expect(initContent).toContain(`\`${target.runtimeCommand} __init\``)
     expect(refreshContent).toContain(`\`${target.runtimeCommand} __refresh\``)
+    expect(overridesContent).toContain(`\`${target.runtimeCommand} __overrides\``)
   })
 
   it('installs Gemini CLI assets into the local .gemini command namespace', async () => {
@@ -187,10 +207,18 @@ describe('prompt runtime install builders', () => {
     const interactiveGenerateContent = await expectFile(
       join(cwd, '.gemini', 'commands', '@taro-test', 'rtl', 'generate-i.toml')
     )
+    const targetContent = await expectFile(
+      join(cwd, '.gemini', 'commands', '@taro-test', 'rtl', 'target.toml')
+    )
+    const overridesContent = await expectFile(
+      join(cwd, '.gemini', 'commands', '@taro-test', 'rtl', 'overrides.toml')
+    )
     expect(generateContent).toContain(`\`${target.runtimeCommand} __generate <recording-file>\``)
     expect(interactiveGenerateContent).toContain(
       `\`${target.runtimeCommand} __generate -i <recording-file>\``
     )
+    expect(targetContent).toContain(`\`${target.runtimeCommand} __target <component-file>\``)
+    expect(overridesContent).toContain(`\`${target.runtimeCommand} __overrides\``)
     expect(generateContent).not.toContain('--dry-run')
   })
 
@@ -210,14 +238,20 @@ describe('prompt runtime install builders', () => {
     const refreshContent = await expectFile(
       join(home, '.config', 'opencode', 'commands', '@taro-test', 'rtl-refresh.md')
     )
+    const overridesContent = await expectFile(
+      join(home, '.config', 'opencode', 'commands', '@taro-test', 'rtl-overrides.md')
+    )
 
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl-help')
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl-init')
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl-generate-i')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl-target')
     expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl-refresh')
+    expect(operations.map((operation) => operation.entrypoint)).toContain('/@taro-test/rtl-overrides')
     expect(helpContent).toContain('/@taro-test/rtl-help')
     expect(initContent).toContain(`${target.runtimeCommand} __init`)
     expect(refreshContent).toContain(`${target.runtimeCommand} __refresh`)
+    expect(overridesContent).toContain(`\`${target.runtimeCommand} __overrides\``)
   })
 
   it('installs OpenCode assets into the local .opencode command namespace', async () => {
@@ -232,10 +266,18 @@ describe('prompt runtime install builders', () => {
     const interactiveGenerateContent = await expectFile(
       join(cwd, '.opencode', 'commands', '@taro-test', 'rtl-generate-i.md')
     )
+    const targetContent = await expectFile(
+      join(cwd, '.opencode', 'commands', '@taro-test', 'rtl-target.md')
+    )
+    const overridesContent = await expectFile(
+      join(cwd, '.opencode', 'commands', '@taro-test', 'rtl-overrides.md')
+    )
     expect(generateContent).toContain(`\`${target.runtimeCommand} __generate <recording-file>\``)
     expect(interactiveGenerateContent).toContain(
       `\`${target.runtimeCommand} __generate -i <recording-file>\``
     )
+    expect(targetContent).toContain(`\`${target.runtimeCommand} __target <component-file>\``)
+    expect(overridesContent).toContain(`\`${target.runtimeCommand} __overrides\``)
     expect(generateContent).not.toContain('--dry-run')
   })
 })

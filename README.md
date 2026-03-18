@@ -156,12 +156,16 @@ After installation and a first `init` run, use the runtime-native installed gene
 
 - Claude Code: `/@taro-test/rtl:generate`
 - Claude Code: `/@taro-test/rtl:generate-i`
+- Claude Code: `/@taro-test/rtl:target`
 - Gemini CLI: `/@taro-test/rtl:generate`
 - Gemini CLI: `/@taro-test/rtl:generate-i`
+- Gemini CLI: `/@taro-test/rtl:target`
 - OpenCode: `/@taro-test/rtl-generate`
 - OpenCode: `/@taro-test/rtl-generate-i`
+- OpenCode: `/@taro-test/rtl-target`
 - Codex: `$@taro-test/rtl-generate`
 - Codex: `$@taro-test/rtl-generate-i`
+- Codex: `$@taro-test/rtl-target`
 
 ### Prerequisites
 
@@ -180,6 +184,8 @@ Taro supports one export path:
 ### Generate the test
 
 Run your runtime-native generate entrypoint against `recording.js`. When Taro infers the owning render target, it must write the generated test next to the inferred component and refuses to overwrite an existing file. If it cannot infer a render target, the fallback boundary-draft output is written next to the recording instead.
+
+If you already know the component under test, use the runtime-native `target` entrypoint with a component file path. `target` writes next to that supplied component and can optionally take a Recorder `.js` file to preserve concrete interaction flow while forcing the component render target.
 
 Expected output:
 
@@ -277,7 +283,7 @@ describe('login flow', () => {
 
 ## Agent Usage
 
-After installation, each runtime gets a namespaced help entrypoint plus `init`, `refresh`, and `generate` entrypoints. Use `init` first, `refresh` for maintenance, and `generate` for Recorder-to-RTL output.
+After installation, each runtime gets a namespaced help entrypoint plus `init`, `refresh`, `generate`, and `target` entrypoints. Use `init` first, `refresh` for maintenance, `generate` for Recorder-to-RTL output, and `target` when you want to force a specific component path.
 
 ### Tips
 

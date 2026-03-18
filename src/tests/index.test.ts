@@ -3,9 +3,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 const {
   parseGenerateMock,
   parseInitMock,
+  parseOverridesMock,
   parseRefreshMock,
   createGenerateCommandMock,
   createInitCommandMock,
+  createOverridesCommandMock,
   createRefreshCommandMock,
   createInstallCommandMock,
   createVersionCommandMock,
@@ -14,9 +16,11 @@ const {
 } = vi.hoisted(() => ({
   parseGenerateMock: vi.fn(),
   parseInitMock: vi.fn(),
+  parseOverridesMock: vi.fn(),
   parseRefreshMock: vi.fn(),
   createGenerateCommandMock: vi.fn(() => ({ parseAsync: parseGenerateMock })),
   createInitCommandMock: vi.fn(() => ({ parseAsync: parseInitMock })),
+  createOverridesCommandMock: vi.fn(() => ({ parseAsync: parseOverridesMock })),
   createRefreshCommandMock: vi.fn(() => ({ parseAsync: parseRefreshMock })),
   createInstallCommandMock: vi.fn(() => ({ name: () => 'install' })),
   createVersionCommandMock: vi.fn(() => ({ name: () => 'version' })),
@@ -81,6 +85,10 @@ vi.mock('#cli/commands/init.ts', () => ({
   createInitCommand: createInitCommandMock,
 }))
 
+vi.mock('#cli/commands/overrides.ts', () => ({
+  createOverridesCommand: createOverridesCommandMock,
+}))
+
 vi.mock('#cli/commands/refresh.ts', () => ({
   createRefreshCommand: createRefreshCommandMock,
 }))
@@ -122,6 +130,13 @@ describe('src/index.ts', () => {
 
     expect(createInitCommandMock).toHaveBeenCalled()
     expect(parseInitMock).toHaveBeenCalledWith(['--force'], { from: 'user' })
+  })
+
+  it('routes __overrides to the internal overrides command', async () => {
+    await importIndexWithArg('__overrides', ['--stdout'])
+
+    expect(createOverridesCommandMock).toHaveBeenCalled()
+    expect(parseOverridesMock).toHaveBeenCalledWith(['--stdout'], { from: 'user' })
   })
 
   it('routes __refresh to the internal refresh command', async () => {

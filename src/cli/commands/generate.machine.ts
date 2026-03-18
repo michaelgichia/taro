@@ -48,6 +48,7 @@ export type GenerateMachineActors = {
   assessOutputActor: ReturnType<typeof fromPromise>
   writeOutputActor: ReturnType<typeof fromPromise>
   finalizeActor: ReturnType<typeof fromPromise>
+  runHealthCommandsActor: ReturnType<typeof fromPromise>
 }
 
 export function createGenerateMachine(actors: GenerateMachineActors) {
@@ -112,6 +113,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
                 bootstrappedState: out?.bootstrappedState,
                 overrides: out?.overrides,
                 packageProfile: out?.packageProfile,
+                defaultOutputPath: out?.defaultOutputPath,
                 explicitAuthPath: out?.explicitAuthPath,
                 explicitInstructionsPath: out?.explicitInstructionsPath,
                 visualAuth: out?.visualAuth,
@@ -430,17 +432,21 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             outputPath: context.outputPath,
             generatedCode: context.generatedCode,
             analyzedRecording: context.analyzedRecording,
+            candidateAssessment: context.candidateAssessment,
           }),
           onDone: [
             {
               guard: 'shouldWrite',
               target: 'writing',
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              actions: assign(({ event }) => {
+              actions: assign(({ context, event }) => {
                 const out = (event as any).output
                 return {
                   existingCode: out?.existingCode,
                   existingAssessment: out?.existingAssessment,
+                  outputResolution: out?.outputResolution,
+                  generatedCode: out?.outputResolution?.outputCode ?? context.generatedCode,
+                  scoreResult: out?.outputResolution?.outputAssessment?.scoreResult ?? context.scoreResult,
                   shouldOverwrite: out?.existingCode != null,
                 }
               }),
@@ -456,6 +462,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
                     candidate: context.candidateAssessment!,
                     existing: event.output.existingAssessment,
                     overwrite: false,
+                    resolution: event.output?.outputResolution ?? null,
                   })
                 }
               },
@@ -478,6 +485,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
               candidate: context.candidateAssessment,
               existing: context.existingAssessment,
               overwrite: true,
+              resolution: context.outputResolution ?? null,
             })
           }
           if (context.scoreResult) {
@@ -520,7 +528,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             packageProfile: context.packageProfile,
           }),
           onDone: {
-            target: 'done',
+            target: 'runningHealthChecks',
             actions: ({ context }: CtxArg) => {
               const action = context.shouldOverwrite ? pc.yellow('Updated') : pc.green('Created')
               log(`${action}: ${pc.bold(context.outputPath!)}`)
@@ -528,6 +536,17 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             },
           },
           onError: { target: 'failed', actions: assign({ error: ({ event }) => event.error as Error }) },
+        },
+      },
+      runningHealthChecks: {
+        invoke: {
+          src: 'runHealthCommandsActor',
+          input: ({ context }: CtxArg) => ({
+            overrides: context.overrides,
+            projectRoot: context.projectRoot,
+          }),
+          onDone: { target: 'done' },
+          onError: { target: 'done' },
         },
       },
       done: {

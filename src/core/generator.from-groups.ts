@@ -25,6 +25,7 @@ export function generateTestFromGroups(
   const {
     conventions,
     runner = 'unknown',
+    jestDomImportPath: configuredJestDomImportPath,
     queryResults = [],
     outputPath,
     helpers = [],
@@ -34,7 +35,11 @@ export function generateTestFromGroups(
   } = options
   const importStyle = conventions?.importStyle ?? 'esm'
   const jestDomImportPath =
-    runner === 'vitest' ? '@testing-library/jest-dom/vitest' : '@testing-library/jest-dom'
+    configuredJestDomImportPath === undefined
+      ? runner === 'vitest'
+        ? '@testing-library/jest-dom/vitest'
+        : '@testing-library/jest-dom'
+      : configuredJestDomImportPath
   const renderFunctionName = renderHelper?.name ?? 'render'
 
   const matcherMap = new Map<string, string>()
@@ -191,6 +196,7 @@ export function generateTestFromGroups(
       ? {
           symbol: renderTarget.symbol,
           importPath: renderTarget.importPath,
+          importKind: renderTarget.importKind,
         }
       : null,
     renderHelper: renderHelper

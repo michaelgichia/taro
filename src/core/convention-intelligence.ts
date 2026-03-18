@@ -156,28 +156,39 @@ export function deriveConventions(
 function detectFolderPattern(
   files: ConventionFile[],
   projectRoot: string
-): 'colocated' | '__tests__' | 'mixed' | 'unknown' {
+): 'colocated' | '__tests__' | 'tests' | 'mixed' | 'unknown' {
   if (files.length === 0) {
     return 'unknown'
   }
 
   let hasColocated = false
-  let hasTestsDir = false
+  let hasUnderscoreTests = false
+  let hasPlainTests = false
 
   for (const file of files) {
     const relativePath = relative(projectRoot, file.path)
     if (relativePath.includes('__tests__') || relativePath.includes('__test__')) {
-      hasTestsDir = true
+      hasUnderscoreTests = true
+    } else if (/(?:^|\/)tests\//.test(relativePath)) {
+      hasPlainTests = true
     } else {
       hasColocated = true
     }
   }
 
+  const hasTestsDir = hasUnderscoreTests || hasPlainTests
+
   if (hasColocated && hasTestsDir) {
     return 'mixed'
   }
-  if (hasTestsDir) {
+  if (hasUnderscoreTests && !hasPlainTests) {
     return '__tests__'
+  }
+  if (hasPlainTests && !hasUnderscoreTests) {
+    return 'tests'
+  }
+  if (hasUnderscoreTests && hasPlainTests) {
+    return 'mixed'
   }
   return 'colocated'
 }
@@ -238,6 +249,7 @@ export function extractRenderTargetCandidatesFromFile(
     candidates.push({
       symbol,
       importPath,
+      importKind: 'default',
       sourceTestFile,
       helperNames,
       usesWithin,

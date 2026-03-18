@@ -38,9 +38,42 @@ const makeAllActors = (overrides: Partial<Record<string, ReturnType<typeof fromP
   planGenerationActor: noop,
   resolveSelectorsActor: noop,
   generateCodeActor: noop,
-  assessOutputActor: noopReturn({ existingCode: null, existingAssessment: null, shouldOverwrite: false }),
+  assessOutputActor: noopReturn({
+    existingCode: null,
+    existingAssessment: null,
+    outputResolution: {
+      mergeApplied: false,
+      mergedTestCount: 0,
+      outputAssessment: {
+        flowCoverage: { totalSteps: 1, coveredSteps: 1, coveredStepIds: ['0'], uncoveredStepIds: [] },
+        scoreResult: {
+          total: 80,
+          grade: 'B',
+          requiresReview: false,
+          blockers: [],
+          dimensions: {
+            queryQuality: 80,
+            assertionSpecificity: 80,
+            testStructure: 80,
+            boundaryIsolation: 80,
+          },
+          markerCoverage: { detected: 0, emitted: 0, unresolved: 0 },
+          markerQualityGate: {
+            status: 'pass',
+            failing: false,
+            reason: '',
+            message: '',
+          },
+        },
+      },
+      outputCode: 'generated()',
+      preferredSource: 'candidate',
+      shouldWrite: true,
+    },
+  }),
   writeOutputActor: noop,
   finalizeActor: noop,
+  runHealthCommandsActor: noop,
   ...overrides,
 })
 
@@ -110,6 +143,21 @@ function makeFlowCoverage(total: number, covered: number) {
     uncoveredStepIds: Array.from({ length: total - covered }, (_, i) =>
       String(covered + i),
     ),
+  }
+}
+
+function makeOutputResolution(overrides: Record<string, unknown> = {}) {
+  return {
+    mergeApplied: false,
+    mergedTestCount: 0,
+    outputAssessment: {
+      flowCoverage: makeFlowCoverage(2, 2),
+      scoreResult: makeScore(80, 'B'),
+    },
+    outputCode: 'resolved()',
+    preferredSource: 'candidate' as const,
+    shouldWrite: true,
+    ...overrides,
   }
 }
 
@@ -420,7 +468,10 @@ describe('generateMachine', () => {
           assessOutputActor: noopReturn({
             existingCode: null,
             existingAssessment: null,
-            shouldOverwrite: false,
+            outputResolution: makeOutputResolution({
+              outputCode: 'new()',
+              shouldWrite: true,
+            }),
           }),
         })),
         { input: makeMinimalContext() },
@@ -449,7 +500,11 @@ describe('generateMachine', () => {
           assessOutputActor: noopReturn({
             existingCode: 'old()',
             existingAssessment: { flowCoverage: lowFlow, scoreResult: lowScore },
-            shouldOverwrite: true,
+            outputResolution: makeOutputResolution({
+              outputAssessment: { flowCoverage: highFlow, scoreResult: highScore },
+              outputCode: 'new()',
+              shouldWrite: true,
+            }),
           }),
         })),
         { input: makeMinimalContext() },
@@ -525,7 +580,12 @@ describe('generateMachine', () => {
           assessOutputActor: noopReturn({
             existingCode: 'existing()',
             existingAssessment: { flowCoverage: highFlow, scoreResult: highScore },
-            shouldOverwrite: false,
+            outputResolution: makeOutputResolution({
+              outputAssessment: { flowCoverage: highFlow, scoreResult: highScore },
+              outputCode: 'existing()',
+              preferredSource: 'existing',
+              shouldWrite: false,
+            }),
           }),
         })),
         { input: makeMinimalContext() },
@@ -817,14 +877,17 @@ describe('generateMachine', () => {
       expect(capturedContext?.candidateAssessment).toEqual(candidateAssessment)
     })
 
-    it('assigns existingCode and shouldOverwrite from assessOutputActor (shouldWrite path)', async () => {
+    it('assigns existingCode, outputResolution, and shouldOverwrite from assessOutputActor (shouldWrite path)', async () => {
       let capturedContext: GenerateMachineContext | undefined
       const actor = createActor(
         createGenerateMachine(makeAllActors({
           assessOutputActor: noopReturn({
             existingCode: null,
             existingAssessment: null,
-            shouldOverwrite: false,
+            outputResolution: makeOutputResolution({
+              outputCode: 'merged()',
+              shouldWrite: true,
+            }),
           }),
         })),
         { input: makeMinimalContext() },
@@ -837,6 +900,13 @@ describe('generateMachine', () => {
         actor.start()
       })
       expect(capturedContext?.existingCode).toBeNull()
+      expect(capturedContext?.outputResolution).toEqual(
+        makeOutputResolution({
+          outputCode: 'merged()',
+          shouldWrite: true,
+        })
+      )
+      expect(capturedContext?.generatedCode).toBe('merged()')
       // shouldOverwrite is derived from existingCode != null
       expect(capturedContext?.shouldOverwrite).toBe(false)
     })
@@ -915,7 +985,15 @@ describe('generateMachine', () => {
               flowCoverage: makeFlowCoverage(2, 2),
               scoreResult: makeScore(90, 'A'),
             },
-            shouldOverwrite: false,
+            outputResolution: makeOutputResolution({
+              outputAssessment: {
+                flowCoverage: makeFlowCoverage(2, 2),
+                scoreResult: makeScore(90, 'A'),
+              },
+              outputCode: 'existing()',
+              preferredSource: 'existing',
+              shouldWrite: false,
+            }),
           }),
         })),
         { input: makeMinimalContext() },
@@ -925,7 +1003,14 @@ describe('generateMachine', () => {
 
       const writeActor = createActor(
         createGenerateMachine(makeAllActors({
-          assessOutputActor: noopReturn({ existingCode: null, existingAssessment: null, shouldOverwrite: false }),
+          assessOutputActor: noopReturn({
+            existingCode: null,
+            existingAssessment: null,
+            outputResolution: makeOutputResolution({
+              outputCode: 'generated()',
+              shouldWrite: true,
+            }),
+          }),
         })),
         { input: makeMinimalContext() },
       )

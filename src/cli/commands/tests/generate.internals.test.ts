@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { generateCommandInternals } from '#cli/commands/generate.ts'
+import { deriveOutputPath } from '#cli/commands/generate.utils.ts'
 import type { Finding } from '#core/findings-reporter.ts'
 import type {
   ItGroup,
@@ -403,15 +404,54 @@ describe('generateCommandInternals', () => {
     expect(
       generateCommandInternals.compareOutputAssessments(
         {
-          flowCoverage: { coveredStepIds: [], coveredSteps: 2, totalSteps: 2, uncoveredStepIds: [] },
+          flowCoverage: { coveredStepIds: [], coveredSteps: 5, totalSteps: 5, uncoveredStepIds: [] },
           scoreResult: makeScoreResult({ total: 75 }),
         },
         {
           flowCoverage: { coveredStepIds: [], coveredSteps: 2, totalSteps: 2, uncoveredStepIds: [] },
-          scoreResult: makeScoreResult({ total: 65 }),
+          scoreResult: makeScoreResult({ total: 85 }),
         }
       )
-    ).toBeGreaterThan(0)
+    ).toBeLessThan(0)
+  })
+
+  it('reconciles existing output by keeping the higher-scored suite and merging distinct tests', async () => {
+    const resolution = await generateCommandInternals.reconcileExistingOutput({
+      analyzedRecording: makeRecording(),
+      candidateAssessment: {
+        flowCoverage: { coveredStepIds: ['0'], coveredSteps: 1, totalSteps: 1, uncoveredStepIds: [] },
+        scoreResult: makeScoreResult({ total: 70, grade: 'C', requiresReview: true }),
+      },
+      candidateCode: `
+import { screen } from '@testing-library/react'
+
+describe('Example flow', () => {
+  it('adds a new review assertion', async () => {
+    expect(screen.getByText('Review Example')).toBeVisible()
+  })
+})
+`,
+      existingAssessment: {
+        flowCoverage: { coveredStepIds: ['0'], coveredSteps: 1, totalSteps: 1, uncoveredStepIds: [] },
+        scoreResult: makeScoreResult({ total: 90, grade: 'A' }),
+      },
+      existingCode: `
+import { render } from '@testing-library/react'
+
+describe('Example flow', () => {
+  it('covers the main example flow', async () => {
+    render(<FeatureFlow />)
+  })
+})
+`,
+    })
+
+    expect(resolution.preferredSource).toBe('existing')
+    expect(resolution.shouldWrite).toBe(true)
+    expect(resolution.mergeApplied).toBe(true)
+    expect(resolution.mergedTestCount).toBe(1)
+    expect(resolution.outputCode).toContain("it('covers the main example flow'")
+    expect(resolution.outputCode).toContain("it('adds a new review assertion'")
   })
 
   it('finds repo context matches and resolves package/render-target context', async () => {
@@ -1177,6 +1217,44 @@ describe('generateCommandInternals', () => {
         method: 'getByRole',
         query: "screen.getByRole('textbox', { name: 'Customer Reference' })",
       })
+    )
+  })
+})
+
+describe('deriveOutputPath', () => {
+  it('colocates by default when no folderPattern is given', () => {
+    expect(deriveOutputPath('/repo/src/components/Button.js')).toBe(
+      join('/repo/src/components', 'Button.test.tsx')
+    )
+  })
+
+  it('colocates when folderPattern is colocated', () => {
+    expect(deriveOutputPath('/repo/src/components/Button.tsx', 'colocated')).toBe(
+      join('/repo/src/components', 'Button.test.tsx')
+    )
+  })
+
+  it('places in __tests__/ subdirectory when folderPattern is __tests__', () => {
+    expect(deriveOutputPath('/repo/src/components/Button.tsx', '__tests__')).toBe(
+      join('/repo/src/components/__tests__', 'Button.test.tsx')
+    )
+  })
+
+  it('places in tests/ subdirectory when folderPattern is tests', () => {
+    expect(deriveOutputPath('/repo/src/components/Button.tsx', 'tests')).toBe(
+      join('/repo/src/components/tests', 'Button.test.tsx')
+    )
+  })
+
+  it('colocates when folderPattern is mixed', () => {
+    expect(deriveOutputPath('/repo/src/components/Button.tsx', 'mixed')).toBe(
+      join('/repo/src/components', 'Button.test.tsx')
+    )
+  })
+
+  it('colocates when folderPattern is unknown', () => {
+    expect(deriveOutputPath('/repo/src/components/Button.tsx', 'unknown')).toBe(
+      join('/repo/src/components', 'Button.test.tsx')
     )
   })
 })
