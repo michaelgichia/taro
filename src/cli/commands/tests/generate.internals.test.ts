@@ -404,15 +404,54 @@ describe('generateCommandInternals', () => {
     expect(
       generateCommandInternals.compareOutputAssessments(
         {
-          flowCoverage: { coveredStepIds: [], coveredSteps: 2, totalSteps: 2, uncoveredStepIds: [] },
+          flowCoverage: { coveredStepIds: [], coveredSteps: 5, totalSteps: 5, uncoveredStepIds: [] },
           scoreResult: makeScoreResult({ total: 75 }),
         },
         {
           flowCoverage: { coveredStepIds: [], coveredSteps: 2, totalSteps: 2, uncoveredStepIds: [] },
-          scoreResult: makeScoreResult({ total: 65 }),
+          scoreResult: makeScoreResult({ total: 85 }),
         }
       )
-    ).toBeGreaterThan(0)
+    ).toBeLessThan(0)
+  })
+
+  it('reconciles existing output by keeping the higher-scored suite and merging distinct tests', async () => {
+    const resolution = await generateCommandInternals.reconcileExistingOutput({
+      analyzedRecording: makeRecording(),
+      candidateAssessment: {
+        flowCoverage: { coveredStepIds: ['0'], coveredSteps: 1, totalSteps: 1, uncoveredStepIds: [] },
+        scoreResult: makeScoreResult({ total: 70, grade: 'C', requiresReview: true }),
+      },
+      candidateCode: `
+import { screen } from '@testing-library/react'
+
+describe('Example flow', () => {
+  it('adds a new review assertion', async () => {
+    expect(screen.getByText('Review Example')).toBeVisible()
+  })
+})
+`,
+      existingAssessment: {
+        flowCoverage: { coveredStepIds: ['0'], coveredSteps: 1, totalSteps: 1, uncoveredStepIds: [] },
+        scoreResult: makeScoreResult({ total: 90, grade: 'A' }),
+      },
+      existingCode: `
+import { render } from '@testing-library/react'
+
+describe('Example flow', () => {
+  it('covers the main example flow', async () => {
+    render(<FeatureFlow />)
+  })
+})
+`,
+    })
+
+    expect(resolution.preferredSource).toBe('existing')
+    expect(resolution.shouldWrite).toBe(true)
+    expect(resolution.mergeApplied).toBe(true)
+    expect(resolution.mergedTestCount).toBe(1)
+    expect(resolution.outputCode).toContain("it('covers the main example flow'")
+    expect(resolution.outputCode).toContain("it('adds a new review assertion'")
   })
 
   it('finds repo context matches and resolves package/render-target context', async () => {

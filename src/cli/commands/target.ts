@@ -35,7 +35,6 @@ import {
   assessOutputAgainstRecording,
   auditBoundaryPolicy,
   buildFlowCoverageSummary,
-  compareOutputAssessments,
   deriveOutputPath,
   finalizeGeneratedOutput,
   flushFindings,
@@ -46,6 +45,7 @@ import {
   maybeAnalyzeMocks,
   maybeCaptureVisualState,
   rebaseRenderHelperImportPath,
+  reconcileExistingOutput,
   resolveJsGeneration,
   resolveOptionalFilePath,
   resolveVisualAuthStorageStatePath,
@@ -384,7 +384,6 @@ export function createTargetCommand(context: TargetCommandContext = {}): Command
             }
 
             let existingCode: string | null = null
-            let shouldOverwrite = true
             try {
               existingCode = await readFile(outputPath, 'utf-8')
             } catch (error: unknown) {
@@ -394,27 +393,39 @@ export function createTargetCommand(context: TargetCommandContext = {}): Command
               }
             }
 
+            let existingAssessment = null
             if (existingCode) {
-              const existingAssessment = await assessOutputAgainstRecording({
+              existingAssessment = await assessOutputAgainstRecording({
                 analyzedRecording,
                 code: existingCode,
               })
-              shouldOverwrite = compareOutputAssessments(candidateAssessment, existingAssessment) > 0
+            }
+            const outputResolution = await reconcileExistingOutput({
+              analyzedRecording,
+              candidateAssessment,
+              candidateCode: code,
+              existingAssessment,
+              existingCode,
+            })
+
+            if (existingCode && existingAssessment) {
               logExistingOutputDecision({
                 outputPath,
                 candidate: candidateAssessment,
                 existing: existingAssessment,
-                overwrite: shouldOverwrite,
+                overwrite: outputResolution.shouldWrite,
+                resolution: outputResolution,
               })
             }
 
-            if (shouldOverwrite) {
+            if (outputResolution.shouldWrite) {
+              const outputCode = outputResolution.outputCode
               await materializeBoundarySupport(boundarySupportPlan)
-              await writeTestFile(code, outputPath, {
+              await writeTestFile(outputCode, outputPath, {
                 createDir: true,
                 overwriteExisting: Boolean(existingCode),
               })
-              const verification = verifySyntax(code, outputPath)
+              const verification = verifySyntax(outputCode, outputPath)
               if (!verification.valid) {
                 throw new Error(`Post-write verification failed: ${verification.error}`)
               }
@@ -423,11 +434,11 @@ export function createTargetCommand(context: TargetCommandContext = {}): Command
                 pc.green(`[taro] ${existingCode ? 'Updated' : 'Created'}: ${outputPath}`)
               )
               await finalizeGeneratedOutput({
-                code,
+                code: outputCode,
                 outputPath,
                 projectRoot,
                 recordingFile: recordingPath,
-                scoreResult: candidateAssessment.scoreResult,
+                scoreResult: outputResolution.outputAssessment.scoreResult,
                 packageProfile: packageProfile ?? null,
               })
             }
@@ -469,7 +480,6 @@ export function createTargetCommand(context: TargetCommandContext = {}): Command
           }
 
           let existingCode: string | null = null
-          let shouldOverwrite = true
           try {
             existingCode = await readFile(outputPath, 'utf-8')
           } catch (error: unknown) {
@@ -479,38 +489,50 @@ export function createTargetCommand(context: TargetCommandContext = {}): Command
             }
           }
 
+          let existingAssessment = null
           if (existingCode) {
-            const existingAssessment = await assessOutputAgainstRecording({
+            existingAssessment = await assessOutputAgainstRecording({
               analyzedRecording,
               code: existingCode,
             })
-            shouldOverwrite = compareOutputAssessments(candidateAssessment, existingAssessment) > 0
+          }
+          const outputResolution = await reconcileExistingOutput({
+            analyzedRecording,
+            candidateAssessment,
+            candidateCode: code,
+            existingAssessment,
+            existingCode,
+          })
+
+          if (existingCode && existingAssessment) {
             logExistingOutputDecision({
               outputPath,
               candidate: candidateAssessment,
               existing: existingAssessment,
-              overwrite: shouldOverwrite,
+              overwrite: outputResolution.shouldWrite,
+              resolution: outputResolution,
             })
           }
 
-          if (shouldOverwrite) {
+          if (outputResolution.shouldWrite) {
+            const outputCode = outputResolution.outputCode
             await materializeBoundarySupport(boundarySupportPlan)
-            await writeTestFile(code, outputPath, {
+            await writeTestFile(outputCode, outputPath, {
               createDir: true,
               overwriteExisting: Boolean(existingCode),
             })
-            const verification = verifySyntax(code, outputPath)
+            const verification = verifySyntax(outputCode, outputPath)
             if (!verification.valid) {
               throw new Error(`Post-write verification failed: ${verification.error}`)
             }
             emitQuerySummary(queryResults)
             log(pc.green(`[taro] ${existingCode ? 'Updated' : 'Created'}: ${outputPath}`))
             await finalizeGeneratedOutput({
-              code,
+              code: outputCode,
               outputPath,
               projectRoot,
               recordingFile: componentPath,
-              scoreResult,
+              scoreResult: outputResolution.outputAssessment.scoreResult,
               packageProfile: packageProfile ?? null,
             })
           }

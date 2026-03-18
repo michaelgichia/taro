@@ -2137,11 +2137,13 @@ describe('Example flow', () => {
     expect(result.errors).toBe("");
     expect(result.logs).toContain("Existing output detected:");
     expect(result.logs).toContain(
-      "Keeping the existing test because it already matches or exceeds",
+      "Existing output will be updated because Taro kept the higher-scored suite and merged distinct tests from the alternate draft.",
     );
-    expect(result.logs).not.toContain(`Updated: ${outputPath}`);
+    expect(result.logs).toContain("Preserved 1 distinct test block from the alternate suite.");
+    expect(result.logs).toContain(`Updated: ${outputPath}`);
     expect(result.logs).not.toContain(`Created: ${outputPath}`);
-    expect(written).toBe(existingTest);
+    expect(written).toContain("it('covers the full example flow'");
+    expect(written).toContain("expect(await screen.findByRole('heading', { name: 'Review Example' }))");
   });
 
   it("updates an existing test when generation improves recorder-flow coverage", async () => {
@@ -2186,10 +2188,11 @@ describe('Example flow', () => {
     expect(result.thrown).toBeUndefined();
     expect(result.errors).toBe("");
     expect(result.logs).toContain(
-      "Existing output will be updated because the new generation improves flow coverage or overall quality.",
+      "Existing output will be updated because Taro kept the higher-scored suite and merged distinct tests from the alternate draft.",
     );
+    expect(result.logs).toContain("Preserved 1 distinct test block from the alternate suite.");
     expect(result.logs).toContain(`Updated: ${outputPath}`);
-    expect(written).not.toContain("it('is stale'");
+    expect(written).toContain("it('is stale'");
     expect(written).toContain("Open Example Flow");
     expect(written).toContain("Customer Reference");
     expect(written).toContain("Review Example");
@@ -3413,8 +3416,9 @@ test('baseline', () => { render(<FeatureFlow />) })`,
       [fixture.recordingPath],
       fixture.outputDir,
     );
+    const written = await readFile(testFilePath, "utf-8");
 
     expect(result.thrown).toBeUndefined();
-    expect(result.logs).toContain("FeatureFlow.test.tsx");
+    expect(written).toContain("import FeatureFlow from './FeatureFlow'");
   });
 });

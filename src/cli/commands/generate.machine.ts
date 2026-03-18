@@ -432,17 +432,21 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             outputPath: context.outputPath,
             generatedCode: context.generatedCode,
             analyzedRecording: context.analyzedRecording,
+            candidateAssessment: context.candidateAssessment,
           }),
           onDone: [
             {
               guard: 'shouldWrite',
               target: 'writing',
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              actions: assign(({ event }) => {
+              actions: assign(({ context, event }) => {
                 const out = (event as any).output
                 return {
                   existingCode: out?.existingCode,
                   existingAssessment: out?.existingAssessment,
+                  outputResolution: out?.outputResolution,
+                  generatedCode: out?.outputResolution?.outputCode ?? context.generatedCode,
+                  scoreResult: out?.outputResolution?.outputAssessment?.scoreResult ?? context.scoreResult,
                   shouldOverwrite: out?.existingCode != null,
                 }
               }),
@@ -458,6 +462,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
                     candidate: context.candidateAssessment!,
                     existing: event.output.existingAssessment,
                     overwrite: false,
+                    resolution: event.output?.outputResolution ?? null,
                   })
                 }
               },
@@ -480,6 +485,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
               candidate: context.candidateAssessment,
               existing: context.existingAssessment,
               overwrite: true,
+              resolution: context.outputResolution ?? null,
             })
           }
           if (context.scoreResult) {
