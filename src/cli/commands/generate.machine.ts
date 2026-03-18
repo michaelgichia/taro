@@ -112,6 +112,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
                 bootstrappedState: out?.bootstrappedState,
                 overrides: out?.overrides,
                 packageProfile: out?.packageProfile,
+                defaultOutputPath: out?.defaultOutputPath,
                 explicitAuthPath: out?.explicitAuthPath,
                 explicitInstructionsPath: out?.explicitInstructionsPath,
                 visualAuth: out?.visualAuth,

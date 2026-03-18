@@ -72,6 +72,7 @@ import type {
 import type {
   RepoRenderTargetCandidate,
   ResolvedTaroPackageProfile,
+  TaroFolderPattern,
   TaroPlaywrightAuthProfile,
 } from '#types/state.ts'
 
@@ -200,10 +201,19 @@ const UNRESOLVED_MARKER_REASON_GUIDANCE: Record<
 
 /**
  * Derives the default generated test path for a recorder export.
+ * When folderPattern is '__tests__' or 'tests', the test file is placed in the
+ * corresponding subdirectory of the source file's directory to match the
+ * project's existing convention.
  */
-export function deriveOutputPath(inputPath: string): string {
+export function deriveOutputPath(inputPath: string, folderPattern?: TaroFolderPattern): string {
   const dir = dirname(inputPath)
   const name = basename(inputPath).replace(/\.[cm]?[jt]sx?$/, '')
+  if (folderPattern === '__tests__') {
+    return join(dir, '__tests__', `${name}.test.tsx`)
+  }
+  if (folderPattern === 'tests') {
+    return join(dir, 'tests', `${name}.test.tsx`)
+  }
   return join(dir, `${name}.test.tsx`)
 }
 

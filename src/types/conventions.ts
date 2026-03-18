@@ -24,7 +24,7 @@ export interface ConventionsSchema {
   importStyle: ImportStyle // majority convention
   mockPattern: MockPattern // majority convention
   testFiles: ConventionFile[] // one entry per discovered test file
-  folderPattern: 'colocated' | '__tests__' | 'mixed' | 'unknown'
+  folderPattern: 'colocated' | '__tests__' | 'tests' | 'mixed' | 'unknown'
   fileExtension: 'ts' | 'tsx' | 'js' | 'jsx' | 'mixed'
 }
 

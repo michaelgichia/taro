@@ -112,10 +112,12 @@ export const loadStateActor = fromPromise(
       .catch(() => false)
     const bootstrappedState = await loadOrBootstrapTaroState(projectRoot)
     const overrides = await readTaroOverrides(projectRoot)
-    const defaultOutputPath = deriveOutputPath(input.filePath)
+    const colocatedOutputPath = deriveOutputPath(input.filePath)
     const packageProfile = resolveTaroPackageProfile(
-      bootstrappedState.state, projectRoot, defaultOutputPath, overrides
+      bootstrappedState.state, projectRoot, colocatedOutputPath, overrides
     )
+    const folderPattern = packageProfile?.folderPattern.value
+    const defaultOutputPath = deriveOutputPath(input.filePath, folderPattern)
     const explicitAuthPath = await resolveOptionalFilePath(projectRoot, commandOptions.auth)
     const explicitInstructionsPath = await resolveOptionalFilePath(
       projectRoot, commandOptions.instructions
@@ -131,7 +133,7 @@ export const loadStateActor = fromPromise(
         : explicitInstructionsPath
           ? { strategy: 'instructions' as const, path: explicitInstructionsPath.relativePath, detectedAt: 'generate' as const, source: 'manual' as const }
           : packageProfile?.playwrightAuth ?? null
-    return { hadState, bootstrappedState, overrides, packageProfile, explicitAuthPath, explicitInstructionsPath, visualAuth }
+    return { hadState, bootstrappedState, overrides, packageProfile, defaultOutputPath, explicitAuthPath, explicitInstructionsPath, visualAuth }
   }
 )
 

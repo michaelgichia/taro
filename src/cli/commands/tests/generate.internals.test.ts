@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { generateCommandInternals } from '#cli/commands/generate.ts'
+import { deriveOutputPath } from '#cli/commands/generate.utils.ts'
 import type { Finding } from '#core/findings-reporter.ts'
 import type {
   ItGroup,
@@ -1177,6 +1178,44 @@ describe('generateCommandInternals', () => {
         method: 'getByRole',
         query: "screen.getByRole('textbox', { name: 'Customer Reference' })",
       })
+    )
+  })
+})
+
+describe('deriveOutputPath', () => {
+  it('colocates by default when no folderPattern is given', () => {
+    expect(deriveOutputPath('/repo/src/components/Button.js')).toBe(
+      join('/repo/src/components', 'Button.test.tsx')
+    )
+  })
+
+  it('colocates when folderPattern is colocated', () => {
+    expect(deriveOutputPath('/repo/src/components/Button.tsx', 'colocated')).toBe(
+      join('/repo/src/components', 'Button.test.tsx')
+    )
+  })
+
+  it('places in __tests__/ subdirectory when folderPattern is __tests__', () => {
+    expect(deriveOutputPath('/repo/src/components/Button.tsx', '__tests__')).toBe(
+      join('/repo/src/components/__tests__', 'Button.test.tsx')
+    )
+  })
+
+  it('places in tests/ subdirectory when folderPattern is tests', () => {
+    expect(deriveOutputPath('/repo/src/components/Button.tsx', 'tests')).toBe(
+      join('/repo/src/components/tests', 'Button.test.tsx')
+    )
+  })
+
+  it('colocates when folderPattern is mixed', () => {
+    expect(deriveOutputPath('/repo/src/components/Button.tsx', 'mixed')).toBe(
+      join('/repo/src/components', 'Button.test.tsx')
+    )
+  })
+
+  it('colocates when folderPattern is unknown', () => {
+    expect(deriveOutputPath('/repo/src/components/Button.tsx', 'unknown')).toBe(
+      join('/repo/src/components', 'Button.test.tsx')
     )
   })
 })
