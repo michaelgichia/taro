@@ -192,4 +192,97 @@ describe('createTargetCommand', () => {
     expect(result.exitCode).toBe(2)
     expect(result.logs).toContain('Target component must be a source module')
   })
+
+  it('generates tests for all component files when a directory is passed', async () => {
+    const root = await createSandbox('dir-multi')
+    const srcDir = join(root, 'src')
+    await mkdir(srcDir, { recursive: true })
+
+    await writeFile(
+      join(srcDir, 'Header.tsx'),
+      [
+        'export default function Header() {',
+        '  return <h1>Site Header</h1>',
+        '}',
+        '',
+      ].join('\n'),
+      'utf-8'
+    )
+    await writeFile(
+      join(srcDir, 'Footer.tsx'),
+      [
+        'export default function Footer() {',
+        '  return <p>Site Footer</p>',
+        '}',
+        '',
+      ].join('\n'),
+      'utf-8'
+    )
+
+    const result = await runTarget([srcDir], root)
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.exitCode).toBe(0)
+
+    const headerTest = await readFile(join(srcDir, 'Header.test.tsx'), 'utf-8')
+    expect(headerTest).toContain("import Header from './Header'")
+    expect(headerTest).toContain('render(<Header />)')
+
+    const footerTest = await readFile(join(srcDir, 'Footer.test.tsx'), 'utf-8')
+    expect(footerTest).toContain("import Footer from './Footer'")
+    expect(footerTest).toContain('render(<Footer />)')
+  })
+
+  it('skips test files when scanning a directory', async () => {
+    const root = await createSandbox('dir-skip-tests')
+    const srcDir = join(root, 'src')
+    await mkdir(srcDir, { recursive: true })
+
+    await writeFile(
+      join(srcDir, 'Button.tsx'),
+      [
+        'export default function Button() {',
+        '  return <button>Click me</button>',
+        '}',
+        '',
+      ].join('\n'),
+      'utf-8'
+    )
+    await writeFile(
+      join(srcDir, 'Button.test.tsx'),
+      "import { render } from '@testing-library/react'\n",
+      'utf-8'
+    )
+
+    const result = await runTarget([srcDir], root)
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.exitCode).toBe(0)
+    expect(result.logs).toContain('Processing 1 component file')
+  })
+
+  it('reports no files found when the directory has no component source files', async () => {
+    const root = await createSandbox('dir-empty')
+    const srcDir = join(root, 'src')
+    await mkdir(srcDir, { recursive: true })
+    await writeFile(join(srcDir, 'styles.css'), '.foo { color: red; }\n', 'utf-8')
+
+    const result = await runTarget([srcDir], root)
+
+    expect(result.exitCode).toBe(0)
+    expect(result.logs).toContain('No component source files found')
+  })
+
+  it('rejects --recording when a directory is passed', async () => {
+    const root = await createSandbox('dir-recording-incompatible')
+    const srcDir = join(root, 'src')
+    const recordingPath = join(root, 'recording.js')
+    await mkdir(srcDir, { recursive: true })
+    await writeFile(recordingPath, "test('foo', () => {})\n", 'utf-8')
+
+    const result = await runTarget([srcDir, '--recording', recordingPath], root)
+
+    expect(result.exitCode).toBe(2)
+    expect(result.logs).toContain('--recording is not compatible with directory input')
+  })
 })
