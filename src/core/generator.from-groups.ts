@@ -32,6 +32,10 @@ export function generateTestFromGroups(
     scenarios,
     renderTarget = null,
     renderHelper = null,
+    renderExpression: configuredRenderExpression,
+    additionalImports = [],
+    moduleStatements = [],
+    enableSetupOverrides = false,
   } = options
   const importStyle = conventions?.importStyle ?? 'esm'
   const jestDomImportPath =
@@ -73,6 +77,8 @@ export function generateTestFromGroups(
     )
 
   const helperByName = new Map(helpers.map((helper) => [helper.name, helper]))
+  const renderExpression =
+    configuredRenderExpression ?? (renderTarget ? `<${renderTarget.symbol} />` : '<App />')
   const helperBlocks = helpers
     .map((helper) => ({
       name: helper.name,
@@ -186,12 +192,15 @@ export function generateTestFromGroups(
       stepLines,
       hasUserEvents: hasUserEvents || helperRefs.length > 0,
       needsWaitFor: scenarioNeedsWaitFor,
+      setupArgs: scenario.renderOverrides ?? null,
     }
   })
 
   const globalNeedsWaitFor = itBlocks.some((block) => block.needsWaitFor)
+  const needsCleanup = itBlocks.length > 1 && runner !== 'unknown'
 
   const imports = importBlock(globalHasUserEvents, importStyle, {
+    runner,
     renderTarget: renderTarget
       ? {
           symbol: renderTarget.symbol,
@@ -207,15 +216,20 @@ export function generateTestFromGroups(
         }
       : null,
     jestDomImportPath,
+    needsCleanup,
     needsWithin: renderTarget?.usesWithin ?? false,
     needsWaitFor: globalNeedsWaitFor,
   })
   const describeCode = describeBlockMultiIt(title, itBlocks, {
-    renderExpression: renderTarget ? `<${renderTarget.symbol} />` : '<App />',
+    renderExpression,
     renderFunctionName,
     helpers: helperBlocks,
+    enableSetupOverrides: enableSetupOverrides || scenarioPlans.some((scenario) => Boolean(scenario.renderOverrides)),
+    needsCleanup,
   })
-  const code = `${imports}\n\n${describeCode}\n`
+  const importSection = [imports, ...additionalImports].filter((line) => line.trim().length > 0).join('\n')
+  const moduleSection = moduleStatements.filter((line) => line.trim().length > 0).join('\n\n')
+  const code = [importSection, moduleSection, describeCode].filter((section) => section.trim().length > 0).join('\n\n') + '\n'
 
   return {
     code,

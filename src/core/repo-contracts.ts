@@ -1,3 +1,5 @@
+import { analyzeBoundaryIsolation } from '#core/boundary-intelligence.ts'
+
 type RepoContractIssueCode =
   | 'helper-assertion'
   | 'query-to-be-defined'
@@ -7,6 +9,8 @@ type RepoContractIssueCode =
   | 'manual-dom-repair'
   | 'regex-text-matcher'
   | 'mixed-reset-boundary'
+  | 'generic-component-contract'
+  | 'incomplete-asset-mock'
 
 interface RepoContractIssue {
   code: RepoContractIssueCode
@@ -30,16 +34,16 @@ const ISSUE_MESSAGES: Record<RepoContractIssueCode, string> = {
     'Avoid regex text matchers for exact rendered contracts unless the pattern itself is the behavior under test.',
   'mixed-reset-boundary':
     'Avoid mixed reset boundaries - use either a shared reset helper or explicit suite-local mock resets, not both.',
+  'generic-component-contract':
+    'Avoid umbrella component-only buckets like "renders the primary UI contract" or "exposes the main interactive controls" - emit one behavior per it(...) block.',
+  'incomplete-asset-mock':
+    'Asset mocks should expose a stable queryable identity and forward props; anonymous <svg /> mocks hide which branch rendered.',
 }
 
 const DETECTORS: Array<[RepoContractIssueCode, RegExp]> = [
   [
     'query-to-be-defined',
     /\bexpect\s*\(\s*(?:await\s+)?(?:screen|within\([^)]*\)|[a-zA-Z_$][\w$]*\.(?:getBy|findBy|queryBy))/m,
-  ],
-  [
-    'helper-assertion',
-    /(?:const|function)\s+(?:setup|plan[A-Z]\w*|open[A-Z]\w*|prepare[A-Z]\w*|render[A-Z]\w*)[\s\S]{0,1200}?\bexpect\s*\(/,
   ],
   ['loose-payload', /toHaveBeenCalledWith\s*\([\s\S]*expect\.(?:any|anything)\s*\(/],
   [
@@ -62,10 +66,28 @@ const DETECTORS: Array<[RepoContractIssueCode, RegExp]> = [
     'mixed-reset-boundary',
     /\breset[A-Z]\w*\s*\(\s*\)[\s\S]*\.\s*mock(?:Clear|Reset)\s*\(/,
   ],
+  [
+    'generic-component-contract',
+    /\bit\s*\(\s*['"](?:renders the primary UI contract|exposes the main interactive controls)['"]/,
+  ],
+  [
+    'incomplete-asset-mock',
+    /(?:vi|jest)\.mock\s*\(\s*['"][^'"]+\.svg['"][\s\S]*?<svg\b(?![^>]*data-testid=)[^>]*\/>/,
+  ],
 ]
 
 export function detectRepoContractIssues(code: string): RepoContractIssue[] {
   const issues: RepoContractIssue[] = []
+
+  const hasHelperAssertion = analyzeBoundaryIsolation(code).some(
+    (issue) => issue.kind === 'helper-embedded-assertion'
+  )
+  if (hasHelperAssertion) {
+    issues.push({
+      code: 'helper-assertion',
+      message: ISSUE_MESSAGES['helper-assertion'],
+    })
+  }
 
   const hasQueryToBeDefined =
     DETECTORS[0]![1].test(code) && /\.toBeDefined\s*\(\s*\)/.test(code)

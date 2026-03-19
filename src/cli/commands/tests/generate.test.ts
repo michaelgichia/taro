@@ -2094,7 +2094,7 @@ test('Marker gate fail in write mode', async () => {
     expect(written).toContain("it(");
   });
 
-  it("keeps an existing test when it already matches the recorder flow with better quality", async () => {
+  it("updates an existing test when the generated output is preferred on current quality signals", async () => {
     const fixture = await createInlineJsFixture(
       "preserve-existing-output",
       `/**
@@ -2137,13 +2137,15 @@ describe('Example flow', () => {
     expect(result.errors).toBe("");
     expect(result.logs).toContain("Existing output detected:");
     expect(result.logs).toContain(
-      "Existing output will be updated because Taro kept the higher-scored suite and merged distinct tests from the alternate draft.",
+      "Existing output will be updated because Taro kept the preferred suite.",
     );
-    expect(result.logs).toContain("Preserved 1 distinct test block from the alternate suite.");
+    expect(result.logs).not.toContain("Preserved 1 distinct test block from the alternate suite.");
     expect(result.logs).toContain(`Updated: ${outputPath}`);
     expect(result.logs).not.toContain(`Created: ${outputPath}`);
-    expect(written).toContain("it('covers the full example flow'");
-    expect(written).toContain("expect(await screen.findByRole('heading', { name: 'Review Example' }))");
+    expect(written).not.toContain("it('covers the full example flow'");
+    expect(written).toContain("Open Example Flow");
+    expect(written).toContain("Customer Reference");
+    expect(written).toContain("Review Example");
   });
 
   it("updates an existing test when generation improves recorder-flow coverage", async () => {
@@ -2188,11 +2190,11 @@ describe('Example flow', () => {
     expect(result.thrown).toBeUndefined();
     expect(result.errors).toBe("");
     expect(result.logs).toContain(
-      "Existing output will be updated because Taro kept the higher-scored suite and merged distinct tests from the alternate draft.",
+      "Existing output will be updated because Taro kept the preferred suite.",
     );
-    expect(result.logs).toContain("Preserved 1 distinct test block from the alternate suite.");
+    expect(result.logs).not.toContain("Preserved 1 distinct test block from the alternate suite.");
     expect(result.logs).toContain(`Updated: ${outputPath}`);
-    expect(written).toContain("it('is stale'");
+    expect(written).not.toContain("it('is stale'");
     expect(written).toContain("Open Example Flow");
     expect(written).toContain("Customer Reference");
     expect(written).toContain("Review Example");

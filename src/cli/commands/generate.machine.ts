@@ -1,29 +1,29 @@
 // src/cli/commands/generate.machine.ts
-import { assign, enqueueActions, fromPromise, setup } from 'xstate'
 import pc from 'picocolors'
+import { assign, enqueueActions, fromPromise, setup } from 'xstate'
 
 import type { GenerateMachineContext } from '#cli/commands/generate.utils.ts'
 import {
-  generateMachineGuards,
+  emitLowConfidenceBanner,
+  emitMarkerCoverageSection,
+  emitMarkerPlacementCorrections,
+  emitRecoveredMarkerDiagnostics,
+  emitScoreHints,
+  emitUnresolvedMarkerWarnings,
   formatContextMatchesSummary,
+  generateMachineGuards,
+  logExistingOutputDecision,
+  logScore,
   summarizeAuthPreflight,
-  summarizeVisualState,
-  summarizePageConfirmedContext,
-  summarizeResolvedPackageProfile,
-  summarizePlaywrightAuth,
+  summarizeBoundaryWarnings,
   summarizeCleanup,
   summarizeMockAnalysis,
-  summarizeBoundaryWarnings,
-  summarizeSuiteContracts,
+  summarizePageConfirmedContext,
+  summarizePlaywrightAuth,
+  summarizeResolvedPackageProfile,
   summarizeSelectorWarnings,
-  logScore,
-  emitMarkerCoverageSection,
-  emitRecoveredMarkerDiagnostics,
-  emitMarkerPlacementCorrections,
-  emitUnresolvedMarkerWarnings,
-  emitLowConfidenceBanner,
-  emitScoreHints,
-  logExistingOutputDecision,
+  summarizeSuiteContracts,
+  summarizeVisualState,
 } from '#cli/commands/generate.utils.ts'
 
 function log(msg: string): void {
@@ -83,7 +83,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
           input: ({ context }: CtxArg) => ({ filePath: context.filePath }),
           onDone: {
             target: 'loadingState',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             actions: assign(({ event }) => {
               const out = (event as any).output
               return {
@@ -105,7 +105,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
           }),
           onDone: {
             target: 'capturingVisual',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             actions: assign(({ event }) => {
               const out = (event as any).output
               return {
@@ -139,7 +139,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
           }),
           onDone: {
             target: 'searchingContext',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             actions: assign(({ event }) => {
               const out = (event as any).output
               return {
@@ -169,7 +169,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
           }),
           onDone: {
             target: 'refiningProfile',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             actions: assign(({ event }) => {
               const out = (event as any).output
               return {
@@ -195,7 +195,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             {
               guard: 'isProfileStale',
               target: 'refreshingProfile',
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+               
               actions: assign(({ event }) => {
                 const out = (event as any).output
                 return {
@@ -207,7 +207,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             },
             {
               target: 'analyzingRecording',
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+               
               actions: assign(({ event }) => {
                 const out = (event as any).output
                 return {
@@ -238,7 +238,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
           }),
           onDone: {
             target: 'analyzingRecording',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             actions: assign(({ event }) => {
               const out = (event as any).output
               return {
@@ -289,7 +289,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
           }),
           onDone: {
             target: 'analyzingMocks',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             actions: assign(({ event }) => {
               const out = (event as any).output
               return {
@@ -315,7 +315,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
           }),
           onDone: {
             target: 'planning',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             actions: assign(({ event }) => {
               const out = (event as any).output
               return { mockAnalysis: out?.mockAnalysis }
@@ -343,7 +343,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
           }),
           onDone: {
             target: 'resolvingSelectors',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             actions: assign(({ event }) => {
               const out = (event as any).output
               return {
@@ -352,6 +352,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
                 resolvedRenderTargetFile: out?.resolvedRenderTargetFile,
                 boundarySupportPlan: out?.boundarySupportPlan,
                 generationRenderTarget: out?.generationRenderTarget,
+                componentScoreContext: out?.componentScoreContext,
                 generationRenderHelper: out?.generationRenderHelper,
               }
             }),
@@ -382,7 +383,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
           }),
           onDone: {
             target: 'generating',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             actions: assign(({ event }) => {
               const out = (event as any).output
               return { resolvedJsGeneration: out?.resolvedJsGeneration }
@@ -405,12 +406,13 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             packageProfile: context.packageProfile,
             boundarySupportPlan: context.boundarySupportPlan,
             generationRenderTarget: context.generationRenderTarget,
+            componentScoreContext: context.componentScoreContext,
             generationRenderHelper: context.generationRenderHelper,
             analyzedRecording: context.analyzedRecording,
           }),
           onDone: {
             target: 'assessingOutput',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             actions: assign(({ event }) => {
               const out = (event as any).output
               return {
@@ -433,12 +435,13 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             generatedCode: context.generatedCode,
             analyzedRecording: context.analyzedRecording,
             candidateAssessment: context.candidateAssessment,
+            componentScoreContext: context.componentScoreContext,
           }),
           onDone: [
             {
               guard: 'shouldWrite',
               target: 'writing',
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+               
               actions: assign(({ context, event }) => {
                 const out = (event as any).output
                 return {
@@ -454,7 +457,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             {
               guard: 'shouldKeepExisting',
               target: 'done',
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+               
               actions: ({ context, event }: any) => {
                 if (event.output?.existingCode && event.output?.existingAssessment) {
                   logExistingOutputDecision({

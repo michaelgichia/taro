@@ -52,7 +52,14 @@ describe('inferComponentTargetPlan', () => {
     expect(plan.findings.some((finding) => finding.severity === 'BLOCKING')).toBe(false)
     expect(plan.renderTarget.symbol).toBe('CheckoutForm')
     expect(plan.renderTarget.importKind).toBe('default')
-    expect(plan.analyzedRecording.intentGroups).toHaveLength(2)
+    expect(plan.analyzedRecording.intentGroups.map((group) => group.name)).toEqual(
+      expect.arrayContaining([
+        'renders "Checkout"',
+        'renders "Review your order before payment."',
+        'renders textbox "Email"',
+        'renders button "Submit order"',
+      ])
+    )
     expect(plan.queryResults.map((query) => query.query)).toContain(
       "screen.getByRole('heading', { name: 'Checkout' })"
     )
@@ -88,6 +95,69 @@ describe('inferComponentTargetPlan', () => {
     expect(plan.renderTarget.importKind).toBe('named')
     expect(plan.queryResults.map((query) => query.query)).toContain(
       "screen.getByRole('button', { name: 'Continue' })"
+    )
+  })
+
+  it('builds prop-backed scenarios for conditional text and fallback expressions', async () => {
+    const root = await createWorkspace('props-and-variants')
+    const componentPath = join(root, 'src', 'ProfileCard.tsx')
+    const outputPath = join(root, 'src', 'tests', 'ProfileCard.test.tsx')
+    await mkdir(dirname(componentPath), { recursive: true })
+    await writeFile(
+      componentPath,
+      [
+        "import Link from 'next/link'",
+        "import { OrganisationType } from '@repo/data-layer'",
+        '',
+        'export default function ProfileCard({ id, displayName, organisationType, businessCount }) {',
+        '  return (',
+        "    <Link href={`/profiles/${id}`}>",
+        '      <div>',
+        '        <p>{displayName}</p>',
+        "        <p>{organisationType === OrganisationType.Individual ? 'Personal' : 'Business'}</p>",
+        '        <p>{businessCount ?? 0}</p>',
+        '      </div>',
+        '    </Link>',
+        '  )',
+        '}',
+        '',
+      ].join('\n'),
+      'utf-8'
+    )
+
+    const plan = await inferComponentTargetPlan({
+      componentPath,
+      outputPath,
+      projectRoot: root,
+    })
+
+    expect(plan.moduleStatements).toEqual(
+      expect.arrayContaining([expect.stringContaining('const BASE_PROPS = {')])
+    )
+    expect(plan.additionalImports).toContain(
+      "import { OrganisationType } from '@repo/data-layer'"
+    )
+    expect(plan.renderExpression).toBe('<ProfileCard {...BASE_PROPS} {...overrides} />')
+    expect(plan.queryResults.map((query) => query.query)).toEqual(
+      expect.arrayContaining([
+        "screen.getByRole('link')",
+        "screen.getByText('Profile Card Example')",
+        "screen.getByText('Business')",
+        "screen.getByText('Personal')",
+        "screen.getByText('0')",
+      ])
+    )
+    expect(plan.scenarios).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'renders "Personal" when organisation type is OrganisationType.Individual',
+          renderOverrides: '{ organisationType: OrganisationType.Individual }',
+        }),
+        expect.objectContaining({
+          name: 'renders "0" when business count is missing',
+          renderOverrides: '{ businessCount: undefined }',
+        }),
+      ])
     )
   })
 

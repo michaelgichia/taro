@@ -11,9 +11,9 @@ import { Command } from 'commander'
 import pc from 'picocolors'
 import { createActor } from 'xstate'
 
-import { createGenerateMachine } from '#cli/commands/generate.machine.ts'
-import type { GenerateMachineActors } from '#cli/commands/generate.machine.ts'
 import * as actors from '#cli/commands/generate.actors.ts'
+import type { GenerateMachineActors } from '#cli/commands/generate.machine.ts'
+import { createGenerateMachine } from '#cli/commands/generate.machine.ts'
 import type { GenerateMachineContext } from '#cli/commands/generate.utils.ts'
 import {
   flushFindings,

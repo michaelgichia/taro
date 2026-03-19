@@ -1,34 +1,9 @@
-import { access, readFile } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
+import { access, readdir, readFile, stat } from 'node:fs/promises'
+import { basename, dirname, join, resolve } from 'node:path'
 import { cwd, stdin, stdout } from 'node:process'
 
 import { Command } from 'commander'
 import pc from 'picocolors'
-
-import {
-  applyBoundarySupport,
-  materializeBoundarySupport,
-  planBoundarySupport,
-} from '#core/boundary-support.ts'
-import { inferComponentTargetPlan } from '#core/component-targeting.ts'
-import { emitQuerySummary, generateTestFromGroups } from '#core/generator.ts'
-import { loadInput } from '#core/input-loader.ts'
-import { analyzeRecording } from '#core/recording-intelligence.ts'
-import { scoreGeneratedTest } from '#core/scorer.ts'
-import { planJsSuite } from '#core/suite-planner.ts'
-import {
-  detectPackageProfileStaleness,
-  loadOrBootstrapTaroState,
-  readTaroOverrides,
-  refreshTaroState,
-  resolveTaroPackageProfile,
-} from '#core/state.ts'
-import { verifySyntax } from '#core/verifier.ts'
-import { writeTestFile } from '#core/writer.ts'
-import { normalizeJsBaseline } from '#core/baseline-normalizer.ts'
-import type { ResolvedTaroPackageProfile } from '#types/state.ts'
-import type { QueryResult } from '#types/recording.ts'
-import type { Finding } from '#core/findings-reporter.ts'
 
 import {
   applyRepoRenderTarget,
@@ -51,11 +26,47 @@ import {
   resolveVisualAuthStorageStatePath,
   toImportPath,
 } from '#cli/commands/generate.utils.ts'
+import { normalizeJsBaseline } from '#core/baseline-normalizer.ts'
+import {
+  applyBoundarySupport,
+  materializeBoundarySupport,
+  planBoundarySupport,
+} from '#core/boundary-support.ts'
+import { loadComponentScoreContext } from '#core/component-score-context.ts'
+import { inferComponentTargetPlan } from '#core/component-targeting.ts'
+import type { Finding } from '#core/findings-reporter.ts'
+import { emitQuerySummary, generateTestFromGroups } from '#core/generator.ts'
+import { loadInput } from '#core/input-loader.ts'
 import { parseJsRecording } from '#core/js-parser.ts'
+import { analyzeRecording } from '#core/recording-intelligence.ts'
+import { scoreGeneratedTest } from '#core/scorer.ts'
+import {
+  detectPackageProfileStaleness,
+  loadOrBootstrapTaroState,
+  readTaroOverrides,
+  refreshTaroState,
+  resolveTaroPackageProfile,
+} from '#core/state.ts'
+import { planJsSuite } from '#core/suite-planner.ts'
+import { verifySyntax } from '#core/verifier.ts'
+import { writeTestFile } from '#core/writer.ts'
+import type { QueryResult } from '#types/recording.ts'
+import type { ResolvedTaroPackageProfile } from '#types/state.ts'
+import type { TaroFolderPattern } from '#types/state.ts'
 
 interface TargetCommandContext {
   input?: Pick<typeof stdin, 'isTTY'>
   output?: Pick<typeof stdout, 'isTTY'>
+}
+
+interface CommandOptions {
+  auth?: string
+  debugSelectors?: boolean
+  debugSelectorsJson?: string
+  interactiveAuth?: boolean
+  instructions?: string
+  recording?: string
+  screenshots?: boolean
 }
 
 function log(message: string): void {
@@ -87,7 +98,7 @@ async function loadPackageContext(params: {
     auth?: string
     instructions?: string
   }
-  outputPath: string
+  targetPath: string
   projectRoot: string
 }): Promise<{
   explicitAuthPath: Awaited<ReturnType<typeof resolveOptionalFilePath>>
@@ -95,7 +106,7 @@ async function loadPackageContext(params: {
   packageProfile: ResolvedTaroPackageProfile | null
   visualAuth: ResolvedTaroPackageProfile['playwrightAuth']
 }> {
-  const { commandOptions, outputPath, projectRoot } = params
+  const { commandOptions, targetPath, projectRoot } = params
   const hadState = await access(resolve(projectRoot, '.taro', 'state.json'))
     .then(() => true)
     .catch(() => false)
@@ -109,7 +120,7 @@ async function loadPackageContext(params: {
   const packageProfile = resolveTaroPackageProfile(
     bootstrappedState.state,
     projectRoot,
-    outputPath,
+    targetPath,
     overrides
   )
 
@@ -157,6 +168,54 @@ async function loadPackageContext(params: {
   }
 }
 
+function isConcreteFolderPattern(
+  folderPattern?: TaroFolderPattern | null
+): folderPattern is 'colocated' | '__tests__' | 'tests' {
+  return folderPattern === 'colocated' || folderPattern === '__tests__' || folderPattern === 'tests'
+}
+
+async function hasImmediateTestFiles(dirPath: string): Promise<boolean> {
+  const entries = await readdir(dirPath, { withFileTypes: true }).catch(() => null)
+  if (!entries) {
+    return false
+  }
+
+  return entries.some(
+    (entry) =>
+      entry.isFile() && /\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(entry.name)
+  )
+}
+
+async function detectLocalOutputFolderPattern(componentPath: string): Promise<TaroFolderPattern | null> {
+  const componentDir = dirname(componentPath)
+  const componentName = basename(componentPath).replace(/\.[cm]?[jt]sx?$/u, '') || 'Component'
+
+  const explicitCandidates: Array<[TaroFolderPattern, string]> = [
+    ['tests', join(componentDir, 'tests', `${componentName}.test.tsx`)],
+    ['__tests__', join(componentDir, '__tests__', `${componentName}.test.tsx`)],
+    ['colocated', join(componentDir, `${componentName}.test.tsx`)],
+  ]
+
+  for (const [folderPattern, filePath] of explicitCandidates) {
+    const exists = await access(filePath)
+      .then(() => true)
+      .catch(() => false)
+    if (exists) {
+      return folderPattern
+    }
+  }
+
+  if (await hasImmediateTestFiles(join(componentDir, 'tests'))) {
+    return 'tests'
+  }
+
+  if (await hasImmediateTestFiles(join(componentDir, '__tests__'))) {
+    return '__tests__'
+  }
+
+  return null
+}
+
 function prependBoundaryWarnings(code: string, warnings: string[]): string {
   if (warnings.length === 0) {
     return code
@@ -181,12 +240,350 @@ function normalizeFindings(findings: Finding[]): Finding[] {
   })
 }
 
+async function collectSourceFiles(dirPath: string): Promise<string[]> {
+  const entries = await readdir(dirPath, { recursive: true, withFileTypes: true })
+  return entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath, entry.name))
+    .filter((filePath) => isSupportedSourceFile(filePath) && !isTestFilePath(filePath))
+    .sort()
+}
+
+async function generateForFile(params: {
+  componentPath: string
+  projectRoot: string
+  commandOptions: CommandOptions
+  context: TargetCommandContext
+}): Promise<Finding[]> {
+  const { componentPath, projectRoot, commandOptions, context } = params
+
+  const {
+    packageProfile,
+    visualAuth,
+  } = await loadPackageContext({
+    commandOptions,
+    targetPath: componentPath,
+    projectRoot,
+  })
+  const localFolderPattern = await detectLocalOutputFolderPattern(componentPath)
+  const outputPath = deriveOutputPath(
+    componentPath,
+    localFolderPattern ??
+      (isConcreteFolderPattern(packageProfile?.folderPattern.value)
+        ? packageProfile.folderPattern.value
+        : undefined)
+  )
+
+  const targetPlan = await inferComponentTargetPlan({
+    componentPath,
+    outputPath,
+    projectRoot,
+  })
+  const componentScoreContext = await loadComponentScoreContext(componentPath)
+  const renderTarget = {
+    ...targetPlan.renderTarget,
+    importPath: toImportPath(dirname(outputPath), componentPath),
+    sourceTestFile: componentPath,
+  }
+  const renderHelper = rebaseRenderHelperImportPath({
+    projectRoot,
+    outputPath,
+    renderHelper: packageProfile?.effectiveRenderHelper ?? null,
+  })
+  const mockAnalysis = await maybeAnalyzeMocks(projectRoot, packageProfile ?? null)
+  const findings: Finding[] = [...targetPlan.findings]
+
+  let analyzedRecording = targetPlan.analyzedRecording
+  let queryResults: QueryResult[] = targetPlan.queryResults
+
+  if (commandOptions.debugSelectors || commandOptions.debugSelectorsJson) {
+    log(
+      pc.dim('[taro]') +
+        ' Selector-debug options currently apply only to Recorder-backed replay; component-only inference will ignore them.'
+    )
+  }
+
+  if (commandOptions.recording) {
+    const recordingPath = resolve(projectRoot, commandOptions.recording)
+    try {
+      await access(recordingPath)
+    } catch {
+      throw new Error(`File not found or not accessible: ${recordingPath}`)
+    }
+
+    const parsedInput = await loadInput(recordingPath)
+    const normalizedRecording = normalizeJsBaseline(parsedInput)
+    const earlyAnalyzedRecording = analyzeRecording(normalizedRecording)
+    const interactiveVisualAuth = hasInteractiveVisualAuthCapability(
+      {
+        input: context.input ?? stdin,
+        output: context.output ?? stdout,
+      },
+      commandOptions.interactiveAuth === true
+    )
+    const visualState = await maybeCaptureVisualState({
+      analyzedRecording: earlyAnalyzedRecording,
+      auth: visualAuth ?? null,
+      authRecovery:
+        commandOptions.screenshots === false
+          ? undefined
+          : {
+              enabled: interactiveVisualAuth,
+              instructionsPath:
+                visualAuth?.strategy === 'instructions' ? visualAuth.path : undefined,
+              persistedAuthPath: resolveVisualAuthStorageStatePath(projectRoot, visualAuth ?? null)
+                .relativePath,
+              saveStorageStatePath: resolveVisualAuthStorageStatePath(projectRoot, visualAuth ?? null)
+                .absolutePath,
+              timeoutMs: 5 * 60 * 1000,
+            },
+      projectRoot,
+      recording: normalizedRecording,
+      selector: getPrimarySelector(normalizedRecording),
+      skipScreenshotArtifacts: commandOptions.screenshots === false,
+      url: earlyAnalyzedRecording.url,
+    })
+
+    analyzedRecording = visualState
+      ? analyzeRecording({
+          ...normalizedRecording,
+          steps: normalizedRecording.steps,
+        })
+      : earlyAnalyzedRecording
+
+    const suitePlan = planJsSuite({
+      recording: normalizedRecording,
+      analyzedRecording,
+      mockAnalysis: mockAnalysis ?? null,
+      fallbackTitle: analyzedRecording.title,
+    })
+    const jsSuitePlan = applyRepoRenderTarget(suitePlan, renderTarget)
+    const resolvedJsGeneration = await resolveJsGeneration(
+      normalizedRecording,
+      jsSuitePlan.itGroups,
+      visualAuth
+        ? {
+            auth: {
+              path: resolve(projectRoot, visualAuth.path),
+              strategy: visualAuth.strategy,
+            },
+          }
+        : undefined
+    )
+
+    queryResults = resolvedJsGeneration.queryResults ?? queryResults
+
+    const conventions = packageProfile?.conventions ?? buildFallbackConventions(projectRoot)
+    const boundarySupportPlan = await planBoundarySupport({
+      projectRoot,
+      outputPath,
+      packageProfile: packageProfile ?? null,
+      renderTargetFile: componentPath,
+      renderTarget,
+    })
+    const generated = generateTestFromGroups(analyzedRecording.title, resolvedJsGeneration.itGroups, {
+      outputPath,
+      conventions,
+      runner: packageProfile?.effectiveRunner ?? 'unknown',
+      jestDomImportPath:
+        packageProfile?.jestDomSetup?.value === 'global-setup' ? null : undefined,
+      queryResults,
+      helpers: jsSuitePlan.helpers,
+      scenarios: jsSuitePlan.scenarios,
+      renderTarget,
+      renderHelper,
+    })
+    let code = applyBoundarySupport(generated.code, boundarySupportPlan)
+    code = prependBoundaryWarnings(
+      code,
+      [
+        ...jsSuitePlan.warnings,
+        ...(await auditBoundaryPolicy(code, packageProfile ?? null, null)),
+      ]
+    )
+
+    const candidateParsed = await parseJsRecording(code)
+    const candidateAssessment = {
+      flowCoverage: buildFlowCoverageSummary(analyzedRecording, code),
+      scoreResult: scoreGeneratedTest(code, {
+        ...(componentScoreContext ?? {}),
+        queryResults: mapParsedQueriesToResults(candidateParsed, code),
+      }),
+    }
+
+    let existingCode: string | null = null
+    try {
+      existingCode = await readFile(outputPath, 'utf-8')
+    } catch (error: unknown) {
+      const errCode = (error as NodeJS.ErrnoException)?.code
+      if (errCode && errCode !== 'ENOENT') {
+        throw error
+      }
+    }
+
+    let existingAssessment = null
+    if (existingCode) {
+      existingAssessment = await assessOutputAgainstRecording({
+        analyzedRecording,
+        code: existingCode,
+        componentScoreContext,
+      })
+    }
+    const outputResolution = await reconcileExistingOutput({
+      analyzedRecording,
+      candidateAssessment,
+      candidateCode: code,
+      existingAssessment,
+      existingCode,
+    })
+
+    if (existingCode && existingAssessment) {
+      logExistingOutputDecision({
+        outputPath,
+        candidate: candidateAssessment,
+        existing: existingAssessment,
+        overwrite: outputResolution.shouldWrite,
+        resolution: outputResolution,
+      })
+    }
+
+    if (outputResolution.shouldWrite) {
+      const outputCode = outputResolution.outputCode
+      await materializeBoundarySupport(boundarySupportPlan)
+      await writeTestFile(outputCode, outputPath, {
+        createDir: true,
+        overwriteExisting: Boolean(existingCode),
+      })
+      const verification = verifySyntax(outputCode, outputPath)
+      if (!verification.valid) {
+        throw new Error(`Post-write verification failed: ${verification.error}`)
+      }
+      emitQuerySummary(queryResults)
+      log(
+        pc.green(`[taro] ${existingCode ? 'Updated' : 'Created'}: ${outputPath}`)
+      )
+      await finalizeGeneratedOutput({
+        code: outputCode,
+        outputPath,
+        projectRoot,
+        recordingFile: commandOptions.recording ? resolve(projectRoot, commandOptions.recording) : componentPath,
+        scoreResult: outputResolution.outputAssessment.scoreResult,
+        packageProfile: packageProfile ?? null,
+      })
+    }
+
+    return normalizeFindings(findings)
+  }
+
+  if (findings.some((finding) => finding.severity === 'BLOCKING')) {
+    return normalizeFindings(findings)
+  }
+
+  const conventions = packageProfile?.conventions ?? buildFallbackConventions(projectRoot)
+  const boundarySupportPlan = await planBoundarySupport({
+    projectRoot,
+    outputPath,
+    packageProfile: packageProfile ?? null,
+    renderTargetFile: componentPath,
+    renderTarget,
+  })
+  const generated = generateTestFromGroups(analyzedRecording.title, analyzedRecording.intentGroups, {
+    additionalImports: targetPlan.additionalImports,
+    outputPath,
+    conventions,
+    enableSetupOverrides: targetPlan.enableSetupOverrides,
+    runner: packageProfile?.effectiveRunner ?? 'unknown',
+    jestDomImportPath:
+      packageProfile?.jestDomSetup?.value === 'global-setup' ? null : undefined,
+    moduleStatements: targetPlan.moduleStatements,
+    queryResults,
+    renderExpression: targetPlan.renderExpression,
+    renderTarget,
+    renderHelper,
+    scenarios: targetPlan.scenarios,
+  })
+  let code = applyBoundarySupport(generated.code, boundarySupportPlan)
+  code = prependBoundaryWarnings(
+    code,
+    await auditBoundaryPolicy(code, packageProfile ?? null, null)
+  )
+  const scoreResult = scoreGeneratedTest(code, {
+    ...(componentScoreContext ?? {}),
+    queryResults,
+  })
+  const candidateAssessment = {
+    flowCoverage: buildFlowCoverageSummary(analyzedRecording, code),
+    scoreResult,
+  }
+
+  let existingCode: string | null = null
+  try {
+    existingCode = await readFile(outputPath, 'utf-8')
+  } catch (error: unknown) {
+    const errCode = (error as NodeJS.ErrnoException)?.code
+    if (errCode && errCode !== 'ENOENT') {
+      throw error
+    }
+  }
+
+  let existingAssessment = null
+  if (existingCode) {
+    existingAssessment = await assessOutputAgainstRecording({
+      analyzedRecording,
+      code: existingCode,
+      componentScoreContext,
+    })
+  }
+  const outputResolution = await reconcileExistingOutput({
+    analyzedRecording,
+    candidateAssessment,
+    candidateCode: code,
+    existingAssessment,
+    existingCode,
+  })
+
+  if (existingCode && existingAssessment) {
+    logExistingOutputDecision({
+      outputPath,
+      candidate: candidateAssessment,
+      existing: existingAssessment,
+      overwrite: outputResolution.shouldWrite,
+      resolution: outputResolution,
+    })
+  }
+
+  if (outputResolution.shouldWrite) {
+    const outputCode = outputResolution.outputCode
+    await materializeBoundarySupport(boundarySupportPlan)
+    await writeTestFile(outputCode, outputPath, {
+      createDir: true,
+      overwriteExisting: Boolean(existingCode),
+    })
+    const verification = verifySyntax(outputCode, outputPath)
+    if (!verification.valid) {
+      throw new Error(`Post-write verification failed: ${verification.error}`)
+    }
+    emitQuerySummary(queryResults)
+    log(pc.green(`[taro] ${existingCode ? 'Updated' : 'Created'}: ${outputPath}`))
+    await finalizeGeneratedOutput({
+      code: outputCode,
+      outputPath,
+      projectRoot,
+      recordingFile: componentPath,
+      scoreResult: outputResolution.outputAssessment.scoreResult,
+      packageProfile: packageProfile ?? null,
+    })
+  }
+
+  return normalizeFindings(findings)
+}
+
 export function createTargetCommand(context: TargetCommandContext = {}): Command {
   const target = new Command('__target')
 
   target
     .description('Internal runtime-only generator for explicit component-target RTL generation')
-    .argument('<component-file>', 'Path to the component file that should be tested')
+    .argument('<component-file>', 'Path to the component file or directory that should be tested')
     .option('--recording <file>', 'Optional path to a recorder export file (.js)')
     .option(
       '-i, --interactive-auth',
@@ -207,23 +604,60 @@ export function createTargetCommand(context: TargetCommandContext = {}): Command
         try {
           const projectRoot = cwd()
           const componentPath = resolve(componentFile)
-          const commandOptions = target.opts<{
-            auth?: string
-            debugSelectors?: boolean
-            debugSelectorsJson?: string
-            interactiveAuth?: boolean
-            instructions?: string
-            recording?: string
-            screenshots?: boolean
-          }>()
+          const commandOptions = target.opts<CommandOptions>()
 
-          try {
-            await access(componentPath)
-          } catch {
+          const pathStat = await stat(componentPath).catch(() => null)
+          if (!pathStat) {
             const message = pc.red('Error:') + ` File not found or not accessible: ${componentPath}`
             console.error(message)
             process.stderr.write(message + '\n')
             process.exit(2)
+          }
+
+          if (pathStat.isDirectory()) {
+            if (commandOptions.recording) {
+              const message =
+                pc.red('Error:') +
+                ' --recording is not compatible with directory input. Pass a single component file when using --recording.'
+              console.error(message)
+              process.stderr.write(message + '\n')
+              process.exit(2)
+            }
+
+            const sourceFiles = await collectSourceFiles(componentPath)
+
+            if (sourceFiles.length === 0) {
+              log(pc.yellow(`[taro] No component source files found in: ${componentPath}`))
+              flushFindings([])
+            }
+
+            log(
+              pc.dim('[taro]') +
+                ` Processing ${sourceFiles.length} component file${sourceFiles.length === 1 ? '' : 's'} in ${componentPath}`
+            )
+
+            const allFindings: Finding[] = []
+            for (const filePath of sourceFiles) {
+              try {
+                const findings = await generateForFile({
+                  componentPath: filePath,
+                  projectRoot,
+                  commandOptions,
+                  context,
+                })
+                allFindings.push(...findings)
+              } catch (error) {
+                const message = error instanceof Error ? error.message : 'Unknown error'
+                log(pc.red(`[taro] Error processing ${filePath}: ${message}`))
+                allFindings.push({
+                  severity: 'BLOCKING',
+                  category: 'component-target',
+                  message: `Failed to generate test for ${filePath}: ${message}`,
+                })
+              }
+            }
+
+            flushFindings(normalizeFindings(allFindings))
           }
 
           if (!isSupportedSourceFile(componentPath) || isTestFilePath(componentPath)) {
@@ -235,307 +669,12 @@ export function createTargetCommand(context: TargetCommandContext = {}): Command
             process.exit(2)
           }
 
-          const outputPath = deriveOutputPath(componentPath)
-          const {
-            packageProfile,
-            visualAuth,
-          } = await loadPackageContext({
-            commandOptions,
-            outputPath,
-            projectRoot,
-          })
-
-          const targetPlan = await inferComponentTargetPlan({
+          const findings = await generateForFile({
             componentPath,
-            outputPath,
             projectRoot,
+            commandOptions,
+            context,
           })
-          const renderTarget = {
-            ...targetPlan.renderTarget,
-            importPath: toImportPath(dirname(outputPath), componentPath),
-            sourceTestFile: componentPath,
-          }
-          const renderHelper = rebaseRenderHelperImportPath({
-            projectRoot,
-            outputPath,
-            renderHelper: packageProfile?.effectiveRenderHelper ?? null,
-          })
-          const mockAnalysis = await maybeAnalyzeMocks(projectRoot, packageProfile ?? null)
-          const findings: Finding[] = [...targetPlan.findings]
-
-          let analyzedRecording = targetPlan.analyzedRecording
-          let queryResults: QueryResult[] = targetPlan.queryResults
-
-          if (commandOptions.debugSelectors || commandOptions.debugSelectorsJson) {
-            log(
-              pc.dim('[taro]') +
-                ' Selector-debug options currently apply only to Recorder-backed replay; component-only inference will ignore them.'
-            )
-          }
-
-          if (commandOptions.recording) {
-            const recordingPath = resolve(projectRoot, commandOptions.recording)
-            try {
-              await access(recordingPath)
-            } catch {
-              const message = pc.red('Error:') + ` File not found or not accessible: ${recordingPath}`
-              console.error(message)
-              process.stderr.write(message + '\n')
-              process.exit(2)
-            }
-
-            const parsedInput = await loadInput(recordingPath)
-            const normalizedRecording = normalizeJsBaseline(parsedInput)
-            const earlyAnalyzedRecording = analyzeRecording(normalizedRecording)
-            const interactiveVisualAuth = hasInteractiveVisualAuthCapability(
-              {
-                input: context.input ?? stdin,
-                output: context.output ?? stdout,
-              },
-              commandOptions.interactiveAuth === true
-            )
-            const visualState = await maybeCaptureVisualState({
-              analyzedRecording: earlyAnalyzedRecording,
-              auth: visualAuth ?? null,
-              authRecovery:
-                commandOptions.screenshots === false
-                  ? undefined
-                  : {
-                      enabled: interactiveVisualAuth,
-                      instructionsPath:
-                        visualAuth?.strategy === 'instructions' ? visualAuth.path : undefined,
-                      persistedAuthPath: resolveVisualAuthStorageStatePath(projectRoot, visualAuth ?? null)
-                        .relativePath,
-                      saveStorageStatePath: resolveVisualAuthStorageStatePath(projectRoot, visualAuth ?? null)
-                        .absolutePath,
-                      timeoutMs: 5 * 60 * 1000,
-                    },
-              projectRoot,
-              recording: normalizedRecording,
-              selector: getPrimarySelector(normalizedRecording),
-              skipScreenshotArtifacts: commandOptions.screenshots === false,
-              url: earlyAnalyzedRecording.url,
-            })
-
-            analyzedRecording = visualState
-              ? analyzeRecording({
-                  ...normalizedRecording,
-                  steps: normalizedRecording.steps,
-                })
-              : earlyAnalyzedRecording
-
-            const suitePlan = planJsSuite({
-              recording: normalizedRecording,
-              analyzedRecording,
-              mockAnalysis: mockAnalysis ?? null,
-              fallbackTitle: analyzedRecording.title,
-            })
-            const jsSuitePlan = applyRepoRenderTarget(suitePlan, renderTarget)
-            const resolvedJsGeneration = await resolveJsGeneration(
-              normalizedRecording,
-              jsSuitePlan.itGroups,
-              visualAuth
-                ? {
-                    auth: {
-                      path: resolve(projectRoot, visualAuth.path),
-                      strategy: visualAuth.strategy,
-                    },
-                  }
-                : undefined
-            )
-
-            queryResults = resolvedJsGeneration.queryResults ?? queryResults
-
-            const conventions = packageProfile?.conventions ?? buildFallbackConventions(projectRoot)
-            const boundarySupportPlan = await planBoundarySupport({
-              projectRoot,
-              outputPath,
-              packageProfile: packageProfile ?? null,
-              renderTargetFile: componentPath,
-              renderTarget,
-            })
-            const generated = generateTestFromGroups(analyzedRecording.title, resolvedJsGeneration.itGroups, {
-              outputPath,
-              conventions,
-              runner: packageProfile?.effectiveRunner ?? 'unknown',
-              jestDomImportPath:
-                packageProfile?.jestDomSetup?.value === 'global-setup' ? null : undefined,
-              queryResults,
-              helpers: jsSuitePlan.helpers,
-              scenarios: jsSuitePlan.scenarios,
-              renderTarget,
-              renderHelper,
-            })
-            let code = applyBoundarySupport(generated.code, boundarySupportPlan)
-            code = prependBoundaryWarnings(
-              code,
-              [
-                ...jsSuitePlan.warnings,
-                ...(await auditBoundaryPolicy(code, packageProfile ?? null, null)),
-              ]
-            )
-
-            const candidateParsed = await parseJsRecording(code)
-            const candidateAssessment = {
-              flowCoverage: buildFlowCoverageSummary(analyzedRecording, code),
-              scoreResult: scoreGeneratedTest(code, {
-                queryResults: mapParsedQueriesToResults(candidateParsed),
-              }),
-            }
-
-            let existingCode: string | null = null
-            try {
-              existingCode = await readFile(outputPath, 'utf-8')
-            } catch (error: unknown) {
-              const errCode = (error as NodeJS.ErrnoException)?.code
-              if (errCode && errCode !== 'ENOENT') {
-                throw error
-              }
-            }
-
-            let existingAssessment = null
-            if (existingCode) {
-              existingAssessment = await assessOutputAgainstRecording({
-                analyzedRecording,
-                code: existingCode,
-              })
-            }
-            const outputResolution = await reconcileExistingOutput({
-              analyzedRecording,
-              candidateAssessment,
-              candidateCode: code,
-              existingAssessment,
-              existingCode,
-            })
-
-            if (existingCode && existingAssessment) {
-              logExistingOutputDecision({
-                outputPath,
-                candidate: candidateAssessment,
-                existing: existingAssessment,
-                overwrite: outputResolution.shouldWrite,
-                resolution: outputResolution,
-              })
-            }
-
-            if (outputResolution.shouldWrite) {
-              const outputCode = outputResolution.outputCode
-              await materializeBoundarySupport(boundarySupportPlan)
-              await writeTestFile(outputCode, outputPath, {
-                createDir: true,
-                overwriteExisting: Boolean(existingCode),
-              })
-              const verification = verifySyntax(outputCode, outputPath)
-              if (!verification.valid) {
-                throw new Error(`Post-write verification failed: ${verification.error}`)
-              }
-              emitQuerySummary(queryResults)
-              log(
-                pc.green(`[taro] ${existingCode ? 'Updated' : 'Created'}: ${outputPath}`)
-              )
-              await finalizeGeneratedOutput({
-                code: outputCode,
-                outputPath,
-                projectRoot,
-                recordingFile: recordingPath,
-                scoreResult: outputResolution.outputAssessment.scoreResult,
-                packageProfile: packageProfile ?? null,
-              })
-            }
-
-            flushFindings(normalizeFindings(findings))
-          }
-
-          if (findings.some((finding) => finding.severity === 'BLOCKING')) {
-            flushFindings(normalizeFindings(findings))
-          }
-
-          const conventions = packageProfile?.conventions ?? buildFallbackConventions(projectRoot)
-          const boundarySupportPlan = await planBoundarySupport({
-            projectRoot,
-            outputPath,
-            packageProfile: packageProfile ?? null,
-            renderTargetFile: componentPath,
-            renderTarget,
-          })
-          const generated = generateTestFromGroups(analyzedRecording.title, analyzedRecording.intentGroups, {
-            outputPath,
-            conventions,
-            runner: packageProfile?.effectiveRunner ?? 'unknown',
-            jestDomImportPath:
-              packageProfile?.jestDomSetup?.value === 'global-setup' ? null : undefined,
-            queryResults,
-            renderTarget,
-            renderHelper,
-          })
-          let code = applyBoundarySupport(generated.code, boundarySupportPlan)
-          code = prependBoundaryWarnings(
-            code,
-            await auditBoundaryPolicy(code, packageProfile ?? null, null)
-          )
-          const scoreResult = scoreGeneratedTest(code, { queryResults })
-          const candidateAssessment = {
-            flowCoverage: buildFlowCoverageSummary(analyzedRecording, code),
-            scoreResult,
-          }
-
-          let existingCode: string | null = null
-          try {
-            existingCode = await readFile(outputPath, 'utf-8')
-          } catch (error: unknown) {
-            const errCode = (error as NodeJS.ErrnoException)?.code
-            if (errCode && errCode !== 'ENOENT') {
-              throw error
-            }
-          }
-
-          let existingAssessment = null
-          if (existingCode) {
-            existingAssessment = await assessOutputAgainstRecording({
-              analyzedRecording,
-              code: existingCode,
-            })
-          }
-          const outputResolution = await reconcileExistingOutput({
-            analyzedRecording,
-            candidateAssessment,
-            candidateCode: code,
-            existingAssessment,
-            existingCode,
-          })
-
-          if (existingCode && existingAssessment) {
-            logExistingOutputDecision({
-              outputPath,
-              candidate: candidateAssessment,
-              existing: existingAssessment,
-              overwrite: outputResolution.shouldWrite,
-              resolution: outputResolution,
-            })
-          }
-
-          if (outputResolution.shouldWrite) {
-            const outputCode = outputResolution.outputCode
-            await materializeBoundarySupport(boundarySupportPlan)
-            await writeTestFile(outputCode, outputPath, {
-              createDir: true,
-              overwriteExisting: Boolean(existingCode),
-            })
-            const verification = verifySyntax(outputCode, outputPath)
-            if (!verification.valid) {
-              throw new Error(`Post-write verification failed: ${verification.error}`)
-            }
-            emitQuerySummary(queryResults)
-            log(pc.green(`[taro] ${existingCode ? 'Updated' : 'Created'}: ${outputPath}`))
-            await finalizeGeneratedOutput({
-              code: outputCode,
-              outputPath,
-              projectRoot,
-              recordingFile: componentPath,
-              scoreResult: outputResolution.outputAssessment.scoreResult,
-              packageProfile: packageProfile ?? null,
-            })
-          }
 
           flushFindings(normalizeFindings(findings))
         } catch (error) {

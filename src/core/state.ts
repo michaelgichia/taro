@@ -295,17 +295,35 @@ const scoreDimensionsSchema = z.object({
   testStructure: z.number(),
   boundaryIsolation: z.number(),
 })
-const scoreSignalsSchema = z.object({
-  queryCheckpointCount: z.number(),
-  roleQueryCount: z.number(),
-  testIdQueryCount: z.number(),
-  strongAssertionCount: z.number(),
-  weakAssertionCount: z.number(),
-  boundaryWarningCount: z.number(),
-  boundaryIssueCount: z.number(),
-  placeholderRenderTarget: z.boolean(),
-  multipleTestBlocks: z.boolean(),
-})
+const scoreSignalsSchema = z
+  .object({
+    queryCheckpointCount: z.number().optional().default(0),
+    roleQueryCount: z.number().optional().default(0),
+    testIdQueryCount: z.number().optional().default(0),
+    strongAssertionCount: z.number().optional().default(0),
+    presenceAssertionCount: z.number().optional(),
+    visibilityAssertionCount: z.number().optional().default(0),
+    visibilityOnlyTestCount: z.number().optional().default(0),
+    presenceOnlyTestCount: z.number().optional().default(0),
+    boundaryWarningCount: z.number().optional().default(0),
+    boundaryIssueCount: z.number().optional().default(0),
+    placeholderRenderTarget: z.boolean().optional().default(false),
+    multipleTestBlocks: z.boolean().optional().default(false),
+    minimumExpectedTestCount: z.number().optional().default(0),
+    branchCoverageRatio: z.number().optional().default(1),
+    missingMockCount: z.number().optional().default(0),
+    fireEventCount: z.number().optional().default(0),
+    hasBasePropsConstant: z.boolean().optional().default(false),
+    hasOverrideRenderHelper: z.boolean().optional().default(false),
+    duplicatedInlineRenderCount: z.number().optional().default(0),
+    hasStandaloneUtilityDescribe: z.boolean().optional().default(false),
+    weakAssertionCount: z.number().optional(),
+  })
+  .transform((signals) => ({
+    ...signals,
+    presenceAssertionCount:
+      signals.presenceAssertionCount ?? signals.weakAssertionCount ?? 0,
+  }))
 const scoreReasonSchema = z.object({
   code: z.string(),
   dimension: z.enum([
@@ -317,6 +335,7 @@ const scoreReasonSchema = z.object({
   impact: z.enum(['positive', 'negative']),
   weight: z.number(),
   message: z.string(),
+  severity: z.enum(['advisory', 'blocker']).optional(),
 })
 const packageProfileSchema = z.object({
   packagePath: z.string(),
@@ -1849,11 +1868,22 @@ function migrateLegacyHistory(
             roleQueryCount: 0,
             testIdQueryCount: 0,
             strongAssertionCount: 0,
-            weakAssertionCount: 0,
+            presenceAssertionCount: 0,
+            visibilityAssertionCount: 0,
+            visibilityOnlyTestCount: 0,
+            presenceOnlyTestCount: 0,
             boundaryWarningCount: 0,
             boundaryIssueCount: 0,
             placeholderRenderTarget: false,
             multipleTestBlocks: false,
+            minimumExpectedTestCount: 0,
+            branchCoverageRatio: 1,
+            missingMockCount: 0,
+            fireEventCount: 0,
+            hasBasePropsConstant: false,
+            hasOverrideRenderHelper: false,
+            duplicatedInlineRenderCount: 0,
+            hasStandaloneUtilityDescribe: false,
           },
           reasons: [],
         },

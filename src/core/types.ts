@@ -36,6 +36,10 @@ export interface GenerateFromGroupsOptions {
   scenarios?: JsScenarioPlan[]
   renderTarget?: RepoRenderTargetCandidate | null
   renderHelper?: TaroRenderHelperProfile | null
+  renderExpression?: string | null
+  additionalImports?: string[]
+  moduleStatements?: string[]
+  enableSetupOverrides?: boolean
 }
 
 export interface GenerateTestFromGroupsInput {

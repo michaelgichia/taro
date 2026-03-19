@@ -1,34 +1,10 @@
 // src/cli/commands/generate.actors.ts
-import { fromPromise } from 'xstate'
+import { spawn } from 'node:child_process'
 import { access, readFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
-import { spawn } from 'node:child_process'
-import pc from 'picocolors'
 
-import { normalizeJsBaseline } from '#core/baseline-normalizer.ts'
-import {
-  applyBoundarySupport,
-  materializeBoundarySupport,
-  planBoundarySupport,
-} from '#core/boundary-support.ts'
-import { emitQuerySummary, generateTestFromGroups } from '#core/generator.ts'
-import { loadInput } from '#core/input-loader.ts'
-import { analyzeMocks } from '#core/mock-intelligence.ts'
-import { analyzeRecording } from '#core/recording-intelligence.ts'
-import {
-  appendGeneratedTestRecord,
-  detectPackageProfileStaleness,
-  loadOrBootstrapTaroState,
-  persistPlaywrightAuthProfile,
-  readTaroOverrides,
-  refreshTaroState,
-  resolveTaroPackageProfile,
-} from '#core/state.ts'
-import { planJsSuite } from '#core/suite-planner.ts'
-import { verifySyntax } from '#core/verifier.ts'
-import { writeTestFile } from '#core/writer.ts'
-import { enrichCanonicalSemanticMarkers } from '#core/semantic-marker-enrichment.ts'
-import { scoreGeneratedTest } from '#core/scorer.ts'
+import pc from 'picocolors'
+import { fromPromise } from 'xstate'
 
 import type {
   AnalyzeMocksActorInput,
@@ -48,8 +24,8 @@ import type {
   ValidateFileActorInput,
   WriteOutputActorInput,
 } from '#cli/commands/generate.utils.ts'
-
 import {
+  applyRepoRenderTarget,
   assessOutputAgainstRecording,
   auditBoundaryPolicy,
   buildFlowCoverageSummary,
@@ -58,35 +34,56 @@ import {
   collectRepoContextSearchTerms,
   deriveContextRenderTargets,
   deriveOutputPath,
-  findRepoContextMatches,
   findRecordingUrl,
+  findRepoContextMatches,
   getPrimarySelector,
   hasInteractiveVisualAuthCapability,
+  MANUAL_VISUAL_AUTH_TIMEOUT_MS,
+  mapParsedQueriesToResults,
   maybeCaptureVisualState,
   mergeAnalyzedStepState,
-  normalizeComparablePath,
   persistRecoveredVisualAuth,
-  reconcileExistingOutput,
   rebaseRenderHelperImportPath,
+  reconcileExistingOutput,
+  rehydrateSuitePlan,
+  resolveJsGeneration,
+  resolveOptionalFilePath,
   resolvePackageProfileFromContextMatches,
   resolveRenderTargetFile,
   resolveRepoRenderTarget,
   resolveVisualAuthStorageStatePath,
-  resolveJsGeneration,
   stripSemanticMarkerStepsFromHelpers,
   stripSemanticMarkerStepsFromItGroups,
   stripSemanticMarkerStepsFromScenarios,
   toImportPath,
   toItGroups,
-  applyRepoRenderTarget,
-  rehydrateSuitePlan,
-  mapParsedQueriesToResults,
-  DEFAULT_VISUAL_AUTH_STORAGE_STATE_PATH,
-  MANUAL_VISUAL_AUTH_TIMEOUT_MS,
-  resolveOptionalFilePath,
 } from '#cli/commands/generate.utils.ts'
-
+import { normalizeJsBaseline } from '#core/baseline-normalizer.ts'
+import {
+  applyBoundarySupport,
+  materializeBoundarySupport,
+  planBoundarySupport,
+} from '#core/boundary-support.ts'
+import { loadComponentScoreContext } from '#core/component-score-context.ts'
+import { emitQuerySummary, generateTestFromGroups } from '#core/generator.ts'
+import { loadInput } from '#core/input-loader.ts'
 import { parseJsRecording } from '#core/js-parser.ts'
+import { analyzeMocks } from '#core/mock-intelligence.ts'
+import { analyzeRecording } from '#core/recording-intelligence.ts'
+import { scoreGeneratedTest } from '#core/scorer.ts'
+import { enrichCanonicalSemanticMarkers } from '#core/semantic-marker-enrichment.ts'
+import {
+  appendGeneratedTestRecord,
+  detectPackageProfileStaleness,
+  loadOrBootstrapTaroState,
+  persistPlaywrightAuthProfile,
+  readTaroOverrides,
+  refreshTaroState,
+  resolveTaroPackageProfile,
+} from '#core/state.ts'
+import { planJsSuite } from '#core/suite-planner.ts'
+import { verifySyntax } from '#core/verifier.ts'
+import { writeTestFile } from '#core/writer.ts'
 
 export const validateFileActor = fromPromise(
   async ({ input }: { input: ValidateFileActorInput }) => {
@@ -214,7 +211,7 @@ export const refineProfileActor = fromPromise(
 
 export const refreshProfileActor = fromPromise(
   async ({ input }: { input: RefreshProfileActorInput }) => {
-    const { projectRoot, contextMatches, overrides } = input
+    const { projectRoot, contextMatches } = input
     const bootstrappedState = await refreshTaroState(projectRoot)
     const freshOverrides = await readTaroOverrides(projectRoot)
     const defaultOutputPath = '.'
@@ -304,15 +301,6 @@ export const planGenerationActor = fromPromise(
       markerAwareRecording, analyzedRecording, mockAnalysis, normalizedRecording,
       packageProfile, projectRoot, defaultOutputPath, contextMatches, visualState,
     } = input
-    const conventions = packageProfile?.conventions ?? {
-      scannedAt: new Date().toISOString(),
-      projectRoot,
-      importStyle: 'esm' as const,
-      mockPattern: 'none' as const,
-      testFiles: [],
-      folderPattern: 'unknown' as const,
-      fileExtension: 'ts' as const,
-    }
     const contextRenderTargets = deriveContextRenderTargets({
       projectRoot,
       outputPath: defaultOutputPath!,
@@ -354,12 +342,15 @@ export const planGenerationActor = fromPromise(
       renderTargetFile: resolvedRenderTargetFile,
       renderTarget: repoRenderTarget,
     })
+    const componentScoreContext = resolvedRenderTargetFile
+      ? await loadComponentScoreContext(resolvedRenderTargetFile)
+      : null
     const jsSuitePlan = rawJsSuitePlan
       ? applyRepoRenderTarget(rawJsSuitePlan, repoRenderTarget)
       : null
     return {
       jsSuitePlan, outputPath, resolvedRenderTargetFile,
-      boundarySupportPlan, generationRenderTarget, generationRenderHelper,
+      boundarySupportPlan, generationRenderTarget, componentScoreContext, generationRenderHelper,
     }
   }
 )
@@ -387,7 +378,7 @@ export const generateCodeActor = fromPromise(
     const {
       normalizedRecording, resolvedJsGeneration, jsSuitePlan, outputPath,
       packageProfile, boundarySupportPlan, generationRenderTarget,
-      generationRenderHelper, analyzedRecording,
+      componentScoreContext, generationRenderHelper, analyzedRecording,
     } = input
     const conventions = packageProfile?.conventions ?? {
       scannedAt: new Date().toISOString(),
@@ -444,6 +435,7 @@ export const generateCodeActor = fromPromise(
     })
     const markerDiagnostics = buildMarkerReviewDiagnostics(hydratedSuitePlan)
     const scoreResult = scoreGeneratedTest(code, {
+      ...(componentScoreContext ?? {}),
       queryResults: resolvedJsGeneration?.queryResults ?? [],
       markerCoverage,
       markerDiagnostics,
@@ -485,11 +477,16 @@ export const assessOutputActor = fromPromise(
     const existingAssessment = await assessOutputAgainstRecording({
       analyzedRecording: analyzedRecording!,
       code: existingCode,
+      componentScoreContext: input.componentScoreContext ?? null,
     })
     const resolvedCandidateAssessment = candidateAssessment ?? {
       flowCoverage: buildFlowCoverageSummary(analyzedRecording!, generatedCode!),
       scoreResult: scoreGeneratedTest(generatedCode!, {
-        queryResults: mapParsedQueriesToResults(await parseJsRecording(generatedCode!)),
+        ...(input.componentScoreContext ?? {}),
+        queryResults: mapParsedQueriesToResults(
+          await parseJsRecording(generatedCode!),
+          generatedCode!
+        ),
       }),
     }
     const outputResolution = await reconcileExistingOutput({

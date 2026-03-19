@@ -20,6 +20,7 @@ const {
   captureVisualStateMock,
   createPageInspectorMock,
   discoverBoundaryImportsFromSourceMock,
+  loadComponentScoreContextMock,
   openCapturePageMock,
   persistPlaywrightAuthProfileMock,
   refreshTaroStateMock,
@@ -35,6 +36,7 @@ const {
   createPageInspectorMock: vi.fn(() => ({ inspect: vi.fn() })),
   discoverBoundaryImportsFromSourceMock: vi.fn(),
   findVisualCaptureCandidatesMock: vi.fn(),
+  loadComponentScoreContextMock: vi.fn(),
   openCapturePageMock: vi.fn(),
   persistPlaywrightAuthProfileMock: vi.fn(),
   refreshTaroStateMock: vi.fn(),
@@ -49,6 +51,14 @@ vi.mock('#core/boundary-learning.ts', async (importOriginal) => {
   return {
     ...actual,
     discoverBoundaryImportsFromSource: discoverBoundaryImportsFromSourceMock,
+  }
+})
+
+vi.mock('#core/component-score-context.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('#core/component-score-context.ts')>()
+  return {
+    ...actual,
+    loadComponentScoreContext: loadComponentScoreContextMock,
   }
 })
 
@@ -225,6 +235,8 @@ beforeEach(() => {
   discoverBoundaryImportsFromSourceMock.mockResolvedValue([])
   findVisualCaptureCandidatesMock.mockReset()
   findVisualCaptureCandidatesMock.mockReturnValue([])
+  loadComponentScoreContextMock.mockReset()
+  loadComponentScoreContextMock.mockResolvedValue(null)
   openCapturePageMock.mockReset()
   openCapturePageMock.mockResolvedValue({
     browser: { close: vi.fn(async () => undefined) },
@@ -389,6 +401,25 @@ describe('generateCommandInternals', () => {
     ])
 
     expect(
+      generateCommandInternals.mapParsedQueriesToResults(
+        { queries: [] } as any,
+        `
+describe('example', () => {
+  it('renders', () => {
+    expect(screen.getByText('Saved')).toBeVisible()
+  })
+})
+`
+      )
+    ).toEqual([
+      {
+        method: 'getByText',
+        quality: 'fragile',
+        query: 'getByText(',
+      },
+    ])
+
+    expect(
       generateCommandInternals.compareOutputAssessments(
         {
           flowCoverage: { coveredStepIds: [], coveredSteps: 2, totalSteps: 2, uncoveredStepIds: [] },
@@ -412,7 +443,7 @@ describe('generateCommandInternals', () => {
           scoreResult: makeScoreResult({ total: 85 }),
         }
       )
-    ).toBeLessThan(0)
+    ).toBeGreaterThan(0)
   })
 
   it('reconciles existing output by keeping the higher-scored suite and merging distinct tests', async () => {
@@ -452,6 +483,83 @@ describe('Example flow', () => {
     expect(resolution.mergedTestCount).toBe(1)
     expect(resolution.outputCode).toContain("it('covers the main example flow'")
     expect(resolution.outputCode).toContain("it('adds a new review assertion'")
+  })
+
+  it('prefers the fresh candidate when assessments tie but the code differs', async () => {
+    const candidateCode = `
+import { describe, expect, it } from 'vitest'
+import { render } from '@testing-library/react'
+
+describe('Example flow', () => {
+  it('covers the main example flow', async () => {
+    render(<FeatureFlow />)
+  })
+})
+`
+    const existingCode = `
+import { render } from '@testing-library/react'
+
+describe('Example flow', () => {
+  it('covers the main example flow', async () => {
+    render(<FeatureFlow />)
+  })
+})
+`
+
+    const resolution = await generateCommandInternals.reconcileExistingOutput({
+      analyzedRecording: makeRecording(),
+      candidateAssessment: {
+        flowCoverage: { coveredStepIds: ['0'], coveredSteps: 1, totalSteps: 1, uncoveredStepIds: [] },
+        scoreResult: makeScoreResult({ total: 90, grade: 'A' }),
+      },
+      candidateCode,
+      existingAssessment: {
+        flowCoverage: { coveredStepIds: ['0'], coveredSteps: 1, totalSteps: 1, uncoveredStepIds: [] },
+        scoreResult: makeScoreResult({ total: 90, grade: 'A' }),
+      },
+      existingCode,
+    })
+
+    expect(resolution.preferredSource).toBe('candidate')
+    expect(resolution.shouldWrite).toBe(true)
+    expect(resolution.mergeApplied).toBe(false)
+    expect(resolution.outputCode).toContain("import { describe, expect, it } from 'vitest'")
+  })
+
+  it('does not merge stale existing tests back into the preferred candidate', async () => {
+    const resolution = await generateCommandInternals.reconcileExistingOutput({
+      analyzedRecording: makeRecording(),
+      candidateAssessment: {
+        flowCoverage: { coveredStepIds: ['0', '1'], coveredSteps: 2, totalSteps: 2, uncoveredStepIds: [] },
+        scoreResult: makeScoreResult({ total: 80, grade: 'B' }),
+      },
+      candidateCode: `
+import { describe, expect, it } from 'vitest'
+
+describe('Example flow', () => {
+  it('covers the full example flow', async () => {
+    expect(screen.getByText('Review Example')).toBeVisible()
+  })
+})
+`,
+      existingAssessment: {
+        flowCoverage: { coveredStepIds: ['0'], coveredSteps: 1, totalSteps: 2, uncoveredStepIds: ['1'] },
+        scoreResult: makeScoreResult({ total: 90, grade: 'A' }),
+      },
+      existingCode: `
+describe('Example flow', () => {
+  it('is stale', async () => {
+    render(<App />)
+  })
+})
+`,
+    })
+
+    expect(resolution.preferredSource).toBe('candidate')
+    expect(resolution.shouldWrite).toBe(true)
+    expect(resolution.mergeApplied).toBe(false)
+    expect(resolution.outputCode).toContain("it('covers the full example flow'")
+    expect(resolution.outputCode).not.toContain("it('is stale'")
   })
 
   it('finds repo context matches and resolves package/render-target context', async () => {

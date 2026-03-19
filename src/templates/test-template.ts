@@ -4,6 +4,7 @@
  */
 
 import type { NormalizedAction } from '#types/recording.ts'
+import type { TaroTestRunner } from '#types/state.ts'
 
 interface RenderTargetImport {
   symbol: string
@@ -18,11 +19,38 @@ interface RenderHelperImport {
 }
 
 interface ImportBlockOptions {
+  runner?: TaroTestRunner
   renderTarget?: RenderTargetImport | null
   renderHelper?: RenderHelperImport | null
   jestDomImportPath?: string | null
+  needsCleanup?: boolean
   needsWithin?: boolean
   needsWaitFor?: boolean
+}
+
+function buildFrameworkImport(
+  importStyle: 'esm' | 'cjs',
+  runner: TaroTestRunner,
+  options: Pick<ImportBlockOptions, 'needsCleanup'> = {}
+): string | null {
+  const members = ['describe', 'expect', 'it']
+  if (options.needsCleanup) {
+    members.push('afterEach')
+  }
+
+  if (runner === 'vitest') {
+    return importStyle === 'cjs'
+      ? `const { ${members.join(', ')} } = require('vitest')`
+      : `import { ${members.join(', ')} } from 'vitest'`
+  }
+
+  if (runner === 'jest') {
+    return importStyle === 'cjs'
+      ? `const { ${members.join(', ')} } = require('@jest/globals')`
+      : `import { ${members.join(', ')} } from '@jest/globals'`
+  }
+
+  return null
 }
 
 export function importBlock(
@@ -30,7 +58,13 @@ export function importBlock(
   importStyle: 'esm' | 'cjs' = 'esm',
   options: ImportBlockOptions = {}
 ): string {
+  const frameworkImport = buildFrameworkImport(importStyle, options.runner ?? 'unknown', {
+    needsCleanup: options.needsCleanup,
+  })
   const testingLibraryMembers = ['screen']
+  if (options.needsCleanup) {
+    testingLibraryMembers.unshift('cleanup')
+  }
   if (options.needsWaitFor) {
     testingLibraryMembers.push('waitFor')
   }
@@ -47,6 +81,9 @@ export function importBlock(
 
   if (importStyle === 'cjs') {
     const lines = [`const { ${testingLibraryMembers.join(', ')} } = require('@testing-library/react')`]
+    if (frameworkImport) {
+      lines.unshift(frameworkImport)
+    }
     if (jestDomImportPath) {
       lines.push(`require('${jestDomImportPath}')`)
     }
@@ -71,6 +108,9 @@ export function importBlock(
   }
   // ESM (default)
   const lines = [`import { ${testingLibraryMembers.join(', ')} } from '@testing-library/react'`]
+  if (frameworkImport) {
+    lines.unshift(frameworkImport)
+  }
   if (jestDomImportPath) {
     lines.push(`import '${jestDomImportPath}'`)
   }
@@ -223,6 +263,7 @@ interface ItBlockTemplate {
   name: string
   stepLines: string[]
   hasUserEvents: boolean
+  setupArgs?: string | null
 }
 
 interface HelperBlockTemplate {
@@ -246,6 +287,8 @@ export function describeBlockMultiIt(
     renderExpression?: string
     renderFunctionName?: string
     helpers?: HelperBlockTemplate[]
+    enableSetupOverrides?: boolean
+    needsCleanup?: boolean
   } = {}
 ): string {
   const escapedName = escapeSingleQuote(name)
@@ -254,14 +297,17 @@ export function describeBlockMultiIt(
   const helperBlocks = (options.helpers ?? []).map((block) => helperBlock(block))
   const hasAnyUserEvents = itBlocks.some((block) => block.hasUserEvents)
   const setupBlock = [
-    `const setup = () => {`,
+    options.enableSetupOverrides ? `const setup = (overrides = {}) => {` : `const setup = () => {`,
     ...(hasAnyUserEvents ? [`  const user = userEvent.setup()`] : []),
     `  const renderResult = ${renderFunctionName}(${renderExpression})`,
     hasAnyUserEvents ? `  return { user, ...renderResult }` : `  return { ...renderResult }`,
     `}`,
   ].join('\n')
   const blocks = itBlocks.map((block) => {
-    const setupLine = block.hasUserEvents ? `    const { user } = setup()\n` : `    setup()\n`
+    const setupInvocation = block.setupArgs ? `setup(${block.setupArgs})` : 'setup()'
+    const setupLine = block.hasUserEvents
+      ? `    const { user } = ${setupInvocation}\n`
+      : `    ${setupInvocation}\n`
     const indented = indentLines(block.stepLines.join('\n'), 4)
     return [
       `  it('${escapeSingleQuote(block.name)}', async () => {`,
@@ -271,5 +317,14 @@ export function describeBlockMultiIt(
     ].join('\n')
   })
 
-  return [`describe('${escapedName}', () => {`, setupBlock, ...helperBlocks, ...blocks, `})`].join('\n\n')
+  const cleanupBlock = options.needsCleanup ? 'afterEach(cleanup)' : null
+
+  return [
+    `describe('${escapedName}', () => {`,
+    ...(cleanupBlock ? [cleanupBlock] : []),
+    setupBlock,
+    ...helperBlocks,
+    ...blocks,
+    `})`,
+  ].join('\n\n')
 }

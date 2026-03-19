@@ -519,6 +519,7 @@ export interface JsScenarioPlan {
   steps: NormalizedStep[]
   helperRefs: string[]
   requiresFreshRender: boolean
+  renderOverrides?: string
   provenance?: JsScenarioProvenance
   contractKind?: JsInteractionContractKind
   companionState?: JsInteractionCompanionState
