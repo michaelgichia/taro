@@ -20,6 +20,7 @@ const {
   captureVisualStateMock,
   createPageInspectorMock,
   discoverBoundaryImportsFromSourceMock,
+  loadComponentScoreContextMock,
   openCapturePageMock,
   persistPlaywrightAuthProfileMock,
   refreshTaroStateMock,
@@ -35,6 +36,7 @@ const {
   createPageInspectorMock: vi.fn(() => ({ inspect: vi.fn() })),
   discoverBoundaryImportsFromSourceMock: vi.fn(),
   findVisualCaptureCandidatesMock: vi.fn(),
+  loadComponentScoreContextMock: vi.fn(),
   openCapturePageMock: vi.fn(),
   persistPlaywrightAuthProfileMock: vi.fn(),
   refreshTaroStateMock: vi.fn(),
@@ -49,6 +51,14 @@ vi.mock('#core/boundary-learning.ts', async (importOriginal) => {
   return {
     ...actual,
     discoverBoundaryImportsFromSource: discoverBoundaryImportsFromSourceMock,
+  }
+})
+
+vi.mock('#core/component-score-context.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('#core/component-score-context.ts')>()
+  return {
+    ...actual,
+    loadComponentScoreContext: loadComponentScoreContextMock,
   }
 })
 
@@ -225,6 +235,8 @@ beforeEach(() => {
   discoverBoundaryImportsFromSourceMock.mockResolvedValue([])
   findVisualCaptureCandidatesMock.mockReset()
   findVisualCaptureCandidatesMock.mockReturnValue([])
+  loadComponentScoreContextMock.mockReset()
+  loadComponentScoreContextMock.mockResolvedValue(null)
   openCapturePageMock.mockReset()
   openCapturePageMock.mockResolvedValue({
     browser: { close: vi.fn(async () => undefined) },

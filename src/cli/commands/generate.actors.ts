@@ -64,6 +64,7 @@ import {
   materializeBoundarySupport,
   planBoundarySupport,
 } from '#core/boundary-support.ts'
+import { loadComponentScoreContext } from '#core/component-score-context.ts'
 import { emitQuerySummary, generateTestFromGroups } from '#core/generator.ts'
 import { loadInput } from '#core/input-loader.ts'
 import { parseJsRecording } from '#core/js-parser.ts'
@@ -341,12 +342,15 @@ export const planGenerationActor = fromPromise(
       renderTargetFile: resolvedRenderTargetFile,
       renderTarget: repoRenderTarget,
     })
+    const componentScoreContext = resolvedRenderTargetFile
+      ? await loadComponentScoreContext(resolvedRenderTargetFile)
+      : null
     const jsSuitePlan = rawJsSuitePlan
       ? applyRepoRenderTarget(rawJsSuitePlan, repoRenderTarget)
       : null
     return {
       jsSuitePlan, outputPath, resolvedRenderTargetFile,
-      boundarySupportPlan, generationRenderTarget, generationRenderHelper,
+      boundarySupportPlan, generationRenderTarget, componentScoreContext, generationRenderHelper,
     }
   }
 )
@@ -374,7 +378,7 @@ export const generateCodeActor = fromPromise(
     const {
       normalizedRecording, resolvedJsGeneration, jsSuitePlan, outputPath,
       packageProfile, boundarySupportPlan, generationRenderTarget,
-      generationRenderHelper, analyzedRecording,
+      componentScoreContext, generationRenderHelper, analyzedRecording,
     } = input
     const conventions = packageProfile?.conventions ?? {
       scannedAt: new Date().toISOString(),
@@ -431,6 +435,7 @@ export const generateCodeActor = fromPromise(
     })
     const markerDiagnostics = buildMarkerReviewDiagnostics(hydratedSuitePlan)
     const scoreResult = scoreGeneratedTest(code, {
+      ...(componentScoreContext ?? {}),
       queryResults: resolvedJsGeneration?.queryResults ?? [],
       markerCoverage,
       markerDiagnostics,
@@ -472,10 +477,12 @@ export const assessOutputActor = fromPromise(
     const existingAssessment = await assessOutputAgainstRecording({
       analyzedRecording: analyzedRecording!,
       code: existingCode,
+      componentScoreContext: input.componentScoreContext ?? null,
     })
     const resolvedCandidateAssessment = candidateAssessment ?? {
       flowCoverage: buildFlowCoverageSummary(analyzedRecording!, generatedCode!),
       scoreResult: scoreGeneratedTest(generatedCode!, {
+        ...(input.componentScoreContext ?? {}),
         queryResults: mapParsedQueriesToResults(
           await parseJsRecording(generatedCode!),
           generatedCode!

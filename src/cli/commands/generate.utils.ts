@@ -64,6 +64,7 @@ import type {
   VisualState,
 } from '#types/recording.ts'
 import type {
+  ComponentScoreContext,
   MarkerCoverageTotals,
   MarkerReviewDiagnostics,
   ScoreResult,
@@ -591,10 +592,12 @@ export function mapParsedQueriesToResults(parsed: JsParseResult, code?: string):
 export async function assessOutputAgainstRecording(params: {
   analyzedRecording: AnalyzedRecording
   code: string
+  componentScoreContext?: ComponentScoreContext | null
 }): Promise<OutputAssessment> {
   const parsed = await parseJsRecording(params.code)
   const flowCoverage = buildFlowCoverageSummary(params.analyzedRecording, params.code)
   const scoreResult = scoreGeneratedTest(params.code, {
+    ...(params.componentScoreContext ?? {}),
     queryResults: mapParsedQueriesToResults(parsed, params.code),
   })
 
@@ -1891,6 +1894,8 @@ export function emitScoreHints(
   queryResults: QueryResult[] = [],
   boundaryIssues = analyzeBoundaryIsolation('')
 ): void {
+  const reasons = scoreResult.reasons ?? []
+
   if (scoreResult.dimensions.queryQuality < 60) {
     const testIdCount = queryResults.filter((queryResult) => {
       return isTestIdQueryMethod(queryResult.method)
@@ -1911,11 +1916,31 @@ export function emitScoreHints(
   }
 
   if (scoreResult.dimensions.testStructure < 60) {
-    log(
-      pc.yellow(
-        '[taro] Tip: Split into multiple it() blocks for better test organization'
+    if (reasons.some((reason) => reason.code === 'low-branch-coverage')) {
+      log(
+        pc.yellow(
+          `[taro] Tip: Add variant tests to cover the component's alternate branches and handlers (minimum expected tests: ${scoreResult.signals.minimumExpectedTestCount}).`
+        )
       )
-    )
+    } else if (reasons.some((reason) => reason.code === 'hardcoded-fixture')) {
+      log(
+        pc.yellow(
+          '[taro] Tip: Reuse BASE_PROPS plus an override-accepting render helper instead of duplicating inline render props.'
+        )
+      )
+    } else if (reasons.some((reason) => reason.code === 'fire-event-usage')) {
+      log(
+        pc.yellow(
+          '[taro] Tip: Prefer userEvent interactions over fireEvent for user-driven flows.'
+        )
+      )
+    } else {
+      log(
+        pc.yellow(
+          '[taro] Tip: Split into multiple it() blocks for better test organization'
+        )
+      )
+    }
   }
 
   if (scoreResult.dimensions.boundaryIsolation < 60) {
@@ -3658,6 +3683,7 @@ export interface GenerateMachineContext {
   resolvedRenderTargetFile?: string | null
   boundarySupportPlan?: Awaited<ReturnType<typeof planBoundarySupport>>
   generationRenderTarget?: RepoRenderTargetCandidate | null
+  componentScoreContext?: ComponentScoreContext | null
   generationRenderHelper?: ResolvedTaroPackageProfile['effectiveRenderHelper']
   resolvedJsGeneration?: Awaited<ReturnType<typeof resolveJsGeneration>>
   generatedCode?: string
@@ -3698,9 +3724,11 @@ export type ResolveSelectorsActorInput = Pick<GenerateMachineContext,
 export type GenerateCodeActorInput = Pick<GenerateMachineContext,
   'normalizedRecording' | 'resolvedJsGeneration' | 'jsSuitePlan' | 'outputPath' |
   'packageProfile' | 'boundarySupportPlan' | 'generationRenderTarget' |
+  'componentScoreContext' |
   'generationRenderHelper' | 'analyzedRecording'>
 export type AssessOutputActorInput = Pick<GenerateMachineContext,
-  'outputPath' | 'generatedCode' | 'analyzedRecording' | 'candidateAssessment'>
+  'outputPath' | 'generatedCode' | 'analyzedRecording' | 'candidateAssessment' |
+  'componentScoreContext'>
 export type WriteOutputActorInput = Pick<GenerateMachineContext,
   'generatedCode' | 'outputPath' | 'shouldOverwrite' | 'boundarySupportPlan'>
 export type FinalizeActorInput = Pick<GenerateMachineContext,

@@ -1,3 +1,8 @@
+import type {
+  TaroBoundaryGuardrailReason,
+  TaroBoundaryKind,
+} from '#types/state.ts'
+
 export interface ScoreDimensions {
   queryQuality: number
   assertionSpecificity: number
@@ -5,16 +10,44 @@ export interface ScoreDimensions {
   boundaryIsolation: number
 }
 
+export type ScoreImportKind = TaroBoundaryKind | 'asset' | 'helper' | 'hook'
+
+export interface ScoreImportReference {
+  target: string
+  importedNames: string[]
+  kind: ScoreImportKind
+  guardrailReason: TaroBoundaryGuardrailReason | null
+}
+
+export interface ComponentScoreContext {
+  componentDisplayName?: string
+  componentConditionalCount?: number
+  componentEventHandlerCount?: number
+  componentImportReferences?: ScoreImportReference[]
+  exportedUtilityNames?: string[]
+}
+
 export interface ScoreSignals {
   queryCheckpointCount: number
   roleQueryCount: number
   testIdQueryCount: number
   strongAssertionCount: number
-  weakAssertionCount: number
+  presenceAssertionCount: number
+  visibilityAssertionCount: number
+  visibilityOnlyTestCount: number
+  presenceOnlyTestCount: number
   boundaryWarningCount: number
   boundaryIssueCount: number
   placeholderRenderTarget: boolean
   multipleTestBlocks: boolean
+  minimumExpectedTestCount: number
+  branchCoverageRatio: number
+  missingMockCount: number
+  fireEventCount: number
+  hasBasePropsConstant: boolean
+  hasOverrideRenderHelper: boolean
+  duplicatedInlineRenderCount: number
+  hasStandaloneUtilityDescribe: boolean
 }
 
 export interface ScoreReason {
@@ -23,6 +56,7 @@ export interface ScoreReason {
   impact: 'positive' | 'negative'
   weight: number
   message: string
+  severity?: 'advisory' | 'blocker'
 }
 
 export interface MarkerCoverageTotals {
@@ -63,6 +97,12 @@ export interface ScoreResult {
   markerCoverage: MarkerCoverageTotals
   markerDiagnostics: MarkerReviewDiagnostics
   markerQualityGate: MarkerQualityGateState
+}
+
+export interface ScoreGeneratedTestOptions extends ComponentScoreContext {
+  queryResults?: import('#types/recording.ts').QueryResult[]
+  markerCoverage?: Partial<MarkerCoverageTotals>
+  markerDiagnostics?: Partial<MarkerReviewDiagnostics>
 }
 
 export interface HistoryEntry {

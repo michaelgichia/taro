@@ -76,11 +76,12 @@ interface ComponentSurface {
   boundaryImports: string[]
 }
 
-interface ComponentDefinition {
+export interface ComponentDefinition {
   importKind: ComponentImportKind
   name: string
   props: string[]
   roots: Array<t.JSXElement | t.JSXFragment>
+  node: t.FunctionDeclaration | t.FunctionExpression | t.ArrowFunctionExpression
 }
 
 export interface ComponentTargetPlan {
@@ -543,20 +544,10 @@ function renderObjectLiteral(entries: Array<[string, string]>): string {
   ].join('\n')
 }
 
-function resolveComponentDefinition(
-  source: string,
+export function resolveComponentDefinitionFromAst(
+  ast: t.File,
   defaultNameFallback: string
 ): ComponentDefinition | null {
-  let ast: t.File
-  try {
-    ast = babelParser.parse(source, {
-      sourceType: 'module',
-      plugins: AST_PLUGINS,
-    })
-  } catch {
-    return null
-  }
-
   const functions = new Map<
     string,
     t.FunctionDeclaration | t.FunctionExpression | t.ArrowFunctionExpression
@@ -671,9 +662,27 @@ function resolveComponentDefinition(
   return {
     importKind: selected.importKind,
     name: selected.name,
+    node: selected.node,
     props: collectPropNames(selected.node),
     roots,
   }
+}
+
+function resolveComponentDefinition(
+  source: string,
+  defaultNameFallback: string
+): ComponentDefinition | null {
+  let ast: t.File
+  try {
+    ast = babelParser.parse(source, {
+      sourceType: 'module',
+      plugins: AST_PLUGINS,
+    })
+  } catch {
+    return null
+  }
+
+  return resolveComponentDefinitionFromAst(ast, defaultNameFallback)
 }
 
 function buildBoundaryImports(ast: t.File): string[] {
@@ -1704,7 +1713,18 @@ export async function inferComponentTargetPlan(params: {
   const { componentPath, outputPath, projectRoot } = params
   const source = await readFile(componentPath, 'utf-8')
   const fallbackName = basename(componentPath).replace(/\.[cm]?[jt]sx?$/u, '')
-  const definition = resolveComponentDefinition(source, fallbackName)
+  let ast: t.File | null = null
+  try {
+    ast = babelParser.parse(source, {
+      sourceType: 'module',
+      plugins: AST_PLUGINS,
+    })
+  } catch {
+    ast = null
+  }
+  const definition = ast
+    ? resolveComponentDefinitionFromAst(ast, fallbackName)
+    : null
 
   if (!definition) {
     return {
@@ -1729,10 +1749,9 @@ export async function inferComponentTargetPlan(params: {
     }
   }
 
-  const ast = babelParser.parse(source, {
-    sourceType: 'module',
-    plugins: AST_PLUGINS,
-  })
+  if (!ast) {
+    throw new Error('Component AST should be available when definition resolves')
+  }
   const importBindings = buildImportBindings(ast)
   const propNames = new Set(definition.props)
   const boundaryImports = buildBoundaryImports(ast)

@@ -32,6 +32,7 @@ import {
   materializeBoundarySupport,
   planBoundarySupport,
 } from '#core/boundary-support.ts'
+import { loadComponentScoreContext } from '#core/component-score-context.ts'
 import { inferComponentTargetPlan } from '#core/component-targeting.ts'
 import type { Finding } from '#core/findings-reporter.ts'
 import { emitQuerySummary, generateTestFromGroups } from '#core/generator.ts'
@@ -278,6 +279,7 @@ async function generateForFile(params: {
     outputPath,
     projectRoot,
   })
+  const componentScoreContext = await loadComponentScoreContext(componentPath)
   const renderTarget = {
     ...targetPlan.renderTarget,
     importPath: toImportPath(dirname(outputPath), componentPath),
@@ -404,6 +406,7 @@ async function generateForFile(params: {
     const candidateAssessment = {
       flowCoverage: buildFlowCoverageSummary(analyzedRecording, code),
       scoreResult: scoreGeneratedTest(code, {
+        ...(componentScoreContext ?? {}),
         queryResults: mapParsedQueriesToResults(candidateParsed, code),
       }),
     }
@@ -423,6 +426,7 @@ async function generateForFile(params: {
       existingAssessment = await assessOutputAgainstRecording({
         analyzedRecording,
         code: existingCode,
+        componentScoreContext,
       })
     }
     const outputResolution = await reconcileExistingOutput({
@@ -503,7 +507,10 @@ async function generateForFile(params: {
     code,
     await auditBoundaryPolicy(code, packageProfile ?? null, null)
   )
-  const scoreResult = scoreGeneratedTest(code, { queryResults })
+  const scoreResult = scoreGeneratedTest(code, {
+    ...(componentScoreContext ?? {}),
+    queryResults,
+  })
   const candidateAssessment = {
     flowCoverage: buildFlowCoverageSummary(analyzedRecording, code),
     scoreResult,
@@ -524,6 +531,7 @@ async function generateForFile(params: {
     existingAssessment = await assessOutputAgainstRecording({
       analyzedRecording,
       code: existingCode,
+      componentScoreContext,
     })
   }
   const outputResolution = await reconcileExistingOutput({

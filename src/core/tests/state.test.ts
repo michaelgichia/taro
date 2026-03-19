@@ -36,6 +36,32 @@ afterEach(async () => {
   await rm(projectRoot, { recursive: true, force: true })
 })
 
+function makeScoreSignals(overrides: Record<string, unknown> = {}) {
+  return {
+    queryCheckpointCount: 0,
+    roleQueryCount: 0,
+    testIdQueryCount: 0,
+    strongAssertionCount: 0,
+    presenceAssertionCount: 0,
+    visibilityAssertionCount: 0,
+    visibilityOnlyTestCount: 0,
+    presenceOnlyTestCount: 0,
+    boundaryWarningCount: 0,
+    boundaryIssueCount: 0,
+    placeholderRenderTarget: false,
+    multipleTestBlocks: false,
+    minimumExpectedTestCount: 0,
+    branchCoverageRatio: 1,
+    missingMockCount: 0,
+    fireEventCount: 0,
+    hasBasePropsConstant: false,
+    hasOverrideRenderHelper: false,
+    duplicatedInlineRenderCount: 0,
+    hasStandaloneUtilityDescribe: false,
+    ...overrides,
+  }
+}
+
 describe('initTaroState', () => {
   it('writes .taro/state.json with no package profiles when the repo has no tests', async () => {
     const result = await initTaroState(projectRoot)
@@ -958,17 +984,12 @@ describe('appendGeneratedTestRecord', () => {
           testStructure: 85,
           boundaryIsolation: 85,
         },
-        signals: {
+        signals: makeScoreSignals({
           queryCheckpointCount: 2,
           roleQueryCount: 3,
-          testIdQueryCount: 0,
           strongAssertionCount: 4,
-          weakAssertionCount: 1,
-          boundaryWarningCount: 0,
-          boundaryIssueCount: 0,
-          placeholderRenderTarget: false,
-          multipleTestBlocks: false,
-        },
+          presenceAssertionCount: 1,
+        }),
         reasons: [],
         requiresReview: false,
       },
@@ -1008,17 +1029,7 @@ describe('appendGeneratedTestRecord', () => {
             testStructure: 70,
             boundaryIsolation: 70,
           },
-          signals: {
-            queryCheckpointCount: 0,
-            roleQueryCount: 0,
-            testIdQueryCount: 0,
-            strongAssertionCount: 0,
-            weakAssertionCount: 0,
-            boundaryWarningCount: 0,
-            boundaryIssueCount: 0,
-            placeholderRenderTarget: false,
-            multipleTestBlocks: false,
-          },
+          signals: makeScoreSignals(),
           reasons: [],
           requiresReview: true,
         },
@@ -1028,6 +1039,67 @@ describe('appendGeneratedTestRecord', () => {
     const state = await readTaroState(projectRoot)
 
     expect(state?.generatedTests).toHaveLength(3)
+  })
+
+  it('backfills legacy scorer signals when reading generated test history', async () => {
+    const initialized = await initTaroState(projectRoot)
+    const legacyState = {
+      ...initialized.state,
+      generatedTests: [
+        {
+          createdAt: new Date().toISOString(),
+          packagePath: '.',
+          recordingFile: '/tmp/legacy-recording.js',
+          testFile: '/tmp/legacy-recording.test.tsx',
+          quality: {
+            overall: 72,
+            grade: 'C',
+            dimensions: {
+              queryQuality: 70,
+              assertionSpecificity: 60,
+              testStructure: 75,
+              boundaryIsolation: 80,
+            },
+            signals: {
+              queryCheckpointCount: 0,
+              roleQueryCount: 1,
+              testIdQueryCount: 0,
+              strongAssertionCount: 0,
+              weakAssertionCount: 2,
+              boundaryWarningCount: 0,
+              boundaryIssueCount: 0,
+              placeholderRenderTarget: false,
+              multipleTestBlocks: false,
+            },
+            reasons: [
+              {
+                code: 'weak-assertions-only',
+                dimension: 'assertionSpecificity',
+                impact: 'negative',
+                weight: 12,
+                message: 'Legacy reason without severity',
+              },
+            ],
+          },
+          requiresReview: true,
+        },
+      ],
+    }
+
+    await mkdir(join(projectRoot, '.taro'), { recursive: true })
+    await writeFile(
+      join(projectRoot, '.taro', 'state.json'),
+      JSON.stringify(legacyState, null, 2),
+      'utf-8'
+    )
+
+    const state = await readTaroState(projectRoot)
+    const signals = state?.generatedTests[0]?.quality.signals
+
+    expect(signals?.presenceAssertionCount).toBe(2)
+    expect(signals?.visibilityAssertionCount).toBe(0)
+    expect(signals?.minimumExpectedTestCount).toBe(0)
+    expect(state?.generatedTests[0]?.quality.reasons[0]?.severity).toBeUndefined()
   })
 })
 
@@ -1937,17 +2009,7 @@ describe('state scanning - additional coverage', () => {
           testStructure: 80,
           boundaryIsolation: 80,
         },
-        signals: {
-          queryCheckpointCount: 0,
-          roleQueryCount: 0,
-          testIdQueryCount: 0,
-          strongAssertionCount: 0,
-          weakAssertionCount: 0,
-          boundaryWarningCount: 0,
-          boundaryIssueCount: 0,
-          placeholderRenderTarget: false,
-          multipleTestBlocks: false,
-        },
+        signals: makeScoreSignals(),
         reasons: [],
         requiresReview: false,
       },
@@ -1980,17 +2042,7 @@ describe('state scanning - additional coverage', () => {
           testStructure: 80,
           boundaryIsolation: 80,
         },
-        signals: {
-          queryCheckpointCount: 0,
-          roleQueryCount: 0,
-          testIdQueryCount: 0,
-          strongAssertionCount: 0,
-          weakAssertionCount: 0,
-          boundaryWarningCount: 0,
-          boundaryIssueCount: 0,
-          placeholderRenderTarget: false,
-          multipleTestBlocks: false,
-        },
+        signals: makeScoreSignals(),
         reasons: [],
         requiresReview: false,
       },

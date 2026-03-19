@@ -352,6 +352,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
                 resolvedRenderTargetFile: out?.resolvedRenderTargetFile,
                 boundarySupportPlan: out?.boundarySupportPlan,
                 generationRenderTarget: out?.generationRenderTarget,
+                componentScoreContext: out?.componentScoreContext,
                 generationRenderHelper: out?.generationRenderHelper,
               }
             }),
@@ -405,6 +406,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             packageProfile: context.packageProfile,
             boundarySupportPlan: context.boundarySupportPlan,
             generationRenderTarget: context.generationRenderTarget,
+            componentScoreContext: context.componentScoreContext,
             generationRenderHelper: context.generationRenderHelper,
             analyzedRecording: context.analyzedRecording,
           }),
@@ -433,6 +435,7 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             generatedCode: context.generatedCode,
             analyzedRecording: context.analyzedRecording,
             candidateAssessment: context.candidateAssessment,
+            componentScoreContext: context.componentScoreContext,
           }),
           onDone: [
             {

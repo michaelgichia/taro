@@ -10,7 +10,7 @@ type RepoContractIssueCode =
   | 'regex-text-matcher'
   | 'mixed-reset-boundary'
   | 'generic-component-contract'
-  | 'anonymous-asset-mock'
+  | 'incomplete-asset-mock'
 
 interface RepoContractIssue {
   code: RepoContractIssueCode
@@ -36,7 +36,7 @@ const ISSUE_MESSAGES: Record<RepoContractIssueCode, string> = {
     'Avoid mixed reset boundaries - use either a shared reset helper or explicit suite-local mock resets, not both.',
   'generic-component-contract':
     'Avoid umbrella component-only buckets like "renders the primary UI contract" or "exposes the main interactive controls" - emit one behavior per it(...) block.',
-  'anonymous-asset-mock':
+  'incomplete-asset-mock':
     'Asset mocks should expose a stable queryable identity and forward props; anonymous <svg /> mocks hide which branch rendered.',
 }
 
@@ -71,7 +71,7 @@ const DETECTORS: Array<[RepoContractIssueCode, RegExp]> = [
     /\bit\s*\(\s*['"](?:renders the primary UI contract|exposes the main interactive controls)['"]/,
   ],
   [
-    'anonymous-asset-mock',
+    'incomplete-asset-mock',
     /(?:vi|jest)\.mock\s*\(\s*['"][^'"]+\.svg['"][\s\S]*?<svg\b(?![^>]*data-testid=)[^>]*\/>/,
   ],
 ]

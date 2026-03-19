@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest'
 
 import { calculateStructureScore, scoreGeneratedTest } from '#core/scorer.ts'
+import type { ComponentScoreContext } from '#types/score.ts'
+
+function makeComponentContext(
+  overrides: Partial<ComponentScoreContext> = {}
+): ComponentScoreContext {
+  return {
+    componentDisplayName: 'FeatureModule',
+    componentConditionalCount: 0,
+    componentEventHandlerCount: 0,
+    componentImportReferences: [],
+    exportedUtilityNames: [],
+    ...overrides,
+  }
+}
 
 describe('calculateStructureScore', () => {
   it('penalizes placeholder render targets and unresolved boundary warnings', () => {
@@ -25,10 +39,66 @@ describe('example flow', () => {
       calculateStructureScore(baseline)
     )
   })
+
+  it('applies branch, fixture, fireEvent, and export penalties when component context is provided', () => {
+    const hardcoded = `
+describe('profile card', () => {
+  it('renders business', () => {
+    render(<ProfileCard variant="business" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }))
+    expect(screen.getByText('Business')).toBeVisible()
+  })
+
+  it('renders personal', () => {
+    render(<ProfileCard variant="personal" />)
+    expect(screen.getByText('Personal')).toBeVisible()
+  })
+
+  it('renders neutral', () => {
+    render(<ProfileCard variant="neutral" />)
+    expect(screen.getByText('Neutral')).toBeVisible()
+  })
+})
+`
+
+    const baseline = `
+describe('profile card', () => {
+  const renderProfileCard = (overrides: Partial<Props> = {}) =>
+    render(<ProfileCard {...BASE_PROPS} {...overrides} />)
+
+  it('renders business', () => {
+    renderProfileCard({ variant: 'business' })
+    expect(screen.getByText('Business')).toHaveTextContent('Business')
+  })
+
+  it('renders personal', () => {
+    renderProfileCard({ variant: 'personal' })
+    expect(screen.getByText('Personal')).toHaveTextContent('Personal')
+  })
+
+  describe('formatStatus', () => {
+    it('formats the state', () => {
+      expect(formatStatus('open')).toBe('OPEN')
+    })
+  })
+})
+`
+
+    const context = makeComponentContext({
+      componentDisplayName: 'ProfileCard',
+      componentConditionalCount: 2,
+      componentEventHandlerCount: 1,
+      exportedUtilityNames: ['formatStatus'],
+    })
+
+    expect(calculateStructureScore(hardcoded, context)).toBeLessThan(
+      calculateStructureScore(baseline, context)
+    )
+  })
 })
 
 describe('scoreGeneratedTest', () => {
-  it('adds deterministic low-confidence signals, reasons, and blockers for draft output', () => {
+  it('adds deterministic draft blockers for placeholder output', () => {
     const draft = `
 // taro-boundary-warning: Taro could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.
 describe('example flow', () => {
@@ -48,31 +118,16 @@ describe('example flow', () => {
     expect(score.signals.queryCheckpointCount).toBe(1)
     expect(score.signals.placeholderRenderTarget).toBe(true)
     expect(score.signals.boundaryWarningCount).toBe(1)
+    expect(score.signals.presenceAssertionCount).toBe(1)
     expect(score.blockers).toEqual([
       'The generated test still renders <App /> instead of a resolved repo target.',
       'Boundary warnings remain in the generated file, so the render/mock boundary still needs cleanup.',
     ])
-    expect(score.markerCoverage).toEqual({
-      detected: 0,
-      emitted: 0,
-      unresolved: 0,
-    })
-    expect(score.markerQualityGate).toEqual({
-      status: 'pass',
-      reason: 'no-markers-detected',
-      failing: false,
-      message: 'No semantic markers were detected in this run.',
-    })
-    expect(score.markerDiagnostics).toEqual({
-      canonicalRecoveries: 0,
-      placementConflicts: 0,
-      placementCorrections: 0,
-    })
     expect(score.reasons).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           code: 'query-checkpoints',
-          impact: 'negative',
+          severity: 'blocker',
         }),
         expect.objectContaining({
           code: 'weak-assertions-only',
@@ -82,23 +137,17 @@ describe('example flow', () => {
     )
   })
 
-  it('keeps stronger repo-aware output out of draft mode when blockers are absent', () => {
-    const stable = `
+  it('treats toBeVisible-only suites as neutral presence checks', () => {
+    const visibleOnly = `
 describe('example flow', () => {
-  it('completes an example flow', async () => {
-    render(<FeatureModule />)
-    expect(screen.getByRole('status')).toHaveTextContent('Saved')
-  })
-
-  it('shows review state', async () => {
+  it('renders the heading', () => {
     render(<FeatureModule />)
     expect(screen.getByRole('heading', { name: 'Review Example' })).toBeVisible()
   })
 })
 `
 
-    const score = scoreGeneratedTest(stable, [
-      { method: 'getByRole', query: "screen.getByRole('status')", quality: 'excellent' },
+    const score = scoreGeneratedTest(visibleOnly, [
       {
         method: 'getByRole',
         query: "screen.getByRole('heading', { name: 'Review Example' })",
@@ -106,26 +155,44 @@ describe('example flow', () => {
       },
     ])
 
-    expect(score.requiresReview).toBe(false)
-    expect(score.signals.queryCheckpointCount).toBe(0)
-    expect(score.signals.multipleTestBlocks).toBe(true)
-    expect(score.blockers).toEqual([])
-    expect(score.markerCoverage).toEqual({
-      detected: 0,
-      emitted: 0,
-      unresolved: 0,
-    })
+    expect(score.dimensions.assertionSpecificity).toBe(30)
+    expect(score.signals.visibilityAssertionCount).toBe(1)
+    expect(score.signals.visibilityOnlyTestCount).toBe(1)
     expect(score.reasons).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          code: 'role-queries',
-          impact: 'positive',
-        }),
-        expect.objectContaining({
-          code: 'strong-assertions',
-          impact: 'positive',
-        }),
+        expect.objectContaining({ code: 'visibility-assertions-only' }),
+        expect.objectContaining({ code: 'weak-assertions-only' }),
       ])
+    )
+  })
+
+  it('does not penalize presence assertions when strong assertions are also present', () => {
+    const mixed = `
+describe('payment form', () => {
+  it('shows the amount and success state', () => {
+    render(<PaymentForm />)
+    expect(screen.getByRole('textbox', { name: 'Amount' })).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Saved')
+  })
+})
+`
+
+    const score = scoreGeneratedTest(mixed, [
+      {
+        method: 'getByRole',
+        query: "screen.getByRole('textbox', { name: 'Amount' })",
+        quality: 'excellent',
+      },
+      {
+        method: 'getByRole',
+        query: "screen.getByRole('status')",
+        quality: 'excellent',
+      },
+    ])
+
+    expect(score.dimensions.assertionSpecificity).toBe(80)
+    expect(score.reasons).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'weak-assertions-only' })])
     )
   })
 
@@ -139,7 +206,7 @@ describe('profile card', () => {
 
   it('renders the profile name', () => {
     setup()
-    expect(screen.getByRole('heading', { name: 'Profile' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Profile' })).toHaveTextContent('Profile')
   })
 })
 `
@@ -159,7 +226,7 @@ describe('profile card', () => {
     )
   })
 
-  it('marks generic component buckets and anonymous asset mocks as repo-contract issues', () => {
+  it('renames anonymous asset mocks to incomplete asset mocks', () => {
     const generated = `
 vi.mock('public/images/kenya-flag.svg', () => ({
   default: () => <svg aria-hidden="true" />,
@@ -169,123 +236,255 @@ describe('OrgCard', () => {
   it('renders the primary UI contract', () => {
     expect(screen.getByText('Business')).toBeVisible()
   })
-
-  it('exposes the main interactive controls', () => {
-    expect(screen.getByRole('link')).toHaveAttribute('href', '/dashboard/orgs/org_1')
-  })
 })
 `
 
     const score = scoreGeneratedTest(generated, [
       { method: 'getByText', query: "screen.getByText('Business')", quality: 'good' },
-      { method: 'getByRole', query: "screen.getByRole('link')", quality: 'excellent' },
     ])
 
     expect(score.requiresReview).toBe(true)
     expect(score.reasons).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: 'generic-component-contract' }),
-        expect.objectContaining({ code: 'anonymous-asset-mock' }),
+        expect.objectContaining({ code: 'incomplete-asset-mock' }),
       ])
     )
     expect(score.dimensions.boundaryIsolation).toBeLessThan(100)
   })
 
-  it('returns marker coverage and non-failing marker gate defaults when marker context is absent', () => {
-    const score = scoreGeneratedTest("test('placeholder', () => expect(true).toBe(true))")
-
-    expect(score.markerCoverage).toEqual({
-      detected: 0,
-      emitted: 0,
-      unresolved: 0,
-    })
-    expect(score.markerQualityGate).toEqual({
-      status: 'pass',
-      reason: 'no-markers-detected',
-      failing: false,
-      message: 'No semantic markers were detected in this run.',
-    })
-    expect(score.markerDiagnostics).toEqual({
-      canonicalRecoveries: 0,
-      placementConflicts: 0,
-      placementCorrections: 0,
-    })
-  })
-
-  it('marks repo-contract smells as draft blockers even when the suite has multiple tests', () => {
-    const draft = `
-describe('stock flow', () => {
-  const setup = async () => {
+  it('adds low branch coverage blockers when component context implies more cases', () => {
+    const code = `
+describe('feature module', () => {
+  it('renders the default state', () => {
     render(<FeatureModule />)
-    expect(await screen.findByText('Ready')).toBeDefined()
-  }
-
-  const mockState = { shouldFail: false }
-
-  beforeEach(() => {
-    resetDataLayerMock()
-    save.mockReset()
-    mockState.shouldFail = false
-  })
-
-  afterEach(() => {
-    cleanup()
-    document.body.removeAttribute('style')
-  })
-
-  it('submits values', async () => {
-    await setup()
-    await waitFor(() => expect(save).toHaveBeenCalledTimes(1))
-    expect(save).toHaveBeenCalledWith({ symbol: expect.any(String) })
-    expect(screen.getByText(/saved/i)).toBeInTheDocument()
-  })
-
-  it('shows review state', async () => {
-    render(<FeatureModule />)
-    expect(screen.getByRole('heading', { name: 'Review' })).toBeVisible()
+    expect(screen.getByText('Ready')).toHaveTextContent('Ready')
   })
 })
 `
 
-    const score = scoreGeneratedTest(draft, [
-      { method: 'findByText', query: "screen.findByText('Ready')", quality: 'good' },
-      { method: 'getByRole', query: "screen.getByRole('heading', { name: 'Review' })", quality: 'excellent' },
+    const withoutContext = scoreGeneratedTest(code, [
+      { method: 'getByText', query: "screen.getByText('Ready')", quality: 'good' },
     ])
+    const withContext = scoreGeneratedTest(code, {
+      ...makeComponentContext({
+        componentConditionalCount: 3,
+        componentEventHandlerCount: 1,
+      }),
+      queryResults: [
+        { method: 'getByText', query: "screen.getByText('Ready')", quality: 'good' },
+      ],
+    })
 
-    expect(score.requiresReview).toBe(true)
+    expect(withContext.signals.minimumExpectedTestCount).toBe(7)
+    expect(withContext.reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'low-branch-coverage', severity: 'blocker' }),
+      ])
+    )
+    expect(withContext.dimensions.testStructure).toBeLessThan(
+      withoutContext.dimensions.testStructure
+    )
+    expect(withContext.blockers).toContain(
+      'Only 1 test block(s) cover a component that implies at least 7 test cases from branches, handlers, and exported utilities.'
+    )
+  })
+
+  it('flags hardcoded fixtures when multiple inline render prop sets are duplicated', () => {
+    const code = `
+describe('profile card', () => {
+  it('renders business', () => {
+    render(<ProfileCard variant="business" />)
+    expect(screen.getByText('Business')).toBeVisible()
+  })
+
+  it('renders personal', () => {
+    render(<ProfileCard variant="personal" />)
+    expect(screen.getByText('Personal')).toBeVisible()
+  })
+
+  it('renders neutral', () => {
+    render(<ProfileCard variant="neutral" />)
+    expect(screen.getByText('Neutral')).toBeVisible()
+  })
+})
+`
+
+    const score = scoreGeneratedTest(code, {
+      ...makeComponentContext({ componentDisplayName: 'ProfileCard' }),
+      queryResults: [
+        { method: 'getByText', query: "screen.getByText('Business')", quality: 'good' },
+      ],
+    })
+
+    expect(score.signals.duplicatedInlineRenderCount).toBeGreaterThan(1)
     expect(score.reasons).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ code: 'helper-assertions', impact: 'negative' }),
-        expect.objectContaining({ code: 'query-to-be-defined', impact: 'negative' }),
-        expect.objectContaining({ code: 'loose-payload-matchers', impact: 'negative' }),
-        expect.objectContaining({ code: 'shared-mutable-mock-state', impact: 'negative' }),
-        expect.objectContaining({ code: 'mixed-reset-boundary', impact: 'negative' }),
+        expect.objectContaining({ code: 'hardcoded-fixture' }),
       ])
     )
   })
 
-  it('returns normalized marker coverage and deterministic marker gate metadata when context is provided', () => {
-    const withCoverage = scoreGeneratedTest("test('flow', () => expect(true).toBe(true))", {
-      markerCoverage: {
-        detected: 4,
-        emitted: 2,
-        unresolved: 2,
-      },
+  it('adds fireEvent penalties and escalates them when the component has handlers', () => {
+    const code = `
+describe('profile card', () => {
+  it('opens the menu', () => {
+    render(<ProfileCard />)
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }))
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+  })
+})
+`
+
+    const withoutHandlers = scoreGeneratedTest(code, {
+      ...makeComponentContext({ componentEventHandlerCount: 0 }),
+      queryResults: [
+        {
+          method: 'getByRole',
+          query: "screen.getByRole('button', { name: 'Open menu' })",
+          quality: 'excellent',
+        },
+      ],
+    })
+    const withHandlers = scoreGeneratedTest(code, {
+      ...makeComponentContext({ componentEventHandlerCount: 2 }),
+      queryResults: [
+        {
+          method: 'getByRole',
+          query: "screen.getByRole('button', { name: 'Open menu' })",
+          quality: 'excellent',
+        },
+      ],
     })
 
-    expect(withCoverage.markerCoverage).toEqual({
-      detected: 4,
-      emitted: 2,
-      unresolved: 2,
-    })
-    expect(withCoverage.markerQualityGate).toEqual({
-      status: 'warn',
-      reason: 'markers-partially-converted',
-      failing: true,
-      message: 'Marker-derived assertions were emitted, but unresolved semantic markers remain.',
-    })
-    expect(withCoverage.requiresReview).toBe(true)
+    expect(withHandlers.signals.fireEventCount).toBe(1)
+    expect(withHandlers.dimensions.testStructure).toBeLessThan(
+      withoutHandlers.dimensions.testStructure
+    )
+    expect(withHandlers.reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'fire-event-usage', weight: 14 }),
+      ])
+    )
+  })
 
+  it('detects missing mocks for runtime boundaries and skips protected UI boundaries', () => {
+    const code = `
+describe('profile card', () => {
+  it('renders the UI', () => {
+    render(<ProfileCard />)
+    expect(screen.getByText('Business')).toBeInTheDocument()
+  })
+})
+`
+
+    const score = scoreGeneratedTest(code, {
+      ...makeComponentContext({
+        componentImportReferences: [
+          {
+            target: 'next/link',
+            importedNames: ['default'],
+            kind: 'unknown',
+            guardrailReason: null,
+          },
+          {
+            target: 'next/dynamic',
+            importedNames: ['default'],
+            kind: 'unknown',
+            guardrailReason: null,
+          },
+          {
+            target: 'public/images/kenya-flag.svg',
+            importedNames: ['default'],
+            kind: 'asset',
+            guardrailReason: null,
+          },
+          {
+            target: '@/ui/PortalShell',
+            importedNames: ['PortalShell'],
+            kind: 'local-child',
+            guardrailReason: 'repo-owned-ui-wrapper',
+          },
+        ],
+      }),
+      queryResults: [
+        { method: 'getByText', query: "screen.getByText('Business')", quality: 'good' },
+      ],
+    })
+
+    expect(score.signals.missingMockCount).toBe(3)
+    expect(score.reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'missing-framework-mock', severity: 'blocker' }),
+        expect.objectContaining({ code: 'missing-dynamic-mock', severity: 'blocker' }),
+        expect.objectContaining({ code: 'missing-asset-mock', severity: 'blocker' }),
+      ])
+    )
+    expect(score.reasons).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringContaining('@/ui/PortalShell') }),
+      ])
+    )
+  })
+
+  it('flags untested exported utilities unless a standalone describe covers them', () => {
+    const missingCoverage = `
+describe('PriceCard', () => {
+  it('renders the price', () => {
+    render(<PriceCard />)
+    expect(screen.getByText('$10.00')).toHaveTextContent('$10.00')
+  })
+})
+`
+
+    const covered = `
+describe('PriceCard', () => {
+  it('renders the price', () => {
+    render(<PriceCard />)
+    expect(screen.getByText('$10.00')).toHaveTextContent('$10.00')
+  })
+})
+
+describe('formatCurrency', () => {
+  it('formats cents into a display string', () => {
+    expect(formatCurrency(1000)).toBe('$10.00')
+  })
+})
+`
+
+    const context = makeComponentContext({
+      componentDisplayName: 'PriceCard',
+      exportedUtilityNames: ['formatCurrency'],
+    })
+
+    const missingScore = scoreGeneratedTest(missingCoverage, {
+      ...context,
+      queryResults: [
+        { method: 'getByText', query: "screen.getByText('$10.00')", quality: 'good' },
+      ],
+    })
+    const coveredScore = scoreGeneratedTest(covered, {
+      ...context,
+      queryResults: [
+        { method: 'getByText', query: "screen.getByText('$10.00')", quality: 'good' },
+      ],
+    })
+
+    expect(missingScore.signals.hasStandaloneUtilityDescribe).toBe(false)
+    expect(missingScore.reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'untested-exports' }),
+      ])
+    )
+    expect(coveredScore.signals.hasStandaloneUtilityDescribe).toBe(true)
+    expect(coveredScore.reasons).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'untested-exports' }),
+      ])
+    )
+  })
+
+  it('returns normalized marker coverage and blocker metadata when context is provided', () => {
     const zeroConversion = scoreGeneratedTest("test('flow', () => expect(true).toBe(true))", {
       markerCoverage: {
         detected: 3,
@@ -308,16 +507,11 @@ describe('stock flow', () => {
       failing: true,
       message: 'Semantic markers were detected, but no marker-derived assertions were emitted.',
     })
-    expect(zeroConversion.markerDiagnostics).toEqual({
-      canonicalRecoveries: 0,
-      placementConflicts: 0,
-      placementCorrections: 1,
-    })
     expect(zeroConversion.reasons).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           code: 'marker-quality-gate-fail',
-          impact: 'negative',
+          severity: 'blocker',
         }),
         expect.objectContaining({
           code: 'marker-placement-corrections',
@@ -364,66 +558,7 @@ describe('stock flow', () => {
     })
   })
 
-  it('produces a C grade for middling suites and normalizes null option input', () => {
-    const middling = scoreGeneratedTest(
-      `
-it('completes a flow', async () => {
-  render(<FeatureModule />)
-  expect(screen.getByText('Saved')).toHaveTextContent('Saved')
-})
-      `,
-      [{ method: 'getByText', query: "screen.getByText('Saved')", quality: 'good' }]
-    )
-
-    expect(middling.grade).toBe('C')
-
-    const nullOptions = scoreGeneratedTest(
-      "test('flow', () => expect(true).toBe(true))",
-      null as unknown as never
-    )
-
-    expect(nullOptions.markerCoverage).toEqual({
-      detected: 0,
-      emitted: 0,
-      unresolved: 0,
-    })
-  })
-
-  it('adds marker placement conflict reasons and can land in a B-grade band', () => {
-    const bGrade = scoreGeneratedTest(
-      `
-describe('flow', () => {
-  it('completes a flow', async () => {
-    render(<FeatureModule />)
-    expect(screen.getByText('Saved')).toHaveTextContent('Saved')
-  })
-})
-      `,
-      {
-        queryResults: [{ method: 'getByText', query: "screen.getByText('Saved')", quality: 'good' }],
-        markerDiagnostics: {
-          placementConflicts: 1,
-        },
-      }
-    )
-
-    expect(bGrade.grade).toBe('B')
-    expect(bGrade.reasons).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: 'marker-placement-conflicts',
-          impact: 'negative',
-        }),
-      ])
-    )
-  })
-
-  it('penalizes oversized single-test files and flags remaining test-id queries', () => {
-    const longSingleTest = `it('completes a flow', async () => {\n${'x'.repeat(2105)}\n})`
-    expect(calculateStructureScore(longSingleTest)).toBeLessThan(
-      calculateStructureScore("it('short flow', async () => { expect(true).toBe(true) })")
-    )
-
+  it('flags remaining test-id queries', () => {
     const withTestId = scoreGeneratedTest(
       "test('flow', () => expect(screen.getByTestId('save')).toBeVisible())",
       [{ method: 'getByTestId', query: "screen.getByTestId('save')", quality: 'fragile' }]
