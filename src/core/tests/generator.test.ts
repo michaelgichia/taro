@@ -218,6 +218,7 @@ describe('generateTestFromGroups', () => {
         },
       ],
       {
+        runner: 'vitest',
         helpers: [
           {
             name: 'planOpenExampleDialog',
@@ -278,6 +279,7 @@ describe('generateTestFromGroups', () => {
       }
     )
 
+    expect(generated.code).toContain("import { describe, expect, it } from 'vitest'")
     expect(generated.code).toContain("import { render, screen, within } from '@testing-library/react'")
     expect(generated.code).toContain("import FeatureModule from './FeatureModule'")
     expect(generated.code).toContain('const planOpenExampleDialog = async')

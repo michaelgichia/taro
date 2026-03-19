@@ -1,34 +1,9 @@
-import { access, readFile, readdir, stat } from 'node:fs/promises'
-import { dirname, join, resolve } from 'node:path'
+import { access, readdir, readFile, stat } from 'node:fs/promises'
+import { basename, dirname, join, resolve } from 'node:path'
 import { cwd, stdin, stdout } from 'node:process'
 
 import { Command } from 'commander'
 import pc from 'picocolors'
-
-import {
-  applyBoundarySupport,
-  materializeBoundarySupport,
-  planBoundarySupport,
-} from '#core/boundary-support.ts'
-import { inferComponentTargetPlan } from '#core/component-targeting.ts'
-import { emitQuerySummary, generateTestFromGroups } from '#core/generator.ts'
-import { loadInput } from '#core/input-loader.ts'
-import { analyzeRecording } from '#core/recording-intelligence.ts'
-import { scoreGeneratedTest } from '#core/scorer.ts'
-import { planJsSuite } from '#core/suite-planner.ts'
-import {
-  detectPackageProfileStaleness,
-  loadOrBootstrapTaroState,
-  readTaroOverrides,
-  refreshTaroState,
-  resolveTaroPackageProfile,
-} from '#core/state.ts'
-import { verifySyntax } from '#core/verifier.ts'
-import { writeTestFile } from '#core/writer.ts'
-import { normalizeJsBaseline } from '#core/baseline-normalizer.ts'
-import type { ResolvedTaroPackageProfile } from '#types/state.ts'
-import type { QueryResult } from '#types/recording.ts'
-import type { Finding } from '#core/findings-reporter.ts'
 
 import {
   applyRepoRenderTarget,
@@ -51,7 +26,32 @@ import {
   resolveVisualAuthStorageStatePath,
   toImportPath,
 } from '#cli/commands/generate.utils.ts'
+import { normalizeJsBaseline } from '#core/baseline-normalizer.ts'
+import {
+  applyBoundarySupport,
+  materializeBoundarySupport,
+  planBoundarySupport,
+} from '#core/boundary-support.ts'
+import { inferComponentTargetPlan } from '#core/component-targeting.ts'
+import type { Finding } from '#core/findings-reporter.ts'
+import { emitQuerySummary, generateTestFromGroups } from '#core/generator.ts'
+import { loadInput } from '#core/input-loader.ts'
 import { parseJsRecording } from '#core/js-parser.ts'
+import { analyzeRecording } from '#core/recording-intelligence.ts'
+import { scoreGeneratedTest } from '#core/scorer.ts'
+import {
+  detectPackageProfileStaleness,
+  loadOrBootstrapTaroState,
+  readTaroOverrides,
+  refreshTaroState,
+  resolveTaroPackageProfile,
+} from '#core/state.ts'
+import { planJsSuite } from '#core/suite-planner.ts'
+import { verifySyntax } from '#core/verifier.ts'
+import { writeTestFile } from '#core/writer.ts'
+import type { QueryResult } from '#types/recording.ts'
+import type { ResolvedTaroPackageProfile } from '#types/state.ts'
+import type { TaroFolderPattern } from '#types/state.ts'
 
 interface TargetCommandContext {
   input?: Pick<typeof stdin, 'isTTY'>
@@ -97,7 +97,7 @@ async function loadPackageContext(params: {
     auth?: string
     instructions?: string
   }
-  outputPath: string
+  targetPath: string
   projectRoot: string
 }): Promise<{
   explicitAuthPath: Awaited<ReturnType<typeof resolveOptionalFilePath>>
@@ -105,7 +105,7 @@ async function loadPackageContext(params: {
   packageProfile: ResolvedTaroPackageProfile | null
   visualAuth: ResolvedTaroPackageProfile['playwrightAuth']
 }> {
-  const { commandOptions, outputPath, projectRoot } = params
+  const { commandOptions, targetPath, projectRoot } = params
   const hadState = await access(resolve(projectRoot, '.taro', 'state.json'))
     .then(() => true)
     .catch(() => false)
@@ -119,7 +119,7 @@ async function loadPackageContext(params: {
   const packageProfile = resolveTaroPackageProfile(
     bootstrappedState.state,
     projectRoot,
-    outputPath,
+    targetPath,
     overrides
   )
 
@@ -167,6 +167,54 @@ async function loadPackageContext(params: {
   }
 }
 
+function isConcreteFolderPattern(
+  folderPattern?: TaroFolderPattern | null
+): folderPattern is 'colocated' | '__tests__' | 'tests' {
+  return folderPattern === 'colocated' || folderPattern === '__tests__' || folderPattern === 'tests'
+}
+
+async function hasImmediateTestFiles(dirPath: string): Promise<boolean> {
+  const entries = await readdir(dirPath, { withFileTypes: true }).catch(() => null)
+  if (!entries) {
+    return false
+  }
+
+  return entries.some(
+    (entry) =>
+      entry.isFile() && /\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(entry.name)
+  )
+}
+
+async function detectLocalOutputFolderPattern(componentPath: string): Promise<TaroFolderPattern | null> {
+  const componentDir = dirname(componentPath)
+  const componentName = basename(componentPath).replace(/\.[cm]?[jt]sx?$/u, '') || 'Component'
+
+  const explicitCandidates: Array<[TaroFolderPattern, string]> = [
+    ['tests', join(componentDir, 'tests', `${componentName}.test.tsx`)],
+    ['__tests__', join(componentDir, '__tests__', `${componentName}.test.tsx`)],
+    ['colocated', join(componentDir, `${componentName}.test.tsx`)],
+  ]
+
+  for (const [folderPattern, filePath] of explicitCandidates) {
+    const exists = await access(filePath)
+      .then(() => true)
+      .catch(() => false)
+    if (exists) {
+      return folderPattern
+    }
+  }
+
+  if (await hasImmediateTestFiles(join(componentDir, 'tests'))) {
+    return 'tests'
+  }
+
+  if (await hasImmediateTestFiles(join(componentDir, '__tests__'))) {
+    return '__tests__'
+  }
+
+  return null
+}
+
 function prependBoundaryWarnings(code: string, warnings: string[]): string {
   if (warnings.length === 0) {
     return code
@@ -208,15 +256,22 @@ async function generateForFile(params: {
 }): Promise<Finding[]> {
   const { componentPath, projectRoot, commandOptions, context } = params
 
-  const outputPath = deriveOutputPath(componentPath)
   const {
     packageProfile,
     visualAuth,
   } = await loadPackageContext({
     commandOptions,
-    outputPath,
+    targetPath: componentPath,
     projectRoot,
   })
+  const localFolderPattern = await detectLocalOutputFolderPattern(componentPath)
+  const outputPath = deriveOutputPath(
+    componentPath,
+    localFolderPattern ??
+      (isConcreteFolderPattern(packageProfile?.folderPattern.value)
+        ? packageProfile.folderPattern.value
+        : undefined)
+  )
 
   const targetPlan = await inferComponentTargetPlan({
     componentPath,
@@ -349,7 +404,7 @@ async function generateForFile(params: {
     const candidateAssessment = {
       flowCoverage: buildFlowCoverageSummary(analyzedRecording, code),
       scoreResult: scoreGeneratedTest(code, {
-        queryResults: mapParsedQueriesToResults(candidateParsed),
+        queryResults: mapParsedQueriesToResults(candidateParsed, code),
       }),
     }
 
@@ -429,14 +484,19 @@ async function generateForFile(params: {
     renderTarget,
   })
   const generated = generateTestFromGroups(analyzedRecording.title, analyzedRecording.intentGroups, {
+    additionalImports: targetPlan.additionalImports,
     outputPath,
     conventions,
+    enableSetupOverrides: targetPlan.enableSetupOverrides,
     runner: packageProfile?.effectiveRunner ?? 'unknown',
     jestDomImportPath:
       packageProfile?.jestDomSetup?.value === 'global-setup' ? null : undefined,
+    moduleStatements: targetPlan.moduleStatements,
     queryResults,
+    renderExpression: targetPlan.renderExpression,
     renderTarget,
     renderHelper,
+    scenarios: targetPlan.scenarios,
   })
   let code = applyBoundarySupport(generated.code, boundarySupportPlan)
   code = prependBoundaryWarnings(

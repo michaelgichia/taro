@@ -11,6 +11,7 @@ import type {
   ResolvedTaroPackageProfile,
   TaroBoundaryKind,
   TaroBoundaryProfile,
+  TaroTestRunner,
 } from '#types/state.ts'
 
 interface BoundarySupportFilePlan {
@@ -22,6 +23,7 @@ interface BoundarySupportFilePlan {
 export interface BoundarySupportPlan {
   importLines: string[]
   mockBlocks: string[]
+  runner?: TaroTestRunner
   setupLines: string[]
   supportFiles: BoundarySupportFilePlan[]
   warnings: string[]
@@ -52,6 +54,11 @@ function normalizeBoundaryFileBase(target: string): string {
     .replace(/[^a-zA-Z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .toLowerCase()
+}
+
+function deriveBoundaryTestId(target: string): string {
+  const baseName = target.split('/').pop()?.replace(/\.[^.]+$/u, '') ?? target
+  return normalizeBoundaryFileBase(baseName)
 }
 
 function deriveSupportExportNames(target: string) {
@@ -107,6 +114,142 @@ function buildJestMockBlock(target: string, factoryExport: string): string {
   ].join('\n')
 }
 
+function buildSvgMockBlock(target: string, runner: TaroTestRunner): string {
+  const testId = deriveBoundaryTestId(target)
+  if (runner === 'jest') {
+    return [
+      `jest.mock('${target}', () => ({`,
+      `  __esModule: true,`,
+      `  default: (props) => <svg data-testid="${testId}" aria-hidden="true" {...props} />,`,
+      `}))`,
+    ].join('\n')
+  }
+
+  return [
+    `vi.mock('${target}', () => ({`,
+    `  default: (props) => <svg data-testid="${testId}" aria-hidden="true" {...props} />,`,
+    `}))`,
+  ].join('\n')
+}
+
+function buildNextLinkMockBlock(runner: TaroTestRunner): string {
+  if (runner === 'jest') {
+    return [
+      `jest.mock('next/link', () => ({`,
+      `  __esModule: true,`,
+      `  default: ({ href, children }) => <a href={href}>{children}</a>,`,
+      `}))`,
+    ].join('\n')
+  }
+
+  return [
+    `vi.mock('next/link', () => ({`,
+    `  default: ({ href, children }) => <a href={href}>{children}</a>,`,
+    `}))`,
+  ].join('\n')
+}
+
+function buildNextDynamicMockBlock(runner: TaroTestRunner): string {
+  const helperLines = [
+    `function __taroCreateDynamicSentinel(loader) {`,
+    `  const source = typeof loader === 'function' ? String(loader) : ''`,
+    `  const match = source.match(/import\\((?:'|")([^'"]+)(?:'|")\\)/)`,
+    `  const rawName = match?.[1]?.split('/').pop()?.replace(/\\.[cm]?[jt]sx?$/, '') ?? 'dynamic-component'`,
+    `  const testId = rawName`,
+    `    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')`,
+    `    .replace(/[^a-zA-Z0-9]+/g, '-')`,
+    `    .replace(/^-+|-+$/g, '')`,
+    `    .toLowerCase() || 'dynamic-component'`,
+    `  return (props) => {`,
+    `    const dataProps = Object.fromEntries(`,
+    `      Object.entries(props ?? {})`,
+    `        .filter(([, value]) => ['string', 'number', 'boolean'].includes(typeof value))`,
+    `        .map(([key, value]) => [`,
+    `          \`data-prop-\${key.replace(/([a-z0-9])([A-Z])/g, '$1-$2').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()}\`,`,
+    `          String(value),`,
+    `        ])`,
+    `    )`,
+    `    return <div data-testid={testId} {...dataProps} />`,
+    `  }`,
+    `}`,
+  ]
+
+  if (runner === 'jest') {
+    return [
+      ...helperLines,
+      `jest.mock('next/dynamic', () => ({`,
+      `  __esModule: true,`,
+      `  default: (loader) => __taroCreateDynamicSentinel(loader),`,
+      `}))`,
+    ].join('\n')
+  }
+
+  return [
+    ...helperLines,
+    `vi.mock('next/dynamic', () => ({`,
+    `  default: (loader) => __taroCreateDynamicSentinel(loader),`,
+    `}))`,
+  ].join('\n')
+}
+
+function inferImportStyleFromSection(importSection: string[]): 'esm' | 'cjs' {
+  const hasEsm = importSection.some((line) => /^\s*import\b/u.test(line))
+  const hasCjs = importSection.some(
+    (line) =>
+      /^\s*require\(/u.test(line) ||
+      /^\s*const\s+.+\s*=\s*require\(/u.test(line)
+  )
+
+  return hasCjs && !hasEsm ? 'cjs' : 'esm'
+}
+
+function buildFrameworkImportLine(
+  runner: TaroTestRunner,
+  importStyle: 'esm' | 'cjs',
+  members: string[]
+): string | null {
+  if (members.length === 0 || runner === 'unknown') {
+    return null
+  }
+
+  const uniqueMembers = [...new Set(members)].sort()
+  if (runner === 'vitest') {
+    return importStyle === 'cjs'
+      ? `const { ${uniqueMembers.join(', ')} } = require('vitest')`
+      : `import { ${uniqueMembers.join(', ')} } from 'vitest'`
+  }
+
+  if (runner === 'jest') {
+    return importStyle === 'cjs'
+      ? `const { ${uniqueMembers.join(', ')} } = require('@jest/globals')`
+      : `import { ${uniqueMembers.join(', ')} } from '@jest/globals'`
+  }
+
+  return null
+}
+
+function collectMissingFrameworkMembers(
+  importSection: string[],
+  runner: TaroTestRunner,
+  members: string[]
+): string[] {
+  if (runner === 'unknown' || members.length === 0) {
+    return []
+  }
+
+  const frameworkImports = importSection
+    .filter((line) =>
+      runner === 'vitest'
+        ? /['"]vitest['"]/u.test(line)
+        : /['"]@jest\/globals['"]/u.test(line)
+    )
+    .join('\n')
+
+  return [...new Set(members)].filter(
+    (member) => !new RegExp(`\\b${member}\\b`, 'u').test(frameworkImports)
+  )
+}
+
 function buildBoundarySupportPrefix(
   code: string,
   plan: BoundarySupportPlan
@@ -139,6 +282,27 @@ function buildBoundarySupportPrefix(
   const importSection = lines.slice(0, importEnd).filter((line) => line.trim().length > 0)
   const rest = lines.slice(importEnd).join('\n').trimStart()
   const parts: string[] = []
+  const importStyle = inferImportStyleFromSection(importSection)
+  const frameworkMembers: string[] = []
+
+  if (plan.setupLines.length > 0) {
+    frameworkMembers.push('beforeEach')
+  }
+  if (plan.mockBlocks.some((block) => block.includes('vi.mock('))) {
+    frameworkMembers.push('vi')
+  }
+  if (plan.mockBlocks.some((block) => block.includes('jest.mock('))) {
+    frameworkMembers.push('jest')
+  }
+
+  const frameworkImportLine = buildFrameworkImportLine(
+    plan.runner ?? 'unknown',
+    importStyle,
+    collectMissingFrameworkMembers(importSection, plan.runner ?? 'unknown', frameworkMembers)
+  )
+  if (frameworkImportLine) {
+    importSection.push(frameworkImportLine)
+  }
 
   if (plan.importLines.length > 0) {
     importSection.push(...plan.importLines)
@@ -299,6 +463,7 @@ export async function planBoundarySupport(params: {
   const plan: BoundarySupportPlan = {
     importLines: [],
     mockBlocks: [],
+    runner: params.packageProfile?.effectiveRunner ?? 'unknown',
     setupLines: [],
     supportFiles: [],
     warnings: [],
@@ -336,6 +501,36 @@ export async function planBoundarySupport(params: {
   }
 
   for (const importedBoundary of discoveredImports) {
+    const boundaryMockRunner =
+      packageProfile.effectiveRunner === 'jest' ||
+      packageProfile.mockPattern.value === 'jest.mock'
+        ? 'jest'
+        : 'vitest'
+
+    if (importedBoundary.target.endsWith('.svg')) {
+      const mockBlock = buildSvgMockBlock(importedBoundary.target, boundaryMockRunner)
+      if (!plan.mockBlocks.includes(mockBlock)) {
+        plan.mockBlocks.push(mockBlock)
+      }
+      continue
+    }
+
+    if (importedBoundary.target === 'next/link') {
+      const mockBlock = buildNextLinkMockBlock(boundaryMockRunner)
+      if (!plan.mockBlocks.includes(mockBlock)) {
+        plan.mockBlocks.push(mockBlock)
+      }
+      continue
+    }
+
+    if (importedBoundary.target === 'next/dynamic') {
+      const mockBlock = buildNextDynamicMockBlock(boundaryMockRunner)
+      if (!plan.mockBlocks.includes(mockBlock)) {
+        plan.mockBlocks.push(mockBlock)
+      }
+      continue
+    }
+
     if (importedBoundary.guardrailReason) {
       const conflictingProfile = boundaryProfiles.get(importedBoundary.target) ?? null
       if (conflictingProfile && conflictingProfile.strategy !== 'forbid') {

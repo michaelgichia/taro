@@ -14,6 +14,7 @@ import {
 describe('importBlock', () => {
   it('renders ESM imports with optional helpers, waitFor, and within', () => {
     const result = importBlock(true, 'esm', {
+      runner: 'vitest',
       renderTarget: {
         symbol: 'CheckoutForm',
         importPath: '#components/checkout.tsx',
@@ -25,10 +26,12 @@ describe('importBlock', () => {
       },
       needsWaitFor: true,
       needsWithin: true,
+      needsCleanup: true,
       jestDomImportPath: '@testing-library/jest-dom/vitest',
     })
 
-    expect(result).toContain("import { screen, waitFor, within } from '@testing-library/react'")
+    expect(result).toContain("import { describe, expect, it, afterEach } from 'vitest'")
+    expect(result).toContain("import { cleanup, screen, waitFor, within } from '@testing-library/react'")
     expect(result).toContain("import '@testing-library/jest-dom/vitest'")
     expect(result).toContain("import userEvent from '@testing-library/user-event'")
     expect(result).toContain("import CheckoutForm from '#components/checkout.tsx'")
@@ -38,6 +41,7 @@ describe('importBlock', () => {
 
   it('renders CommonJS imports with default helper import and render fallback', () => {
     const result = importBlock(false, 'cjs', {
+      runner: 'jest',
       renderTarget: {
         symbol: 'App',
         importPath: '#app.tsx',
@@ -49,6 +53,7 @@ describe('importBlock', () => {
       },
     })
 
+    expect(result).toContain("const { describe, expect, it } = require('@jest/globals')")
     expect(result).toContain("const { screen } = require('@testing-library/react')")
     expect(result).toContain("require('@testing-library/jest-dom')")
     expect(result).toContain("const App = require('#app.tsx').default")
@@ -58,6 +63,7 @@ describe('importBlock', () => {
 
   it('renders CommonJS userEvent imports and named helpers, plus ESM default helpers', () => {
     const cjs = importBlock(true, 'cjs', {
+      runner: 'vitest',
       renderHelper: {
         name: 'renderCheckout',
         importPath: '#test/render-checkout.ts',
@@ -65,10 +71,12 @@ describe('importBlock', () => {
       },
     })
 
+    expect(cjs).toContain("const { describe, expect, it } = require('vitest')")
     expect(cjs).toContain("const userEvent = require('@testing-library/user-event')")
     expect(cjs).toContain("const renderCheckout = require('#test/render-checkout.ts').renderCheckout")
 
     const esm = importBlock(false, 'esm', {
+      runner: 'unknown',
       renderHelper: {
         name: 'renderCheckout',
         importPath: '#test/render-checkout.ts',
@@ -77,6 +85,7 @@ describe('importBlock', () => {
     })
 
     expect(esm).toContain("import renderCheckout from '#test/render-checkout.ts'")
+    expect(esm).not.toContain("import { describe, expect, it } from 'vitest'")
   })
 
   it('omits jest-dom imports when the package registers them globally', () => {
@@ -225,6 +234,7 @@ describe('block builders', () => {
     ], {
       renderExpression: '<Checkout />',
       renderFunctionName: 'renderWithProviders',
+      needsCleanup: true,
       helpers: [
         {
           name: 'openDialog',
@@ -234,6 +244,7 @@ describe('block builders', () => {
     })
 
     expect(multi).toContain("describe('checkout flow', () => {")
+    expect(multi).toContain('afterEach(cleanup)')
     expect(multi).toContain('const setup = () => {')
     expect(multi).toContain('const user = userEvent.setup()')
     expect(multi).toContain('const renderResult = renderWithProviders(<Checkout />)')

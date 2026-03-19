@@ -1,6 +1,7 @@
 // src/cli/commands/tests/generate.machine.test.ts
-import { createActor, fromPromise } from 'xstate'
 import { describe, expect, it, vi } from 'vitest'
+import { createActor, fromPromise } from 'xstate'
+
 import { createGenerateMachine } from '#cli/commands/generate.machine.ts'
 import type { GenerateMachineContext } from '#cli/commands/generate.utils.ts'
 

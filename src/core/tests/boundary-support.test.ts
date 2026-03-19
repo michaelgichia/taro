@@ -244,6 +244,88 @@ describe('planBoundarySupport', () => {
     expect(plan.mockBlocks[0]).toContain('jest.requireActual')
   })
 
+  it('emits inline svg mocks for asset imports', async () => {
+    const root = await createSandbox()
+
+    vi.mocked(discoverBoundaryImportsFromSource).mockResolvedValue([
+      {
+        target: 'public/images/kenya-flag.svg',
+        importedNames: ['default'],
+        kind: 'feature-flag',
+        guardrailReason: null,
+      },
+    ])
+
+    const plan = await planBoundarySupport({
+      projectRoot: root,
+      outputPath: join(root, 'src', 'feature', 'feature.test.tsx'),
+      packageProfile: makePackageProfile(),
+      renderTargetFile: 'src/Component.tsx',
+      renderTarget: null,
+    })
+
+    expect(plan.mockBlocks).toContain(
+      "vi.mock('public/images/kenya-flag.svg', () => ({\n  default: (props) => <svg data-testid=\"kenya-flag\" aria-hidden=\"true\" {...props} />,\n}))"
+    )
+    expect(plan.importLines).toEqual([])
+    expect(plan.supportFiles).toEqual([])
+  })
+
+  it('emits inline next/link mocks for framework imports', async () => {
+    const root = await createSandbox()
+
+    vi.mocked(discoverBoundaryImportsFromSource).mockResolvedValue([
+      {
+        target: 'next/link',
+        importedNames: ['default'],
+        kind: 'router',
+        guardrailReason: null,
+      },
+    ])
+
+    const plan = await planBoundarySupport({
+      projectRoot: root,
+      outputPath: join(root, 'src', 'feature', 'feature.test.tsx'),
+      packageProfile: makePackageProfile(),
+      renderTargetFile: 'src/Component.tsx',
+      renderTarget: null,
+    })
+
+    expect(plan.mockBlocks).toContain(
+      "vi.mock('next/link', () => ({\n  default: ({ href, children }) => <a href={href}>{children}</a>,\n}))"
+    )
+    expect(plan.importLines).toEqual([])
+    expect(plan.supportFiles).toEqual([])
+  })
+
+  it('emits inline next/dynamic mocks for framework imports', async () => {
+    const root = await createSandbox()
+
+    vi.mocked(discoverBoundaryImportsFromSource).mockResolvedValue([
+      {
+        target: 'next/dynamic',
+        importedNames: ['default'],
+        kind: 'unknown',
+        guardrailReason: null,
+      },
+    ])
+
+    const plan = await planBoundarySupport({
+      projectRoot: root,
+      outputPath: join(root, 'src', 'feature', 'feature.test.tsx'),
+      packageProfile: makePackageProfile(),
+      renderTargetFile: 'src/Component.tsx',
+      renderTarget: null,
+    })
+
+    expect(plan.mockBlocks).toHaveLength(1)
+    expect(plan.mockBlocks[0]).toContain("vi.mock('next/dynamic'")
+    expect(plan.mockBlocks[0]).toContain('function __taroCreateDynamicSentinel(loader) {')
+    expect(plan.mockBlocks[0]).toContain('return <div data-testid={testId} {...dataProps} />')
+    expect(plan.importLines).toEqual([])
+    expect(plan.supportFiles).toEqual([])
+  })
+
   it('scaffolds generic imported hooks as low-confidence mocks', async () => {
     const root = await createSandbox()
 
@@ -873,6 +955,31 @@ describe('applyBoundarySupport', () => {
     expect(result).toContain('beforeEach(() => {')
     expect(result).toContain('resetApiMock()')
     expect(result).toContain("describe('test', () => {})")
+  })
+
+  it('adds missing runner imports for inline mocks and setup hooks', () => {
+    const code = [
+      "import { describe, expect, it } from 'vitest'",
+      "import { render } from '@testing-library/react'",
+      '',
+      "describe('test', () => {})",
+      '',
+    ].join('\n')
+    const result = applyBoundarySupport(code, {
+      runner: 'vitest',
+      importLines: [],
+      mockBlocks: [
+        "vi.mock('public/images/kenya-flag.svg', () => ({\n  default: (props) => <svg data-testid=\"kenya-flag\" aria-hidden=\"true\" {...props} />,\n}))",
+      ],
+      setupLines: ['resetApiMock()'],
+      supportFiles: [],
+      warnings: [],
+      requiresReview: false,
+    })
+
+    expect(result).toContain("import { beforeEach, vi } from 'vitest'")
+    expect(result).toContain("vi.mock('public/images/kenya-flag.svg'")
+    expect(result).toContain('beforeEach(() => {')
   })
 
   it('prepends warning comments', () => {

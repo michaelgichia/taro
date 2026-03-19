@@ -22,10 +22,7 @@ import { type JsParseResult, parseJsRecording } from '#core/js-parser.ts'
 import type { MockAnalysis } from '#core/mock-intelligence.ts'
 import { analyzeMocks } from '#core/mock-intelligence.ts'
 import { isTestIdQueryMethod } from '#core/query-policy.ts'
-import {
-  analyzeRecording,
-  findVisualCaptureCandidates,
-} from '#core/recording-intelligence.ts'
+import { findVisualCaptureCandidates } from '#core/recording-intelligence.ts'
 import type {
   CaptureVisualStateAuthOptions,
   ReplayStepDebugTrace,
@@ -562,13 +559,30 @@ export function buildFlowCoverageSummary(
 /**
  * Converts parsed query descriptors into scorer-friendly query results.
  */
-export function mapParsedQueriesToResults(parsed: JsParseResult): QueryResult[] {
-  return parsed.queries.map((query) => ({
+function inferQueryResultsFromCode(code: string): QueryResult[] {
+  const queryRegex =
+    /\b(?<method>(?:get|find|query)(?:All)?By(?:Role|Text|LabelText|PlaceholderText|DisplayValue|AltText|Title|TestId))\s*\(/g
+
+  return [...code.matchAll(queryRegex)].map((match) => ({
+    method: match.groups?.method ?? 'unknown',
+    query: match[0]?.trim() ?? 'unknown',
+    quality: 'fragile' as const,
+  }))
+}
+
+export function mapParsedQueriesToResults(parsed: JsParseResult, code?: string): QueryResult[] {
+  const parsedQueries = parsed.queries.map((query) => ({
     method: query.method,
     query: query.raw ?? query.target ?? query.name ?? query.role ?? query.method,
     quality: query.quality ?? 'fragile',
     line: query.line,
   }))
+
+  if (parsedQueries.length > 0 || !code) {
+    return parsedQueries
+  }
+
+  return inferQueryResultsFromCode(code)
 }
 
 /**
@@ -581,7 +595,7 @@ export async function assessOutputAgainstRecording(params: {
   const parsed = await parseJsRecording(params.code)
   const flowCoverage = buildFlowCoverageSummary(params.analyzedRecording, params.code)
   const scoreResult = scoreGeneratedTest(params.code, {
-    queryResults: mapParsedQueriesToResults(parsed),
+    queryResults: mapParsedQueriesToResults(parsed, params.code),
   })
 
   return {
@@ -594,11 +608,6 @@ export async function assessOutputAgainstRecording(params: {
  * Compares two output assessments to decide which generated file is stronger.
  */
 export function compareOutputAssessments(candidate: OutputAssessment, existing: OutputAssessment): number {
-  const scoreDelta = candidate.scoreResult.total - existing.scoreResult.total
-  if (scoreDelta !== 0) {
-    return scoreDelta
-  }
-
   if (candidate.scoreResult.requiresReview !== existing.scoreResult.requiresReview) {
     return candidate.scoreResult.requiresReview ? -1 : 1
   }
@@ -613,7 +622,12 @@ export function compareOutputAssessments(candidate: OutputAssessment, existing: 
     return coverageDelta
   }
 
-  return candidate.flowCoverage.totalSteps - existing.flowCoverage.totalSteps
+  const totalStepsDelta = candidate.flowCoverage.totalSteps - existing.flowCoverage.totalSteps
+  if (totalStepsDelta !== 0) {
+    return totalStepsDelta
+  }
+
+  return candidate.scoreResult.total - existing.scoreResult.total
 }
 
 /**
@@ -649,7 +663,7 @@ export function logExistingOutputDecision(params: {
   if (overwrite) {
     log(
       pc.yellow(
-        `[taro] Existing output will be updated because Taro kept the higher-scored suite${resolution?.mergeApplied ? ' and merged distinct tests from the alternate draft.' : '.'}`
+        `[taro] Existing output will be updated because Taro kept the preferred suite${resolution?.mergeApplied ? ' and merged distinct tests from the alternate draft.' : '.'}`
       )
     )
     return
@@ -657,7 +671,7 @@ export function logExistingOutputDecision(params: {
 
   log(
     pc.green(
-      `[taro] Keeping the existing test because it remains the higher-scored suite and there were no additional distinct tests to preserve.`
+      `[taro] Keeping the existing test because it remains the preferred suite and there were no additional distinct tests to preserve.`
     )
   )
 }
@@ -1218,14 +1232,21 @@ export async function reconcileExistingOutput(params: {
     }
   }
 
-  const candidateWins = compareOutputAssessments(candidateAssessment, existingAssessment) > 0
+  const comparison = compareOutputAssessments(candidateAssessment, existingAssessment)
+  const candidateWins =
+    comparison > 0 ||
+    (comparison === 0 &&
+      normalizeCodeFragment(candidateCode) !== normalizeCodeFragment(existingCode))
   const preferredSource = candidateWins ? 'candidate' : 'existing'
   const preferredCode = candidateWins ? candidateCode : existingCode
   const alternateCode = candidateWins ? existingCode : candidateCode
-  const merged = mergeDistinctTestBlocks({
-    baseCode: preferredCode,
-    otherCode: alternateCode,
-  })
+  const merged =
+    preferredSource === 'existing'
+      ? mergeDistinctTestBlocks({
+          baseCode: preferredCode,
+          otherCode: alternateCode,
+        })
+      : { code: preferredCode, mergedTestCount: 0 }
   const mergeApplied = normalizeCodeFragment(merged.code) !== normalizeCodeFragment(preferredCode)
   const outputCode = mergeApplied ? merged.code : preferredCode
   const outputAssessment = mergeApplied
@@ -3688,14 +3709,14 @@ export type RunHealthCommandsActorInput = Pick<GenerateMachineContext, 'override
 
 // Guards
 export const generateMachineGuards = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   isProfileStale: ({ context, event }: { context: GenerateMachineContext; event: any }) =>
     Boolean(event.output?.staleness?.stale ?? context.staleness?.stale),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   shouldWrite: ({ context, event }: { context: GenerateMachineContext; event: any }) => {
     return Boolean(event.output?.outputResolution?.shouldWrite ?? context.outputResolution?.shouldWrite)
   },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   shouldKeepExisting: ({ context, event }: { context: GenerateMachineContext; event: any }) => {
     return !event.output?.outputResolution?.shouldWrite && !context.outputResolution?.shouldWrite
   },

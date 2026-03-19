@@ -2137,7 +2137,7 @@ describe('Example flow', () => {
     expect(result.errors).toBe("");
     expect(result.logs).toContain("Existing output detected:");
     expect(result.logs).toContain(
-      "Existing output will be updated because Taro kept the higher-scored suite and merged distinct tests from the alternate draft.",
+      "Existing output will be updated because Taro kept the preferred suite and merged distinct tests from the alternate draft.",
     );
     expect(result.logs).toContain("Preserved 1 distinct test block from the alternate suite.");
     expect(result.logs).toContain(`Updated: ${outputPath}`);
@@ -2188,11 +2188,11 @@ describe('Example flow', () => {
     expect(result.thrown).toBeUndefined();
     expect(result.errors).toBe("");
     expect(result.logs).toContain(
-      "Existing output will be updated because Taro kept the higher-scored suite and merged distinct tests from the alternate draft.",
+      "Existing output will be updated because Taro kept the preferred suite.",
     );
-    expect(result.logs).toContain("Preserved 1 distinct test block from the alternate suite.");
+    expect(result.logs).not.toContain("Preserved 1 distinct test block from the alternate suite.");
     expect(result.logs).toContain(`Updated: ${outputPath}`);
-    expect(written).toContain("it('is stale'");
+    expect(written).not.toContain("it('is stale'");
     expect(written).toContain("Open Example Flow");
     expect(written).toContain("Customer Reference");
     expect(written).toContain("Review Example");

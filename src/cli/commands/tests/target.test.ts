@@ -114,6 +114,82 @@ describe('createTargetCommand', () => {
     expect(written).toContain("expect(screen.getByRole('button', { name: 'Submit order' }))")
   })
 
+  it('prefers a sibling tests directory when local test evidence exists', async () => {
+    const root = await createSandbox('local-tests-folder')
+    const componentPath = join(root, 'src', 'widgets', 'Button.tsx')
+    const testsDir = join(root, 'src', 'widgets', 'tests')
+    await mkdir(testsDir, { recursive: true })
+    await writeFile(
+      componentPath,
+      [
+        'export default function Button() {',
+        "  return <button>Click me</button>",
+        '}',
+        '',
+      ].join('\n'),
+      'utf-8'
+    )
+    await writeFile(
+      join(testsDir, 'Existing.test.tsx'),
+      "describe('existing', () => {})\n",
+      'utf-8'
+    )
+
+    const result = await runTarget([componentPath], root)
+    const outputPath = join(testsDir, 'Button.test.tsx')
+    const written = await readFile(outputPath, 'utf-8')
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.exitCode).toBe(0)
+    expect(written).toContain("import Button from '../Button'")
+    expect(written).toContain("render(<Button />)")
+  })
+
+  it('generates prop-backed scenarios for component-only target inference', async () => {
+    const root = await createSandbox('prop-backed-target')
+    const componentPath = join(root, 'src', 'ProfileCard.tsx')
+    await mkdir(dirname(componentPath), { recursive: true })
+    await writeFile(
+      componentPath,
+      [
+        "import Link from 'next/link'",
+        "import { OrganisationType } from '@repo/data-layer'",
+        '',
+        'export default function ProfileCard({ id, displayName, organisationType, businessCount }) {',
+        '  return (',
+        "    <Link href={`/profiles/${id}`}>",
+        '      <div>',
+        '        <p>{displayName}</p>',
+        "        <p>{organisationType === OrganisationType.Individual ? 'Personal' : 'Business'}</p>",
+        '        <p>{businessCount ?? 0}</p>',
+        '      </div>',
+        '    </Link>',
+        '  )',
+        '}',
+        '',
+      ].join('\n'),
+      'utf-8'
+    )
+
+    const result = await runTarget([componentPath], root)
+    const outputPath = join(root, 'src', 'ProfileCard.test.tsx')
+    const written = await readFile(outputPath, 'utf-8')
+
+    expect(result.thrown).toBeUndefined()
+    expect(result.exitCode).toBe(0)
+    expect(written).toContain("import { OrganisationType } from '@repo/data-layer'")
+    expect(written).toContain('const BASE_PROPS = {')
+    expect(written).toContain('organisationType: OrganisationType.Business')
+    expect(written).toContain('const setup = (overrides = {}) => {')
+    expect(written).toContain('render(<ProfileCard {...BASE_PROPS} {...overrides} />)')
+    expect(written).toContain("expect(screen.getByRole('link')).toHaveAttribute('href', '/profiles/profile_1')")
+    expect(written).toContain('it(\'renders "Business"\'')
+    expect(written).toContain('it(\'renders "Profile Card Example"\'')
+    expect(written).toContain("it('renders \"Personal\" when organisation type is OrganisationType.Individual'")
+    expect(written).toContain('setup({ organisationType: OrganisationType.Individual })')
+    expect(written).toContain("expect(screen.getByText('0')).toBeVisible()")
+  })
+
   it('uses the provided component path as the output target even when a recording is supplied', async () => {
     const root = await createSandbox('recording-backed')
     const componentPath = join(root, 'src', 'CheckoutForm.tsx')

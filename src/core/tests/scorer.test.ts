@@ -129,6 +129,68 @@ describe('example flow', () => {
     )
   })
 
+  it('does not flag setup helpers when assertions stay in the test body', () => {
+    const stable = `
+describe('profile card', () => {
+  const setup = () => {
+    const renderResult = render(<ProfileCard />)
+    return { ...renderResult }
+  }
+
+  it('renders the profile name', () => {
+    setup()
+    expect(screen.getByRole('heading', { name: 'Profile' })).toBeVisible()
+  })
+})
+`
+
+    const score = scoreGeneratedTest(stable, [
+      {
+        method: 'getByRole',
+        query: "screen.getByRole('heading', { name: 'Profile' })",
+        quality: 'excellent',
+      },
+    ])
+
+    expect(score.reasons).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'helper-assertions' }),
+      ])
+    )
+  })
+
+  it('marks generic component buckets and anonymous asset mocks as repo-contract issues', () => {
+    const generated = `
+vi.mock('public/images/kenya-flag.svg', () => ({
+  default: () => <svg aria-hidden="true" />,
+}))
+
+describe('OrgCard', () => {
+  it('renders the primary UI contract', () => {
+    expect(screen.getByText('Business')).toBeVisible()
+  })
+
+  it('exposes the main interactive controls', () => {
+    expect(screen.getByRole('link')).toHaveAttribute('href', '/dashboard/orgs/org_1')
+  })
+})
+`
+
+    const score = scoreGeneratedTest(generated, [
+      { method: 'getByText', query: "screen.getByText('Business')", quality: 'good' },
+      { method: 'getByRole', query: "screen.getByRole('link')", quality: 'excellent' },
+    ])
+
+    expect(score.requiresReview).toBe(true)
+    expect(score.reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'generic-component-contract' }),
+        expect.objectContaining({ code: 'anonymous-asset-mock' }),
+      ])
+    )
+    expect(score.dimensions.boundaryIsolation).toBeLessThan(100)
+  })
+
   it('returns marker coverage and non-failing marker gate defaults when marker context is absent', () => {
     const score = scoreGeneratedTest("test('placeholder', () => expect(true).toBe(true))")
 

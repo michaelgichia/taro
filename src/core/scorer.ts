@@ -26,7 +26,8 @@ const QUERY_WEIGHTS: Record<string, number> = {
   ByTestId: 0.2,
 }
 
-const STRONG_ASSERTION_REGEX = /\.toHaveValue\(|\.toBeChecked\(|\.toHaveTextContent\(|\.toBeVisible\(/g
+const STRONG_ASSERTION_REGEX =
+  /\.toHaveValue\(|\.toBeChecked\(|\.toHaveTextContent\(|\.toBeVisible\(|\.toHaveAttribute\(/g
 const WEAK_ASSERTION_REGEX = /\.toBeInTheDocument\(/g
 const QUERY_CHECKPOINT_REGEX = /taro-query-checkpoint:/g
 const ROLE_QUERY_REGEX = /\b(?:get|query|find)(?:All)?ByRole\s*\(/g
@@ -76,6 +77,16 @@ const REPO_CONTRACT_REASON_CONFIG: Record<
     dimension: 'boundaryIsolation',
     code: 'mixed-reset-boundary',
     weight: 10,
+  },
+  'generic-component-contract': {
+    dimension: 'testStructure',
+    code: 'generic-component-contract',
+    weight: 18,
+  },
+  'anonymous-asset-mock': {
+    dimension: 'boundaryIsolation',
+    code: 'anonymous-asset-mock',
+    weight: 12,
   },
 }
 
@@ -175,6 +186,9 @@ export function calculateStructureScore(code: string): number {
   }
   if (issues.has('mixed-reset-boundary')) {
     score -= 6
+  }
+  if (issues.has('generic-component-contract')) {
+    score -= 18
   }
 
   return clampScore(score)
@@ -567,6 +581,9 @@ export function scoreGeneratedTest(
     assertionSpecificity: calculateAssertionScore(code),
     testStructure: calculateStructureScore(code),
     boundaryIsolation,
+  }
+  if (repoContractIssues.some((issue) => issue.code === 'anonymous-asset-mock')) {
+    dimensions.boundaryIsolation = clampScore(dimensions.boundaryIsolation - 12)
   }
   const reasons = collectReasons(
     dimensions,
