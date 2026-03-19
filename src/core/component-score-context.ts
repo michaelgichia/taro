@@ -1,86 +1,87 @@
-import { readFile } from 'node:fs/promises'
+import { readFile } from "node:fs/promises";
 
-import * as babelParser from '@babel/parser'
-import * as t from '@babel/types'
+import * as babelParser from "@babel/parser";
+import * as t from "@babel/types";
 
-import {
-  resolveComponentDefinitionFromAst,
-} from '#core/component-targeting.ts'
+import { resolveComponentDefinitionFromAst } from "#core/component-targeting.ts";
 import {
   classifyBoundaryKind,
   getBoundaryGuardrailReason,
-} from '#core/boundary-learning.ts'
+} from "#core/boundary-learning.ts";
 import type {
   ComponentScoreContext,
   ScoreImportReference,
-} from '#types/score.ts'
+} from "#types/score.ts";
 
 const AST_PLUGINS: babelParser.ParserPlugin[] = [
-  'jsx',
-  'typescript',
-  'classProperties',
-  'classPrivateProperties',
-  'classPrivateMethods',
-  'topLevelAwait',
-]
+  "jsx",
+  "typescript",
+  "classProperties",
+  "classPrivateProperties",
+  "classPrivateMethods",
+  "topLevelAwait",
+];
 
-function walk(node: t.Node | null | undefined, visit: (node: t.Node) => void): void {
+function walk(
+  node: t.Node | null | undefined,
+  visit: (node: t.Node) => void
+): void {
   if (!node) {
-    return
+    return;
   }
 
-  visit(node)
+  visit(node);
 
   for (const key of t.VISITOR_KEYS[node.type] ?? []) {
-    const value = (node as unknown as Record<string, unknown>)[key]
+    const value = (node as unknown as Record<string, unknown>)[key];
     if (Array.isArray(value)) {
       for (const entry of value) {
-        if (entry && typeof entry === 'object' && 'type' in entry) {
-          walk(entry as t.Node, visit)
+        if (entry && typeof entry === "object" && "type" in entry) {
+          walk(entry as t.Node, visit);
         }
       }
-      continue
+      continue;
     }
 
-    if (value && typeof value === 'object' && 'type' in value) {
-      walk(value as t.Node, visit)
+    if (value && typeof value === "object" && "type" in value) {
+      walk(value as t.Node, visit);
     }
   }
 }
 
 function isRepoOwnedImport(importPath: string): boolean {
-  return /^(?:\.{1,2}\/|@\/|~\/)/u.test(importPath)
+  return /^(?:\.{1,2}\/|@\/|~\/)/u.test(importPath);
 }
 
 function isComponentLikeName(name: string): boolean {
   if (!/^[A-Z][A-Za-z0-9]*$/u.test(name)) {
-    return false
+    return false;
   }
 
   if (/^use[A-Z]/u.test(name) || /^[A-Z0-9_]+$/u.test(name)) {
-    return false
+    return false;
   }
 
-  return true
+  return true;
 }
 
 function classifyImportReference(params: {
-  guardrailReason: ScoreImportReference['guardrailReason']
-  importPath: string
-  importedNames: string[]
-  localNames: string[]
-}): ScoreImportReference['kind'] {
-  const { guardrailReason, importPath, importedNames, localNames } = params
+  guardrailReason: ScoreImportReference["guardrailReason"];
+  importPath: string;
+  importedNames: string[];
+  localNames: string[];
+}): ScoreImportReference["kind"] {
+  const { guardrailReason, importPath, importedNames, localNames } = params;
 
   if (/\.(?:svg|png|jpe?g|gif|webp|avif)$/u.test(importPath)) {
-    return 'asset'
+    return "asset";
   }
 
   if (
     /(?:^|\/)(?:hooks?)(?:\/|$)/iu.test(importPath) ||
     [...importedNames, ...localNames].some((name) => /^use[A-Z]/u.test(name))
   ) {
-    return 'hook'
+    return "hook";
   }
 
   if (
@@ -89,36 +90,36 @@ function classifyImportReference(params: {
     importedNames.length > 0 &&
     !importedNames.some((name) => isComponentLikeName(name))
   ) {
-    return 'helper'
+    return "helper";
   }
 
-  return classifyBoundaryKind(importPath)
+  return classifyBoundaryKind(importPath);
 }
 
 function collectImportReferences(ast: t.File): ScoreImportReference[] {
-  const references: ScoreImportReference[] = []
+  const references: ScoreImportReference[] = [];
 
   for (const node of ast.program.body) {
     if (!t.isImportDeclaration(node)) {
-      continue
+      continue;
     }
 
-    const importPath = node.source.value
+    const importPath = node.source.value;
     if (
-      importPath === 'react' ||
-      importPath.startsWith('@testing-library/') ||
+      importPath === "react" ||
+      importPath.startsWith("@testing-library/") ||
       /\.(?:css|scss|sass|less)$/u.test(importPath)
     ) {
-      continue
+      continue;
     }
 
-    const importedNames: string[] = []
-    const localNames: string[] = []
+    const importedNames: string[] = [];
+    const localNames: string[] = [];
     for (const specifier of node.specifiers) {
       if (t.isImportDefaultSpecifier(specifier)) {
-        importedNames.push('default')
-        localNames.push(specifier.local.name)
-        continue
+        importedNames.push("default");
+        localNames.push(specifier.local.name);
+        continue;
       }
 
       if (t.isImportSpecifier(specifier)) {
@@ -126,12 +127,15 @@ function collectImportReferences(ast: t.File): ScoreImportReference[] {
           t.isIdentifier(specifier.imported)
             ? specifier.imported.name
             : specifier.imported.value
-        )
-        localNames.push(specifier.local.name)
+        );
+        localNames.push(specifier.local.name);
       }
     }
 
-    const guardrailReason = getBoundaryGuardrailReason(importPath, importedNames)
+    const guardrailReason = getBoundaryGuardrailReason(
+      importPath,
+      importedNames
+    );
     references.push({
       target: importPath,
       importedNames: [...new Set(importedNames)].sort(),
@@ -142,74 +146,76 @@ function collectImportReferences(ast: t.File): ScoreImportReference[] {
         localNames,
       }),
       guardrailReason,
-    })
+    });
   }
 
-  return references.sort((left, right) => left.target.localeCompare(right.target))
+  return references.sort((left, right) =>
+    left.target.localeCompare(right.target)
+  );
 }
 
 function collectComponentConditionalCount(node: t.Node): number {
-  let count = 0
+  let count = 0;
 
   walk(node, (candidate) => {
     if (t.isConditionalExpression(candidate)) {
-      count += 1
-      return
+      count += 1;
+      return;
     }
 
     if (
       t.isLogicalExpression(candidate) &&
-      (candidate.operator === '&&' || candidate.operator === '??')
+      (candidate.operator === "&&" || candidate.operator === "??")
     ) {
-      count += 1
+      count += 1;
     }
-  })
+  });
 
-  return count
+  return count;
 }
 
 function collectEventHandlerCount(node: t.Node): number {
-  let count = 0
+  let count = 0;
 
   walk(node, (candidate) => {
     if (!t.isJSXAttribute(candidate) || !t.isJSXIdentifier(candidate.name)) {
-      return
+      return;
     }
 
     if (/^on[A-Z]/u.test(candidate.name.name)) {
-      count += 1
+      count += 1;
     }
-  })
+  });
 
-  return count
+  return count;
 }
 
 function collectExportedUtilityNames(
   ast: t.File,
   componentName: string
 ): string[] {
-  const names = new Set<string>()
+  const names = new Set<string>();
 
   const addExportedName = (name: string | null | undefined) => {
     if (!name || name === componentName || isComponentLikeName(name)) {
-      return
+      return;
     }
 
-    names.add(name)
-  }
+    names.add(name);
+  };
 
   for (const node of ast.program.body) {
     if (t.isExportNamedDeclaration(node)) {
       if (t.isFunctionDeclaration(node.declaration)) {
-        addExportedName(node.declaration.id?.name)
+        addExportedName(node.declaration.id?.name);
       } else if (t.isVariableDeclaration(node.declaration)) {
         for (const declarator of node.declaration.declarations) {
           if (t.isIdentifier(declarator.id)) {
-            addExportedName(declarator.id.name)
+            addExportedName(declarator.id.name);
           }
         }
       } else if (t.isClassDeclaration(node.declaration)) {
-        addExportedName(node.declaration.id?.name)
+        addExportedName(node.declaration.id?.name);
       }
 
       for (const specifier of node.specifiers) {
@@ -218,79 +224,87 @@ function collectExportedUtilityNames(
             t.isIdentifier(specifier.exported)
               ? specifier.exported.name
               : specifier.exported.value
-          )
+          );
         }
       }
-      continue
+      continue;
     }
 
     if (
       t.isExportDefaultDeclaration(node) &&
       t.isIdentifier(node.declaration)
     ) {
-      addExportedName(node.declaration.name)
+      addExportedName(node.declaration.name);
     }
   }
 
-  return [...names].sort()
+  return [...names].sort();
 }
 
 export function analyzeComponentScoreContextFromAst(params: {
-  ast: t.File
-  fallbackDisplayName: string
+  ast: t.File;
+  fallbackDisplayName: string;
 }): ComponentScoreContext | null {
   const definition = resolveComponentDefinitionFromAst(
     params.ast,
     params.fallbackDisplayName
-  )
+  );
   if (!definition) {
-    return null
+    return null;
   }
 
   return {
     componentDisplayName: definition.name,
-    componentConditionalCount: collectComponentConditionalCount(definition.node),
+    componentConditionalCount: collectComponentConditionalCount(
+      definition.node
+    ),
     componentEventHandlerCount: collectEventHandlerCount(definition.node),
     componentImportReferences: collectImportReferences(params.ast),
-    exportedUtilityNames: collectExportedUtilityNames(params.ast, definition.name),
-  }
+    exportedUtilityNames: collectExportedUtilityNames(
+      params.ast,
+      definition.name
+    ),
+  };
 }
 
 export function analyzeComponentScoreContextFromSource(params: {
-  source: string
-  fallbackDisplayName: string
+  source: string;
+  fallbackDisplayName: string;
 }): ComponentScoreContext | null {
-  let ast: t.File
+  let ast: t.File;
   try {
     ast = babelParser.parse(params.source, {
-      sourceType: 'module',
+      sourceType: "module",
       plugins: AST_PLUGINS,
-    })
+    });
   } catch {
-    return null
+    return null;
   }
 
   return analyzeComponentScoreContextFromAst({
     ast,
     fallbackDisplayName: params.fallbackDisplayName,
-  })
+  });
 }
 
 export async function loadComponentScoreContext(
   filePath: string
 ): Promise<ComponentScoreContext | null> {
-  let source: string
+  let source: string;
   try {
-    source = await readFile(filePath, 'utf-8')
+    source = await readFile(filePath, "utf-8");
   } catch {
-    return null
+    return null;
   }
 
   const fallbackDisplayName =
-    filePath.split('/').pop()?.replace(/\.[cm]?[jt]sx?$/u, '') ?? 'Component'
+    filePath
+      .split("/")
+      .pop()
+      ?.replace(/\.[cm]?[jt]sx?$/u, "") ?? "Component";
 
   return analyzeComponentScoreContextFromSource({
     source,
     fallbackDisplayName,
-  })
+  });
 }

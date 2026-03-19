@@ -1,43 +1,45 @@
-import { readFile, rm, writeFile } from 'node:fs/promises'
-import { mkdir, mkdtemp } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from "vitest";
 
-import { runInstallCommand } from '#cli/commands/install.ts'
-import { buildRuntimeCommand } from '#install/runtime-launcher.ts'
+import { runInstallCommand } from "#cli/commands/install.ts";
+import { buildRuntimeCommand } from "#install/runtime-launcher.ts";
 
-const sandboxRoots: string[] = []
+const sandboxRoots: string[] = [];
 
 afterEach(async () => {
   await Promise.all(
-    sandboxRoots.splice(0).map((root) => rm(root, { recursive: true, force: true }))
-  )
-  process.exitCode = undefined
-})
+    sandboxRoots
+      .splice(0)
+      .map((root) => rm(root, { recursive: true, force: true }))
+  );
+  process.exitCode = undefined;
+});
 
 async function createSandbox(label: string) {
-  const root = await mkdtemp(join(tmpdir(), `taro-cli-${label}-`))
-  const cwd = join(root, 'project')
-  const home = join(root, 'home')
-  const packageRoot = join(root, 'package')
+  const root = await mkdtemp(join(tmpdir(), `taro-cli-${label}-`));
+  const cwd = join(root, "project");
+  const home = join(root, "home");
+  const packageRoot = join(root, "package");
 
-  sandboxRoots.push(root)
-  await mkdir(cwd, { recursive: true })
-  await mkdir(home, { recursive: true })
-  await mkdir(join(packageRoot, 'dist'), { recursive: true })
+  sandboxRoots.push(root);
+  await mkdir(cwd, { recursive: true });
+  await mkdir(home, { recursive: true });
+  await mkdir(join(packageRoot, "dist"), { recursive: true });
   await writeFile(
-    join(packageRoot, 'dist', 'index.js'),
+    join(packageRoot, "dist", "index.js"),
     "if (process.argv.includes('--version')) process.stdout.write('0.0.0\\n')\n"
-  )
+  );
 
-  return { cwd, home, packageRoot }
+  return { cwd, home, packageRoot };
 }
 
 function createLogger() {
-  const logs: string[] = []
-  const errors: string[] = []
+  const logs: string[] = [];
+  const errors: string[] = [];
 
   return {
     logs,
@@ -46,13 +48,13 @@ function createLogger() {
       log: (value: string) => logs.push(value),
       error: (value: string) => errors.push(value),
     },
-  }
+  };
 }
 
-describe('runInstallCommand', () => {
-  it('installs all runtimes and reports verification commands', async () => {
-    const sandbox = await createSandbox('all-global')
-    const { logs, logger } = createLogger()
+describe("runInstallCommand", () => {
+  it("installs all runtimes and reports verification commands", async () => {
+    const sandbox = await createSandbox("all-global");
+    const { logs, logger } = createLogger();
 
     await runInstallCommand(
       { all: true, global: true },
@@ -62,54 +64,118 @@ describe('runInstallCommand', () => {
         packageRoot: sandbox.packageRoot,
         logger,
       }
-    )
+    );
 
-    const output = logs.join('\n')
+    const output = logs.join("\n");
 
-    expect(process.exitCode).toBeUndefined()
-    expect(output).toContain('Install complete.')
-    expect(output).toContain('/@taro-test/rtl:help (verified at')
-    expect(output).toContain('/@taro-test/rtl-help (verified at')
-    expect(output).toContain('$@taro-test/rtl-help (verified at')
+    expect(process.exitCode).toBeUndefined();
+    expect(output).toContain("Install complete.");
+    expect(output).toContain("/@taro-test/rtl:help (verified at");
+    expect(output).toContain("/@taro-test/rtl-help (verified at");
+    expect(output).toContain("$@taro-test/rtl-help (verified at");
 
     const runtimeCommand = buildRuntimeCommand(
       process.execPath,
-      join(sandbox.packageRoot, 'dist', 'index.js')
-    )
+      join(sandbox.packageRoot, "dist", "index.js")
+    );
 
     await expect(
-      readFile(join(sandbox.home, '.codex', 'skills', '@taro-test', 'rtl-help', 'SKILL.md'), 'utf8')
-    ).resolves.toContain('$@taro-test/rtl-help')
-    await expect(
-      readFile(join(sandbox.home, '.claude', 'commands', '@taro-test', 'rtl', 'init.md'), 'utf8')
-    ).resolves.toContain(`${runtimeCommand} __init`)
-    await expect(
-      readFile(join(sandbox.home, '.claude', 'commands', '@taro-test', 'rtl', 'refresh.md'), 'utf8')
-    ).resolves.toContain(`${runtimeCommand} __refresh`)
-    await expect(
-      readFile(join(sandbox.home, '.claude', 'commands', '@taro-test', 'rtl', 'overrides.md'), 'utf8')
-    ).resolves.toContain(`${runtimeCommand} __overrides`)
-    await expect(
-      readFile(join(sandbox.home, '.codex', 'skills', '@taro-test', 'rtl-init', 'SKILL.md'), 'utf8')
-    ).resolves.toContain('$@taro-test/rtl-init')
+      readFile(
+        join(
+          sandbox.home,
+          ".codex",
+          "skills",
+          "@taro-test",
+          "rtl-help",
+          "SKILL.md"
+        ),
+        "utf8"
+      )
+    ).resolves.toContain("$@taro-test/rtl-help");
     await expect(
       readFile(
-        join(sandbox.home, '.codex', 'skills', '@taro-test', 'rtl-refresh', 'SKILL.md'),
-        'utf8'
+        join(
+          sandbox.home,
+          ".claude",
+          "commands",
+          "@taro-test",
+          "rtl",
+          "init.md"
+        ),
+        "utf8"
       )
-    ).resolves.toContain('$@taro-test/rtl-refresh')
+    ).resolves.toContain(`${runtimeCommand} __init`);
     await expect(
       readFile(
-        join(sandbox.home, '.codex', 'skills', '@taro-test', 'rtl-overrides', 'SKILL.md'),
-        'utf8'
+        join(
+          sandbox.home,
+          ".claude",
+          "commands",
+          "@taro-test",
+          "rtl",
+          "refresh.md"
+        ),
+        "utf8"
       )
-    ).resolves.toContain('$@taro-test/rtl-overrides')
-  })
+    ).resolves.toContain(`${runtimeCommand} __refresh`);
+    await expect(
+      readFile(
+        join(
+          sandbox.home,
+          ".claude",
+          "commands",
+          "@taro-test",
+          "rtl",
+          "overrides.md"
+        ),
+        "utf8"
+      )
+    ).resolves.toContain(`${runtimeCommand} __overrides`);
+    await expect(
+      readFile(
+        join(
+          sandbox.home,
+          ".codex",
+          "skills",
+          "@taro-test",
+          "rtl-init",
+          "SKILL.md"
+        ),
+        "utf8"
+      )
+    ).resolves.toContain("$@taro-test/rtl-init");
+    await expect(
+      readFile(
+        join(
+          sandbox.home,
+          ".codex",
+          "skills",
+          "@taro-test",
+          "rtl-refresh",
+          "SKILL.md"
+        ),
+        "utf8"
+      )
+    ).resolves.toContain("$@taro-test/rtl-refresh");
+    await expect(
+      readFile(
+        join(
+          sandbox.home,
+          ".codex",
+          "skills",
+          "@taro-test",
+          "rtl-overrides",
+          "SKILL.md"
+        ),
+        "utf8"
+      )
+    ).resolves.toContain("$@taro-test/rtl-overrides");
+  });
 
-  it('reports update results on rerun in non-interactive mode', async () => {
-    const sandbox = await createSandbox('replace')
-    const firstRun = createLogger()
-    const secondRun = createLogger()
+  it("reports update results on rerun in non-interactive mode", async () => {
+    const sandbox = await createSandbox("replace");
+    const firstRun = createLogger();
+    const secondRun = createLogger();
 
     await runInstallCommand(
       { claude: true, global: true },
@@ -119,9 +185,9 @@ describe('runInstallCommand', () => {
         packageRoot: sandbox.packageRoot,
         logger: firstRun.logger,
       }
-    )
+    );
 
-    process.exitCode = undefined
+    process.exitCode = undefined;
 
     await runInstallCommand(
       { claude: true, global: true },
@@ -131,18 +197,18 @@ describe('runInstallCommand', () => {
         packageRoot: sandbox.packageRoot,
         logger: secondRun.logger,
       }
-    )
+    );
 
-    const output = secondRun.logs.join('\n')
+    const output = secondRun.logs.join("\n");
 
-    expect(process.exitCode).toBeUndefined()
-    expect(output).toMatch(/updated \d+ owned asset\(s\)/)
-  })
+    expect(process.exitCode).toBeUndefined();
+    expect(output).toMatch(/updated \d+ owned asset\(s\)/);
+  });
 
-  it('reports repaired outcomes when a rerun restores a missing owned asset', async () => {
-    const sandbox = await createSandbox('repair')
-    const firstRun = createLogger()
-    const secondRun = createLogger()
+  it("reports repaired outcomes when a rerun restores a missing owned asset", async () => {
+    const sandbox = await createSandbox("repair");
+    const firstRun = createLogger();
+    const secondRun = createLogger();
 
     await runInstallCommand(
       { gemini: true, global: true },
@@ -152,12 +218,20 @@ describe('runInstallCommand', () => {
         packageRoot: sandbox.packageRoot,
         logger: firstRun.logger,
       }
-    )
+    );
 
-    await rm(join(sandbox.home, '.gemini', 'commands', '@taro-test', 'rtl', 'help.toml'), {
-      force: true,
-    })
-    process.exitCode = undefined
+    await rm(
+      join(
+        sandbox.home,
+        ".gemini",
+        "commands",
+        "@taro-test",
+        "rtl",
+        "help.toml"
+      ),
+      { force: true }
+    );
+    process.exitCode = undefined;
 
     await runInstallCommand(
       { gemini: true, global: true },
@@ -167,11 +241,11 @@ describe('runInstallCommand', () => {
         packageRoot: sandbox.packageRoot,
         logger: secondRun.logger,
       }
-    )
+    );
 
-    const output = secondRun.logs.join('\n')
+    const output = secondRun.logs.join("\n");
 
-    expect(process.exitCode).toBeUndefined()
-    expect(output).toMatch(/repaired \d+ owned asset\(s\)/)
-  })
-})
+    expect(process.exitCode).toBeUndefined();
+    expect(output).toMatch(/repaired \d+ owned asset\(s\)/);
+  });
+});

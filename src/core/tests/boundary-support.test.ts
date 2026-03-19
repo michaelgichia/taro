@@ -267,7 +267,7 @@ describe("planBoundarySupport", () => {
     });
 
     expect(plan.mockBlocks).toContain(
-      'vi.mock(\'public/images/kenya-flag.svg\', () => ({\n  default: (props) => <svg data-testid="kenya-flag" aria-hidden="true" {...props} />,\n}))'
+      "vi.mock('public/images/kenya-flag.svg', () => ({\n  default: (props) => <svg aria-hidden=\"true\" {...props} />,\n}))"
     );
     expect(plan.importLines).toEqual([]);
     expect(plan.supportFiles).toEqual([]);
@@ -322,13 +322,19 @@ describe("planBoundarySupport", () => {
 
     expect(plan.mockBlocks).toHaveLength(1);
     expect(plan.mockBlocks[0]).toContain("vi.mock('next/dynamic'");
-    expect(plan.mockBlocks[0]).toContain("function __taroDynamicMock(props) {");
     expect(plan.mockBlocks[0]).toContain(
-      'return <div data-testid="dynamic-component" {...dataProps} />'
+      "function __taroDynamicPlaceholder() {"
     );
-    expect(plan.mockBlocks[0]).toContain("default: () => __taroDynamicMock");
+    expect(plan.mockBlocks[0]).toContain("return null");
+    expect(plan.mockBlocks[0]).toContain(
+      "default: () => __taroDynamicPlaceholder"
+    );
     expect(plan.importLines).toEqual([]);
     expect(plan.supportFiles).toEqual([]);
+    expect(plan.warnings).toContain(
+      "next/dynamic was reduced to a null placeholder shim. If the test depends on the loaded child, replace it with a repo-local mock example."
+    );
+    expect(plan.requiresReview).toBe(true);
   });
 
   it("scaffolds generic imported hooks as low-confidence mocks", async () => {
@@ -365,6 +371,9 @@ describe("planBoundarySupport", () => {
     expect(plan.supportFiles[0]?.content).toContain(
       "useOrdersMock.mockReset()"
     );
+    expect(plan.supportFiles[0]?.content).not.toContain("isLoading");
+    expect(plan.supportFiles[0]?.content).not.toContain("isPending");
+    expect(plan.warnings[0]).toContain("replace the placeholder seam");
   });
 
   it("prefers learned mocks fixture roots when scaffolding new support files", async () => {
@@ -986,7 +995,7 @@ describe("applyBoundarySupport", () => {
       runner: "vitest",
       importLines: [],
       mockBlocks: [
-        'vi.mock(\'public/images/kenya-flag.svg\', () => ({\n  default: (props) => <svg data-testid="kenya-flag" aria-hidden="true" {...props} />,\n}))',
+        "vi.mock('public/images/kenya-flag.svg', () => ({\n  default: (props) => <svg aria-hidden=\"true\" {...props} />,\n}))",
       ],
       setupLines: ["resetApiMock()"],
       supportFiles: [],

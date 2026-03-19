@@ -1,70 +1,70 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from "vitest";
 
 const { verifyInstalledRuntimeMock, writeInstallPlanMock } = vi.hoisted(() => ({
   verifyInstalledRuntimeMock: vi.fn(),
   writeInstallPlanMock: vi.fn(),
-}))
+}));
 
-vi.mock('#install/verification.ts', () => ({
+vi.mock("#install/verification.ts", () => ({
   verifyInstalledRuntime: verifyInstalledRuntimeMock,
-}))
+}));
 
-vi.mock('#install/writer.ts', () => ({
+vi.mock("#install/writer.ts", () => ({
   writeInstallPlan: writeInstallPlanMock,
-}))
+}));
 
-import { executeInstallPlan } from '#install/executor.ts'
+import { executeInstallPlan } from "#install/executor.ts";
 
 const basePlan = {
-  packageName: '@taro-test/rtl',
+  packageName: "@taro-test/rtl",
   targets: [
     {
-      id: 'claude',
-      runtime: 'claude',
-      displayName: 'Claude',
-      location: 'global',
-      destinationDirectory: '/home/.claude',
-      verificationCommand: 'cmd',
+      id: "claude",
+      runtime: "claude",
+      displayName: "Claude",
+      location: "global",
+      destinationDirectory: "/home/.claude",
+      verificationCommand: "cmd",
       operations: [],
     },
   ],
-} as any
+} as any;
 
-describe('executeInstallPlan', () => {
-  it('returns blocked when every target is blocked before verification', async () => {
+describe("executeInstallPlan", () => {
+  it("returns blocked when every target is blocked before verification", async () => {
     writeInstallPlanMock.mockResolvedValue({
-      runtime: 'claude',
-      status: 'blocked',
+      runtime: "claude",
+      status: "blocked",
       conflicts: [],
       writtenFiles: [],
-    })
+    });
 
-    const result = await executeInstallPlan(basePlan)
+    const result = await executeInstallPlan(basePlan);
 
-    expect(result.status).toBe('blocked')
-    expect(verifyInstalledRuntimeMock).not.toHaveBeenCalled()
-  })
+    expect(result.status).toBe("blocked");
+    expect(verifyInstalledRuntimeMock).not.toHaveBeenCalled();
+  });
 
-  it('returns partial when writes succeed but verification fails', async () => {
+  it("returns partial when writes succeed but verification fails", async () => {
     writeInstallPlanMock.mockResolvedValue({
-      runtime: 'claude',
-      status: 'installed',
+      runtime: "claude",
+      status: "installed",
       conflicts: [],
-      writtenFiles: ['help.md'],
-    })
+      writtenFiles: ["help.md"],
+    });
     verifyInstalledRuntimeMock.mockResolvedValue({
-      status: 'runtime-check-failed',
+      status: "runtime-check-failed",
       missingPaths: [],
-    })
+    });
 
     const result = await executeInstallPlan(basePlan, {
-      generatedAt: '2026-03-16T12:00:00Z',
-    })
+      generatedAt: "2026-03-16T12:00:00Z",
+    });
 
-    expect(result.status).toBe('partial')
+    expect(result.status).toBe("partial");
     expect(writeInstallPlanMock).toHaveBeenCalledWith(
       basePlan.targets[0],
-      expect.objectContaining({ generatedAt: '2026-03-16T12:00:00Z' })
-    )
-  })
-})
+      expect.objectContaining({ generatedAt: "2026-03-16T12:00:00Z" })
+    );
+  });
+});

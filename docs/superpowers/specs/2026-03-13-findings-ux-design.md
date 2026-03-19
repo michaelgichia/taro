@@ -1,7 +1,6 @@
 # Findings UX Design
 
-**Date:** 2026-03-13
-**Status:** Approved
+**Date:** 2026-03-13 **Status:** Approved
 
 ## Problem
 
@@ -16,6 +15,7 @@ The primary consumer is an **AI agent** (Claude Code, Copilot, etc.) that runs `
 ### Output channel split
 
 All operational logs (`[taro]` progress, warnings, score output, marker diagnostics) move to **stderr**. In scope for this change:
+
 - `src/cli/commands/generate.ts` — all `console.log` call sites (note: existing `console.warn` calls already write to stderr in Node.js and require no change)
 - `src/core/generator.ts` — the single `console.log` call in `emitQuerySummary` at line 375
 - `src/core/scanner.ts` — the single `console.log` call at line 62 (`[taro] CTX: No test files found`)
@@ -25,6 +25,7 @@ Modules that return structured results without side-effect `console.log` calls (
 **stdout is reserved exclusively for the findings envelope.** If no findings exist, stdout is silent.
 
 Agents can isolate findings cleanly:
+
 ```sh
 taro generate recording.js 2>/dev/null   # stdout = findings only, or empty
 ```
@@ -41,6 +42,7 @@ When findings exist, stdout contains exactly:
 ```
 
 Rules:
+
 - One finding per line, no line breaks within a finding
 - Severity values: `BLOCKING`, `HIGH`, `ADVISORY`
 - Categories are short free-form labels: `boundary`, `data-layer`, `mutation`, `follow-up`, `fixture`, `instability`
@@ -49,6 +51,7 @@ Rules:
 - `HIGH`/`ADVISORY`-only run → envelope emitted to stdout, exit 0
 
 Example output:
+
 ```
 === taro:findings:start ===
 [BLOCKING] boundary — tenant-provider not mocked inline. AddNewOrgForm.tsx#L68 calls useTenant(). Established pattern: AddNewAppForm.test.tsx#L35.
@@ -64,7 +67,7 @@ Example output:
 ### Exit code
 
 | Condition | Exit code |
-|---|---|
+| --- | --- |
 | No findings | 0 |
 | Only `HIGH` / `ADVISORY` findings | 0 |
 | Any `BLOCKING` finding | 1 |
@@ -73,6 +76,7 @@ Example output:
 Exit 1 always accompanies a findings envelope on stdout. Exit 2 means a fatal infrastructure error with no findings envelope — agents can distinguish the two cases by exit code alone.
 
 This requires changing all four existing `process.exit(1)` call sites in `generate.ts` to `process.exit(2)`, including:
+
 - File not found / not accessible
 - Failed to parse recording
 - Post-write syntax verification failure (internal Taro bug path)
@@ -97,28 +101,28 @@ The findings flush and exit happen **at the very end of the action handler**, af
 ### New file: `src/core/findings-reporter.ts`
 
 ```ts
-export type FindingsSeverity = 'BLOCKING' | 'HIGH' | 'ADVISORY'
+export type FindingsSeverity = "BLOCKING" | "HIGH" | "ADVISORY";
 
 export interface Finding {
-  severity: FindingsSeverity
-  category: string  // plain text, no ANSI codes
-  message: string   // plain text, no ANSI codes
+  severity: FindingsSeverity;
+  category: string; // plain text, no ANSI codes
+  message: string; // plain text, no ANSI codes
 }
 
 export function formatFindingsBlock(findings: Finding[]): string {
-  if (findings.length === 0) return ''
+  if (findings.length === 0) return "";
   const lines = findings.map(
     (f) => `[${f.severity}] ${f.category} — ${f.message}`
-  )
+  );
   return [
-    '=== taro:findings:start ===',
+    "=== taro:findings:start ===",
     ...lines,
-    '=== taro:findings:end ===',
-  ].join('\n')
+    "=== taro:findings:end ===",
+  ].join("\n");
 }
 
 export function hasBlockingFindings(findings: Finding[]): boolean {
-  return findings.some((f) => f.severity === 'BLOCKING')
+  return findings.some((f) => f.severity === "BLOCKING");
 }
 ```
 

@@ -7,15 +7,13 @@
  * Implements CNV-03: Faster subsequent runs via caching.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from "fs";
+import * as path from "path";
 
-import { extractConventions } from '#learner/analyzer.ts';
-import { ConventionStore, createStore } from '#learner/storage.ts';
-import {
-  createEmptyConvention,
-  TestConvention} from '#learner/types.ts';
-import { findReadableProjectStatePathSync } from '#project-state.ts';
+import { extractConventions } from "#learner/analyzer.ts";
+import { ConventionStore, createStore } from "#learner/storage.ts";
+import { createEmptyConvention, TestConvention } from "#learner/types.ts";
+import { findReadableProjectStatePathSync } from "#project-state.ts";
 
 /**
  * Find test directories in a project
@@ -24,13 +22,15 @@ import { findReadableProjectStatePathSync } from '#project-state.ts';
  */
 function findTestDirectories(projectRoot: string): string[] {
   const candidates = [
-    path.join(projectRoot, 'src', '__tests__'),
-    path.join(projectRoot, 'tests'),
-    path.join(projectRoot, 'test'),
-    path.join(projectRoot, '__tests__')
+    path.join(projectRoot, "src", "__tests__"),
+    path.join(projectRoot, "tests"),
+    path.join(projectRoot, "test"),
+    path.join(projectRoot, "__tests__"),
   ];
 
-  return candidates.filter(dir => fs.existsSync(dir) && fs.statSync(dir).isDirectory());
+  return candidates.filter(
+    (dir) => fs.existsSync(dir) && fs.statSync(dir).isDirectory()
+  );
 }
 
 /**
@@ -51,7 +51,7 @@ function findTestFiles(projectRoot: string): string[] {
 
       if (entry.isDirectory()) {
         // Skip node_modules and hidden directories
-        if (entry.name !== 'node_modules' && !entry.name.startsWith('.')) {
+        if (entry.name !== "node_modules" && !entry.name.startsWith(".")) {
           searchDir(fullPath);
         }
       } else if (entry.isFile()) {
@@ -65,7 +65,7 @@ function findTestFiles(projectRoot: string): string[] {
 
   // Search in src and root
   const searchRoots = [projectRoot];
-  const srcDir = path.join(projectRoot, 'src');
+  const srcDir = path.join(projectRoot, "src");
   if (fs.existsSync(srcDir)) {
     searchRoots.push(srcDir);
   }
@@ -115,7 +115,7 @@ export function learnConventions(projectRoot: string): TestConvention {
     store.saveConventions(conventions);
     store.close();
   } catch (error) {
-    console.warn('[learnConventions] Failed to save conventions:', error);
+    console.warn("[learnConventions] Failed to save conventions:", error);
   }
 
   return conventions;
@@ -131,17 +131,26 @@ function extractSingleFileConventions(filePath: string): TestConvention {
 /**
  * Merge two TestConvention objects
  */
-function mergeConventions(a: TestConvention, b: TestConvention): TestConvention {
+function mergeConventions(
+  a: TestConvention,
+  b: TestConvention
+): TestConvention {
   const result = { ...a };
 
   // Merge naming - prefer non-default values
-  if (b.naming.pattern !== 'camelCase' && b.naming.pattern !== a.naming.pattern) {
+  if (
+    b.naming.pattern !== "camelCase" &&
+    b.naming.pattern !== a.naming.pattern
+  ) {
     result.naming.pattern = b.naming.pattern;
   }
-  if (b.naming.describePrefix && b.naming.describePrefix !== a.naming.describePrefix) {
+  if (
+    b.naming.describePrefix &&
+    b.naming.describePrefix !== a.naming.describePrefix
+  ) {
     result.naming.describePrefix = b.naming.describePrefix;
   }
-  if (b.naming.itTemplate !== 'should {description}') {
+  if (b.naming.itTemplate !== "should {description}") {
     result.naming.itTemplate = b.naming.itTemplate;
   }
 
@@ -152,7 +161,10 @@ function mergeConventions(a: TestConvention, b: TestConvention): TestConvention 
     result.structure.helpersInDescribe || b.structure.helpersInDescribe;
 
   // Merge queries - union
-  const preferredSet = new Set([...result.queries.preferred, ...b.queries.preferred]);
+  const preferredSet = new Set([
+    ...result.queries.preferred,
+    ...b.queries.preferred,
+  ]);
   const avoidedSet = new Set([...result.queries.avoided, ...b.queries.avoided]);
   result.queries.preferred = Array.from(preferredSet);
   result.queries.avoided = Array.from(avoidedSet);
@@ -176,7 +188,10 @@ function mergeConventions(a: TestConvention, b: TestConvention): TestConvention 
  */
 export function getConventions(projectRoot: string): TestConvention | null {
   try {
-    const dbPath = findReadableProjectStatePathSync(projectRoot, 'conventions.db');
+    const dbPath = findReadableProjectStatePathSync(
+      projectRoot,
+      "conventions.db"
+    );
 
     // Check if database exists
     if (!dbPath || !fs.existsSync(dbPath)) {
@@ -191,7 +206,7 @@ export function getConventions(projectRoot: string): TestConvention | null {
 
     return conventions;
   } catch (error) {
-    console.warn('[getConventions] Failed to load conventions:', error);
+    console.warn("[getConventions] Failed to load conventions:", error);
     return null;
   }
 }
@@ -254,29 +269,42 @@ export class InMemoryConventionStore {
     // Merge naming
     if (source.naming.pattern !== target.naming.pattern) {
       // Keep target preference unless source has one
-      if (target.naming.pattern === 'camelCase') {
+      if (target.naming.pattern === "camelCase") {
         target.naming.pattern = source.naming.pattern;
       }
     }
 
     // Merge structure - OR logic
     target.structure.describePerComponent =
-      target.structure.describePerComponent || source.structure.describePerComponent;
+      target.structure.describePerComponent ||
+      source.structure.describePerComponent;
     target.structure.helpersInDescribe =
       target.structure.helpersInDescribe || source.structure.helpersInDescribe;
 
     // Merge queries - union
-    const preferredSet = new Set([...target.queries.preferred, ...source.queries.preferred]);
-    const avoidedSet = new Set([...target.queries.avoided, ...source.queries.avoided]);
+    const preferredSet = new Set([
+      ...target.queries.preferred,
+      ...source.queries.preferred,
+    ]);
+    const avoidedSet = new Set([
+      ...target.queries.avoided,
+      ...source.queries.avoided,
+    ]);
     target.queries.preferred = Array.from(preferredSet);
     target.queries.avoided = Array.from(avoidedSet);
 
     // Merge matchers - union
-    const matcherSet = new Set([...target.matchers.common, ...source.matchers.common]);
+    const matcherSet = new Set([
+      ...target.matchers.common,
+      ...source.matchers.common,
+    ]);
     target.matchers.common = Array.from(matcherSet);
 
     // Merge imports - union
-    const importSet = new Set([...target.imports.common, ...source.imports.common]);
+    const importSet = new Set([
+      ...target.imports.common,
+      ...source.imports.common,
+    ]);
     target.imports.common = Array.from(importSet);
   }
 }

@@ -1,8 +1,6 @@
 # Design: Convert `generate.ts` Pipeline to XState Flat Sequential Machine
 
-**Date:** 2026-03-16
-**Status:** Approved
-**Goal:** Replace the imperative `action` handler in `src/cli/commands/generate.ts` with an XState v5 flat sequential state machine to improve state predictability and eliminate unnecessary conditional logic.
+**Date:** 2026-03-16 **Status:** Approved **Goal:** Replace the imperative `action` handler in `src/cli/commands/generate.ts` with an XState v5 flat sequential state machine to improve state predictability and eliminate unnecessary conditional logic.
 
 ---
 
@@ -34,73 +32,73 @@ Defined once in `generate.utils.ts` and imported by all other files. All `let` v
 // generate.utils.ts — single source of truth for this type
 export interface GenerateMachineContext {
   // Inputs
-  filePath: string
-  projectRoot: string
-  commandOptions: CommandOptions
-  debugReporter: SelectorDebugReporter
-  findings: Finding[]
+  filePath: string;
+  projectRoot: string;
+  commandOptions: CommandOptions;
+  debugReporter: SelectorDebugReporter;
+  findings: Finding[];
 
   // Parse
-  normalizedRecording?: NormalizedRecording
-  defaultOutputPath?: string
+  normalizedRecording?: NormalizedRecording;
+  defaultOutputPath?: string;
 
   // State loading
-  hadState?: boolean
-  bootstrappedState?: TaroBootstrapResult
-  overrides?: TaroOverrides
-  packageProfile?: ResolvedTaroPackageProfile | null
+  hadState?: boolean;
+  bootstrappedState?: TaroBootstrapResult;
+  overrides?: TaroOverrides;
+  packageProfile?: ResolvedTaroPackageProfile | null;
 
   // Auth resolution
-  explicitAuthPath?: ResolvedFilePath | null
-  explicitInstructionsPath?: ResolvedFilePath | null
-  visualAuth?: TaroPlaywrightAuthProfile | null
+  explicitAuthPath?: ResolvedFilePath | null;
+  explicitInstructionsPath?: ResolvedFilePath | null;
+  visualAuth?: TaroPlaywrightAuthProfile | null;
 
   // Visual preflight
   // NOTE: capturingVisual reads normalizedRecording in its pre-enrichment form
   // (before searchingContext enriches it with canonical semantic markers).
   // This matches current behaviour: visual preflight runs before semantic enrichment.
-  earlyAnalyzedRecording?: AnalyzedRecording
-  recordingUrl?: string
-  visualState?: VisualState | null
+  earlyAnalyzedRecording?: AnalyzedRecording;
+  recordingUrl?: string;
+  visualState?: VisualState | null;
 
   // Repo context
-  contextMatches?: RepoContextMatch[]
-  contextProfileReason?: string | null
+  contextMatches?: RepoContextMatch[];
+  contextProfileReason?: string | null;
 
   // Profile refinement
-  staleness?: { stale: boolean; reason?: string } | null
+  staleness?: { stale: boolean; reason?: string } | null;
 
   // Analyzed recording
-  analyzedRecording?: AnalyzedRecording
-  markerAwareRecording?: NormalizedRecording
-  recoveredVisualAuth?: TaroPlaywrightAuthProfile | null
-  mockAnalysis?: MockAnalysis | null
+  analyzedRecording?: AnalyzedRecording;
+  markerAwareRecording?: NormalizedRecording;
+  recoveredVisualAuth?: TaroPlaywrightAuthProfile | null;
+  mockAnalysis?: MockAnalysis | null;
 
   // Planning
-  jsSuitePlan?: JsSuitePlan | null
-  outputPath?: string
-  resolvedRenderTargetFile?: string | null
-  boundarySupportPlan?: BoundarySupportPlan
-  generationRenderTarget?: RepoRenderTargetCandidate | null
-  generationRenderHelper?: EffectiveRenderHelper
+  jsSuitePlan?: JsSuitePlan | null;
+  outputPath?: string;
+  resolvedRenderTargetFile?: string | null;
+  boundarySupportPlan?: BoundarySupportPlan;
+  generationRenderTarget?: RepoRenderTargetCandidate | null;
+  generationRenderHelper?: EffectiveRenderHelper;
 
   // Selector resolution
-  resolvedJsGeneration?: ResolvedJsGeneration
+  resolvedJsGeneration?: ResolvedJsGeneration;
 
   // Code generation
   // candidateAssessment is always populated before assessingOutput is entered.
   // generateCodeActor throws on failure, transitioning to failed instead.
   // Test harnesses must satisfy this invariant when mocking generateCodeActor.
-  generatedCode?: string
-  hydratedSuitePlan?: JsSuitePlan | null
-  scoreResult?: ScoreResult
-  boundaryPolicyWarnings?: string[]
-  candidateAssessment?: OutputAssessment
+  generatedCode?: string;
+  hydratedSuitePlan?: JsSuitePlan | null;
+  scoreResult?: ScoreResult;
+  boundaryPolicyWarnings?: string[];
+  candidateAssessment?: OutputAssessment;
 
   // Output decision
-  existingCode?: string | null
-  existingAssessment?: OutputAssessment | null
-  shouldOverwrite?: boolean
+  existingCode?: string | null;
+  existingAssessment?: OutputAssessment | null;
+  shouldOverwrite?: boolean;
 
   // Write result
   // writeOutputActor is fire-and-forget: it writes the file and returns void.
@@ -108,7 +106,7 @@ export interface GenerateMachineContext {
   // additional assign from writing.
 
   // Error
-  error?: Error
+  error?: Error;
 }
 ```
 
@@ -132,7 +130,7 @@ assessingOutput → [onError] → done  (intentional: preserve existing on asses
 ### State details
 
 | State | Async actor | `onDone` target | `onError` target | Assigns to context |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `idle` | none | `validating` (always) | — (unreachable: always fires synchronously) | — |
 | `validating` | `validateFileActor` | `parsing` | `failed` | — |
 | `parsing` | `parseRecordingActor` | `loadingState` | `failed` | `normalizedRecording`, `defaultOutputPath` |
@@ -169,19 +167,25 @@ export const generateMachineGuards = {
   // candidateAssessment is guaranteed non-null by generateCodeActor invariant.
   shouldWrite: ({ context }: { context: GenerateMachineContext }) =>
     !context.existingCode ||
-    compareOutputAssessments(context.candidateAssessment!, context.existingAssessment!) > 0,
+    compareOutputAssessments(
+      context.candidateAssessment!,
+      context.existingAssessment!
+    ) > 0,
 
   // assessingOutput → done: existing file exists and candidate is not better
   shouldKeepExisting: ({ context }: { context: GenerateMachineContext }) =>
     Boolean(context.existingCode) &&
-    compareOutputAssessments(context.candidateAssessment!, context.existingAssessment!) <= 0,
-}
+    compareOutputAssessments(
+      context.candidateAssessment!,
+      context.existingAssessment!
+    ) <= 0,
+};
 ```
 
 **Exhaustiveness proof for `shouldWrite` / `shouldKeepExisting`:**
 
 | `existingCode` | `compareOutputAssessments` | `shouldWrite` | `shouldKeepExisting` |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | falsy | any | true | false |
 | truthy | > 0 | true | false |
 | truthy | ≤ 0 | false | true |
@@ -239,10 +243,10 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
 
 ```typescript
 // generate.ts
-import { createGenerateMachine } from './generate.machine.ts'
-import * as actors from './generate.actors.ts'
+import { createGenerateMachine } from "./generate.machine.ts";
+import * as actors from "./generate.actors.ts";
 
-createActor(createGenerateMachine(actors), { input: initialContext }).start()
+createActor(createGenerateMachine(actors), { input: initialContext }).start();
 ```
 
 Tests inject mock actors instead of the real ones — no real Playwright or filesystem calls needed.
@@ -251,29 +255,30 @@ Tests inject mock actors instead of the real ones — no real Playwright or file
 
 All input types are defined in `generate.utils.ts` to prevent circular imports. Actors import types from `generate.utils.ts`; the machine imports types from `generate.utils.ts`. Neither imports from the other.
 
-| Actor | Input type name |
-|---|---|
-| `validateFileActor` | `ValidateFileActorInput` |
-| `parseRecordingActor` | `ParseRecordingActorInput` |
-| `loadStateActor` | `LoadStateActorInput` |
-| `captureVisualActor` | `CaptureVisualActorInput` |
-| `searchContextActor` | `SearchContextActorInput` |
-| `refineProfileActor` | `RefineProfileActorInput` |
-| `refreshProfileActor` | `RefreshProfileActorInput` |
+| Actor                   | Input type name              |
+| ----------------------- | ---------------------------- |
+| `validateFileActor`     | `ValidateFileActorInput`     |
+| `parseRecordingActor`   | `ParseRecordingActorInput`   |
+| `loadStateActor`        | `LoadStateActorInput`        |
+| `captureVisualActor`    | `CaptureVisualActorInput`    |
+| `searchContextActor`    | `SearchContextActorInput`    |
+| `refineProfileActor`    | `RefineProfileActorInput`    |
+| `refreshProfileActor`   | `RefreshProfileActorInput`   |
 | `analyzeRecordingActor` | `AnalyzeRecordingActorInput` |
-| `analyzeMocksActor` | `AnalyzeMocksActorInput` |
-| `planGenerationActor` | `PlanGenerationActorInput` |
+| `analyzeMocksActor`     | `AnalyzeMocksActorInput`     |
+| `planGenerationActor`   | `PlanGenerationActorInput`   |
 | `resolveSelectorsActor` | `ResolveSelectorsActorInput` |
-| `generateCodeActor` | `GenerateCodeActorInput` |
-| `assessOutputActor` | `AssessOutputActorInput` |
-| `writeOutputActor` | `WriteOutputActorInput` |
-| `finalizeActor` | `FinalizeActorInput` |
+| `generateCodeActor`     | `GenerateCodeActorInput`     |
+| `assessOutputActor`     | `AssessOutputActorInput`     |
+| `writeOutputActor`      | `WriteOutputActorInput`      |
+| `finalizeActor`         | `FinalizeActorInput`         |
 
 > Note: `finalizeActor` is listed separately from the 14 `fromPromise` actors in the topology because `writing` also has a `writeOutputActor`. The total count of actors is 15 including `finalizeActor`. The earlier reference to "14 actors" was an off-by-one; the correct count is **15**.
 
 ### `finalizeActor` responsibilities
 
 `finalizeActor` wraps two operations currently in `finalizeGeneratedOutput`:
+
 1. **Syntax verification** — calls `verifySyntax(context.generatedCode, context.outputPath)`; throws if invalid (triggering `onError → failed`)
 2. **State update** — calls `refreshTaroState` and `appendGeneratedTestRecord` (best-effort; swallows errors internally)
 
@@ -346,6 +351,7 @@ generate.utils.ts
 ### `generate.ts` (after)
 
 Responsibilities:
+
 - Parse CLI options into `GenerateMachineContext` initial values
 - Import real actors from `generate.actors.ts`
 - Call `createActor(createGenerateMachine(actors), { input }).start()`
@@ -356,6 +362,7 @@ Responsibilities:
 ### `generate.machine.ts`
 
 Responsibilities:
+
 - Export `createGenerateMachine(actors: GenerateMachineActors)` factory
 - Export `GenerateMachineActors` type
 - Import `GenerateMachineContext` and `generateMachineGuards` from `generate.utils.ts`
@@ -365,6 +372,7 @@ Responsibilities:
 ### `generate.actors.ts`
 
 Responsibilities:
+
 - Export 15 `fromPromise` actors (one per async phase)
 - Import actor input types from `generate.utils.ts`
 - Import async core functions from `#core/*` modules
@@ -373,6 +381,7 @@ Responsibilities:
 ### `generate.utils.ts`
 
 Responsibilities:
+
 - Define and export `GenerateMachineContext` interface
 - Define and export all 15 actor input types
 - Define and export `generateMachineGuards` object

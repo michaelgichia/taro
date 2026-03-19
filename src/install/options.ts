@@ -1,4 +1,4 @@
-import { stdin, stdout } from 'node:process'
+import { stdin, stdout } from "node:process";
 
 import type {
   InstallCommandOptions,
@@ -8,66 +8,70 @@ import type {
   NormalizedInstallOptions,
   RuntimeLocationSelections,
   RuntimeTarget,
-} from '#install/types.ts'
-import { SUPPORTED_RUNTIMES } from '#install/types.ts'
+} from "#install/types.ts";
+import { SUPPORTED_RUNTIMES } from "#install/types.ts";
 
 export class InstallValidationError extends Error {
   constructor(message: string) {
-    super(message)
-    this.name = 'InstallValidationError'
+    super(message);
+    this.name = "InstallValidationError";
   }
 }
 
 interface PromptCapability {
-  input?: Pick<typeof stdin, 'isTTY'>
-  output?: Pick<typeof stdout, 'isTTY'>
+  input?: Pick<typeof stdin, "isTTY">;
+  output?: Pick<typeof stdout, "isTTY">;
 }
 
 function hasPromptCapability(io: PromptCapability): boolean {
-  return Boolean(io.input?.isTTY && io.output?.isTTY)
+  return Boolean(io.input?.isTTY && io.output?.isTTY);
 }
 
-function resolveRuntimeSelection(options: InstallCommandOptions): RuntimeTarget[] {
+function resolveRuntimeSelection(
+  options: InstallCommandOptions
+): RuntimeTarget[] {
   if (options.all) {
-    return [...SUPPORTED_RUNTIMES]
+    return [...SUPPORTED_RUNTIMES];
   }
 
-  return SUPPORTED_RUNTIMES.filter((runtime) => Boolean(options[runtime]))
+  return SUPPORTED_RUNTIMES.filter((runtime) => Boolean(options[runtime]));
 }
 
-function resolveLocationOption(options: InstallCommandOptions): InstallLocation | undefined {
+function resolveLocationOption(
+  options: InstallCommandOptions
+): InstallLocation | undefined {
   if (options.global && options.local) {
     throw new InstallValidationError(
-      'Choose either `--global` or `--local`, not both.'
-    )
+      "Choose either `--global` or `--local`, not both."
+    );
   }
 
   if (options.global) {
-    return 'global'
+    return "global";
   }
 
   if (options.local) {
-    return 'local'
+    return "local";
   }
 
-  return undefined
+  return undefined;
 }
 
 function resolveSelectionSource(params: {
-  runtimesSelected: boolean
-  locationSelected: boolean
+  runtimesSelected: boolean;
+  locationSelected: boolean;
 }): InstallSelectionSource {
-  const { runtimesSelected, locationSelected } = params
+  const { runtimesSelected, locationSelected } = params;
 
   if (runtimesSelected && locationSelected) {
-    return 'flags'
+    return "flags";
   }
 
   if (runtimesSelected || locationSelected) {
-    return 'mixed'
+    return "mixed";
   }
 
-  return 'prompt'
+  return "prompt";
 }
 
 function fillRuntimeLocations(
@@ -75,31 +79,31 @@ function fillRuntimeLocations(
   location: InstallLocation | undefined
 ): Partial<RuntimeLocationSelections> {
   if (!location) {
-    return {}
+    return {};
   }
 
-  return Object.fromEntries(runtimes.map((runtime) => [runtime, location])) as Partial<
-    RuntimeLocationSelections
-  >
+  return Object.fromEntries(
+    runtimes.map((runtime) => [runtime, location])
+  ) as Partial<RuntimeLocationSelections>;
 }
 
 export function normalizeInstallOptions(
   options: InstallCommandOptions,
   io: PromptCapability = { input: stdin, output: stdout }
 ): NormalizedInstallOptions {
-  const runtimes = resolveRuntimeSelection(options)
-  const location = resolveLocationOption(options)
-  const needsRuntimePrompt = runtimes.length === 0
-  const runtimesNeedingLocation = location ? [] : [...runtimes]
+  const runtimes = resolveRuntimeSelection(options);
+  const location = resolveLocationOption(options);
+  const needsRuntimePrompt = runtimes.length === 0;
+  const runtimesNeedingLocation = location ? [] : [...runtimes];
   const mode =
     needsRuntimePrompt || runtimesNeedingLocation.length > 0
-      ? 'interactive'
-      : 'non-interactive'
+      ? "interactive"
+      : "non-interactive";
 
-  if (mode === 'interactive' && !hasPromptCapability(io)) {
+  if (mode === "interactive" && !hasPromptCapability(io)) {
     throw new InstallValidationError(
-      'Non-interactive install requires runtime flags (`--claude`, `--opencode`, `--gemini`, `--codex`, or `--all`) and exactly one location flag (`--global` or `--local`).'
-    )
+      "Non-interactive install requires runtime flags (`--claude`, `--opencode`, `--gemini`, `--codex`, or `--all`) and exactly one location flag (`--global` or `--local`)."
+    );
   }
 
   return {
@@ -112,36 +116,36 @@ export function normalizeInstallOptions(
       runtimesSelected: runtimes.length > 0,
       locationSelected: Boolean(location),
     }),
-  }
+  };
 }
 
 export function toInstallSelection(
   normalized: NormalizedInstallOptions
 ): InstallSelection {
-  if (normalized.mode !== 'non-interactive') {
+  if (normalized.mode !== "non-interactive") {
     throw new InstallValidationError(
-      'Cannot materialize install selection before interactive prompts complete.'
-    )
+      "Cannot materialize install selection before interactive prompts complete."
+    );
   }
 
   const locations = Object.fromEntries(
     normalized.runtimes.map((runtime) => {
-      const location = normalized.locations[runtime]
+      const location = normalized.locations[runtime];
 
       if (!location) {
         throw new InstallValidationError(
           `Missing install location for ${runtime}.`
-        )
+        );
       }
 
-      return [runtime, location]
+      return [runtime, location];
     })
-  ) as RuntimeLocationSelections
+  ) as RuntimeLocationSelections;
 
   return {
     mode: normalized.mode,
     runtimes: normalized.runtimes,
     locations,
     source: normalized.source,
-  }
+  };
 }

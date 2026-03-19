@@ -1,63 +1,63 @@
-import * as t from '@babel/types'
-import { describe, expect, it } from 'vitest'
+import * as t from "@babel/types";
+import { describe, expect, it } from "vitest";
 
 import {
   __boundaryIntelligenceTestUtils,
   analyzeBoundaryIsolation,
   calculateBoundaryIsolationScore,
-} from '#core/boundary-intelligence.ts'
-import { generateTestFromGroups } from '#core/generator.ts'
+} from "#core/boundary-intelligence.ts";
+import { generateTestFromGroups } from "#core/generator.ts";
 import {
   boundarySafeSample,
   boundaryUnsafeSample,
-} from '#tests/fixtures/sample-fixtures.ts'
+} from "#tests/fixtures/sample-fixtures.ts";
 
-describe('analyzeBoundaryIsolation', () => {
-  it('flags boundary anti-patterns in the generated AddSaleForm sample', async () => {
-    const code = boundaryUnsafeSample
+describe("analyzeBoundaryIsolation", () => {
+  it("flags boundary anti-patterns in the generated AddSaleForm sample", async () => {
+    const code = boundaryUnsafeSample;
 
     expect(analyzeBoundaryIsolation(code)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ kind: 'leaf-render-boundary' }),
-        expect.objectContaining({ kind: 'inline-hook-mock' }),
-        expect.objectContaining({ kind: 'helper-embedded-assertion' }),
-        expect.objectContaining({ kind: 'positional-control-selection' }),
+        expect.objectContaining({ kind: "leaf-render-boundary" }),
+        expect.objectContaining({ kind: "inline-hook-mock" }),
+        expect.objectContaining({ kind: "helper-embedded-assertion" }),
+        expect.objectContaining({ kind: "positional-control-selection" }),
       ])
-    )
-    expect(calculateBoundaryIsolationScore(code)).toBeLessThan(40)
-  })
+    );
+    expect(calculateBoundaryIsolationScore(code)).toBeLessThan(40);
+  });
 
-  it('treats the gold-standard repo-aware module sample as boundary-safe', async () => {
-    const code = boundarySafeSample
+  it("treats the gold-standard repo-aware module sample as boundary-safe", async () => {
+    const code = boundarySafeSample;
 
-    expect(analyzeBoundaryIsolation(code)).toEqual([])
-    expect(calculateBoundaryIsolationScore(code)).toBe(100)
-  })
+    expect(analyzeBoundaryIsolation(code)).toEqual([]);
+    expect(calculateBoundaryIsolationScore(code)).toBe(100);
+  });
 
-  it('treats repo-aware generated module output as boundary-safe', () => {
+  it("treats repo-aware generated module output as boundary-safe", () => {
     const generated = generateTestFromGroups(
-      'Example Flow',
+      "Example Flow",
       [
         {
-          name: 'complete example flow',
+          name: "complete example flow",
           steps: [
             {
-              action: 'click',
-              target: 'Open Example Flow',
-              originalType: 'click',
-              source: 'js',
+              action: "click",
+              target: "Open Example Flow",
+              originalType: "click",
+              source: "js",
             },
             {
-              action: 'click',
-              target: 'Continue',
-              originalType: 'click',
-              source: 'js',
+              action: "click",
+              target: "Continue",
+              originalType: "click",
+              source: "js",
             },
             {
-              action: 'assert',
-              target: 'Review Example Flow',
-              originalType: 'getByText',
-              source: 'js',
+              action: "assert",
+              target: "Review Example Flow",
+              originalType: "getByText",
+              source: "js",
             },
           ],
         },
@@ -65,69 +65,69 @@ describe('analyzeBoundaryIsolation', () => {
       {
         helpers: [
           {
-            name: 'planOpenExampleDialog',
-            sourceGroup: 'open example dialog',
-            purpose: 'Navigate to the example dialog.',
-            assertionPolicy: 'sync-only',
+            name: "planOpenExampleDialog",
+            sourceGroup: "open example dialog",
+            purpose: "Navigate to the example dialog.",
+            assertionPolicy: "sync-only",
             steps: [
               {
-                action: 'click',
-                target: 'Open Example Flow',
-                originalType: 'click',
-                source: 'js',
+                action: "click",
+                target: "Open Example Flow",
+                originalType: "click",
+                source: "js",
               },
               {
-                action: 'click',
-                target: 'Continue',
-                originalType: 'click',
-                source: 'js',
+                action: "click",
+                target: "Continue",
+                originalType: "click",
+                source: "js",
               },
             ],
           },
         ],
         scenarios: [
           {
-            name: 'complete example flow',
-            goal: 'flow',
+            name: "complete example flow",
+            goal: "flow",
             steps: [
               {
-                action: 'click',
-                target: 'Open Example Flow',
-                originalType: 'click',
-                source: 'js',
+                action: "click",
+                target: "Open Example Flow",
+                originalType: "click",
+                source: "js",
               },
               {
-                action: 'click',
-                target: 'Continue',
-                originalType: 'click',
-                source: 'js',
+                action: "click",
+                target: "Continue",
+                originalType: "click",
+                source: "js",
               },
               {
-                action: 'assert',
-                target: 'Review Example Flow',
-                originalType: 'getByText',
-                source: 'js',
+                action: "assert",
+                target: "Review Example Flow",
+                originalType: "getByText",
+                source: "js",
               },
             ],
-            helperRefs: ['planOpenExampleDialog'],
+            helperRefs: ["planOpenExampleDialog"],
             requiresFreshRender: true,
           },
         ],
         renderTarget: {
-          symbol: 'FeatureModule',
-          importPath: './FeatureModule',
-          sourceTestFile: 'sample/sample-add-sale-test.tsx',
-          helperNames: ['openExampleDialog'],
+          symbol: "FeatureModule",
+          importPath: "./FeatureModule",
+          sourceTestFile: "sample/sample-add-sale-test.tsx",
+          helperNames: ["openExampleDialog"],
           usesWithin: true,
         },
       }
-    )
+    );
 
-    expect(analyzeBoundaryIsolation(generated.code)).toEqual([])
-    expect(calculateBoundaryIsolationScore(generated.code)).toBe(100)
-  })
+    expect(analyzeBoundaryIsolation(generated.code)).toEqual([]);
+    expect(calculateBoundaryIsolationScore(generated.code)).toBe(100);
+  });
 
-  it('flags mocked repo-owned UI wrapper boundaries', () => {
+  it("flags mocked repo-owned UI wrapper boundaries", () => {
     const code = `
       import { describe, expect, it, vi } from 'vitest'
       import type { ReactNode } from 'react'
@@ -144,17 +144,17 @@ describe('analyzeBoundaryIsolation', () => {
           expect(true).toBe(true)
         })
       })
-    `
+    `;
 
     expect(analyzeBoundaryIsolation(code)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ kind: 'protected-ui-boundary-mock' }),
+        expect.objectContaining({ kind: "protected-ui-boundary-mock" }),
       ])
-    )
-    expect(calculateBoundaryIsolationScore(code)).toBeLessThan(100)
-  })
+    );
+    expect(calculateBoundaryIsolationScore(code)).toBeLessThan(100);
+  });
 
-  it('detects helper-embedded-assertion from an arrow function helper with expect', () => {
+  it("detects helper-embedded-assertion from an arrow function helper with expect", () => {
     const code = `
       import { describe, expect, it } from 'vitest'
 
@@ -167,16 +167,16 @@ describe('analyzeBoundaryIsolation', () => {
           checkValid()
         })
       })
-    `
+    `;
 
     expect(analyzeBoundaryIsolation(code)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ kind: 'helper-embedded-assertion' }),
+        expect.objectContaining({ kind: "helper-embedded-assertion" }),
       ])
-    )
-  })
+    );
+  });
 
-  it('detects positional-control-selection from direct inline getAllByRole(...)[n] indexing', () => {
+  it("detects positional-control-selection from direct inline getAllByRole(...)[n] indexing", () => {
     const code = `
       import { describe, expect, it } from 'vitest'
       import { render, screen } from '@testing-library/react'
@@ -187,16 +187,16 @@ describe('analyzeBoundaryIsolation', () => {
           expect(screen.getAllByRole('button')[0]).toBeDefined()
         })
       })
-    `
+    `;
 
     expect(analyzeBoundaryIsolation(code)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ kind: 'positional-control-selection' }),
+        expect.objectContaining({ kind: "positional-control-selection" }),
       ])
-    )
-  })
+    );
+  });
 
-  it('detects inline-hook-mock when hook name is a string literal key', () => {
+  it("detects inline-hook-mock when hook name is a string literal key", () => {
     const code = `
       import { describe, expect, it, vi } from 'vitest'
 
@@ -209,16 +209,16 @@ describe('analyzeBoundaryIsolation', () => {
           expect(true).toBe(true)
         })
       })
-    `
+    `;
 
     expect(analyzeBoundaryIsolation(code)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ kind: 'inline-hook-mock' }),
+        expect.objectContaining({ kind: "inline-hook-mock" }),
       ])
-    )
-  })
+    );
+  });
 
-  it('handles vi.mock call with no factory argument (no objectExpression)', () => {
+  it("handles vi.mock call with no factory argument (no objectExpression)", () => {
     const code = `
       import { describe, expect, it, vi } from 'vitest'
 
@@ -229,14 +229,16 @@ describe('analyzeBoundaryIsolation', () => {
           expect(true).toBe(true)
         })
       })
-    `
+    `;
 
     // No factory arg means objectExpression is undefined — no hook mock issues
-    const issues = analyzeBoundaryIsolation(code)
-    expect(issues.every((issue) => issue.kind !== 'inline-hook-mock')).toBe(true)
-  })
+    const issues = analyzeBoundaryIsolation(code);
+    expect(issues.every((issue) => issue.kind !== "inline-hook-mock")).toBe(
+      true
+    );
+  });
 
-  it('handles computed member expression callees without crashing (covers getCalleeName fallthrough)', () => {
+  it("handles computed member expression callees without crashing (covers getCalleeName fallthrough)", () => {
     // Code with computed member expression calls like window['alert']() or arr[0]()
     // causes getCalleeName to return undefined (the final fallthrough branch)
     const code = `
@@ -250,13 +252,13 @@ describe('analyzeBoundaryIsolation', () => {
           expect(true).toBe(true)
         })
       })
-    `
+    `;
 
-    const issues = analyzeBoundaryIsolation(code)
-    expect(Array.isArray(issues)).toBe(true)
-  })
+    const issues = analyzeBoundaryIsolation(code);
+    expect(Array.isArray(issues)).toBe(true);
+  });
 
-  it('skips FunctionDeclaration helpers that contain no expect calls', () => {
+  it("skips FunctionDeclaration helpers that contain no expect calls", () => {
     const code = `
       import { describe, expect, it } from 'vitest'
       import { render, screen } from '@testing-library/react'
@@ -271,14 +273,16 @@ describe('analyzeBoundaryIsolation', () => {
           expect(screen.getByRole('button')).toBeDefined()
         })
       })
-    `
+    `;
 
     // The 'setup' FunctionDeclaration has no expect — it should NOT be flagged as helper-embedded-assertion
-    const issues = analyzeBoundaryIsolation(code)
-    expect(issues.every((issue) => issue.kind !== 'helper-embedded-assertion')).toBe(true)
-  })
+    const issues = analyzeBoundaryIsolation(code);
+    expect(
+      issues.every((issue) => issue.kind !== "helper-embedded-assertion")
+    ).toBe(true);
+  });
 
-  it('handles vi.mock with an arrow function factory that returns a non-object (no issues from factory)', () => {
+  it("handles vi.mock with an arrow function factory that returns a non-object (no issues from factory)", () => {
     const code = `
       import { describe, expect, it, vi } from 'vitest'
 
@@ -289,13 +293,15 @@ describe('analyzeBoundaryIsolation', () => {
           expect(true).toBe(true)
         })
       })
-    `
+    `;
 
-    const issues = analyzeBoundaryIsolation(code)
-    expect(issues.every((issue) => issue.kind !== 'inline-hook-mock')).toBe(true)
-  })
+    const issues = analyzeBoundaryIsolation(code);
+    expect(issues.every((issue) => issue.kind !== "inline-hook-mock")).toBe(
+      true
+    );
+  });
 
-  it('detects inline-hook-mock when factory is an arrow function with block body returning an object', () => {
+  it("detects inline-hook-mock when factory is an arrow function with block body returning an object", () => {
     const code = `
       import { describe, expect, it, vi } from 'vitest'
 
@@ -310,16 +316,16 @@ describe('analyzeBoundaryIsolation', () => {
           expect(true).toBe(true)
         })
       })
-    `
+    `;
 
     expect(analyzeBoundaryIsolation(code)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ kind: 'inline-hook-mock' }),
+        expect.objectContaining({ kind: "inline-hook-mock" }),
       ])
-    )
-  })
+    );
+  });
 
-  it('handles vi.mock with a function expression factory that returns nothing', () => {
+  it("handles vi.mock with a function expression factory that returns nothing", () => {
     const code = `
       import { describe, expect, it, vi } from 'vitest'
 
@@ -332,13 +338,15 @@ describe('analyzeBoundaryIsolation', () => {
           expect(true).toBe(true)
         })
       })
-    `
+    `;
 
-    const issues = analyzeBoundaryIsolation(code)
-    expect(issues.every((issue) => issue.kind !== 'inline-hook-mock')).toBe(true)
-  })
+    const issues = analyzeBoundaryIsolation(code);
+    expect(issues.every((issue) => issue.kind !== "inline-hook-mock")).toBe(
+      true
+    );
+  });
 
-  it('handles vi.mock with a direct object literal as factory argument', () => {
+  it("handles vi.mock with a direct object literal as factory argument", () => {
     const code = `
       import { describe, expect, it, vi } from 'vitest'
 
@@ -349,14 +357,14 @@ describe('analyzeBoundaryIsolation', () => {
           expect(true).toBe(true)
         })
       })
-    `
+    `;
 
     // Direct object literal — no hook mock issues since it's not a valid module factory
-    const issues = analyzeBoundaryIsolation(code)
-    expect(Array.isArray(issues)).toBe(true)
-  })
+    const issues = analyzeBoundaryIsolation(code);
+    expect(Array.isArray(issues)).toBe(true);
+  });
 
-  it('collects rendered component names from JSXElement with children (nested JSX)', () => {
+  it("collects rendered component names from JSXElement with children (nested JSX)", () => {
     const code = `
       import { describe, expect, it } from 'vitest'
       import { render, screen } from '@testing-library/react'
@@ -372,15 +380,15 @@ describe('analyzeBoundaryIsolation', () => {
           expect(screen.getByRole('heading')).toBeDefined()
         })
       })
-    `
+    `;
 
     // ParentModal matches LEAF_RENDER_SUFFIX? No. But ChildForm does not either.
     // Test that render with parent JSXElement with children doesn't crash and processes children.
-    const issues = analyzeBoundaryIsolation(code)
-    expect(Array.isArray(issues)).toBe(true)
-  })
+    const issues = analyzeBoundaryIsolation(code);
+    expect(Array.isArray(issues)).toBe(true);
+  });
 
-  it('triggers leaf-render-boundary when a Form component is rendered inside a JSXFragment', () => {
+  it("triggers leaf-render-boundary when a Form component is rendered inside a JSXFragment", () => {
     const code = `
       import { describe, expect, it } from 'vitest'
       import { render, screen } from '@testing-library/react'
@@ -396,16 +404,16 @@ describe('analyzeBoundaryIsolation', () => {
           expect(screen.getByRole('heading')).toBeDefined()
         })
       })
-    `
+    `;
 
     expect(analyzeBoundaryIsolation(code)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ kind: 'leaf-render-boundary' }),
+        expect.objectContaining({ kind: "leaf-render-boundary" }),
       ])
-    )
-  })
+    );
+  });
 
-  it('handles template-literal vi.mock target with interpolated expressions (produces null target)', () => {
+  it("handles template-literal vi.mock target with interpolated expressions (produces null target)", () => {
     const code = `
       import { describe, expect, it, vi } from 'vitest'
 
@@ -419,15 +427,15 @@ describe('analyzeBoundaryIsolation', () => {
           expect(true).toBe(true)
         })
       })
-    `
+    `;
 
     // Template literal with expression → target resolves to null, no guardrail/hook issues
-    const issues = analyzeBoundaryIsolation(code)
-    expect(Array.isArray(issues)).toBe(true)
-  })
+    const issues = analyzeBoundaryIsolation(code);
+    expect(Array.isArray(issues)).toBe(true);
+  });
 
-  it('handles parse failures and detects template-literal mocks, fragments, and indexed getAllByRole usage', () => {
-    expect(analyzeBoundaryIsolation('const broken = <div')).toEqual([])
+  it("handles parse failures and detects template-literal mocks, fragments, and indexed getAllByRole usage", () => {
+    expect(analyzeBoundaryIsolation("const broken = <div")).toEqual([]);
 
     const code = `
       import { describe, expect, it, vi } from 'vitest'
@@ -458,31 +466,34 @@ describe('analyzeBoundaryIsolation', () => {
           expect(screen.getByRole('heading')).toBeVisible()
         })
       })
-    `
+    `;
 
     expect(analyzeBoundaryIsolation(code)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ kind: 'leaf-render-boundary' }),
-        expect.objectContaining({ kind: 'inline-hook-mock' }),
-        expect.objectContaining({ kind: 'helper-embedded-assertion' }),
-        expect.objectContaining({ kind: 'protected-ui-boundary-mock' }),
-        expect.objectContaining({ kind: 'positional-control-selection' }),
+        expect.objectContaining({ kind: "leaf-render-boundary" }),
+        expect.objectContaining({ kind: "inline-hook-mock" }),
+        expect.objectContaining({ kind: "helper-embedded-assertion" }),
+        expect.objectContaining({ kind: "protected-ui-boundary-mock" }),
+        expect.objectContaining({ kind: "positional-control-selection" }),
       ])
-    )
-  })
-})
+    );
+  });
+});
 
-describe('__boundaryIntelligenceTestUtils', () => {
-  it('handles missing callees and missing rendered nodes safely', () => {
-    expect(__boundaryIntelligenceTestUtils.getCalleeName()).toBeUndefined()
+describe("__boundaryIntelligenceTestUtils", () => {
+  it("handles missing callees and missing rendered nodes safely", () => {
+    expect(__boundaryIntelligenceTestUtils.getCalleeName()).toBeUndefined();
 
-    const names = new Set<string>()
-    __boundaryIntelligenceTestUtils.collectRenderedComponentNames(undefined, names)
+    const names = new Set<string>();
+    __boundaryIntelligenceTestUtils.collectRenderedComponentNames(
+      undefined,
+      names
+    );
     __boundaryIntelligenceTestUtils.collectRenderedComponentNames(
       t.jsxFragment(t.jsxOpeningFragment(), t.jsxClosingFragment(), []),
       names
-    )
+    );
 
-    expect(names.size).toBe(0)
-  })
-})
+    expect(names.size).toBe(0);
+  });
+});

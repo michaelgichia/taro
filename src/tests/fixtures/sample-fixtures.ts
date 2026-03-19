@@ -88,7 +88,7 @@ test('Recording-Add-Sale-KE-06/03/2026 at 08:25:15', async () => {
   await userEvent.dblClick(screen.getByText('KES\\u00A04,800.00'))
   await userEvent.click(screen.getByText('KES\\u00A04,800.00'))
 })
-`
+`;
 
 export const sampleJsonBasicRecording = `{
   "title": "JSON basic sale flow",
@@ -128,7 +128,7 @@ export const sampleJsonBasicRecording = `{
     }
   ]
 }
-`
+`;
 
 export const sampleJsonDialogRecording = `{
   "title": "JSON dialog sale flow",
@@ -168,7 +168,7 @@ export const sampleJsonDialogRecording = `{
     }
   ]
 }
-`
+`;
 
 export const boundaryUnsafeSample = `
   import { render, screen } from "@testing-library/react";
@@ -198,7 +198,7 @@ export const boundaryUnsafeSample = `
       openReviewDialog();
     });
   });
-`
+`;
 
 export const boundarySafeSample = `
   import { ToastMessage } from "@digitax/components";
@@ -231,4 +231,4 @@ export const boundarySafeSample = `
       expect(ToastMessage.success).toHaveBeenCalledWith("Sale", "Sale added successfully");
     });
   });
-`
+`;

@@ -4,9 +4,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "baseUrl": ".",
-    "paths": {
-      "#*.ts": ["src/*.ts"]
-    },
+    "paths": { "#*.ts": ["src/*.ts"] },
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,

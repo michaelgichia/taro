@@ -7,6 +7,6 @@
  *   getByAltText > getByTitle > getByDisplayValue > getByTestId
  */
 
-export { generateTestFromGroups } from '#core/generator.from-groups.ts'
-export { emitQuerySummary } from '#core/generator.query-summary.ts'
-export { selectorToQuery } from '#core/utils.ts'
+export { generateTestFromGroups } from "#core/generator.from-groups.ts";
+export { emitQuerySummary } from "#core/generator.query-summary.ts";
+export { selectorToQuery } from "#core/utils.ts";

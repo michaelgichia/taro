@@ -56,27 +56,12 @@ function normalizeBoundaryFileBase(target: string): string {
     .toLowerCase();
 }
 
-function deriveBoundaryTestId(target: string): string {
-  const baseName =
-    target
-      .split("/")
-      .pop()
-      ?.replace(/\.[^.]+$/u, "") ?? target;
-  return normalizeBoundaryFileBase(baseName);
-}
-
 function deriveSupportExportNames(target: string) {
   const base = toPascalCase(normalizeBoundaryFileBase(target));
   return {
     factoryExport: `create${base}Mock`,
     resetExport: `reset${base}Mock`,
   };
-}
-
-function toUpperCamelHead(value: string): string {
-  return value.length === 0
-    ? value
-    : `${value[0]!.toUpperCase()}${value.slice(1)}`;
 }
 
 function isScaffoldableBoundaryKind(kind: TaroBoundaryKind): boolean {
@@ -128,19 +113,18 @@ function buildJestMockBlock(target: string, factoryExport: string): string {
 }
 
 function buildSvgMockBlock(target: string, runner: TaroTestRunner): string {
-  const testId = deriveBoundaryTestId(target);
   if (runner === "jest") {
     return [
       `jest.mock('${target}', () => ({`,
       `  __esModule: true,`,
-      `  default: (props) => <svg data-testid="${testId}" aria-hidden="true" {...props} />,`,
+      `  default: (props) => <svg aria-hidden="true" {...props} />,`,
       `}))`,
     ].join("\n");
   }
 
   return [
     `vi.mock('${target}', () => ({`,
-    `  default: (props) => <svg data-testid="${testId}" aria-hidden="true" {...props} />,`,
+    `  default: (props) => <svg aria-hidden="true" {...props} />,`,
     `}))`,
   ].join("\n");
 }
@@ -164,16 +148,8 @@ function buildNextLinkMockBlock(runner: TaroTestRunner): string {
 
 function buildNextDynamicMockBlock(runner: TaroTestRunner): string {
   const helperLines = [
-    `function __taroDynamicMock(props) {`,
-    `  const dataProps = Object.fromEntries(`,
-    `    Object.entries(props ?? {})`,
-    `      .filter(([, value]) => ['string', 'number', 'boolean'].includes(typeof value))`,
-    `      .map(([key, value]) => [`,
-    `        \`data-prop-\${key.replace(/([a-z0-9])([A-Z])/g, '$1-$2').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()}\`,`,
-    `        String(value),`,
-    `      ])`,
-    `  )`,
-    `  return <div data-testid="dynamic-component" {...dataProps} />`,
+    `function __taroDynamicPlaceholder() {`,
+    `  return null`,
     `}`,
   ];
 
@@ -182,7 +158,7 @@ function buildNextDynamicMockBlock(runner: TaroTestRunner): string {
       ...helperLines,
       `jest.mock('next/dynamic', () => ({`,
       `  __esModule: true,`,
-      `  default: () => __taroDynamicMock,`,
+      `  default: () => __taroDynamicPlaceholder,`,
       `}))`,
     ].join("\n");
   }
@@ -190,7 +166,7 @@ function buildNextDynamicMockBlock(runner: TaroTestRunner): string {
   return [
     ...helperLines,
     `vi.mock('next/dynamic', () => ({`,
-    `  default: () => __taroDynamicMock,`,
+    `  default: () => __taroDynamicPlaceholder,`,
     `}))`,
   ].join("\n");
 }
@@ -362,41 +338,16 @@ function buildScaffoldFile(params: {
   );
   const hookNames = params.importedNames.filter((name) => name !== "default");
   const overrideExports: string[] = [];
-  const defaultImplBlocks: string[] = [];
   const exportBlocks: string[] = [];
   const resetLines: string[] = [];
-  let lowConfidence = false;
+  const lowConfidence = hookNames.length > 0;
 
   for (const name of hookNames) {
     const exportName = `${name}Mock`;
     overrideExports.push(exportName);
 
-    if (/^use[A-Z].*Mutation/u.test(name) || /Action$/u.test(name)) {
-      const defaultImpl = `default${toUpperCamelHead(name)}Impl`;
-      defaultImplBlocks.push(
-        `const ${defaultImpl} = () => ({ mutate: vi.fn(), isPending: false })`
-      );
-      exportBlocks.push(`export const ${exportName} = vi.fn()`);
-      resetLines.push(`${exportName}.mockReset()`);
-      resetLines.push(`${exportName}.mockImplementation(${defaultImpl})`);
-      continue;
-    }
-
-    if (/^use[A-Z].*Query/u.test(name)) {
-      const defaultImpl = `default${toUpperCamelHead(name)}Impl`;
-      defaultImplBlocks.push(
-        `const ${defaultImpl} = () => ({ data: undefined, isLoading: false, isFetching: false })`
-      );
-      exportBlocks.push(`export const ${exportName} = vi.fn()`);
-      resetLines.push(`${exportName}.mockReset()`);
-      resetLines.push(`${exportName}.mockImplementation(${defaultImpl})`);
-      lowConfidence = true;
-      continue;
-    }
-
     exportBlocks.push(`export const ${exportName} = vi.fn()`);
     resetLines.push(`${exportName}.mockReset()`);
-    lowConfidence = true;
   }
 
   const factoryAssignments = hookNames
@@ -408,9 +359,8 @@ function buildScaffoldFile(params: {
     ``,
     `/**`,
     ` * Low-confidence scaffold for ${params.target}.`,
-    ` * Replace default return shapes with repo-specific fixtures or wrappers as the codebase teaches Taro more.`,
+    ` * Keep this module shape-only until repo-local support examples are available.`,
     ` */`,
-    ...(defaultImplBlocks.length > 0 ? [...defaultImplBlocks, ""] : []),
     ...exportBlocks,
     ``,
     `export function ${factoryExport}() {`,
@@ -476,7 +426,7 @@ async function scaffoldBoundaryProfile(params: {
         spyExports: [],
         fixtureExports: [],
       },
-      payloadSource: "typed-defaults",
+      payloadSource: "manual",
       confidence: "low",
       files: [],
       evidence: ["Generated low-confidence scaffold"],
@@ -488,7 +438,7 @@ async function scaffoldBoundaryProfile(params: {
       content: scaffold.content,
       lowConfidence: scaffold.lowConfidence,
     },
-    warning: `Scaffolded central boundary support for ${params.target}; replace generic defaults in ${relative(params.projectRoot, supportPath).replace(/\\/g, "/")} once repo fixtures are available.`,
+    warning: `Scaffolded central boundary support for ${params.target}; replace the placeholder seam in ${relative(params.projectRoot, supportPath).replace(/\\/g, "/")} with repo-local mock behavior before relying on it.`,
   };
 }
 
@@ -571,6 +521,10 @@ export async function planBoundarySupport(params: {
       if (!plan.mockBlocks.includes(mockBlock)) {
         plan.mockBlocks.push(mockBlock);
       }
+      plan.warnings.push(
+        "next/dynamic was reduced to a null placeholder shim. If the test depends on the loaded child, replace it with a repo-local mock example."
+      );
+      plan.requiresReview = true;
       continue;
     }
 

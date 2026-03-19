@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from "vitest";
 
-import type { ApiCallInfo } from '#analyzer/mocks/detector.ts'
+import type { ApiCallInfo } from "#analyzer/mocks/detector.ts";
 import {
   __targetAnalyzerTestUtils,
   analyzeMockLibraryUsage,
@@ -10,247 +10,295 @@ import {
   groupMockTargetsByApproach,
   selectMockLibrary,
   suggestMockFilePath,
-} from '#analyzer/mocks/target-analyzer.ts'
+} from "#analyzer/mocks/target-analyzer.ts";
 
-function createApiCall(
-  overrides: Partial<ApiCallInfo> = {}
-): ApiCallInfo {
+function createApiCall(overrides: Partial<ApiCallInfo> = {}): ApiCallInfo {
   return {
-    id: 'api-1',
-    method: 'fetch',
-    url: 'https://api.example.com/orders',
-    httpMethod: 'GET',
+    id: "api-1",
+    method: "fetch",
+    url: "https://api.example.com/orders",
+    httpMethod: "GET",
     isExternal: true,
-    source: 'codebase',
+    source: "codebase",
     ...overrides,
-  }
+  };
 }
 
-describe('detectMockLibraries', () => {
-  it('detects supported libraries from dependencies and devDependencies', () => {
-    expect(detectMockLibraries({
-      dependencies: {
-        msw: '^2.0.0',
-        sinon: '^17.0.0',
-        undici: '^6.0.0',
-      },
-      devDependencies: {
-        jest: '^29.0.0',
-        'fetch-mock': '^10.0.0',
-        nock: '^14.0.0',
-      },
-    })).toEqual([
-      expect.objectContaining({ name: 'msw', version: '^2.0.0', isConfigured: false }),
-      expect.objectContaining({ name: 'jest.fn', version: '^29.0.0', isConfigured: true }),
-      expect.objectContaining({ name: 'sinon', version: '^17.0.0', isConfigured: false }),
-      expect.objectContaining({ name: 'fetch-mock', version: '^10.0.0', isConfigured: false }),
-      expect.objectContaining({ name: 'undici', version: '^6.0.0', isConfigured: false }),
-      expect.objectContaining({ name: 'nock', version: '^14.0.0', isConfigured: false }),
-    ])
-  })
-})
+describe("detectMockLibraries", () => {
+  it("detects supported libraries from dependencies and devDependencies", () => {
+    expect(
+      detectMockLibraries({
+        dependencies: { msw: "^2.0.0", sinon: "^17.0.0", undici: "^6.0.0" },
+        devDependencies: {
+          jest: "^29.0.0",
+          "fetch-mock": "^10.0.0",
+          nock: "^14.0.0",
+        },
+      })
+    ).toEqual([
+      expect.objectContaining({
+        name: "msw",
+        version: "^2.0.0",
+        isConfigured: false,
+      }),
+      expect.objectContaining({
+        name: "jest.fn",
+        version: "^29.0.0",
+        isConfigured: true,
+      }),
+      expect.objectContaining({
+        name: "sinon",
+        version: "^17.0.0",
+        isConfigured: false,
+      }),
+      expect.objectContaining({
+        name: "fetch-mock",
+        version: "^10.0.0",
+        isConfigured: false,
+      }),
+      expect.objectContaining({
+        name: "undici",
+        version: "^6.0.0",
+        isConfigured: false,
+      }),
+      expect.objectContaining({
+        name: "nock",
+        version: "^14.0.0",
+        isConfigured: false,
+      }),
+    ]);
+  });
+});
 
-describe('analyzeMockLibraryUsage', () => {
-  it('detects configured library usage from code files without duplicates', () => {
+describe("analyzeMockLibraryUsage", () => {
+  it("detects configured library usage from code files without duplicates", () => {
     const result = analyzeMockLibraryUsage([
       {
-        path: 'src/msw.ts',
-        content: "import { setupWorker, http } from 'msw/'\nsetupWorker()\nhttp.get('/api')",
+        path: "src/msw.ts",
+        content:
+          "import { setupWorker, http } from 'msw/'\nsetupWorker()\nhttp.get('/api')",
       },
+      { path: "src/jest.ts", content: 'vi.fn()\njest.mock("x")' },
+      { path: "src/sinon.ts", content: "sinon.stub(global, 'fetch')" },
       {
-        path: 'src/jest.ts',
-        content: 'vi.fn()\njest.mock("x")',
+        path: "src/network.ts",
+        content:
+          'fetchMock.get("/api")\nconst agent = new MockAgent(); import "undici";\nnock("https://api.example.com")',
       },
-      {
-        path: 'src/sinon.ts',
-        content: "sinon.stub(global, 'fetch')",
-      },
-      {
-        path: 'src/network.ts',
-        content: 'fetchMock.get("/api")\nconst agent = new MockAgent(); import "undici";\nnock("https://api.example.com")',
-      },
-    ])
+    ]);
 
     expect(result).toEqual([
-      { name: 'msw', isConfigured: true, sourceFile: 'src/msw.ts' },
-      { name: 'jest.fn', isConfigured: true, sourceFile: 'src/jest.ts' },
-      { name: 'sinon', isConfigured: true, sourceFile: 'src/sinon.ts' },
-      { name: 'fetch-mock', isConfigured: true, sourceFile: 'src/network.ts' },
-      { name: 'undici', isConfigured: true, sourceFile: 'src/network.ts' },
-      { name: 'nock', isConfigured: true, sourceFile: 'src/network.ts' },
-    ])
-  })
-})
+      { name: "msw", isConfigured: true, sourceFile: "src/msw.ts" },
+      { name: "jest.fn", isConfigured: true, sourceFile: "src/jest.ts" },
+      { name: "sinon", isConfigured: true, sourceFile: "src/sinon.ts" },
+      { name: "fetch-mock", isConfigured: true, sourceFile: "src/network.ts" },
+      { name: "undici", isConfigured: true, sourceFile: "src/network.ts" },
+      { name: "nock", isConfigured: true, sourceFile: "src/network.ts" },
+    ]);
+  });
+});
 
-describe('selectMockLibrary and decideMockExtraction', () => {
-  it('prefers configured libraries based on call type and explicit preference', () => {
+describe("selectMockLibrary and decideMockExtraction", () => {
+  it("prefers configured libraries based on call type and explicit preference", () => {
     const libs = [
-      { name: 'msw', isConfigured: true },
-      { name: 'fetch-mock', isConfigured: false },
-      { name: 'sinon', isConfigured: true },
-      { name: 'jest.fn', isConfigured: true },
-      { name: 'nock', isConfigured: false },
-    ] as const
-
-    expect(selectMockLibrary(createApiCall(), libs, { preferredLibrary: 'fetch-mock' })).toBe('fetch-mock')
-    expect(selectMockLibrary(createApiCall({ method: 'fetch' }), libs)).toBe('msw')
-    expect(selectMockLibrary(createApiCall({ method: 'XMLHttpRequest' }), libs)).toBe('sinon')
-    expect(selectMockLibrary(createApiCall({ method: 'unknown' }), libs)).toBe('jest.fn')
+      { name: "msw", isConfigured: true },
+      { name: "fetch-mock", isConfigured: false },
+      { name: "sinon", isConfigured: true },
+      { name: "jest.fn", isConfigured: true },
+      { name: "nock", isConfigured: false },
+    ] as const;
 
     expect(
-      decideMockExtraction(createApiCall(), ['src/__mocks__/https://api.example.com/orders.mock.ts'])
-    ).toBe('shared')
-    expect(decideMockExtraction(createApiCall(), [])).toBe('extracted')
+      selectMockLibrary(createApiCall(), libs, {
+        preferredLibrary: "fetch-mock",
+      })
+    ).toBe("fetch-mock");
+    expect(selectMockLibrary(createApiCall({ method: "fetch" }), libs)).toBe(
+      "msw"
+    );
     expect(
-      decideMockExtraction(
-        createApiCall({
-          isExternal: false,
-          url: '/api/orders',
-          httpMethod: 'GET',
-        }),
-        []
-      )
-    ).toBe('inline')
-  })
+      selectMockLibrary(createApiCall({ method: "XMLHttpRequest" }), libs)
+    ).toBe("sinon");
+    expect(selectMockLibrary(createApiCall({ method: "unknown" }), libs)).toBe(
+      "jest.fn"
+    );
 
-  it('falls back through fetch-mock, nock, and XHR defaults when stronger options are absent', () => {
     expect(
-      selectMockLibrary(createApiCall(), [{ name: 'fetch-mock', isConfigured: false }])
-    ).toBe('fetch-mock')
-    expect(selectMockLibrary(createApiCall(), [{ name: 'nock', isConfigured: false }])).toBe(
-      'nock'
-    )
-    expect(
-      selectMockLibrary(createApiCall({ method: 'XMLHttpRequest' }), [{ name: 'nock', isConfigured: false }])
-    ).toBe('jest.fn')
-    expect(selectMockLibrary(createApiCall(), [])).toBe('jest.fn')
-
+      decideMockExtraction(createApiCall(), [
+        "src/__mocks__/https://api.example.com/orders.mock.ts",
+      ])
+    ).toBe("shared");
+    expect(decideMockExtraction(createApiCall(), [])).toBe("extracted");
     expect(
       decideMockExtraction(
         createApiCall({
           isExternal: false,
-          url: '/api/orders?draft=true',
-          httpMethod: 'PATCH',
+          url: "/api/orders",
+          httpMethod: "GET",
         }),
         []
       )
-    ).toBe('inline')
-  })
+    ).toBe("inline");
+  });
 
-  it('estimates extra complexity for query params, mutable methods, and external APIs', () => {
+  it("falls back through fetch-mock, nock, and XHR defaults when stronger options are absent", () => {
+    expect(
+      selectMockLibrary(createApiCall(), [
+        { name: "fetch-mock", isConfigured: false },
+      ])
+    ).toBe("fetch-mock");
+    expect(
+      selectMockLibrary(createApiCall(), [
+        { name: "nock", isConfigured: false },
+      ])
+    ).toBe("nock");
+    expect(
+      selectMockLibrary(createApiCall({ method: "XMLHttpRequest" }), [
+        { name: "nock", isConfigured: false },
+      ])
+    ).toBe("jest.fn");
+    expect(selectMockLibrary(createApiCall(), [])).toBe("jest.fn");
+
+    expect(
+      decideMockExtraction(
+        createApiCall({
+          isExternal: false,
+          url: "/api/orders?draft=true",
+          httpMethod: "PATCH",
+        }),
+        []
+      )
+    ).toBe("inline");
+  });
+
+  it("estimates extra complexity for query params, mutable methods, and external APIs", () => {
     expect(
       __targetAnalyzerTestUtils.estimateMockComplexity(
         createApiCall({
-          url: 'https://api.example.com/orders?draft=true',
-          httpMethod: 'PATCH',
+          url: "https://api.example.com/orders?draft=true",
+          httpMethod: "PATCH",
           isExternal: true,
         })
       )
-    ).toBe(8)
-  })
-})
+    ).toBe(8);
+  });
+});
 
-describe('suggestMockFilePath', () => {
-  it('creates sanitized mock file paths and falls back for invalid URLs', () => {
+describe("suggestMockFilePath", () => {
+  it("creates sanitized mock file paths and falls back for invalid URLs", () => {
     expect(
-      suggestMockFilePath(createApiCall({ url: 'https://api.example.com/users/profile?tab=info' }), 'mocks')
-    ).toBe('mocks/api.example.com/users-profile.ts')
+      suggestMockFilePath(
+        createApiCall({
+          url: "https://api.example.com/users/profile?tab=info",
+        }),
+        "mocks"
+      )
+    ).toBe("mocks/api.example.com/users-profile.ts");
 
-    expect(suggestMockFilePath(createApiCall({ url: 'not a url' }))).toBe('__mocks__/api-mock.ts')
-    expect(suggestMockFilePath(createApiCall({ url: undefined }))).toBe('__mocks__/api-mock.ts')
-  })
-})
+    expect(suggestMockFilePath(createApiCall({ url: "not a url" }))).toBe(
+      "__mocks__/api-mock.ts"
+    );
+    expect(suggestMockFilePath(createApiCall({ url: undefined }))).toBe(
+      "__mocks__/api-mock.ts"
+    );
+  });
+});
 
-describe('analyzeMockTargets and groupMockTargetsByApproach', () => {
-  it('builds mock targets with merged library detection, rationales, and grouping', () => {
+describe("analyzeMockTargets and groupMockTargetsByApproach", () => {
+  it("builds mock targets with merged library detection, rationales, and grouping", () => {
     const targets = analyzeMockTargets(
       [
         createApiCall({
-          id: 'api-1',
-          method: 'fetch',
-          url: 'https://api.example.com/orders',
-          httpMethod: 'POST',
+          id: "api-1",
+          method: "fetch",
+          url: "https://api.example.com/orders",
+          httpMethod: "POST",
         }),
         createApiCall({
-          id: 'api-2',
-          method: 'XMLHttpRequest',
-          url: '/api/internal',
-          httpMethod: 'GET',
+          id: "api-2",
+          method: "XMLHttpRequest",
+          url: "/api/internal",
+          httpMethod: "GET",
           isExternal: false,
         }),
       ],
       {
-        packageJson: {
-          dependencies: {
-            msw: '^2.0.0',
-            sinon: '^17.0.0',
-          },
-        },
+        packageJson: { dependencies: { msw: "^2.0.0", sinon: "^17.0.0" } },
         codebaseFiles: [
           {
-            path: 'src/test/setup-msw.ts',
-            content: "import { setupWorker, http } from 'msw/'\nsetupWorker()\nhttp.get('/api')",
+            path: "src/test/setup-msw.ts",
+            content:
+              "import { setupWorker, http } from 'msw/'\nsetupWorker()\nhttp.get('/api')",
           },
-          {
-            path: 'src/__mocks__/orders.mock.ts',
-            content: 'existing mock',
-          },
+          { path: "src/__mocks__/orders.mock.ts", content: "existing mock" },
         ],
       }
-    )
+    );
 
     expect(targets).toEqual([
       expect.objectContaining({
-        id: 'mock-target-api-1',
-        apiCallId: 'api-1',
-        mockLibrary: 'msw',
-        extractionRecommendation: 'extracted',
-        suggestedFilePath: '__mocks__/api.example.com/orders.ts',
-        rationale: expect.stringContaining('Using msw (already configured in project). extracted to separate file'),
+        id: "mock-target-api-1",
+        apiCallId: "api-1",
+        mockLibrary: "msw",
+        extractionRecommendation: "extracted",
+        suggestedFilePath: "__mocks__/api.example.com/orders.ts",
+        rationale: expect.stringContaining(
+          "Using msw (already configured in project). extracted to separate file"
+        ),
       }),
       expect.objectContaining({
-        id: 'mock-target-api-2',
-        apiCallId: 'api-2',
-        mockLibrary: 'sinon',
-        extractionRecommendation: 'inline',
+        id: "mock-target-api-2",
+        apiCallId: "api-2",
+        mockLibrary: "sinon",
+        extractionRecommendation: "inline",
         suggestedFilePath: undefined,
-        rationale: expect.stringContaining('Using sinon (detected in dependencies). inline for simplicity (simple mock)'),
+        rationale: expect.stringContaining(
+          "Using sinon (detected in dependencies). inline for simplicity (simple mock)"
+        ),
       }),
-    ])
+    ]);
 
-    const grouped = groupMockTargetsByApproach(targets)
+    const grouped = groupMockTargetsByApproach(targets);
 
-    expect(grouped.get('msw:extracted')).toEqual([targets[0]])
-    expect(grouped.get('sinon:inline')).toEqual([targets[1]])
-  })
+    expect(grouped.get("msw:extracted")).toEqual([targets[0]]);
+    expect(grouped.get("sinon:inline")).toEqual([targets[1]]);
+  });
 
-  it('defaults to jest.fn when no libraries are detected', () => {
-    const [target] = analyzeMockTargets([createApiCall({ url: '/api/simple', isExternal: false })])
+  it("defaults to jest.fn when no libraries are detected", () => {
+    const [target] = analyzeMockTargets([
+      createApiCall({ url: "/api/simple", isExternal: false }),
+    ]);
 
-    expect(target.mockLibrary).toBe('jest.fn')
-    expect(target.extractionRecommendation).toBe('inline')
-    expect(target.rationale).toContain('Using jest.fn')
-  })
+    expect(target.mockLibrary).toBe("jest.fn");
+    expect(target.extractionRecommendation).toBe("inline");
+    expect(target.rationale).toContain("Using jest.fn");
+  });
 
-  it('learns configured libraries from codebase files and explains shared mock reuse', () => {
+  it("learns configured libraries from codebase files and explains shared mock reuse", () => {
     const [target] = analyzeMockTargets(
-      [createApiCall({ url: 'https://api.example.com/orders', httpMethod: 'GET' })],
+      [
+        createApiCall({
+          url: "https://api.example.com/orders",
+          httpMethod: "GET",
+        }),
+      ],
       {
         codebaseFiles: [
           {
-            path: 'src/test/msw.ts',
-            content: "import { setupWorker, http } from 'msw/'\nsetupWorker()\nhttp.get('/api')",
+            path: "src/test/msw.ts",
+            content:
+              "import { setupWorker, http } from 'msw/'\nsetupWorker()\nhttp.get('/api')",
           },
           {
-            path: 'src/__mocks__/https://api.example.com/orders.mock.ts',
-            content: 'shared mock',
+            path: "src/__mocks__/https://api.example.com/orders.mock.ts",
+            content: "shared mock",
           },
         ],
       }
-    )
+    );
 
-    expect(target.mockLibrary).toBe('msw')
-    expect(target.extractionRecommendation).toBe('shared')
-    expect(target.rationale).toContain('reusing existing mock (shared)')
-  })
-})
+    expect(target.mockLibrary).toBe("msw");
+    expect(target.extractionRecommendation).toBe("shared");
+    expect(target.rationale).toContain("reusing existing mock (shared)");
+  });
+});

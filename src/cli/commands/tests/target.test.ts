@@ -1,27 +1,31 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
-import { stripVTControlCharacters } from 'node:util'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { stripVTControlCharacters } from "node:util";
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createTargetCommand } from '#cli/commands/target.ts'
+import { createTargetCommand } from "#cli/commands/target.ts";
 
-const sandboxes: string[] = []
+const sandboxes: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(sandboxes.splice(0).map((root) => rm(root, { recursive: true, force: true })))
-})
+  await Promise.all(
+    sandboxes
+      .splice(0)
+      .map((root) => rm(root, { recursive: true, force: true }))
+  );
+});
 
 class ProcessExitSignal {
   constructor(public readonly code: number) {}
 }
 
 async function createSandbox(label: string) {
-  const root = await mkdtemp(join(tmpdir(), `taro-target-${label}-`))
-  sandboxes.push(root)
-  await mkdir(root, { recursive: true })
-  return root
+  const root = await mkdtemp(join(tmpdir(), `taro-target-${label}-`));
+  sandboxes.push(root);
+  await mkdir(root, { recursive: true });
+  return root;
 }
 
 async function runTarget(
@@ -29,60 +33,68 @@ async function runTarget(
   cwdPath: string,
   context?: Parameters<typeof createTargetCommand>[0]
 ) {
-  const command = createTargetCommand(context)
-  const stderrChunks: string[] = []
-  const stdoutChunks: string[] = []
-  const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
-    stderrChunks.push(String(chunk))
-    return true
-  })
-  const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-    stdoutChunks.push(String(chunk))
-    return true
-  })
-  const exitSpy = vi.spyOn(process, 'exit').mockImplementation((code?: number) => {
-    throw new ProcessExitSignal(code ?? 0)
-  })
-  const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-  const originalCwd = process.cwd()
-  let thrown: unknown
-  let exitCode: number | undefined
+  const command = createTargetCommand(context);
+  const stderrChunks: string[] = [];
+  const stdoutChunks: string[] = [];
+  const stderrSpy = vi
+    .spyOn(process.stderr, "write")
+    .mockImplementation((chunk) => {
+      stderrChunks.push(String(chunk));
+      return true;
+    });
+  const stdoutSpy = vi
+    .spyOn(process.stdout, "write")
+    .mockImplementation((chunk) => {
+      stdoutChunks.push(String(chunk));
+      return true;
+    });
+  const exitSpy = vi
+    .spyOn(process, "exit")
+    .mockImplementation((code?: number) => {
+      throw new ProcessExitSignal(code ?? 0);
+    });
+  const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  const errorSpy = vi
+    .spyOn(console, "error")
+    .mockImplementation(() => undefined);
+  const originalCwd = process.cwd();
+  let thrown: unknown;
+  let exitCode: number | undefined;
 
-  process.chdir(cwdPath)
+  process.chdir(cwdPath);
 
   try {
-    await command.parseAsync(args, { from: 'user' })
+    await command.parseAsync(args, { from: "user" });
   } catch (error) {
     if (error instanceof ProcessExitSignal) {
-      exitCode = error.code
+      exitCode = error.code;
     } else {
-      thrown = error
+      thrown = error;
     }
   } finally {
-    process.chdir(originalCwd)
-    stderrSpy.mockRestore()
-    stdoutSpy.mockRestore()
-    exitSpy.mockRestore()
-    warnSpy.mockRestore()
-    errorSpy.mockRestore()
+    process.chdir(originalCwd);
+    stderrSpy.mockRestore();
+    stdoutSpy.mockRestore();
+    exitSpy.mockRestore();
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
   }
 
   return {
-    errors: stripVTControlCharacters(errorSpy.mock.calls.flat().join('\n')),
+    errors: stripVTControlCharacters(errorSpy.mock.calls.flat().join("\n")),
     exitCode,
-    logs: stripVTControlCharacters(stderrChunks.join('')),
-    stdout: stripVTControlCharacters(stdoutChunks.join('')),
+    logs: stripVTControlCharacters(stderrChunks.join("")),
+    stdout: stripVTControlCharacters(stdoutChunks.join("")),
     thrown,
-    warnings: stripVTControlCharacters(warnSpy.mock.calls.flat().join('\n')),
-  }
+    warnings: stripVTControlCharacters(warnSpy.mock.calls.flat().join("\n")),
+  };
 }
 
-describe('createTargetCommand', () => {
-  it('generates a colocated test from a default-export component file', async () => {
-    const root = await createSandbox('component-only')
-    const componentPath = join(root, 'src', 'CheckoutForm.tsx')
-    await mkdir(dirname(componentPath), { recursive: true })
+describe("createTargetCommand", () => {
+  it("generates a colocated test from a default-export component file", async () => {
+    const root = await createSandbox("component-only");
+    const componentPath = join(root, "src", "CheckoutForm.tsx");
+    await mkdir(dirname(componentPath), { recursive: true });
     await writeFile(
       componentPath,
       [
@@ -96,269 +108,295 @@ describe('createTargetCommand', () => {
         "    </form>",
         "  )",
         "}",
-        '',
-      ].join('\n'),
-      'utf-8'
-    )
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
 
-    const result = await runTarget([componentPath], root)
-    const outputPath = join(root, 'src', 'CheckoutForm.test.tsx')
-    const written = await readFile(outputPath, 'utf-8')
+    const result = await runTarget([componentPath], root);
+    const outputPath = join(root, "src", "CheckoutForm.test.tsx");
+    const written = await readFile(outputPath, "utf-8");
 
-    expect(result.thrown).toBeUndefined()
-    expect(result.exitCode).toBe(0)
-    expect(written).toContain("import CheckoutForm from './CheckoutForm'")
-    expect(written).toContain("render(<CheckoutForm />)")
-    expect(written).toContain("expect(screen.getByRole('heading', { name: 'Checkout' }))")
-    expect(written).toContain("expect(screen.getByLabelText('Email'))")
-    expect(written).toContain("expect(screen.getByRole('button', { name: 'Submit order' }))")
-  })
+    expect(result.thrown).toBeUndefined();
+    expect(result.exitCode).toBe(0);
+    expect(written).toContain("import CheckoutForm from './CheckoutForm'");
+    expect(written).toContain("render(<CheckoutForm />)");
+    expect(written).toContain(
+      "expect(screen.getByRole('heading', { name: 'Checkout' }))"
+    );
+    expect(written).toContain("expect(screen.getByLabelText('Email'))");
+    expect(written).toContain(
+      "expect(screen.getByRole('button', { name: 'Submit order' }))"
+    );
+  });
 
-  it('prefers a sibling tests directory when local test evidence exists', async () => {
-    const root = await createSandbox('local-tests-folder')
-    const componentPath = join(root, 'src', 'widgets', 'Button.tsx')
-    const testsDir = join(root, 'src', 'widgets', 'tests')
-    await mkdir(testsDir, { recursive: true })
+  it("prefers a sibling tests directory when local test evidence exists", async () => {
+    const root = await createSandbox("local-tests-folder");
+    const componentPath = join(root, "src", "widgets", "Button.tsx");
+    const testsDir = join(root, "src", "widgets", "tests");
+    await mkdir(testsDir, { recursive: true });
     await writeFile(
       componentPath,
       [
-        'export default function Button() {',
+        "export default function Button() {",
         "  return <button>Click me</button>",
-        '}',
-        '',
-      ].join('\n'),
-      'utf-8'
-    )
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
     await writeFile(
-      join(testsDir, 'Existing.test.tsx'),
+      join(testsDir, "Existing.test.tsx"),
       "describe('existing', () => {})\n",
-      'utf-8'
-    )
+      "utf-8"
+    );
 
-    const result = await runTarget([componentPath], root)
-    const outputPath = join(testsDir, 'Button.test.tsx')
-    const written = await readFile(outputPath, 'utf-8')
+    const result = await runTarget([componentPath], root);
+    const outputPath = join(testsDir, "Button.test.tsx");
+    const written = await readFile(outputPath, "utf-8");
 
-    expect(result.thrown).toBeUndefined()
-    expect(result.exitCode).toBe(0)
-    expect(written).toContain("import Button from '../Button'")
-    expect(written).toContain("render(<Button />)")
-  })
+    expect(result.thrown).toBeUndefined();
+    expect(result.exitCode).toBe(0);
+    expect(written).toContain("import Button from '../Button'");
+    expect(written).toContain("render(<Button />)");
+  });
 
-  it('generates prop-backed scenarios for component-only target inference', async () => {
-    const root = await createSandbox('prop-backed-target')
-    const componentPath = join(root, 'src', 'ProfileCard.tsx')
-    await mkdir(dirname(componentPath), { recursive: true })
+  it("generates prop-backed scenarios for component-only target inference", async () => {
+    const root = await createSandbox("prop-backed-target");
+    const componentPath = join(root, "src", "ProfileCard.tsx");
+    await mkdir(dirname(componentPath), { recursive: true });
     await writeFile(
       componentPath,
       [
         "import Link from 'next/link'",
         "import { OrganisationType } from '@repo/data-layer'",
-        '',
-        'export default function ProfileCard({ id, displayName, organisationType, businessCount }) {',
-        '  return (',
+        "",
+        "export default function ProfileCard({ id, displayName, organisationType, businessCount }) {",
+        "  return (",
         "    <Link href={`/profiles/${id}`}>",
-        '      <div>',
-        '        <p>{displayName}</p>',
+        "      <div>",
+        "        <p>{displayName}</p>",
         "        <p>{organisationType === OrganisationType.Individual ? 'Personal' : 'Business'}</p>",
-        '        <p>{businessCount ?? 0}</p>',
-        '      </div>',
-        '    </Link>',
-        '  )',
-        '}',
-        '',
-      ].join('\n'),
-      'utf-8'
-    )
+        "        <p>{businessCount ?? 0}</p>",
+        "      </div>",
+        "    </Link>",
+        "  )",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
 
-    const result = await runTarget([componentPath], root)
-    const outputPath = join(root, 'src', 'ProfileCard.test.tsx')
-    const written = await readFile(outputPath, 'utf-8')
+    const result = await runTarget([componentPath], root);
+    const outputPath = join(root, "src", "ProfileCard.test.tsx");
+    const written = await readFile(outputPath, "utf-8");
 
-    expect(result.thrown).toBeUndefined()
-    expect(result.exitCode).toBe(0)
-    expect(written).toContain("import { OrganisationType } from '@repo/data-layer'")
-    expect(written).toContain('const BASE_PROPS = {')
-    expect(written).toContain('organisationType: OrganisationType.Business')
-    expect(written).toContain('const setup = (overrides = {}) => {')
-    expect(written).toContain('render(<ProfileCard {...BASE_PROPS} {...overrides} />)')
-    expect(written).toContain("expect(screen.getByRole('link')).toHaveAttribute('href', '/profiles/profile_1')")
-    expect(written).toContain('it(\'renders "Business"\'')
-    expect(written).toContain('it(\'renders "Profile Card Example"\'')
-    expect(written).toContain("it('renders \"Personal\" when organisation type is OrganisationType.Individual'")
-    expect(written).toContain('setup({ organisationType: OrganisationType.Individual })')
-    expect(written).toContain("expect(screen.getByText('0')).toBeVisible()")
-  })
+    expect(result.thrown).toBeUndefined();
+    expect(result.exitCode).toBe(1);
+    expect(written).not.toContain(
+      "import { OrganisationType } from '@repo/data-layer'"
+    );
+    expect(written).toContain("UNRESOLVED_COMPONENT_PROPS");
+    expect(written).toContain(
+      "replace this placeholder with explicit repo-local props or a recording-backed render path"
+    );
+    expect(written).toContain(
+      "render(<ProfileCard {...UNRESOLVED_COMPONENT_PROPS} />)"
+    );
+    expect(written).not.toContain("const BASE_PROPS = {");
+    expect(written).not.toContain(
+      "setup({ organisationType: OrganisationType.Individual })"
+    );
+    expect(result.logs + result.stdout).toContain(
+      "could not find explicit repo-local defaults or fixtures to reuse"
+    );
+  });
 
-  it('uses the provided component path as the output target even when a recording is supplied', async () => {
-    const root = await createSandbox('recording-backed')
-    const componentPath = join(root, 'src', 'CheckoutForm.tsx')
-    const recordingPath = join(root, 'checkout-flow.js')
-    await mkdir(dirname(componentPath), { recursive: true })
+  it("uses the provided component path as the output target even when a recording is supplied", async () => {
+    const root = await createSandbox("recording-backed");
+    const componentPath = join(root, "src", "CheckoutForm.tsx");
+    const recordingPath = join(root, "checkout-flow.js");
+    await mkdir(dirname(componentPath), { recursive: true });
     await writeFile(
       componentPath,
       [
-        'export function CheckoutForm() {',
-        '  return <h1>Checkout</h1>',
-        '}',
-        '',
-      ].join('\n'),
-      'utf-8'
-    )
+        "export function CheckoutForm() {",
+        "  return <h1>Checkout</h1>",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
     await writeFile(
       recordingPath,
       [
         "const { screen } = require('@testing-library/dom')",
         "const { default: userEvent } = require('@testing-library/user-event')",
-        '',
+        "",
         "test('Checkout flow', async () => {",
         "  await userEvent.click(screen.getByText('Continue'))",
         "  expect(screen.getByText('Review order')).toBeInTheDocument()",
-        '})',
-        '',
-      ].join('\n'),
-      'utf-8'
-    )
+        "})",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
 
-    const result = await runTarget([componentPath, '--recording', recordingPath], root)
-    const outputPath = join(root, 'src', 'CheckoutForm.test.tsx')
-    const written = await readFile(outputPath, 'utf-8')
+    const result = await runTarget(
+      [componentPath, "--recording", recordingPath],
+      root
+    );
+    const outputPath = join(root, "src", "CheckoutForm.test.tsx");
+    const written = await readFile(outputPath, "utf-8");
 
-    expect(result.thrown).toBeUndefined()
-    expect(result.exitCode).toBe(0)
-    expect(written).toContain("import { CheckoutForm } from './CheckoutForm'")
-    expect(written).toContain("render(<CheckoutForm />)")
-    expect(written).toContain("await user.click(screen.getByText('Continue'))")
-    expect(written).not.toContain('render(<App />)')
-  })
+    expect(result.thrown).toBeUndefined();
+    expect(result.exitCode).toBe(0);
+    expect(written).toContain("import { CheckoutForm } from './CheckoutForm'");
+    expect(written).toContain("render(<CheckoutForm />)");
+    expect(written).toContain("await user.click(screen.getByText('Continue'))");
+    expect(written).not.toContain("render(<App />)");
+  });
 
-  it('emits blocking findings when the component surface is too opaque to infer safely', async () => {
-    const root = await createSandbox('opaque-component')
-    const componentPath = join(root, 'src', 'DashboardShell.tsx')
-    await mkdir(dirname(componentPath), { recursive: true })
+  it("emits blocking findings when the component surface is too opaque to infer safely", async () => {
+    const root = await createSandbox("opaque-component");
+    const componentPath = join(root, "src", "DashboardShell.tsx");
+    await mkdir(dirname(componentPath), { recursive: true });
     await writeFile(
       componentPath,
       [
         'import { LayoutShell } from "./LayoutShell"',
-        '',
-        'export default function DashboardShell() {',
-        '  return <LayoutShell />',
-        '}',
-        '',
-      ].join('\n'),
-      'utf-8'
-    )
+        "",
+        "export default function DashboardShell() {",
+        "  return <LayoutShell />",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
 
-    const result = await runTarget([componentPath], root)
+    const result = await runTarget([componentPath], root);
 
-    expect(result.exitCode).toBe(1)
-    expect(result.stdout).toContain('=== taro:findings:start ===')
-    expect(result.stdout).toContain('[BLOCKING] component-target')
-    expect(result.stdout).toContain('opaque child components')
-  })
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("=== taro:findings:start ===");
+    expect(result.stdout).toContain("[BLOCKING] component-target");
+    expect(result.stdout).toContain("opaque child components");
+  });
 
-  it('rejects test files as target inputs', async () => {
-    const root = await createSandbox('reject-test-file')
-    const componentPath = join(root, 'src', 'CheckoutForm.test.tsx')
-    await mkdir(dirname(componentPath), { recursive: true })
-    await writeFile(componentPath, 'export default function CheckoutFormTest() { return null }\n', 'utf-8')
+  it("rejects test files as target inputs", async () => {
+    const root = await createSandbox("reject-test-file");
+    const componentPath = join(root, "src", "CheckoutForm.test.tsx");
+    await mkdir(dirname(componentPath), { recursive: true });
+    await writeFile(
+      componentPath,
+      "export default function CheckoutFormTest() { return null }\n",
+      "utf-8"
+    );
 
-    const result = await runTarget([componentPath], root)
+    const result = await runTarget([componentPath], root);
 
-    expect(result.exitCode).toBe(2)
-    expect(result.logs).toContain('Target component must be a source module')
-  })
+    expect(result.exitCode).toBe(2);
+    expect(result.logs).toContain("Target component must be a source module");
+  });
 
-  it('generates tests for all component files when a directory is passed', async () => {
-    const root = await createSandbox('dir-multi')
-    const srcDir = join(root, 'src')
-    await mkdir(srcDir, { recursive: true })
+  it("generates tests for all component files when a directory is passed", async () => {
+    const root = await createSandbox("dir-multi");
+    const srcDir = join(root, "src");
+    await mkdir(srcDir, { recursive: true });
 
     await writeFile(
-      join(srcDir, 'Header.tsx'),
+      join(srcDir, "Header.tsx"),
       [
-        'export default function Header() {',
-        '  return <h1>Site Header</h1>',
-        '}',
-        '',
-      ].join('\n'),
-      'utf-8'
-    )
+        "export default function Header() {",
+        "  return <h1>Site Header</h1>",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
     await writeFile(
-      join(srcDir, 'Footer.tsx'),
+      join(srcDir, "Footer.tsx"),
       [
-        'export default function Footer() {',
-        '  return <p>Site Footer</p>',
-        '}',
-        '',
-      ].join('\n'),
-      'utf-8'
-    )
+        "export default function Footer() {",
+        "  return <p>Site Footer</p>",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
 
-    const result = await runTarget([srcDir], root)
+    const result = await runTarget([srcDir], root);
 
-    expect(result.thrown).toBeUndefined()
-    expect(result.exitCode).toBe(0)
+    expect(result.thrown).toBeUndefined();
+    expect(result.exitCode).toBe(0);
 
-    const headerTest = await readFile(join(srcDir, 'Header.test.tsx'), 'utf-8')
-    expect(headerTest).toContain("import Header from './Header'")
-    expect(headerTest).toContain('render(<Header />)')
+    const headerTest = await readFile(join(srcDir, "Header.test.tsx"), "utf-8");
+    expect(headerTest).toContain("import Header from './Header'");
+    expect(headerTest).toContain("render(<Header />)");
 
-    const footerTest = await readFile(join(srcDir, 'Footer.test.tsx'), 'utf-8')
-    expect(footerTest).toContain("import Footer from './Footer'")
-    expect(footerTest).toContain('render(<Footer />)')
-  })
+    const footerTest = await readFile(join(srcDir, "Footer.test.tsx"), "utf-8");
+    expect(footerTest).toContain("import Footer from './Footer'");
+    expect(footerTest).toContain("render(<Footer />)");
+  });
 
-  it('skips test files when scanning a directory', async () => {
-    const root = await createSandbox('dir-skip-tests')
-    const srcDir = join(root, 'src')
-    await mkdir(srcDir, { recursive: true })
+  it("skips test files when scanning a directory", async () => {
+    const root = await createSandbox("dir-skip-tests");
+    const srcDir = join(root, "src");
+    await mkdir(srcDir, { recursive: true });
 
     await writeFile(
-      join(srcDir, 'Button.tsx'),
+      join(srcDir, "Button.tsx"),
       [
-        'export default function Button() {',
-        '  return <button>Click me</button>',
-        '}',
-        '',
-      ].join('\n'),
-      'utf-8'
-    )
+        "export default function Button() {",
+        "  return <button>Click me</button>",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
     await writeFile(
-      join(srcDir, 'Button.test.tsx'),
+      join(srcDir, "Button.test.tsx"),
       "import { render } from '@testing-library/react'\n",
-      'utf-8'
-    )
+      "utf-8"
+    );
 
-    const result = await runTarget([srcDir], root)
+    const result = await runTarget([srcDir], root);
 
-    expect(result.thrown).toBeUndefined()
-    expect(result.exitCode).toBe(0)
-    expect(result.logs).toContain('Processing 1 component file')
-  })
+    expect(result.thrown).toBeUndefined();
+    expect(result.exitCode).toBe(0);
+    expect(result.logs).toContain("Processing 1 component file");
+  });
 
-  it('reports no files found when the directory has no component source files', async () => {
-    const root = await createSandbox('dir-empty')
-    const srcDir = join(root, 'src')
-    await mkdir(srcDir, { recursive: true })
-    await writeFile(join(srcDir, 'styles.css'), '.foo { color: red; }\n', 'utf-8')
+  it("reports no files found when the directory has no component source files", async () => {
+    const root = await createSandbox("dir-empty");
+    const srcDir = join(root, "src");
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "styles.css"),
+      ".foo { color: red; }\n",
+      "utf-8"
+    );
 
-    const result = await runTarget([srcDir], root)
+    const result = await runTarget([srcDir], root);
 
-    expect(result.exitCode).toBe(0)
-    expect(result.logs).toContain('No component source files found')
-  })
+    expect(result.exitCode).toBe(0);
+    expect(result.logs).toContain("No component source files found");
+  });
 
-  it('rejects --recording when a directory is passed', async () => {
-    const root = await createSandbox('dir-recording-incompatible')
-    const srcDir = join(root, 'src')
-    const recordingPath = join(root, 'recording.js')
-    await mkdir(srcDir, { recursive: true })
-    await writeFile(recordingPath, "test('foo', () => {})\n", 'utf-8')
+  it("rejects --recording when a directory is passed", async () => {
+    const root = await createSandbox("dir-recording-incompatible");
+    const srcDir = join(root, "src");
+    const recordingPath = join(root, "recording.js");
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(recordingPath, "test('foo', () => {})\n", "utf-8");
 
-    const result = await runTarget([srcDir, '--recording', recordingPath], root)
+    const result = await runTarget(
+      [srcDir, "--recording", recordingPath],
+      root
+    );
 
-    expect(result.exitCode).toBe(2)
-    expect(result.logs).toContain('--recording is not compatible with directory input')
-  })
-})
+    expect(result.exitCode).toBe(2);
+    expect(result.logs).toContain(
+      "--recording is not compatible with directory input"
+    );
+  });
+});

@@ -1,11 +1,11 @@
 /**
  * API Call Detector - Identifies API calls in recordings and codebase
- * 
+ *
  * Detects fetch, XMLHttpRequest, and common API patterns to determine
  * which network calls need mocking in tests.
  */
 
-import type { NormalizedRecording } from '#types/recording.ts';
+import type { NormalizedRecording } from "#types/recording.ts";
 
 /**
  * Information about a detected API call
@@ -14,7 +14,7 @@ export interface ApiCallInfo {
   /** Unique identifier for this API call */
   id: string;
   /** Type of API call detected */
-  method: 'fetch' | 'XMLHttpRequest' | 'axios' | 'fetch-jsonp' | 'unknown';
+  method: "fetch" | "XMLHttpRequest" | "axios" | "fetch-jsonp" | "unknown";
   /** The URL or endpoint being called */
   url?: string;
   /** HTTP method if detectable */
@@ -22,14 +22,11 @@ export interface ApiCallInfo {
   /** Whether this is an external API (not same origin) */
   isExternal: boolean;
   /** Source where this was detected */
-  source: 'recording' | 'codebase' | 'both';
+  source: "recording" | "codebase" | "both";
   /** The step in recording where this appears (if applicable) */
   recordingStepId?: string;
   /** File and line where this appears in codebase (if applicable) */
-  codebaseLocation?: {
-    file: string;
-    line: number;
-  };
+  codebaseLocation?: { file: string; line: number };
 }
 
 /**
@@ -41,18 +38,12 @@ const API_PATTERNS = {
     /await\s+fetch\s*\(/i,
     /window\.fetch\s*\(/i,
   ],
-  xmlHttpRequest: [
-    /new\s+XMLHttpRequest\s*\(\s*\)/i,
-    /xhr\s*\.\s*open\s*\(/i,
-  ],
+  xmlHttpRequest: [/new\s+XMLHttpRequest\s*\(\s*\)/i, /xhr\s*\.\s*open\s*\(/i],
   axios: [
     /axios\.(get|post|put|patch|delete|request)\s*\(/i,
     /await\s+axios\s*\(/i,
   ],
-  fetchJsonp: [
-    /jsonp\s*\(/i,
-    /\.jsonp\s*\(/i,
-  ],
+  fetchJsonp: [/jsonp\s*\(/i, /\.jsonp\s*\(/i],
 };
 
 /**
@@ -72,116 +63,120 @@ const API_ENDPOINT_PATTERNS = [
  * External API domains (common third-party services)
  */
 const EXTERNAL_API_DOMAINS = [
-  'api.',
-  '://',
-  '.com/',
-  '.io/',
-  '.net/',
-  'localhost:', // Treat localhost as external for testing
+  "api.",
+  "://",
+  ".com/",
+  ".io/",
+  ".net/",
+  "localhost:", // Treat localhost as external for testing
 ];
 
 /**
  * Detect API calls from a normalized recording
  * Looks for network-related actions or URLs in step data
  */
-export function detectApiCallsFromRecording(recording: NormalizedRecording): ApiCallInfo[] {
+export function detectApiCallsFromRecording(
+  recording: NormalizedRecording
+): ApiCallInfo[] {
   const apiCalls: ApiCallInfo[] = [];
-  
+
   for (const step of recording.steps) {
     // Look for URL in step metadata or value
-    const potentialUrl = step.metadata?.url as string | undefined 
-      || step.value 
-      || step.selector;
-    
+    const potentialUrl =
+      (step.metadata?.url as string | undefined) || step.value || step.selector;
+
     if (potentialUrl && isApiUrl(potentialUrl)) {
       const method = detectMethodFromUrl(potentialUrl);
-      
+
       apiCalls.push({
         id: `recording-${step.id}`,
-        method: method || 'unknown',
+        method: method || "unknown",
         url: potentialUrl,
         isExternal: isExternalUrl(potentialUrl),
-        source: 'recording',
+        source: "recording",
         recordingStepId: step.id,
       });
     }
-    
+
     // Check for network-related actions in metadata
     if (step.metadata?.networkCall) {
       apiCalls.push({
         id: `recording-network-${step.id}`,
-        method: (step.metadata.networkMethod as ApiCallInfo['method']) || 'unknown',
+        method:
+          (step.metadata.networkMethod as ApiCallInfo["method"]) || "unknown",
         url: step.metadata.networkUrl as string,
         isExternal: isExternalUrl(step.metadata.networkUrl as string),
-        source: 'recording',
+        source: "recording",
         recordingStepId: step.id,
       });
     }
   }
-  
+
   return apiCalls;
 }
 
 /**
  * Scan source code files for API calls
  */
-export function detectApiCallsFromCodebase(files: { path: string; content: string }[]): ApiCallInfo[] {
+export function detectApiCallsFromCodebase(
+  files: { path: string; content: string }[]
+): ApiCallInfo[] {
   const apiCalls: ApiCallInfo[] = [];
-  
+
   for (const file of files) {
-    const lines = file.content.split('\n');
-    
+    const lines = file.content.split("\n");
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const lineNumber = i + 1;
-      
+
       // Check for fetch
       for (const pattern of API_PATTERNS.fetch) {
         if (pattern.test(line)) {
-          const url = extractUrlFromLine(line, 'fetch');
+          const url = extractUrlFromLine(line, "fetch");
           apiCalls.push({
             id: `codebase-${file.path}-${lineNumber}`,
-            method: 'fetch',
+            method: "fetch",
             url,
             httpMethod: extractHttpMethod(line),
             isExternal: url ? isExternalUrl(url) : true,
-            source: 'codebase',
+            source: "codebase",
             codebaseLocation: { file: file.path, line: lineNumber },
           });
         }
       }
-      
+
       // Check for XMLHttpRequest
       for (const pattern of API_PATTERNS.xmlHttpRequest) {
         if (pattern.test(line)) {
           apiCalls.push({
             id: `codebase-${file.path}-${lineNumber}`,
-            method: 'XMLHttpRequest',
+            method: "XMLHttpRequest",
             isExternal: true,
-            source: 'codebase',
+            source: "codebase",
             codebaseLocation: { file: file.path, line: lineNumber },
           });
         }
       }
-      
+
       // Check for axios
       for (const pattern of API_PATTERNS.axios) {
         if (pattern.test(line)) {
-          const url = extractUrlFromLine(line, 'axios');
+          const url = extractUrlFromLine(line, "axios");
           apiCalls.push({
             id: `codebase-${file.path}-${lineNumber}`,
-            method: 'axios',
+            method: "axios",
             httpMethod: extractAxiosMethod(line),
             url,
             isExternal: url ? isExternalUrl(url) : true,
-            source: 'codebase',
+            source: "codebase",
             codebaseLocation: { file: file.path, line: lineNumber },
           });
         }
       }
     }
   }
-  
+
   return apiCalls;
 }
 
@@ -193,32 +188,32 @@ export function detectApiCalls(
   codebaseFiles?: { path: string; content: string }[]
 ): ApiCallInfo[] {
   const results: ApiCallInfo[] = [];
-  
+
   // Detect from recording
   if (recording) {
     const recordingCalls = detectApiCallsFromRecording(recording);
     results.push(...recordingCalls);
   }
-  
+
   // Detect from codebase
   if (codebaseFiles) {
     const codebaseCalls = detectApiCallsFromCodebase(codebaseFiles);
     results.push(...codebaseCalls);
   }
-  
+
   // Deduplicate by URL
   const uniqueByUrl = new Map<string, ApiCallInfo>();
   for (const call of results) {
     if (call.url) {
       const key = `${call.method}:${call.url}`;
       if (!uniqueByUrl.has(key)) {
-        uniqueByUrl.set(key, { ...call, source: 'both' });
+        uniqueByUrl.set(key, { ...call, source: "both" });
       }
     } else {
       uniqueByUrl.set(call.id, call);
     }
   }
-  
+
   return Array.from(uniqueByUrl.values());
 }
 
@@ -226,20 +221,20 @@ export function detectApiCalls(
  * Check if a string looks like an API URL
  */
 function isApiUrl(str: string): boolean {
-  if (!str || typeof str !== 'string') return false;
-  
+  if (!str || typeof str !== "string") return false;
+
   // Must be a URL-like string
-  return API_ENDPOINT_PATTERNS.some(pattern => pattern.test(str));
+  return API_ENDPOINT_PATTERNS.some((pattern) => pattern.test(str));
 }
 
 /**
  * Detect HTTP method from URL patterns
  */
-function detectMethodFromUrl(url: string): ApiCallInfo['method'] {
-  if (url.includes('.json')) return 'fetch';
-  if (url.includes('graphql')) return 'fetch';
-  if (url.includes('jsonp')) return 'fetch-jsonp';
-  return 'fetch'; // Default to fetch for modern apps
+function detectMethodFromUrl(url: string): ApiCallInfo["method"] {
+  if (url.includes(".json")) return "fetch";
+  if (url.includes("graphql")) return "fetch";
+  if (url.includes("jsonp")) return "fetch-jsonp";
+  return "fetch"; // Default to fetch for modern apps
 }
 
 /**
@@ -247,26 +242,29 @@ function detectMethodFromUrl(url: string): ApiCallInfo['method'] {
  */
 function isExternalUrl(url: string): boolean {
   if (!url) return true;
-  
-  return EXTERNAL_API_DOMAINS.some(domain => url.includes(domain));
+
+  return EXTERNAL_API_DOMAINS.some((domain) => url.includes(domain));
 }
 
 /**
  * Extract URL from a fetch/axios line
  */
-function extractUrlFromLine(line: string, type: 'fetch' | 'axios'): string | undefined {
+function extractUrlFromLine(
+  line: string,
+  type: "fetch" | "axios"
+): string | undefined {
   // Match quoted strings (single or double quotes, or backticks)
   const urlMatch = line.match(/['"`(](https?:\/\/[^'")`]+)['"`)]/);
   if (urlMatch) {
     return urlMatch[1];
   }
-  
+
   // For dynamic URLs, try to find variable names
   const dynamicMatch = line.match(new RegExp(`${type}\\s*\\(\\s*(\\w+)`));
   if (dynamicMatch) {
     return `[dynamic - \${${dynamicMatch[1]}}]`;
   }
-  
+
   return undefined;
 }
 
@@ -282,7 +280,9 @@ function extractHttpMethod(line: string): string | undefined {
  * Extract axios method (get, post, etc.)
  */
 function extractAxiosMethod(line: string): string | undefined {
-  const methodMatch = line.match(/axios\.(get|post|put|patch|delete|request)\s*\(/i);
+  const methodMatch = line.match(
+    /axios\.(get|post|put|patch|delete|request)\s*\(/i
+  );
   return methodMatch ? methodMatch[1].toUpperCase() : undefined;
 }
 
@@ -290,33 +290,35 @@ function extractAxiosMethod(line: string): string | undefined {
  * Filter API calls that need mocking (external only)
  */
 export function filterMockableCalls(apiCalls: ApiCallInfo[]): ApiCallInfo[] {
-  return apiCalls.filter(call => call.isExternal);
+  return apiCalls.filter((call) => call.isExternal);
 }
 
 /**
  * Group API calls by domain for organized mocking
  */
-export function groupApiCallsByDomain(apiCalls: ApiCallInfo[]): Map<string, ApiCallInfo[]> {
+export function groupApiCallsByDomain(
+  apiCalls: ApiCallInfo[]
+): Map<string, ApiCallInfo[]> {
   const groups = new Map<string, ApiCallInfo[]>();
-  
+
   for (const call of apiCalls) {
     if (!call.url) {
-      const unknown = 'unknown';
+      const unknown = "unknown";
       const existing = groups.get(unknown) || [];
       groups.set(unknown, [...existing, call]);
       continue;
     }
-    
+
     try {
       const url = new URL(call.url);
       const domain = url.hostname;
       const existing = groups.get(domain) || [];
       groups.set(domain, [...existing, call]);
     } catch {
-      const existing = groups.get('unknown') || [];
-      groups.set('unknown', [...existing, call]);
+      const existing = groups.get("unknown") || [];
+      groups.set("unknown", [...existing, call]);
     }
   }
-  
+
   return groups;
 }

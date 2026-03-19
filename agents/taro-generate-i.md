@@ -49,6 +49,7 @@ Read only the files that apply to the current problem:
 - `references/intent-model.md` for parsed-step normalization and interaction-intent recovery
 - `references/assertion-markers.md` for converting semantic `dblClick` checkpoints into explicit assertions
 - `references/entry-path-fidelity.md` when deciding parent trigger flow versus direct dialog/form harnesses
+- `references/component-targeting.md` when generating from a resolved component target or when prop/setup intent is unclear
 - `references/conventions-schema.md` when interpreting `.taro/state.json`, `.taro/overrides.json`, or convention drift
 - `references/mock-store.md` when deciding fixture reuse or persistent mock storage
 - `references/quality-scoring.md` when explaining score changes, grade drops, or blocker priorities
@@ -85,6 +86,12 @@ When you do repo inspection beyond Taro's own console output, report:
 3. Resolve render boundary and mock plan with entry-path fidelity in mind.
 4. Run `{{TARO_RUNTIME_COMMAND}} __generate -i <recording-file>`.
 5. Interpret score, blockers, marker coverage, and verification output before calling the result complete.
+
+When repo-local prop defaults or mock examples are missing:
+
+- do not synthesize replacement component behavior
+- do not invent semantic sentinels or default hook payloads
+- keep the draft gap explicit and call out the missing local evidence
 
 ## Response Contract
 

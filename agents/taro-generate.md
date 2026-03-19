@@ -47,6 +47,7 @@ Read only the files that apply to the current problem:
 - `references/intent-model.md` for parsed-step normalization and interaction-intent recovery
 - `references/assertion-markers.md` for converting semantic `dblClick` checkpoints into explicit assertions
 - `references/entry-path-fidelity.md` when deciding parent trigger flow versus direct dialog/form harnesses
+- `references/component-targeting.md` when generating from a resolved component target or when prop/setup intent is unclear
 - `references/conventions-schema.md` when interpreting `.taro/state.json`, `.taro/overrides.json`, or convention drift
 - `references/mock-store.md` when deciding fixture reuse or persistent mock storage
 - `references/quality-scoring.md` when explaining score changes, grade drops, or blocker priorities
@@ -100,6 +101,7 @@ Default behavior:
 - if the recording clicks a parent trigger first, prefer rendering the parent/module composition and replaying that trigger
 - do not replace a real parent-trigger flow with a directly-open dialog harness when the parent path is available
 - if Taro emits boundary warnings or falls back to `render(<App />)`, explain that as a fidelity or context gap, not a finished solution
+- if target-mode generation cannot find repo-local prop defaults or mock examples, keep that gap explicit instead of synthesizing a new implementation
 
 ## Mock Boundary Policy
 
@@ -119,6 +121,12 @@ Forbidden:
 - swapping an entire UI package with fake replacement components just to satisfy verification
 
 If a mock plan would violate that boundary, stop and call out the violation clearly. Use `references/verification-gate.md` and `references/mock-store.md` before suggesting alternatives.
+
+When repo-local examples are missing:
+
+- do not invent replacement component behavior, semantic test ids, or default hook return shapes
+- leave a review gap or draft warning in the output
+- prefer copying an established local support shape over creating a new generic mock policy
 
 ## Score and Verification
 

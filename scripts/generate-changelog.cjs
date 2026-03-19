@@ -1,29 +1,29 @@
-const { execSync } = require('child_process');
+const { execSync } = require("child_process");
 
 function run(command, execImpl = execSync) {
-  return execImpl(command, { encoding: 'utf8' }).trim();
+  return execImpl(command, { encoding: "utf8" }).trim();
 }
 
 function tryRun(command, execImpl = execSync) {
   try {
     return run(command, execImpl);
   } catch {
-    return '';
+    return "";
   }
 }
 
 function normalizeRepoUrl(url) {
   return url
-    .replace(/^git\+/, '')
-    .replace(/\.git$/, '')
-    .replace(/^git@github\.com:/, 'https://github.com/')
-    .replace(/^ssh:\/\/git@github\.com\//, 'https://github.com/');
+    .replace(/^git\+/, "")
+    .replace(/\.git$/, "")
+    .replace(/^git@github\.com:/, "https://github.com/")
+    .replace(/^ssh:\/\/git@github\.com\//, "https://github.com/");
 }
 
 function detectRepoUrl(execImpl = execSync) {
   const originUrl =
-    tryRun('git remote get-url origin', execImpl) ||
-    tryRun('git config --get remote.origin.url', execImpl);
+    tryRun("git remote get-url origin", execImpl) ||
+    tryRun("git config --get remote.origin.url", execImpl);
   if (originUrl) {
     return normalizeRepoUrl(originUrl);
   }
@@ -32,19 +32,16 @@ function detectRepoUrl(execImpl = execSync) {
 }
 
 function parseArgs(argv) {
-  const options = {
-    from: '',
-    to: 'HEAD',
-  };
+  const options = { from: "", to: "HEAD" };
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
 
-    if (arg === '--from') {
-      options.from = argv[index + 1] || '';
+    if (arg === "--from") {
+      options.from = argv[index + 1] || "";
       index += 1;
-    } else if (arg === '--to') {
-      options.to = argv[index + 1] || 'HEAD';
+    } else if (arg === "--to") {
+      options.to = argv[index + 1] || "HEAD";
       index += 1;
     }
   }
@@ -53,28 +50,37 @@ function parseArgs(argv) {
 }
 
 function findCurrentTag(execImpl = execSync) {
-  const tags = tryRun('git tag --points-at HEAD', execImpl);
+  const tags = tryRun("git tag --points-at HEAD", execImpl);
   if (!tags) {
-    return '';
+    return "";
   }
 
-  return tags.split('\n').map((tag) => tag.trim()).find(Boolean) || '';
+  return (
+    tags
+      .split("\n")
+      .map((tag) => tag.trim())
+      .find(Boolean) || ""
+  );
 }
 
 function determineRange(options, execImpl = execSync) {
   if (options.from) {
     return {
       from: options.from,
-      to: options.to || 'HEAD',
-      heading: options.to && options.to !== 'HEAD'
-        ? `### Changes in ${options.to}\n`
-        : `### Changes since ${options.from}\n`,
+      to: options.to || "HEAD",
+      heading:
+        options.to && options.to !== "HEAD"
+          ? `### Changes in ${options.to}\n`
+          : `### Changes since ${options.from}\n`,
     };
   }
 
   const currentTag = findCurrentTag(execImpl);
   if (currentTag) {
-    const previousTag = tryRun('git describe --tags --abbrev=0 HEAD^', execImpl);
+    const previousTag = tryRun(
+      "git describe --tags --abbrev=0 HEAD^",
+      execImpl
+    );
     if (!previousTag) {
       throw new Error(`Could not find a previous tag before ${currentTag}.`);
     }
@@ -86,10 +92,10 @@ function determineRange(options, execImpl = execSync) {
     };
   }
 
-  const lastTag = run('git describe --tags --abbrev=0', execImpl);
+  const lastTag = run("git describe --tags --abbrev=0", execImpl);
   return {
     from: lastTag,
-    to: options.to || 'HEAD',
+    to: options.to || "HEAD",
     heading: `### Changes since ${lastTag}\n`,
   };
 }
@@ -119,7 +125,7 @@ function getMergeCommitTitle(hash, subject, execImpl = execSync) {
 
   const body = getCommitBody(hash, execImpl);
   const lines = body
-    .split('\n')
+    .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
 
@@ -127,14 +133,17 @@ function getMergeCommitTitle(hash, subject, execImpl = execSync) {
 }
 
 function cleanSubject(hash, subject, execImpl = execSync) {
-  return getMergeCommitTitle(hash, subject, execImpl).replace(/\s+\(#\d+\)$/, '');
+  return getMergeCommitTitle(hash, subject, execImpl).replace(
+    /\s+\(#\d+\)$/,
+    ""
+  );
 }
 
 function generateChangelog(argv, options = {}) {
-  const execImpl = options.execImpl ?? execSync
-  const log = options.log ?? console.log
-  const error = options.error ?? console.error
-  const exit = options.exit ?? process.exit
+  const execImpl = options.execImpl ?? execSync;
+  const log = options.log ?? console.log;
+  const error = options.error ?? console.error;
+  const exit = options.exit ?? process.exit;
 
   try {
     const parsedArgs = parseArgs(argv);
@@ -151,16 +160,12 @@ function generateChangelog(argv, options = {}) {
       return;
     }
 
-    const categorized = {
-      Added: [],
-      Fixed: [],
-      Changed: [],
-    };
+    const categorized = { Added: [], Fixed: [], Changed: [] };
     const seenEntries = new Set();
     const seenSubjects = new Set();
 
-    for (const line of commitsRaw.split('\n')) {
-      const separatorIndex = line.indexOf('|');
+    for (const line of commitsRaw.split("\n")) {
+      const separatorIndex = line.indexOf("|");
       if (separatorIndex === -1) {
         continue;
       }
@@ -168,7 +173,9 @@ function generateChangelog(argv, options = {}) {
       const hash = line.slice(0, separatorIndex);
       const subject = line.slice(separatorIndex + 1);
       const prNumber = extractPrNumber(subject);
-      const prLink = prNumber ? ` [PR #${prNumber}](${repoUrl}/pull/${prNumber})` : '';
+      const prLink = prNumber
+        ? ` [PR #${prNumber}](${repoUrl}/pull/${prNumber})`
+        : "";
       const cleanedSubject = cleanSubject(hash, subject, execImpl);
       const entry = `- ${cleanedSubject} ([${hash}](${repoUrl}/commit/${hash}))${prLink}`;
       const lowerSubject = cleanedSubject.toLowerCase();
@@ -181,9 +188,9 @@ function generateChangelog(argv, options = {}) {
       seenEntries.add(entryKey);
       seenSubjects.add(lowerSubject);
 
-      if (lowerSubject.startsWith('feat')) {
+      if (lowerSubject.startsWith("feat")) {
         categorized.Added.push(entry);
-      } else if (lowerSubject.startsWith('fix')) {
+      } else if (lowerSubject.startsWith("fix")) {
         categorized.Fixed.push(entry);
       } else {
         categorized.Changed.push(entry);
@@ -201,10 +208,13 @@ function generateChangelog(argv, options = {}) {
       for (const item of items) {
         log(item);
       }
-      log('');
+      log("");
     }
   } catch (caughtError) {
-    error(caughtError.message || 'Error generating changelog. Ensure you have at least one previous tag.');
+    error(
+      caughtError.message ||
+        "Error generating changelog. Ensure you have at least one previous tag."
+    );
     exit(1);
   }
 }
@@ -222,8 +232,8 @@ module.exports = {
   parseArgs,
   run,
   tryRun,
-}
+};
 
 if (require.main === module) {
-  generateChangelog(process.argv.slice(2))
+  generateChangelog(process.argv.slice(2));
 }
