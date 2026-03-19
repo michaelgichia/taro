@@ -26,8 +26,8 @@ Generate a colocated RTL test for an explicit component path.
 
 1. Confirm the component file path.
 2. If the user also has a Recorder `.js` file, capture that path too.
-3. Run `'/opt/homebrew/Cellar/node/23.11.0/bin/node' '/Users/michaelgichia/workspace/taro/dist/index.js' __target <component-file>` when no recording is provided.
-4. Run `'/opt/homebrew/Cellar/node/23.11.0/bin/node' '/Users/michaelgichia/workspace/taro/dist/index.js' __target <component-file> --recording <recording-file>` when both inputs are provided.
+3. Run `{{TARO_RUNTIME_COMMAND}} __target <component-file>` when no recording is provided.
+4. Run `{{TARO_RUNTIME_COMMAND}} __target <component-file> --recording <recording-file>` when both inputs are provided.
 5. Report the written test path, score and grade, manual review status, and any blockers or follow-up findings.
 
 ---
