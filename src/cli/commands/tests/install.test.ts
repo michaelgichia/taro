@@ -170,6 +170,32 @@ describe("runInstallCommand", () => {
         "utf8"
       )
     ).resolves.toContain("$@taro-test/rtl-overrides");
+    await expect(
+      readFile(
+        join(
+          sandbox.home,
+          ".codex",
+          "skills",
+          "@taro-test",
+          "rtl-grade",
+          "SKILL.md"
+        ),
+        "utf8"
+      )
+    ).resolves.toContain("$@taro-test/rtl-grade");
+    await expect(
+      readFile(
+        join(
+          sandbox.home,
+          ".claude",
+          "commands",
+          "@taro-test",
+          "rtl",
+          "regrade.md"
+        ),
+        "utf8"
+      )
+    ).resolves.toContain("Do not invent or invoke `__regrade`.");
   });
 
   it("reports update results on rerun in non-interactive mode", async () => {

@@ -130,12 +130,22 @@ describe("package smoke proof", () => {
         "package/commands/claude/@taro-test/rtl/help.md"
       );
       expect(tarList.stdout).toContain(
+        "package/commands/claude/@taro-test/rtl/grade.md"
+      );
+      expect(tarList.stdout).toContain(
         "package/commands/gemini/@taro-test/rtl/help.toml"
+      );
+      expect(tarList.stdout).toContain(
+        "package/commands/gemini/@taro-test/rtl/regrade.toml"
       );
       expect(tarList.stdout).toContain(
         "package/commands/opencode/@taro-test/rtl-help.md"
       );
+      expect(tarList.stdout).toContain(
+        "package/commands/opencode/@taro-test/rtl-grade.md"
+      );
       expect(tarList.stdout).toContain("package/agents/taro-help.md");
+      expect(tarList.stdout).toContain("package/agents/taro-grade.md");
       expect(tarList.stdout).toContain(
         "package/taro/references/quality-scoring.md"
       );

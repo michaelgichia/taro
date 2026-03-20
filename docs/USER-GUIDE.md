@@ -1,6 +1,6 @@
 # Taro User Guide
 
-Taro installs runtime-native commands or skills into Claude Code, Gemini CLI, OpenCode, and Codex. The recommended first step after install is the runtime-native `init` entrypoint, and `refresh` is the maintenance path for owned assets after that. Taro then turns Testing Library Recorder `.js` exports into repository-aware React Testing Library tests.
+Taro installs runtime-native commands or skills into Claude Code, Gemini CLI, OpenCode, and Codex. The recommended first step after install is the runtime-native `init` entrypoint, and `refresh` is the maintenance path for owned assets after that. Taro then turns Testing Library Recorder `.js` exports into repository-aware React Testing Library tests and can grade or regrade existing tests through installed AI-facing workflows.
 
 For the current strict-order runtime pipeline, see [PIPELINE.md](./PIPELINE.md).
 
@@ -44,10 +44,10 @@ That command builds Taro, installs the Codex skill surface into this repo's `./.
 
 ## Runtime Entrypoints
 
-- Claude Code: `/@taro-test/rtl:help`, `/@taro-test/rtl:init`, `/@taro-test/rtl:refresh`, `/@taro-test/rtl:generate`, `/@taro-test/rtl:generate-i`, `/@taro-test/rtl:target`
-- Gemini CLI: `/@taro-test/rtl:help`, `/@taro-test/rtl:init`, `/@taro-test/rtl:refresh`, `/@taro-test/rtl:generate`, `/@taro-test/rtl:generate-i`, `/@taro-test/rtl:target`
-- OpenCode: `/@taro-test/rtl-help`, `/@taro-test/rtl-init`, `/@taro-test/rtl-refresh`, `/@taro-test/rtl-generate`, `/@taro-test/rtl-generate-i`, `/@taro-test/rtl-target`
-- Codex: `$@taro-test/rtl-help`, `$@taro-test/rtl-init`, `$@taro-test/rtl-refresh`, `$@taro-test/rtl-generate`, `$@taro-test/rtl-generate-i`, `$@taro-test/rtl-target`
+- Claude Code: `/@taro-test/rtl:help`, `/@taro-test/rtl:init`, `/@taro-test/rtl:refresh`, `/@taro-test/rtl:generate`, `/@taro-test/rtl:generate-i`, `/@taro-test/rtl:grade`, `/@taro-test/rtl:regrade`, `/@taro-test/rtl:target`
+- Gemini CLI: `/@taro-test/rtl:help`, `/@taro-test/rtl:init`, `/@taro-test/rtl:refresh`, `/@taro-test/rtl:generate`, `/@taro-test/rtl:generate-i`, `/@taro-test/rtl:grade`, `/@taro-test/rtl:regrade`, `/@taro-test/rtl:target`
+- OpenCode: `/@taro-test/rtl-help`, `/@taro-test/rtl-init`, `/@taro-test/rtl-refresh`, `/@taro-test/rtl-generate`, `/@taro-test/rtl-generate-i`, `/@taro-test/rtl-grade`, `/@taro-test/rtl-regrade`, `/@taro-test/rtl-target`
+- Codex: `$@taro-test/rtl-help`, `$@taro-test/rtl-init`, `$@taro-test/rtl-refresh`, `$@taro-test/rtl-generate`, `$@taro-test/rtl-generate-i`, `$@taro-test/rtl-grade`, `$@taro-test/rtl-regrade`, `$@taro-test/rtl-target`
 
 ## Refresh Maintenance
 
@@ -68,6 +68,14 @@ If you need a newer package version first, rerun `pnpm dlx @taro-test/rtl@latest
 4. When `target` is used, Taro must write the generated test next to the supplied component.
 5. If no render target can be inferred, the fallback boundary draft is written next to the recording. Existing generated outputs are never overwritten.
 6. Draft-quality output is reported explicitly through score, blockers, and boundary warnings.
+
+## Grading Rules
+
+1. `grade` evaluates an existing test file without rerunning generation.
+2. `grade` is report-only. It should not edit `.taro/state.json`.
+3. `regrade` reevaluates an existing test file against the latest file contents.
+4. `regrade` should update `.taro/state.json` only when a matching `generatedTests[].testFile` entry already exists.
+5. If no safe stored match exists, `regrade` should report the fresh score and leave state untouched.
 
 The exact module execution order for generation is documented in [PIPELINE.md](./PIPELINE.md).
 

@@ -26,10 +26,12 @@ const EXPECTED_SKILLS = [
   "@taro-test/rtl-conventions",
   "@taro-test/rtl-generate",
   "@taro-test/rtl-generate-i",
+  "@taro-test/rtl-grade",
   "@taro-test/rtl-help",
   "@taro-test/rtl-init",
   "@taro-test/rtl-mocks",
   "@taro-test/rtl-overrides",
+  "@taro-test/rtl-regrade",
   "@taro-test/rtl-refresh",
   "@taro-test/rtl-target",
 ] as const;
@@ -47,7 +49,7 @@ const EXPECTED_GENERATE_REFERENCES = [
 ] as const;
 const EXPECTED_SKILL_DIRECTORIES = EXPECTED_SKILLS.map(
   (skillName) => skillName.split("/")[1]!
-);
+).sort();
 const sandboxRoots: string[] = [];
 
 afterEach(async () => {
@@ -160,6 +162,12 @@ describe("buildCodexOperations", () => {
       "$@taro-test/rtl-generate-i"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
+      "$@taro-test/rtl-grade"
+    );
+    expect(operations.map((operation) => operation.entrypoint)).toContain(
+      "$@taro-test/rtl-regrade"
+    );
+    expect(operations.map((operation) => operation.entrypoint)).toContain(
       "$@taro-test/rtl-target"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
@@ -234,6 +242,32 @@ describe("buildCodexOperations", () => {
     expect(interactiveGenerateSkill).toContain(
       `Run \`${target.runtimeCommand} __generate -i <recording-file>\``
     );
+
+    const gradeSkill = await readFile(
+      join(
+        target.destinationDirectory,
+        "skills",
+        "@taro-test",
+        "rtl-grade",
+        "SKILL.md"
+      ),
+      "utf8"
+    );
+    expect(gradeSkill).toContain("$@taro-test/rtl-grade");
+    expect(gradeSkill).toContain("## Worked Examples");
+
+    const regradeSkill = await readFile(
+      join(
+        target.destinationDirectory,
+        "skills",
+        "@taro-test",
+        "rtl-regrade",
+        "SKILL.md"
+      ),
+      "utf8"
+    );
+    expect(regradeSkill).toContain("$@taro-test/rtl-regrade");
+    expect(regradeSkill).toContain("update only the latest matching");
 
     const targetSkill = await readFile(
       join(

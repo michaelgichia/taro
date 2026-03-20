@@ -58,6 +58,20 @@ const PROMPT_RUNTIME_ASSETS: Record<
       entrypoint: "/@taro-test/rtl:generate-i",
     },
     {
+      id: "grade",
+      kind: "command",
+      sourceSegments: ["commands", "claude", "@taro-test", "rtl", "grade.md"],
+      destinationSegments: ["commands", "@taro-test", "rtl", "grade.md"],
+      entrypoint: "/@taro-test/rtl:grade",
+    },
+    {
+      id: "regrade",
+      kind: "command",
+      sourceSegments: ["commands", "claude", "@taro-test", "rtl", "regrade.md"],
+      destinationSegments: ["commands", "@taro-test", "rtl", "regrade.md"],
+      entrypoint: "/@taro-test/rtl:regrade",
+    },
+    {
       id: "target",
       kind: "command",
       sourceSegments: ["commands", "claude", "@taro-test", "rtl", "target.md"],
@@ -139,6 +153,26 @@ const PROMPT_RUNTIME_ASSETS: Record<
       entrypoint: "/@taro-test/rtl:generate-i",
     },
     {
+      id: "grade",
+      kind: "command",
+      sourceSegments: ["commands", "gemini", "@taro-test", "rtl", "grade.toml"],
+      destinationSegments: ["commands", "@taro-test", "rtl", "grade.toml"],
+      entrypoint: "/@taro-test/rtl:grade",
+    },
+    {
+      id: "regrade",
+      kind: "command",
+      sourceSegments: [
+        "commands",
+        "gemini",
+        "@taro-test",
+        "rtl",
+        "regrade.toml",
+      ],
+      destinationSegments: ["commands", "@taro-test", "rtl", "regrade.toml"],
+      entrypoint: "/@taro-test/rtl:regrade",
+    },
+    {
       id: "target",
       kind: "command",
       sourceSegments: [
@@ -211,6 +245,20 @@ const PROMPT_RUNTIME_ASSETS: Record<
       ],
       destinationSegments: ["commands", "@taro-test", "rtl-generate-i.md"],
       entrypoint: "/@taro-test/rtl-generate-i",
+    },
+    {
+      id: "grade",
+      kind: "command",
+      sourceSegments: ["commands", "opencode", "@taro-test", "rtl-grade.md"],
+      destinationSegments: ["commands", "@taro-test", "rtl-grade.md"],
+      entrypoint: "/@taro-test/rtl-grade",
+    },
+    {
+      id: "regrade",
+      kind: "command",
+      sourceSegments: ["commands", "opencode", "@taro-test", "rtl-regrade.md"],
+      destinationSegments: ["commands", "@taro-test", "rtl-regrade.md"],
+      entrypoint: "/@taro-test/rtl-regrade",
     },
     {
       id: "target",

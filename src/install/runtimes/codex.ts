@@ -36,6 +36,20 @@ const CODEX_SKILL_ASSETS: RuntimeAssetDefinition[] = [
     entrypoint: "$@taro-test/rtl-generate-i",
   },
   {
+    id: "grade",
+    kind: "skill",
+    sourceSegments: ["agents", "taro-grade.md"],
+    destinationSegments: ["skills", "@taro-test", "rtl-grade", "SKILL.md"],
+    entrypoint: "$@taro-test/rtl-grade",
+  },
+  {
+    id: "regrade",
+    kind: "skill",
+    sourceSegments: ["agents", "taro-regrade.md"],
+    destinationSegments: ["skills", "@taro-test", "rtl-regrade", "SKILL.md"],
+    entrypoint: "$@taro-test/rtl-regrade",
+  },
+  {
     id: "target",
     kind: "skill",
     sourceSegments: ["agents", "taro-target.md"],

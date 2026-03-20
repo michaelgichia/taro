@@ -141,6 +141,12 @@ describe("prompt runtime install builders", () => {
     const refreshContent = await expectFile(
       join(home, ".claude", "commands", "@taro-test", "rtl", "refresh.md")
     );
+    const gradeContent = await expectFile(
+      join(home, ".claude", "commands", "@taro-test", "rtl", "grade.md")
+    );
+    const regradeContent = await expectFile(
+      join(home, ".claude", "commands", "@taro-test", "rtl", "regrade.md")
+    );
     const overridesContent = await expectFile(
       join(home, ".claude", "commands", "@taro-test", "rtl", "overrides.md")
     );
@@ -155,6 +161,12 @@ describe("prompt runtime install builders", () => {
       "/@taro-test/rtl:generate-i"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
+      "/@taro-test/rtl:grade"
+    );
+    expect(operations.map((operation) => operation.entrypoint)).toContain(
+      "/@taro-test/rtl:regrade"
+    );
+    expect(operations.map((operation) => operation.entrypoint)).toContain(
       "/@taro-test/rtl:target"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
@@ -166,6 +178,8 @@ describe("prompt runtime install builders", () => {
     expect(helpContent).toContain("/@taro-test/rtl:help");
     expect(initContent).toContain(`${target.runtimeCommand} __init`);
     expect(refreshContent).toContain(`${target.runtimeCommand} __refresh`);
+    expect(gradeContent).toContain("Do not invent or invoke `__grade`.");
+    expect(regradeContent).toContain("Do not invent or invoke `__regrade`.");
     expect(overridesContent).toContain(`${target.runtimeCommand} __overrides`);
     expect(
       operations.map((operation) => operation.relativeDestinationPath)
@@ -187,6 +201,12 @@ describe("prompt runtime install builders", () => {
     const targetContent = await expectFile(
       join(cwd, ".claude", "commands", "@taro-test", "rtl", "target.md")
     );
+    const gradeContent = await expectFile(
+      join(cwd, ".claude", "commands", "@taro-test", "rtl", "grade.md")
+    );
+    const regradeContent = await expectFile(
+      join(cwd, ".claude", "commands", "@taro-test", "rtl", "regrade.md")
+    );
     const overridesContent = await expectFile(
       join(cwd, ".claude", "commands", "@taro-test", "rtl", "overrides.md")
     );
@@ -198,6 +218,8 @@ describe("prompt runtime install builders", () => {
     expect(targetContent).toContain(
       `${target.runtimeCommand} __target <component-file>`
     );
+    expect(gradeContent).toContain("Strong `B` example");
+    expect(regradeContent).toContain("update only that matching record");
     expect(overridesContent).toContain(`${target.runtimeCommand} __overrides`);
 
     const installedGenerateReferences = (
@@ -224,6 +246,12 @@ describe("prompt runtime install builders", () => {
     const refreshContent = await expectFile(
       join(home, ".gemini", "commands", "@taro-test", "rtl", "refresh.toml")
     );
+    const gradeContent = await expectFile(
+      join(home, ".gemini", "commands", "@taro-test", "rtl", "grade.toml")
+    );
+    const regradeContent = await expectFile(
+      join(home, ".gemini", "commands", "@taro-test", "rtl", "regrade.toml")
+    );
     const overridesContent = await expectFile(
       join(home, ".gemini", "commands", "@taro-test", "rtl", "overrides.toml")
     );
@@ -238,6 +266,12 @@ describe("prompt runtime install builders", () => {
       "/@taro-test/rtl:generate-i"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
+      "/@taro-test/rtl:grade"
+    );
+    expect(operations.map((operation) => operation.entrypoint)).toContain(
+      "/@taro-test/rtl:regrade"
+    );
+    expect(operations.map((operation) => operation.entrypoint)).toContain(
       "/@taro-test/rtl:target"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
@@ -249,6 +283,8 @@ describe("prompt runtime install builders", () => {
     expect(helpContent).toContain("/@taro-test/rtl:help");
     expect(initContent).toContain(`\`${target.runtimeCommand} __init\``);
     expect(refreshContent).toContain(`\`${target.runtimeCommand} __refresh\``);
+    expect(gradeContent).toContain("Do not invent or invoke `__grade`.");
+    expect(regradeContent).toContain("Do not invent or invoke `__regrade`.");
     expect(overridesContent).toContain(
       `\`${target.runtimeCommand} __overrides\``
     );
@@ -269,6 +305,12 @@ describe("prompt runtime install builders", () => {
     const targetContent = await expectFile(
       join(cwd, ".gemini", "commands", "@taro-test", "rtl", "target.toml")
     );
+    const gradeContent = await expectFile(
+      join(cwd, ".gemini", "commands", "@taro-test", "rtl", "grade.toml")
+    );
+    const regradeContent = await expectFile(
+      join(cwd, ".gemini", "commands", "@taro-test", "rtl", "regrade.toml")
+    );
     const overridesContent = await expectFile(
       join(cwd, ".gemini", "commands", "@taro-test", "rtl", "overrides.toml")
     );
@@ -281,6 +323,8 @@ describe("prompt runtime install builders", () => {
     expect(targetContent).toContain(
       `\`${target.runtimeCommand} __target <component-file>\``
     );
+    expect(gradeContent).toContain("Strong B");
+    expect(regradeContent).toContain("update only that matching record");
     expect(overridesContent).toContain(
       `\`${target.runtimeCommand} __overrides\``
     );
@@ -310,6 +354,26 @@ describe("prompt runtime install builders", () => {
         "rtl-refresh.md"
       )
     );
+    const gradeContent = await expectFile(
+      join(
+        home,
+        ".config",
+        "opencode",
+        "commands",
+        "@taro-test",
+        "rtl-grade.md"
+      )
+    );
+    const regradeContent = await expectFile(
+      join(
+        home,
+        ".config",
+        "opencode",
+        "commands",
+        "@taro-test",
+        "rtl-regrade.md"
+      )
+    );
     const overridesContent = await expectFile(
       join(
         home,
@@ -331,6 +395,12 @@ describe("prompt runtime install builders", () => {
       "/@taro-test/rtl-generate-i"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
+      "/@taro-test/rtl-grade"
+    );
+    expect(operations.map((operation) => operation.entrypoint)).toContain(
+      "/@taro-test/rtl-regrade"
+    );
+    expect(operations.map((operation) => operation.entrypoint)).toContain(
       "/@taro-test/rtl-target"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
@@ -342,6 +412,8 @@ describe("prompt runtime install builders", () => {
     expect(helpContent).toContain("/@taro-test/rtl-help");
     expect(initContent).toContain(`${target.runtimeCommand} __init`);
     expect(refreshContent).toContain(`${target.runtimeCommand} __refresh`);
+    expect(gradeContent).toContain("Do not invent or invoke `__grade`.");
+    expect(regradeContent).toContain("Do not invent or invoke `__regrade`.");
     expect(overridesContent).toContain(
       `\`${target.runtimeCommand} __overrides\``
     );
@@ -362,6 +434,12 @@ describe("prompt runtime install builders", () => {
     const targetContent = await expectFile(
       join(cwd, ".opencode", "commands", "@taro-test", "rtl-target.md")
     );
+    const gradeContent = await expectFile(
+      join(cwd, ".opencode", "commands", "@taro-test", "rtl-grade.md")
+    );
+    const regradeContent = await expectFile(
+      join(cwd, ".opencode", "commands", "@taro-test", "rtl-regrade.md")
+    );
     const overridesContent = await expectFile(
       join(cwd, ".opencode", "commands", "@taro-test", "rtl-overrides.md")
     );
@@ -374,6 +452,8 @@ describe("prompt runtime install builders", () => {
     expect(targetContent).toContain(
       `\`${target.runtimeCommand} __target <component-file>\``
     );
+    expect(gradeContent).toContain("Strong `B`");
+    expect(regradeContent).toContain("update only that matching record");
     expect(overridesContent).toContain(
       `\`${target.runtimeCommand} __overrides\``
     );

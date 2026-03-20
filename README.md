@@ -1,8 +1,8 @@
 # Taro
 
-Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex, run the runtime-native `init` entrypoint as the recommended first step, then generate React Testing Library tests from Testing Library Recorder JS exports.
+Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex, run the runtime-native `init` entrypoint as the recommended first step, then generate, grade, and regrade React Testing Library tests.
 
-Taro ships as an installer-first package. The package entrypoint bootstraps runtime-native commands or skills into your agent environment, and those runtime entrypoints run Taro's internal JS-only init, refresh, and generation flows.
+Taro ships as an installer-first package. The package entrypoint bootstraps runtime-native commands or skills into your agent environment, and those runtime entrypoints cover init, refresh, generation, and AI-driven grading workflows.
 
 For the current strict-order runtime generation path, see [docs/PIPELINE.md](./docs/PIPELINE.md).
 
@@ -155,15 +155,23 @@ After installation and a first `init` run, use the runtime-native installed gene
 
 - Claude Code: `/@taro-test/rtl:generate`
 - Claude Code: `/@taro-test/rtl:generate-i`
+- Claude Code: `/@taro-test/rtl:grade`
+- Claude Code: `/@taro-test/rtl:regrade`
 - Claude Code: `/@taro-test/rtl:target`
 - Gemini CLI: `/@taro-test/rtl:generate`
 - Gemini CLI: `/@taro-test/rtl:generate-i`
+- Gemini CLI: `/@taro-test/rtl:grade`
+- Gemini CLI: `/@taro-test/rtl:regrade`
 - Gemini CLI: `/@taro-test/rtl:target`
 - OpenCode: `/@taro-test/rtl-generate`
 - OpenCode: `/@taro-test/rtl-generate-i`
+- OpenCode: `/@taro-test/rtl-grade`
+- OpenCode: `/@taro-test/rtl-regrade`
 - OpenCode: `/@taro-test/rtl-target`
 - Codex: `$@taro-test/rtl-generate`
 - Codex: `$@taro-test/rtl-generate-i`
+- Codex: `$@taro-test/rtl-grade`
+- Codex: `$@taro-test/rtl-regrade`
 - Codex: `$@taro-test/rtl-target`
 
 ### Prerequisites
@@ -198,6 +206,23 @@ Created: src/components/MyComponent.test.tsx
 On subsequent runs in the same project, Taro reads `.taro/state.json` package profiles to match your test style automatically. If `.taro/state.json` is missing, `generate` performs a light bootstrap, but `init` remains the recommended first step for brownfield repos.
 
 For the exact module execution order behind `__generate`, see [docs/PIPELINE.md](./docs/PIPELINE.md).
+
+## Grade Existing Tests
+
+Use the runtime-native grading entrypoints when you want an AI-facing review of an existing test file without rerunning generation:
+
+- Claude Code: `/@taro-test/rtl:grade path/to/test-file`
+- Claude Code: `/@taro-test/rtl:regrade path/to/test-file`
+- Gemini CLI: `/@taro-test/rtl:grade path/to/test-file`
+- Gemini CLI: `/@taro-test/rtl:regrade path/to/test-file`
+- OpenCode: `/@taro-test/rtl-grade path/to/test-file`
+- OpenCode: `/@taro-test/rtl-regrade path/to/test-file`
+- Codex: `$@taro-test/rtl-grade`
+- Codex: `$@taro-test/rtl-regrade`
+
+`grade` is report-only: it scores the current file using the published Taro scoring shape and worked examples, but it does not mutate `.taro/state.json`.
+
+`regrade` is for tests that already have a matching `generatedTests` history entry in `.taro/state.json`. It re-scores the current file, compares it to the latest stored grade, and refreshes that matching stored grade when the test-file match is safe. If no matching history entry exists, it reports the new grade without editing state.
 
 ### Draft-quality output is explicit
 
@@ -288,7 +313,7 @@ describe('login flow', () => {
 
 ## Agent Usage
 
-After installation, each runtime gets a namespaced help entrypoint plus `init`, `refresh`, `generate`, and `target` entrypoints. Use `init` first, `refresh` for maintenance, `generate` for Recorder-to-RTL output, and `target` when you want to force a specific component path.
+After installation, each runtime gets a namespaced help entrypoint plus `init`, `refresh`, `generate`, `grade`, `regrade`, and `target` entrypoints. Use `init` first, `refresh` for maintenance, `generate` for Recorder-to-RTL output, `grade` for existing-test evaluation, `regrade` when you want to refresh a stored generated-test grade after edits, and `target` when you want to force a specific component path.
 
 ### Tips
 
