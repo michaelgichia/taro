@@ -227,7 +227,7 @@ export interface TaroMockStoreResource {
 export interface TaroGeneratedTestRecord {
   createdAt: string;
   packagePath: string;
-  recordingFile: string;
+  recordingFile: string | null;
   testFile: string;
   quality: {
     overall: number;

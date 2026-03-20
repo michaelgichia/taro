@@ -206,19 +206,14 @@ Suggested screenshot flow when a recording URL is known:
 7. Report working notes with `recording_url`, parsed step count, auth status, screenshot status, and any saved screenshot paths.
 8. Close with `Phase 7 complete. {N} interaction steps parsed. Visual capture status recorded. Ready for component discovery.`
 
-
 ## Boundary Pattern Few-Shots
 
 Infer the principle first, then choose the concrete repo artifact. Use the strongest local exemplar instead of generic mocking.
 
-- Partial support import:
-  A shared boundary stays mostly real and a support import overrides only the unstable slice. Reuse that support import; do not recreate the package inline.
-- Keep-real wrapper:
-  A local wrapper is part of the render surface. Keep it real and solve boundary issues at the render layer instead of mocking through it.
-- Factory support:
-  A collaborator exposes stable factory/reset handles. Import those handles and configure behavior per test.
-- Inline-safe boundary:
-  A simple router, env, or platform seam can use a lightweight inline mock when no stronger local pattern exists.
+- Partial support import: A shared boundary stays mostly real and a support import overrides only the unstable slice. Reuse that support import; do not recreate the package inline.
+- Keep-real wrapper: A local wrapper is part of the render surface. Keep it real and solve boundary issues at the render layer instead of mocking through it.
+- Factory support: A collaborator exposes stable factory/reset handles. Import those handles and configure behavior per test.
+- Inline-safe boundary: A simple router, env, or platform seam can use a lightweight inline mock when no stronger local pattern exists.
 
 Never invent a fake shared UI implementation when a partial-support or keep-real pattern exists.
 

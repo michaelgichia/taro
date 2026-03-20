@@ -12,6 +12,7 @@ import {
 import { detectRepoContractIssues } from "#core/repo-contracts.ts";
 import type { QueryResult } from "#types/recording.ts";
 import type {
+  HighSignalBranchHint,
   MarkerCoverageTotals,
   MarkerQualityGateState,
   MarkerReviewDiagnostics,
@@ -84,6 +85,8 @@ interface NormalizedComponentScoreContext {
   componentEventHandlerCount: number;
   componentImportReferences: ScoreImportReference[];
   exportedUtilityNames: string[];
+  dynamicImportTargets: string[];
+  highSignalBranchHints: HighSignalBranchHint[];
 }
 
 interface BranchCoverageSignal {
@@ -165,6 +168,24 @@ const REPO_CONTRACT_REASON_CONFIG: Record<
   "incomplete-asset-mock": {
     dimension: "boundaryIsolation",
     code: "incomplete-asset-mock",
+    weight: 12,
+    severity: "advisory",
+  },
+  "dynamic-prop-shape-dispatcher": {
+    dimension: "boundaryIsolation",
+    code: "dynamic-prop-shape-dispatcher",
+    weight: 18,
+    severity: "blocker",
+  },
+  "duplicate-const-source": {
+    dimension: "testStructure",
+    code: "duplicate-const-source",
+    weight: 16,
+    severity: "blocker",
+  },
+  "overloaded-hoisted-state": {
+    dimension: "boundaryIsolation",
+    code: "overloaded-hoisted-state",
     weight: 12,
     severity: "advisory",
   },
@@ -709,6 +730,8 @@ function normalizeComponentScoreContext(
     ),
     componentImportReferences: input?.componentImportReferences ?? [],
     exportedUtilityNames: [...new Set(input?.exportedUtilityNames ?? [])],
+    dynamicImportTargets: [...new Set(input?.dynamicImportTargets ?? [])],
+    highSignalBranchHints: input?.highSignalBranchHints ?? [],
   };
 }
 
@@ -768,7 +791,8 @@ function buildBranchCoverageSignal(
   const minimumExpectedTestCount =
     componentContext.componentConditionalCount * 2 +
     componentContext.componentEventHandlerCount +
-    componentContext.exportedUtilityNames.length;
+    componentContext.exportedUtilityNames.length +
+    componentContext.highSignalBranchHints.length;
   const ratio =
     minimumExpectedTestCount > 0 ? itCount / minimumExpectedTestCount : 1;
 
@@ -779,6 +803,36 @@ function buildBranchCoverageSignal(
     partialCoverage:
       minimumExpectedTestCount > 0 && itCount < minimumExpectedTestCount,
   };
+}
+
+function isHighSignalBranchHintCovered(
+  code: string,
+  hint: HighSignalBranchHint
+): boolean {
+  const normalizedCode = code.toLowerCase();
+  const tokens = hint.coverageTokens.map((token) => token.toLowerCase());
+
+  if (hint.family === "split-loading-flags") {
+    return (
+      tokens.filter((token) => normalizedCode.includes(token)).length >=
+      Math.min(2, tokens.length)
+    );
+  }
+
+  if (hint.family === "null-or-missing-mapped-values") {
+    return /\bnull\b|\bundefined\b/u.test(code);
+  }
+
+  return tokens.some((token) => normalizedCode.includes(token));
+}
+
+function collectMissingHighSignalBranchFamilies(
+  code: string,
+  componentContext: NormalizedComponentScoreContext
+): string[] {
+  return componentContext.highSignalBranchHints
+    .filter((hint) => !isHighSignalBranchHintCovered(code, hint))
+    .map((hint) => hint.family);
 }
 
 function createReason(
@@ -819,6 +873,7 @@ function compareReasons(left: ScoreReason, right: ScoreReason): number {
 
 function analyzeMockCompleteness(params: {
   componentImportReferences: ScoreImportReference[];
+  dynamicImportTargets: string[];
   mockTargets: Set<string>;
 }): MockCompletenessResult {
   const reasons: ScoreReason[] = [];
@@ -835,6 +890,14 @@ function analyzeMockCompleteness(params: {
     }
 
     if (reference.target === "next/dynamic") {
+      const hasDynamicModuleCoverage =
+        params.dynamicImportTargets.length > 0 &&
+        params.dynamicImportTargets.every((target) =>
+          params.mockTargets.has(target)
+        );
+      if (hasDynamicModuleCoverage) {
+        continue;
+      }
       missingMockCount += 1;
       penalty += 15;
       reasons.push(
@@ -843,7 +906,9 @@ function analyzeMockCompleteness(params: {
           "boundaryIsolation",
           "negative",
           15,
-          `Dynamic import boundary "${reference.target}" is imported by the component but not mocked in the generated test.`,
+          params.dynamicImportTargets.length > 0
+            ? `Dynamic import boundary "${reference.target}" is imported by the component but the generated test does not cover all dynamic modules (${params.dynamicImportTargets.join(", ")}).`
+            : `Dynamic import boundary "${reference.target}" is imported by the component but not mocked in the generated test.`,
           "blocker"
         )
       );
@@ -1054,6 +1119,7 @@ function collectSignals(params: {
 }
 
 function collectReasons(params: {
+  code: string;
   dimensions: ScoreDimensions;
   signals: ScoreSignals;
   analysis: TestCodeAnalysis;
@@ -1066,6 +1132,7 @@ function collectReasons(params: {
   mockCompleteness: MockCompletenessResult;
 }): ScoreReason[] {
   const {
+    code,
     dimensions,
     signals,
     analysis,
@@ -1223,6 +1290,21 @@ function collectReasons(params: {
         8,
         `The suite has ${analysis.itCount} test block(s), while the component surface suggests up to ${signals.minimumExpectedTestCount} branch, handler, or utility-focused cases. Treat this as advisory context, not a required test count.`,
         "advisory"
+      )
+    );
+  }
+
+  const missingHighSignalBranchFamilies =
+    collectMissingHighSignalBranchFamilies(code, componentContext);
+  if (missingHighSignalBranchFamilies.length > 0) {
+    reasons.push(
+      createReason(
+        "source-branch-family-gap",
+        "testStructure",
+        "negative",
+        16,
+        `High-signal source branches appear uncovered: ${missingHighSignalBranchFamilies.join(", ")}.`,
+        "blocker"
       )
     );
   }
@@ -1527,6 +1609,7 @@ export function scoreGeneratedTest(
   );
   const mockCompleteness = analyzeMockCompleteness({
     componentImportReferences: componentContext.componentImportReferences,
+    dynamicImportTargets: componentContext.dynamicImportTargets,
     mockTargets: analysis.mockTargets,
   });
   const signals = collectSignals({
@@ -1563,6 +1646,7 @@ export function scoreGeneratedTest(
   };
 
   const reasons = collectReasons({
+    code,
     dimensions,
     signals,
     analysis,

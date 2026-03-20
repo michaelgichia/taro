@@ -2105,7 +2105,23 @@ export function emitScoreHints(
   }
 
   if (scoreResult.dimensions.testStructure < 60) {
-    if (reasons.some((reason) => reason.code === "branch-coverage-signal")) {
+    if (reasons.some((reason) => reason.code === "source-branch-family-gap")) {
+      const missingFamilies =
+        reasons
+          .find((reason) => reason.code === "source-branch-family-gap")
+          ?.message.replace(
+            /^High-signal source branches appear uncovered:\s*/u,
+            ""
+          )
+          .replace(/\.$/u, "") ?? "unknown";
+      log(
+        pc.yellow(
+          `[taro] Tip: Source-aware branch planning found uncovered branch families: ${missingFamilies}.`
+        )
+      );
+    } else if (
+      reasons.some((reason) => reason.code === "branch-coverage-signal")
+    ) {
       log(
         pc.yellow(
           `[taro] Tip: Consider whether the component's alternate branches or handlers need separate tests here (surface signal: ${scoreResult.signals.minimumExpectedTestCount} possible cases).`
@@ -3228,6 +3244,18 @@ export async function auditBoundaryPolicy(
       pattern === "partial-support-import" &&
       profile.supportImportPath &&
       mocksBoundary &&
+      profile.guardrailReason === "ui-package"
+    ) {
+      warnings.push(
+        `Generated test inline-mocks shared UI package "${profile.target}" even though repo policy prefers a partial support import. Reuse "${profile.supportImportPath}" and keep the shared boundary mostly real.`
+      );
+      continue;
+    }
+
+    if (
+      pattern === "partial-support-import" &&
+      profile.supportImportPath &&
+      mocksBoundary &&
       !code.includes(profile.supportImportPath)
     ) {
       warnings.push(
@@ -3995,10 +4023,7 @@ export const generateCommandInternals = {
 export interface GenerateMachineContext {
   filePath: string;
   projectRoot: string;
-  stdioContext?: {
-    input?: { isTTY?: boolean };
-    output?: { isTTY?: boolean };
-  };
+  stdioContext?: { input?: { isTTY?: boolean }; output?: { isTTY?: boolean } };
   commandOptions: {
     auth?: string;
     debugSelectors?: boolean;

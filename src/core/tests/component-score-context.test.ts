@@ -41,17 +41,21 @@ describe("loadComponentScoreContext", () => {
         "  return `$${(cents / 100).toFixed(2)}`",
         "}",
         "",
-        "export default function ProfileCard({ href, isBusiness, count, open, onOpen }) {",
+        "export default function ProfileCard({ href, isBusiness, count, open, onOpen, displayName, legalName, role, isLoadingProfile, isLoadingMembers }) {",
         '  const LazyBody = dynamic(() => import("./ProfileBody"))',
         "  const profile = useProfileQuery()",
+        "  const statusLabels = { idle: 'Idle' }",
+        "  const isBusy = isLoadingProfile || isLoadingMembers",
         "  return (",
         "    <Link href={href}>",
         "      <section onClick={onOpen} onMouseEnter={onOpen}>",
         "        <p>{isBusiness ? 'Business' : 'Personal'}</p>",
         "        <p>{count ?? 0}</p>",
+        "        <p>{displayName ?? legalName}</p>",
         "        {open && <PortalShell><Flag /></PortalShell>}",
-        "        <p>{formatStatus(profile.data?.status ?? 'idle')}</p>",
-        "        <LazyBody />",
+        "        {isBusy ? <p>Loading</p> : null}",
+        "        <p>{statusLabels[profile.data?.status ?? 'idle'] ?? null}</p>",
+        "        {role === 'admin' && <LazyBody />}",
         "      </section>",
         "    </Link>",
         "  )",
@@ -66,10 +70,31 @@ describe("loadComponentScoreContext", () => {
     expect(context).toEqual(
       expect.objectContaining({
         componentDisplayName: "ProfileCard",
-        componentConditionalCount: 4,
+        componentConditionalCount: 8,
         componentEventHandlerCount: 2,
+        dynamicImportTargets: ["./ProfileBody"],
         exportedUtilityNames: ["formatCurrency"],
       })
+    );
+    expect(context?.highSignalBranchHints).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          family: "display-name-fallback",
+          coverageTokens: expect.arrayContaining(["displayName", "legalName"]),
+        }),
+        expect.objectContaining({ family: "null-or-missing-mapped-values" }),
+        expect.objectContaining({
+          family: "split-loading-flags",
+          coverageTokens: expect.arrayContaining([
+            "isLoadingMembers",
+            "isLoadingProfile",
+          ]),
+        }),
+        expect.objectContaining({
+          family: "role-gated-prop-propagation",
+          coverageTokens: expect.arrayContaining(["role"]),
+        }),
+      ])
     );
     expect(context?.componentImportReferences).toEqual(
       expect.arrayContaining([

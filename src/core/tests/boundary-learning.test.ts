@@ -503,6 +503,108 @@ vi.mock('./api/orders', () => ({
     );
   });
 
+  it("learns partial support imports from side-effect support modules and prefers them for shared UI packages", async () => {
+    await mkdir(join(testDir, "src", "tests", "mocks"), { recursive: true });
+    await writeFile(
+      join(testDir, "src", "tests", "mocks", "toast.ts"),
+      ["export const mockToastMessage = () => null", ""].join("\n")
+    );
+    await writeFile(
+      join(testDir, "src", "tests", "mocks", "shared-ui.ts"),
+      [
+        "import { mockToastMessage } from './toast'",
+        "",
+        "vi.mock('@shared/ui', async (importOriginal) => {",
+        "  const actual = await importOriginal<typeof import('@shared/ui')>()",
+        "  return { ...actual, ToastMessage: mockToastMessage }",
+        "})",
+        "",
+      ].join("\n")
+    );
+
+    const result = await collectBoundaryLearning({
+      projectRoot: testDir,
+      testFiles: [
+        {
+          path: join(testDir, "src", "feature.good.test.tsx"),
+          content: `import '@/tests/mocks/shared-ui'`,
+        },
+        {
+          path: join(testDir, "src", "feature.bad.test.tsx"),
+          content: `
+import { mockToastMessage } from '@/tests/mocks/toast'
+
+vi.mock('@shared/ui', () => ({
+  Button: vi.fn(),
+  ToastMessage: mockToastMessage,
+}))
+          `,
+        },
+      ],
+      renderTargets: [],
+      providerWrappers: [],
+      mutationLifecycles: [],
+    });
+
+    const profile = result.profiles.find(
+      (entry) => entry.target === "@shared/ui"
+    );
+    expect(profile).toMatchObject({
+      strategy: "real-runtime",
+      pattern: "partial-support-import",
+      supportImportPath: "@/tests/mocks/shared-ui",
+      confidence: "medium",
+      guardrailReason: "ui-package",
+    });
+    expect(profile?.supportExports.factoryExport).toBeNull();
+    expect(profile?.conflictTargets.length).toBeGreaterThan(0);
+  });
+
+  it("falls back to keep-real when shared UI package support evidence conflicts without a trusted partial support import", async () => {
+    await mkdir(join(testDir, "src", "tests", "mocks"), { recursive: true });
+
+    const result = await collectBoundaryLearning({
+      projectRoot: testDir,
+      testFiles: [
+        {
+          path: join(testDir, "src", "factory-a.test.tsx"),
+          content: `
+import { createSharedUiMock } from '@/tests/mocks/shared-ui-a'
+
+vi.mock('@shared/ui', () => ({
+  ...createSharedUiMock(),
+}))
+          `,
+        },
+        {
+          path: join(testDir, "src", "factory-b.test.tsx"),
+          content: `
+import { createSharedUiMock } from '@/tests/mocks/shared-ui-b'
+
+vi.mock('@shared/ui', () => ({
+  ...createSharedUiMock(),
+}))
+          `,
+        },
+      ],
+      renderTargets: [],
+      providerWrappers: [],
+      mutationLifecycles: [],
+    });
+
+    const profile = result.profiles.find(
+      (entry) => entry.target === "@shared/ui"
+    );
+    expect(profile).toMatchObject({
+      strategy: "real-runtime",
+      pattern: "keep-real",
+      supportImportPath: null,
+      confidence: "low",
+      guardrailReason: "ui-package",
+    });
+    expect(profile?.conflictTargets.length).toBeGreaterThan(0);
+  });
+
   it("lets a higher-scored shared-factory exemplar beat noisier low-scored inline mocks", async () => {
     await mkdir(join(testDir, "src"), { recursive: true });
 
@@ -1721,7 +1823,6 @@ describe("summarizeBoundaryProfiles", () => {
     expect(lines[0]).toContain("../__mocks__/axiosMock");
   });
 });
-
 
 describe("inferBoundaryPattern", () => {
   it("prefers partial-support-import for shared support that preserves original runtime", () => {

@@ -19,12 +19,26 @@ export interface ScoreImportReference {
   guardrailReason: TaroBoundaryGuardrailReason | null;
 }
 
+export type HighSignalBranchFamily =
+  | "null-or-missing-mapped-values"
+  | "unknown-mapping-fallback"
+  | "split-loading-flags"
+  | "display-name-fallback"
+  | "role-gated-prop-propagation";
+
+export interface HighSignalBranchHint {
+  family: HighSignalBranchFamily;
+  coverageTokens: string[];
+}
+
 export interface ComponentScoreContext {
   componentDisplayName?: string;
   componentConditionalCount?: number;
   componentEventHandlerCount?: number;
   componentImportReferences?: ScoreImportReference[];
   exportedUtilityNames?: string[];
+  dynamicImportTargets?: string[];
+  highSignalBranchHints?: HighSignalBranchHint[];
 }
 
 export interface ScoreSignals {

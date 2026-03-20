@@ -202,7 +202,7 @@ Purpose: Persist bounded, package-scoped test knowledge that Taro can reuse acro
     {
       "createdAt": "ISO-8601",
       "packagePath": "packages/dashboard",
-      "recordingFile": "/abs/path/recording.js",
+      "recordingFile": "/abs/path/recording.js | null",
       "testFile": "/abs/path/packages/dashboard/src/features/FeatureFlow.test.tsx",
       "quality": {
         "overall": 82,
@@ -231,6 +231,8 @@ Purpose: Persist bounded, package-scoped test knowledge that Taro can reuse acro
   ],
 }
 ```
+
+`generatedTests` is an append-only score history used by `generate`, `grade`, and `regrade`. Taro keeps only the latest 5 snapshots per `testFile`.
 
 ## Override File
 

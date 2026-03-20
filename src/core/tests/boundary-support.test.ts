@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -14,11 +14,16 @@ import type {
   ResolvedTaroPackageProfile,
 } from "#types/state.ts";
 
-vi.mock("#core/boundary-learning.ts", () => ({
-  classifyBoundaryKind: vi.fn(),
-  discoverBoundaryImportsFromSource: vi.fn(),
-  getBoundaryGuardrailReason: vi.fn(),
-}));
+vi.mock("#core/boundary-learning.ts", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("#core/boundary-learning.ts")>();
+  return {
+    ...actual,
+    classifyBoundaryKind: vi.fn(),
+    discoverBoundaryImportsFromSource: vi.fn(),
+    getBoundaryGuardrailReason: vi.fn(),
+  };
+});
 
 import {
   classifyBoundaryKind,
@@ -337,6 +342,51 @@ describe("planBoundarySupport", () => {
     expect(plan.requiresReview).toBe(true);
   });
 
+  it("emits module-identity placeholders for resolved next/dynamic import sites", async () => {
+    const root = await createSandbox();
+    const componentPath = join(root, "src", "Component.tsx");
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(
+      componentPath,
+      [
+        "import dynamic from 'next/dynamic'",
+        "const LazyProfile = dynamic(() => import('./ProfileBody'))",
+        "const LazyMembers = dynamic(() => import('./MembersPanel'))",
+        "export function Component() {",
+        "  return <div><LazyProfile /><LazyMembers /></div>",
+        "}",
+        "",
+      ].join("\n")
+    );
+
+    vi.mocked(discoverBoundaryImportsFromSource).mockResolvedValue([
+      {
+        target: "next/dynamic",
+        importedNames: ["default"],
+        kind: "unknown",
+        guardrailReason: null,
+      },
+    ]);
+
+    const plan = await planBoundarySupport({
+      projectRoot: root,
+      outputPath: join(root, "src", "feature", "feature.test.tsx"),
+      packageProfile: makePackageProfile(),
+      renderTargetFile: componentPath,
+      renderTarget: null,
+    });
+
+    expect(plan.mockBlocks).toEqual(
+      expect.arrayContaining([
+        "vi.mock('./ProfileBody', () => ({\n  default: () => <div data-testid=\"taro-dynamic-profilebody\" />,\n}))",
+        "vi.mock('./MembersPanel', () => ({\n  default: () => <div data-testid=\"taro-dynamic-memberspanel\" />,\n}))",
+      ])
+    );
+    expect(plan.mockBlocks.join("\n")).not.toContain("vi.mock('next/dynamic'");
+    expect(plan.warnings[0]).toContain("./MembersPanel, ./ProfileBody");
+    expect(plan.requiresReview).toBe(true);
+  });
+
   it("scaffolds generic imported hooks as low-confidence mocks", async () => {
     const root = await createSandbox();
 
@@ -587,7 +637,6 @@ describe("planBoundarySupport", () => {
     expect(plan.importLines).toEqual([]);
   });
 
-
   it("reuses shared UI package support when the learned pattern is partial support", async () => {
     const root = await createSandbox();
 
@@ -640,6 +689,59 @@ describe("planBoundarySupport", () => {
       "import { createSharedUiMock } from '../mocks/shared-ui'"
     );
     expect(plan.mockBlocks[0]).toContain("vi.mock('@shared/ui'");
+    expect(plan.warnings).toEqual([]);
+  });
+
+  it("reuses side-effect partial support imports without generating a package mock block", async () => {
+    const root = await createSandbox();
+
+    vi.mocked(discoverBoundaryImportsFromSource).mockResolvedValue([
+      {
+        target: "@shared/ui",
+        importedNames: ["Button"],
+        kind: "unknown",
+        guardrailReason: "ui-package",
+      },
+    ]);
+    vi.mocked(getBoundaryGuardrailReason).mockReturnValue("ui-package");
+
+    const packageProfile = makePackageProfile({
+      boundaryProfiles: [
+        {
+          target: "@shared/ui",
+          kind: "unknown",
+          strategy: "real-runtime",
+          pattern: "partial-support-import",
+          guardrailReason: "ui-package",
+          supportImportPath: "@/tests/mocks/shared-ui",
+          supportPath: null,
+          supportExports: {
+            factoryExport: null,
+            resetExport: null,
+            overrideExports: [],
+            spyExports: [],
+            fixtureExports: [],
+          },
+          payloadSource: "typed-defaults",
+          confidence: "medium",
+          files: [],
+          evidence: [],
+          conflictTargets: [],
+          lowConfidenceScaffold: false,
+        },
+      ],
+    });
+
+    const plan = await planBoundarySupport({
+      projectRoot: root,
+      outputPath: join(root, "src", "feature", "feature.test.ts"),
+      packageProfile,
+      renderTargetFile: "src/Component.tsx",
+      renderTarget: null,
+    });
+
+    expect(plan.importLines).toContain("import '@/tests/mocks/shared-ui'");
+    expect(plan.mockBlocks).toEqual([]);
     expect(plan.warnings).toEqual([]);
   });
 

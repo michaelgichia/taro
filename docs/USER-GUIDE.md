@@ -72,10 +72,10 @@ If you need a newer package version first, rerun `pnpm dlx @taro-test/rtl@latest
 ## Grading Rules
 
 1. `grade` evaluates an existing test file without rerunning generation.
-2. `grade` is report-only. It should not edit `.taro/state.json`.
+2. `grade` should append a new `generatedTests` snapshot into `.taro/state.json`.
 3. `regrade` reevaluates an existing test file against the latest file contents.
-4. `regrade` should update `.taro/state.json` only when a matching `generatedTests[].testFile` entry already exists.
-5. If no safe stored match exists, `regrade` should report the fresh score and leave state untouched.
+4. `regrade` should compare against the latest matching `generatedTests[].testFile` snapshot when one exists, then append a new snapshot into `.taro/state.json`.
+5. `grade` and `regrade` should keep only the latest 5 stored snapshots per `generatedTests[].testFile`.
 
 Stored `generatedTests` grades bias later package relearning. During `init`, `refresh`, and stale-state bootstrap, Taro now gives higher-scored stored tests more influence when learning conventions, helpers, exemplars, and boundary strategies. Files without stored grades still participate with neutral weight.
 

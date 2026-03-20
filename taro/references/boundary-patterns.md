@@ -18,7 +18,7 @@ Use when a shared boundary should remain mostly real, but one unstable slice nee
 Example shape:
 
 ```ts
-import "@/tests/support/shared-ui"
+import "@/tests/support/shared-ui";
 
 // support file keeps most exports real and overrides only the unstable part
 ```
@@ -46,13 +46,11 @@ Use when the repo exposes stable factory/reset/override handles for a collaborat
 Example shape:
 
 ```ts
-import { createOrdersMock, resetOrdersMock } from "@/tests/mocks/orders"
+import { createOrdersMock, resetOrdersMock } from "@/tests/mocks/orders";
 
-vi.mock("@/features/orders", () => ({
-  ...createOrdersMock(),
-}))
+vi.mock("@/features/orders", () => ({ ...createOrdersMock() }));
 
-beforeEach(resetOrdersMock)
+beforeEach(resetOrdersMock);
 ```
 
 Interpretation:

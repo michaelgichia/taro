@@ -473,21 +473,22 @@ function collectBoundaryPatternHints(
 
   const profiles = mockAnalysis.boundaryProfiles ?? [];
   const patterns = new Set(
-    profiles.map((profile) =>
-      profile.pattern ??
-      inferBoundaryPattern({
-        strategy: profile.strategy,
-        guardrailReason: profile.guardrailReason,
-        supportImportPath: profile.supportImportPath,
-        supportExports: profile.supportExports,
-      })
+    profiles.map(
+      (profile) =>
+        profile.pattern ??
+        inferBoundaryPattern({
+          strategy: profile.strategy,
+          guardrailReason: profile.guardrailReason,
+          supportImportPath: profile.supportImportPath,
+          supportExports: profile.supportExports,
+        })
     )
   );
   const hints: string[] = [];
 
   if (patterns.has("partial-support-import")) {
     hints.push(
-      "Shared boundary examples favor partial support imports. Reuse the support shape and keep the collaborator mostly real instead of recreating it inline."
+      "Shared UI boundary examples favor partial support imports. Reuse the repo support module, keep stable component exports real, and override only the narrow unstable slice."
     );
   }
 

@@ -219,7 +219,7 @@ describe("prompt runtime install builders", () => {
       `${target.runtimeCommand} __target <component-file>`
     );
     expect(gradeContent).toContain("Strong `B` example");
-    expect(regradeContent).toContain("update only that matching record");
+    expect(regradeContent).toContain("latest 5 snapshots");
     expect(overridesContent).toContain(`${target.runtimeCommand} __overrides`);
 
     const installedGenerateReferences = (
@@ -324,7 +324,7 @@ describe("prompt runtime install builders", () => {
       `\`${target.runtimeCommand} __target <component-file>\``
     );
     expect(gradeContent).toContain("Strong B");
-    expect(regradeContent).toContain("update only that matching record");
+    expect(regradeContent).toContain("latest 5 snapshots");
     expect(overridesContent).toContain(
       `\`${target.runtimeCommand} __overrides\``
     );
@@ -453,7 +453,7 @@ describe("prompt runtime install builders", () => {
       `\`${target.runtimeCommand} __target <component-file>\``
     );
     expect(gradeContent).toContain("Strong `B`");
-    expect(regradeContent).toContain("update only that matching record");
+    expect(regradeContent).toContain("latest 5 snapshots");
     expect(overridesContent).toContain(
       `\`${target.runtimeCommand} __overrides\``
     );

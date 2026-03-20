@@ -1191,6 +1191,7 @@ describe('Example flow', () => {
         `vi.mock('@/legacy/api')`,
         `vi.mock('@/ui/Modal')`,
         `vi.mock('@/orders/api')`,
+        `vi.mock('@shared/ui')`,
         "render(<FeatureFlow />)",
       ].join("\n"),
       {
@@ -1200,6 +1201,13 @@ describe('Example flow', () => {
             pattern: "factory-support",
             supportImportPath: "@/tests/mocks/orders-api",
             target: "@/orders/api",
+          },
+          {
+            strategy: "real-runtime",
+            pattern: "partial-support-import",
+            guardrailReason: "ui-package",
+            supportImportPath: "@/tests/mocks/shared-ui",
+            target: "@shared/ui",
           },
           { strategy: "provider-wrapper", target: "@/providers/AppProviders" },
         ],
@@ -1217,6 +1225,9 @@ describe('Example flow', () => {
     );
     expect(warnings).toContain(
       'Generated test bypasses a learned factory-support pattern for "@/orders/api". Reuse the strongest local support handles instead of rebuilding the boundary inline.'
+    );
+    expect(warnings).toContain(
+      'Generated test inline-mocks shared UI package "@shared/ui" even though repo policy prefers a partial support import. Reuse "@/tests/mocks/shared-ui" and keep the shared boundary mostly real.'
     );
     expect(warnings).toContain(
       "Generated test may bypass a learned provider-wrapper boundary because no shared render helper was applied."

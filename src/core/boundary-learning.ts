@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 
 import * as babelParser from "@babel/parser";
 import type { NodePath } from "@babel/traverse";
@@ -11,13 +11,13 @@ import type {
   RepoRenderTargetCandidate,
   TaroBoundaryExemplarProfile,
   TaroBoundaryGuardrailReason,
-  TaroBoundaryPattern,
-  TaroBoundaryTeachingExample,
-  TaroBoundaryTeachingProfile,
   TaroBoundaryKind,
+  TaroBoundaryPattern,
   TaroBoundaryPayloadSource,
   TaroBoundaryProfile,
   TaroBoundaryStrategy,
+  TaroBoundaryTeachingExample,
+  TaroBoundaryTeachingProfile,
   TaroPlaywrightAuthProfile,
   TaroProviderWrapperProfile,
   TaroRenderHelperProfile,
@@ -49,6 +49,20 @@ interface ImportedBinding {
   local: string;
 }
 
+interface SupportImportReference {
+  importPath: string;
+  resolvedPath: string | null;
+  sideEffectOnly: boolean;
+}
+
+interface SupportModuleMockDescriptor {
+  target: string;
+  kind: TaroBoundaryKind;
+  guardrailReason: TaroBoundaryGuardrailReason | null;
+  usesOriginalRuntime: boolean;
+  componentLikeSurface: boolean;
+}
+
 interface BoundaryObservation {
   target: string;
   kind: TaroBoundaryKind;
@@ -61,6 +75,7 @@ interface BoundaryObservation {
   files: Set<string>;
   evidence: Set<string>;
   weight: number;
+  componentLikeSurface: boolean;
 }
 
 interface FileBoundaryUsage {
@@ -82,7 +97,7 @@ const AST_PLUGINS: babelParser.ParserPlugin[] = [
   "topLevelAwait",
 ];
 
-const SUPPORT_IMPORT_REGEX = /(mock|fixture|factor)/i;
+const SUPPORT_IMPORT_REGEX = /(mock|fixture|factor|support)/i;
 const MOCK_METHOD_REGEX =
   /^mock(?:Implementation(?:Once)?|ReturnValue(?:Once)?|ResolvedValue(?:Once)?|RejectedValue(?:Once)?|Reset|Clear)$/u;
 const UI_PATH_REGEX =
@@ -344,6 +359,141 @@ function buildImportedBindings(ast: t.File): Map<string, ImportedBinding> {
   return bindings;
 }
 
+function buildImportedNamesByPath(ast: t.File): Map<string, string[]> {
+  const namesByPath = new Map<string, Set<string>>();
+
+  for (const node of ast.program.body) {
+    if (!t.isImportDeclaration(node)) {
+      continue;
+    }
+
+    const target = normalizeTarget(node.source.value);
+    const names = namesByPath.get(target) ?? new Set<string>();
+    for (const specifier of node.specifiers) {
+      if (t.isImportDefaultSpecifier(specifier)) {
+        names.add("default");
+        continue;
+      }
+      if (t.isImportSpecifier(specifier)) {
+        names.add(
+          t.isIdentifier(specifier.imported)
+            ? specifier.imported.name
+            : specifier.imported.value
+        );
+      }
+    }
+    namesByPath.set(target, names);
+  }
+
+  return new Map(
+    [...namesByPath.entries()].map(([target, names]) => [
+      target,
+      [...names].sort(),
+    ])
+  );
+}
+
+function hasComponentLikeSurface(names: string[]): boolean {
+  return names.some((name) => isComponentLikeExportName(name));
+}
+
+function getSupportModuleCandidateBases(params: {
+  projectRoot: string;
+  importerFile: string;
+  importPath: string;
+}): string[] {
+  const normalizedImportPath = normalizeTarget(params.importPath);
+  if (normalizedImportPath.startsWith("/")) {
+    return [normalizedImportPath];
+  }
+  if (
+    normalizedImportPath.startsWith("./") ||
+    normalizedImportPath.startsWith("../")
+  ) {
+    return [resolve(dirname(params.importerFile), normalizedImportPath)];
+  }
+  if (
+    normalizedImportPath.startsWith("@/") ||
+    normalizedImportPath.startsWith("~/")
+  ) {
+    const trimmed = normalizedImportPath.slice(2);
+    return [
+      resolve(params.projectRoot, "src", trimmed),
+      resolve(params.projectRoot, trimmed),
+    ];
+  }
+  return [];
+}
+
+async function resolveSupportModulePath(params: {
+  projectRoot: string;
+  importerFile: string;
+  importPath: string;
+}): Promise<string | null> {
+  const candidates = new Set<string>();
+  const extensions = [
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".mts",
+    ".cts",
+    ".mjs",
+    ".cjs",
+  ];
+
+  for (const base of getSupportModuleCandidateBases(params)) {
+    candidates.add(base);
+    for (const extension of extensions) {
+      candidates.add(`${base}${extension}`);
+      candidates.add(join(base, `index${extension}`));
+    }
+  }
+
+  for (const candidate of candidates) {
+    try {
+      await readFile(candidate, "utf-8");
+      return candidate;
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+async function collectSupportImportReferences(params: {
+  ast: t.File;
+  projectRoot: string;
+  importerFile: string;
+}): Promise<SupportImportReference[]> {
+  const references = new Map<string, SupportImportReference>();
+
+  for (const node of params.ast.program.body) {
+    if (!t.isImportDeclaration(node)) {
+      continue;
+    }
+
+    const importPath = normalizeTarget(node.source.value);
+    if (!isTestingSupportImport(importPath)) {
+      continue;
+    }
+
+    const resolvedPath = await resolveSupportModulePath({
+      projectRoot: params.projectRoot,
+      importerFile: params.importerFile,
+      importPath,
+    });
+    references.set(importPath, {
+      importPath,
+      resolvedPath,
+      sideEffectOnly: node.specifiers.length === 0,
+    });
+  }
+
+  return [...references.values()];
+}
+
 function pushUnique(target: string[], value: string | null | undefined): void {
   if (!value) {
     return;
@@ -360,8 +510,8 @@ export const __boundaryLearningTestUtils = {
   resolveImportedBinding,
   strategyPriority,
   isComponentLikeExportName,
+  buildImportedNamesByPath,
 };
-
 
 function isProtectedKeepRealGuardrail(
   guardrailReason: TaroBoundaryGuardrailReason | null
@@ -390,17 +540,45 @@ function getFactoryFunction(
 }
 
 function detectOriginalRuntimeReuse(params: {
-  factory:
-    | t.Expression
-    | t.SpreadElement
-    | t.ArgumentPlaceholder
-    | undefined;
+  factory: t.Expression | t.SpreadElement | t.ArgumentPlaceholder | undefined;
   returnedObject: t.ObjectExpression | null;
 }): boolean {
   const fn = getFactoryFunction(params.factory);
   if (!fn || !params.returnedObject) {
     return false;
   }
+
+  const isOriginalRuntimeCall = (
+    node:
+      | t.Expression
+      | t.SpreadElement
+      | t.ArgumentPlaceholder
+      | null
+      | undefined
+  ): boolean => {
+    if (!node) {
+      return false;
+    }
+    const call = t.isAwaitExpression(node) ? node.argument : node;
+    if (!t.isCallExpression(call)) {
+      return false;
+    }
+    if (
+      t.isIdentifier(call.callee) &&
+      importOriginalParams.has(call.callee.name)
+    ) {
+      return true;
+    }
+    if (
+      t.isIdentifier(call.callee, { name: "requireActual" }) ||
+      (t.isMemberExpression(call.callee) &&
+        t.isIdentifier(call.callee.object, { name: "jest" }) &&
+        t.isIdentifier(call.callee.property, { name: "requireActual" }))
+    ) {
+      return true;
+    }
+    return false;
+  };
 
   const importOriginalParams = new Set(
     fn.params
@@ -418,17 +596,9 @@ function detectOriginalRuntimeReuse(params: {
         if (!t.isIdentifier(declaration.id)) {
           continue;
         }
-        const init = declaration.init
-        if (
-          (t.isCallExpression(init) &&
-            t.isIdentifier(init.callee) &&
-            importOriginalParams.has(init.callee.name)) ||
-          (t.isAwaitExpression(init) &&
-            t.isCallExpression(init.argument) &&
-            t.isIdentifier(init.argument.callee) &&
-            importOriginalParams.has(init.argument.callee.name))
-        ) {
-          runtimeAliases.add(declaration.id.name)
+        const init = declaration.init;
+        if (isOriginalRuntimeCall(init)) {
+          runtimeAliases.add(declaration.id.name);
         }
       }
     }
@@ -442,23 +612,149 @@ function detectOriginalRuntimeReuse(params: {
     if (t.isIdentifier(argument) && runtimeAliases.has(argument.name)) {
       return true;
     }
-    if (
-      t.isCallExpression(argument) &&
-      t.isIdentifier(argument.callee) &&
-      importOriginalParams.has(argument.callee.name)
-    ) {
-      return true;
-    }
-    if (
-      t.isAwaitExpression(argument) &&
-      t.isCallExpression(argument.argument) &&
-      t.isIdentifier(argument.argument.callee) &&
-      importOriginalParams.has(argument.argument.callee.name)
-    ) {
+    if (isOriginalRuntimeCall(argument)) {
       return true;
     }
     return false;
   });
+}
+
+function analyzeSupportModuleSource(
+  source: string
+): SupportModuleMockDescriptor[] {
+  let ast: t.File;
+  try {
+    ast = parseCode(source);
+  } catch {
+    return [];
+  }
+
+  const descriptors = new Map<string, SupportModuleMockDescriptor>();
+  traverse(ast, {
+    CallExpression(path: NodePath<t.CallExpression>) {
+      const target = getMockTarget(path);
+      if (!target) {
+        return;
+      }
+
+      const normalizedTarget = normalizeTarget(target);
+      const returnedObject = getReturnedObjectExpression(
+        path.node.arguments[1]
+      );
+      const returnedObjectPropertyNames =
+        getReturnedObjectPropertyNames(returnedObject);
+      descriptors.set(normalizedTarget, {
+        target: normalizedTarget,
+        kind: classifyBoundaryKind(normalizedTarget),
+        guardrailReason: getBoundaryGuardrailReason(
+          normalizedTarget,
+          returnedObjectPropertyNames
+        ),
+        usesOriginalRuntime: detectOriginalRuntimeReuse({
+          factory: path.node.arguments[1],
+          returnedObject,
+        }),
+        componentLikeSurface:
+          getBoundaryGuardrailReason(
+            normalizedTarget,
+            returnedObjectPropertyNames
+          ) === "ui-package" ||
+          hasComponentLikeSurface(returnedObjectPropertyNames),
+      });
+    },
+  });
+
+  return [...descriptors.values()];
+}
+
+function inferObservationPattern(
+  entry: Pick<
+    BoundaryObservation,
+    | "strategy"
+    | "guardrailReason"
+    | "supportImportPath"
+    | "supportExports"
+    | "usesOriginalRuntime"
+  >
+): TaroBoundaryPattern {
+  return inferBoundaryPattern({
+    strategy: entry.strategy,
+    guardrailReason: entry.guardrailReason,
+    supportImportPath: entry.supportImportPath,
+    supportExports: entry.supportExports,
+    usesOriginalRuntime: entry.usesOriginalRuntime,
+  });
+}
+
+function getUiPackageObservationTrustRank(entry: BoundaryObservation): number {
+  if (entry.guardrailReason !== "ui-package" || !entry.componentLikeSurface) {
+    return 0;
+  }
+
+  const pattern = inferObservationPattern(entry);
+  switch (pattern) {
+    case "partial-support-import":
+      return 4;
+    case "keep-real":
+      return 3;
+    case "factory-support":
+      return 2;
+    default:
+      return 1;
+  }
+}
+
+function compareBoundaryObservations(
+  left: BoundaryObservation,
+  right: BoundaryObservation
+): number {
+  return (
+    getUiPackageObservationTrustRank(right) -
+      getUiPackageObservationTrustRank(left) ||
+    right.weight - left.weight ||
+    strategyPriority(right.strategy) - strategyPriority(left.strategy) ||
+    (right.supportImportPath ?? "").localeCompare(left.supportImportPath ?? "")
+  );
+}
+
+function shouldFallbackToKeepReal(
+  entries: BoundaryObservation[],
+  winner: BoundaryObservation
+): boolean {
+  if (
+    winner.guardrailReason !== "ui-package" ||
+    !winner.componentLikeSurface ||
+    entries.some(
+      (entry) => inferObservationPattern(entry) === "partial-support-import"
+    )
+  ) {
+    return false;
+  }
+
+  const patterns = new Set(
+    entries.map((entry) => inferObservationPattern(entry))
+  );
+  const supportImportPaths = new Set(
+    entries.map((entry) => entry.supportImportPath ?? "__none__")
+  );
+  return patterns.size > 1 || supportImportPaths.size > 1;
+}
+
+function createKeepRealFallbackObservation(
+  winner: BoundaryObservation
+): BoundaryObservation {
+  return {
+    ...winner,
+    strategy: "real-runtime",
+    supportImportPath: null,
+    usesOriginalRuntime: false,
+    supportExports: createEmptySupportExports(),
+    payloadSource: "unknown",
+    evidence: new Set([
+      ...winner.evidence,
+      `${winner.target}: ui-package evidence conflicted without a trusted partial support import, so the profile fell back to keep-real`,
+    ]),
+  };
 }
 
 export function inferBoundaryPattern(params: {
@@ -494,10 +790,15 @@ export function inferBoundaryPattern(params: {
 function describeBoundaryPattern(
   profile: Pick<
     TaroBoundaryProfile,
-    "target" | "kind" | "guardrailReason" | "supportImportPath" | "supportExports"
+    | "target"
+    | "kind"
+    | "guardrailReason"
+    | "supportImportPath"
+    | "supportExports"
   > & { pattern?: TaroBoundaryPattern }
 ): { summary: string; reason: string } {
-  const pattern = profile.pattern ??
+  const pattern =
+    profile.pattern ??
     inferBoundaryPattern({
       strategy: "real-runtime",
       guardrailReason: profile.guardrailReason,
@@ -720,6 +1021,7 @@ export async function collectBoundaryLearning(params: {
   const mutationFiles = new Set(
     params.mutationLifecycles.map((entry) => entry.file)
   );
+  const supportModuleCache = new Map<string, SupportModuleMockDescriptor[]>();
 
   for (const testFile of params.testFiles) {
     const relativeFile = relative(params.projectRoot, testFile.path).replace(
@@ -746,6 +1048,12 @@ export async function collectBoundaryLearning(params: {
     }
 
     const importedBindings = buildImportedBindings(ast);
+    const importedNamesByPath = buildImportedNamesByPath(ast);
+    const supportImports = await collectSupportImportReferences({
+      ast,
+      projectRoot: params.projectRoot,
+      importerFile: testFile.path,
+    });
 
     function upsertObservation(
       target: string,
@@ -768,13 +1076,55 @@ export async function collectBoundaryLearning(params: {
         files: new Set([relativeFile]),
         evidence: new Set(next.evidence ?? []),
         weight: (next.weight ?? 1) * fileQualityWeight,
+        componentLikeSurface: next.componentLikeSurface ?? false,
       };
       existing.push(entry);
       observations.set(target, existing);
       usage.targets.add(target);
       usage.kinds.add(next.kind);
-      if (entry.strategy === "shared-module-factory") {
+      if (
+        entry.strategy === "shared-module-factory" ||
+        entry.supportImportPath
+      ) {
         usage.usesCentralBoundarySupport = true;
+      }
+    }
+
+    for (const supportImport of supportImports) {
+      if (!supportImport.sideEffectOnly || !supportImport.resolvedPath) {
+        continue;
+      }
+
+      let descriptors = supportModuleCache.get(supportImport.resolvedPath);
+      if (!descriptors) {
+        const source = await readFile(
+          supportImport.resolvedPath,
+          "utf-8"
+        ).catch(() => null);
+        descriptors = source ? analyzeSupportModuleSource(source) : [];
+        supportModuleCache.set(supportImport.resolvedPath, descriptors);
+      }
+
+      for (const descriptor of descriptors) {
+        upsertObservation(descriptor.target, {
+          kind: descriptor.kind,
+          strategy: inferStrategy({
+            target: descriptor.target,
+            guardrailReason: descriptor.guardrailReason,
+            supportImportPath: supportImport.importPath,
+            usedFactoryExport: false,
+          }),
+          guardrailReason: descriptor.guardrailReason,
+          supportImportPath: supportImport.importPath,
+          usesOriginalRuntime: descriptor.usesOriginalRuntime,
+          supportExports: createEmptySupportExports(),
+          payloadSource: inferPayloadSource(supportImport.importPath),
+          evidence: new Set([
+            `${relativeFile}: support import ${supportImport.importPath} for ${descriptor.target}`,
+          ]),
+          weight: descriptor.usesOriginalRuntime ? 5 : 3,
+          componentLikeSurface: descriptor.componentLikeSurface,
+        });
       }
     }
 
@@ -835,6 +1185,12 @@ export async function collectBoundaryLearning(params: {
             normalizedTarget,
             returnedObjectPropertyNames
           );
+          const componentLikeSurface =
+            guardrailReason === "ui-package" ||
+            hasComponentLikeSurface([
+              ...returnedObjectPropertyNames,
+              ...(importedNamesByPath.get(normalizedTarget) ?? []),
+            ]);
           upsertObservation(normalizedTarget, {
             kind,
             strategy: inferStrategy({
@@ -852,6 +1208,7 @@ export async function collectBoundaryLearning(params: {
               `${relativeFile}: mock target ${normalizedTarget}`,
             ]),
             weight: usedFactoryExport ? 3 : 1,
+            componentLikeSurface,
           });
         }
 
@@ -942,6 +1299,7 @@ export async function collectBoundaryLearning(params: {
       files: new Set([wrapper.sourceTestFile]),
       evidence: new Set([`${wrapper.sourceTestFile}: wrapper ${wrapper.name}`]),
       weight: 2 * (params.getFileWeight?.(wrapper.sourceTestFile) ?? 1),
+      componentLikeSurface: false,
     });
     observations.set(target, existing);
     const usage = fileUsage.get(wrapper.sourceTestFile);
@@ -954,21 +1312,38 @@ export async function collectBoundaryLearning(params: {
 
   const profiles: TaroBoundaryProfile[] = [...observations.entries()]
     .map(([target, entries]) => {
-      const sortedEntries = [...entries].sort((left, right) => {
-        return (
-          right.weight - left.weight ||
-          strategyPriority(right.strategy) - strategyPriority(left.strategy) ||
-          (right.supportImportPath ?? "").localeCompare(
-            left.supportImportPath ?? ""
-          )
-        );
-      });
-      const winner = sortedEntries[0]!;
+      const sortedEntries = [...entries].sort(compareBoundaryObservations);
+      const initialWinner = sortedEntries[0]!;
+      const usedKeepRealFallback = shouldFallbackToKeepReal(
+        sortedEntries,
+        initialWinner
+      );
+      const winner = usedKeepRealFallback
+        ? createKeepRealFallbackObservation(initialWinner)
+        : initialWinner;
       const totalWeight =
         sortedEntries.reduce((sum, entry) => sum + entry.weight, 0) || 1;
-      const confidence = toConfidence(
+      const winnerPattern = inferObservationPattern(winner);
+      const hasConflictingNonPartialSupport = sortedEntries.some(
+        (entry) =>
+          entry !== initialWinner &&
+          inferObservationPattern(entry) !== "partial-support-import"
+      );
+      let confidence = toConfidence(
         winner.weight / totalWeight + (winner.supportImportPath ? 0.2 : 0)
       );
+      if (
+        winner.guardrailReason === "ui-package" &&
+        winner.componentLikeSurface &&
+        winnerPattern === "partial-support-import" &&
+        hasConflictingNonPartialSupport &&
+        confidence === "high"
+      ) {
+        confidence = "medium";
+      }
+      if (usedKeepRealFallback) {
+        confidence = "low";
+      }
       const files = [
         ...new Set(sortedEntries.flatMap((entry) => [...entry.files])),
       ].sort();

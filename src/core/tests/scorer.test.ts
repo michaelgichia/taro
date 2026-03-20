@@ -11,7 +11,9 @@ function makeComponentContext(
     componentConditionalCount: 0,
     componentEventHandlerCount: 0,
     componentImportReferences: [],
+    dynamicImportTargets: [],
     exportedUtilityNames: [],
+    highSignalBranchHints: [],
     ...overrides,
   };
 }
@@ -346,6 +348,156 @@ describe('profile card', () => {
     expect(score.reasons).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: "hardcoded-fixture" }),
+      ])
+    );
+  });
+
+  it("treats per-module dynamic placeholders as valid coverage for next/dynamic", () => {
+    const generated = `
+vi.mock('./ProfileBody', () => ({
+  default: () => <div data-testid="taro-dynamic-profile-body" />,
+}))
+
+describe('ProfileCard', () => {
+  it('renders the admin body placeholder', () => {
+    render(<ProfileCard />)
+    expect(screen.getByTestId('taro-dynamic-profile-body')).toBeInTheDocument()
+  })
+})
+`;
+
+    const score = scoreGeneratedTest(generated, {
+      ...makeComponentContext({
+        componentDisplayName: "ProfileCard",
+        componentImportReferences: [
+          {
+            target: "next/dynamic",
+            importedNames: ["default"],
+            kind: "unknown",
+            guardrailReason: null,
+          },
+        ],
+        dynamicImportTargets: ["./ProfileBody"],
+      }),
+      queryResults: [
+        {
+          method: "getByTestId",
+          query: "screen.getByTestId('taro-dynamic-profile-body')",
+          quality: "acceptable",
+        },
+      ],
+    });
+
+    expect(score.reasons).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "missing-dynamic-mock" }),
+      ])
+    );
+  });
+
+  it("flags missing high-signal branch families as review blockers", () => {
+    const generated = `
+describe('ProfileCard', () => {
+  it('renders the main card', () => {
+    render(<ProfileCard displayName="Ada" />)
+    expect(screen.getByText('Ada')).toBeVisible()
+  })
+})
+`;
+
+    const score = scoreGeneratedTest(generated, {
+      componentDisplayName: "ProfileCard",
+      queryResults: [
+        {
+          method: "getByText",
+          query: "screen.getByText('Ada')",
+          quality: "good",
+        },
+      ],
+      highSignalBranchHints: [
+        {
+          family: "display-name-fallback",
+          coverageTokens: ["displayName", "legalName"],
+        },
+        { family: "role-gated-prop-propagation", coverageTokens: ["role"] },
+      ],
+    });
+
+    expect(score.requiresReview).toBe(true);
+    expect(score.reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "source-branch-family-gap",
+          severity: "blocker",
+          message: expect.stringContaining("role-gated-prop-propagation"),
+        }),
+      ])
+    );
+  });
+
+  it("flags brittle prop-shape dynamic dispatchers and duplicate const sources", () => {
+    const generated = `
+const ORG_ID = 'org-1'
+const ORG_ID = 'org-1'
+
+vi.mock('next/dynamic', () => ({
+  default: () => (props) => {
+    if ('members' in props) return <div />
+    if (props.country) return <div />
+    return null
+  },
+}))
+
+describe('OrgPage', () => {
+  it('renders the page', () => {
+    render(<OrgPage />)
+  })
+})
+`;
+
+    const score = scoreGeneratedTest(generated, []);
+
+    expect(score.requiresReview).toBe(true);
+    expect(score.reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "dynamic-prop-shape-dispatcher" }),
+        expect.objectContaining({ code: "duplicate-const-source" }),
+      ])
+    );
+  });
+
+  it("flags overloaded vi.hoisted state bags", () => {
+    const generated = `
+const {
+  ORG_ID,
+  ADMIN_ROLE,
+  queryState,
+  useOrgQueryMock,
+  useMembersQueryMock,
+  shouldFail,
+  resetQueryState,
+} = vi.hoisted(() => ({
+  ORG_ID: 'org-1',
+  ADMIN_ROLE: 'admin',
+  queryState: {},
+  useOrgQueryMock: vi.fn(),
+  useMembersQueryMock: vi.fn(),
+  shouldFail: false,
+  resetQueryState: () => {},
+}))
+
+describe('OrgPage', () => {
+  it('renders the page', () => {
+    render(<OrgPage />)
+  })
+})
+`;
+
+    const score = scoreGeneratedTest(generated, []);
+
+    expect(score.reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "overloaded-hoisted-state" }),
       ])
     );
   });

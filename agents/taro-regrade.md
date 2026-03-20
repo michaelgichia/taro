@@ -1,6 +1,6 @@
 ---
 name: "@taro-test/rtl-regrade"
-description: "Regrade an existing RTL test against the latest file contents and refresh the matching stored generated-test grade when one already exists. Use when a test changed after generation and the recorded grade needs to be updated."
+description: "Regrade an existing RTL test against the latest file contents, compare it to the latest stored snapshot when present, and persist a new grade snapshot in `.taro/state.json`. Use when a test changed after generation and you want progress tracked over time."
 ---
 
 # Taro Regrade
@@ -14,9 +14,9 @@ Re-score an existing RTL test file without inventing a hidden `__regrade` comman
 This skill is example-driven:
 
 - read the current test file
-- compare it to the latest matching stored generated-test record
+- compare it to the latest matching stored generated-test snapshot when one exists
 - apply the published scoring shape openly
-- update only the matching stored grade when a safe match exists
+- append a fresh snapshot so repeated regrades show grade movement over time
 
 ## Inputs
 
@@ -24,9 +24,10 @@ This skill is example-driven:
 
 ## Guardrails
 
-- never invent a missing `recordingFile`
-- never append a brand new `generatedTests` record when no matching stored record exists
-- update only the latest matching `generatedTests` record for the target `testFile`
+- never invent a missing `recordingFile`; reuse the latest matching value when it exists, otherwise store `null`
+- always append a fresh `generatedTests` record for the current score
+- compare against only the latest matching `generatedTests` record for the target `testFile`
+- keep only the latest 5 snapshots for the target normalized `testFile`
 - preserve unrelated history entries exactly as they are
 - keep `.taro/state.json` formatted as 2-space JSON with a trailing newline
 
@@ -37,8 +38,8 @@ Match the latest `generatedTests` entry whose normalized `testFile` path equals 
 If no matching entry exists:
 
 - grade the file in the response
-- explain that there is no stored generated-test record to refresh
-- do not edit `.taro/state.json`
+- explain that there was no previous stored snapshot for this test
+- still append the first snapshot into `.taro/state.json`
 
 ## Scoring Shape
 
@@ -78,7 +79,7 @@ Expected result:
 
 - new score in the `80s`
 - `B`
-- update the latest matching state entry in place
+- append a better snapshot and call out the improvement
 
 ### Example B: Regression
 
@@ -95,7 +96,7 @@ Current file:
 Expected result:
 
 - score drops into `D` or `F`
-- update the matching state entry
+- append a worse snapshot
 - call out the regression explicitly
 
 ### Example C: No Safe Stored Match
@@ -105,8 +106,8 @@ Current file exists, but `.taro/state.json` has no matching `generatedTests[].te
 Expected result:
 
 - report the fresh grade
-- explain that regrade could not update stored history safely
-- leave state untouched
+- explain that there was no previous stored snapshot
+- initialize or update state and append the first snapshot
 
 ## Workflow
 
@@ -115,12 +116,12 @@ Expected result:
 3. Read the target test file and `.taro/state.json`.
 4. Find the latest matching stored generated-test record.
 5. Score the current file explicitly.
-6. If a stored match exists:
-   - compare old vs new score and grade
-   - update only `quality` and `requiresReview` on that matching record
-   - preserve all other fields
-7. If no stored match exists, do not write state.
-8. Report the delta and the highest-impact fixes.
+6. Append a new snapshot into `.taro/state.json`:
+   - if a stored match exists, reuse its `packagePath` and `recordingFile` when possible
+   - if no stored match exists, use the best matching package profile or `"."`, and store `recordingFile: null`
+   - preserve unrelated entries exactly
+   - keep only the latest 5 snapshots for the normalized `testFile`
+7. Report the delta and the highest-impact fixes.
 
 ## Response Contract
 

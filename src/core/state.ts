@@ -69,7 +69,7 @@ import type {
 import { TARO_VERSION } from "#version.ts";
 
 const STATE_VERSION = 1;
-const GENERATED_TEST_HISTORY_LIMIT = 200;
+const GENERATED_TEST_HISTORY_LIMIT_PER_TEST = 5;
 const MAX_EVIDENCE = 50;
 const MAX_EXEMPLARS = 5;
 const MAX_FIXTURE_ROOTS = 25;
@@ -444,7 +444,10 @@ const packageProfileSchema = z.object({
   sharedMockFactories: z.array(sharedMockFactoryProfileSchema),
   boundaryProfiles: z.array(boundaryProfileSchema).default([]),
   boundaryExemplars: z.array(boundaryExemplarProfileSchema).default([]),
-  teaching: boundaryTeachingProfileSchema.default({ dominantPatterns: [], examples: [] }),
+  teaching: boundaryTeachingProfileSchema.default({
+    dominantPatterns: [],
+    examples: [],
+  }),
   interactionContracts: z.array(interactionContractProfileSchema).default([]),
   inlineSafeMockTargets: z.array(z.string()),
   mutationLifecycles: z.array(mutationLifecyclePatternSchema),
@@ -458,7 +461,7 @@ const packageProfileSchema = z.object({
 const generatedTestRecordSchema = z.object({
   createdAt: z.string(),
   packagePath: z.string(),
-  recordingFile: z.string(),
+  recordingFile: z.string().nullable().optional().default(null),
   testFile: z.string(),
   quality: z.object({
     overall: z.number(),
@@ -730,10 +733,10 @@ function normalizeRepoRelativePath(
   projectRoot: string,
   filePath: string
 ): string | null {
-  const relativePath = relative(resolve(projectRoot), resolve(filePath)).replace(
-    /\\/g,
-    "/"
-  );
+  const relativePath = relative(
+    resolve(projectRoot),
+    resolve(filePath)
+  ).replace(/\\/g, "/");
 
   if (
     relativePath.length === 0 ||
@@ -795,6 +798,62 @@ function buildGeneratedTestQualityIndex(
   }
 
   return qualityIndex;
+}
+
+function normalizeGeneratedTestHistoryPath(
+  projectRoot: string,
+  testFile: string
+): string {
+  return (
+    normalizeRepoRelativePath(projectRoot, testFile) ??
+    resolve(projectRoot, testFile)
+      .replace(/\\/g, "/")
+      .replace(/^\/private(?=\/var\/)/u, "")
+  );
+}
+
+function trimGeneratedTestHistory(
+  projectRoot: string,
+  generatedTests: TaroGeneratedTestRecord[]
+): TaroGeneratedTestRecord[] {
+  const ordered = generatedTests
+    .map((record, index) => {
+      const createdAtMs = Date.parse(record.createdAt);
+      return {
+        record,
+        index,
+        createdAtMs: Number.isFinite(createdAtMs) ? createdAtMs : 0,
+      };
+    })
+    .sort(
+      (left, right) =>
+        left.createdAtMs - right.createdAtMs || left.index - right.index
+    );
+  const counts = new Map<string, number>();
+  const kept: typeof ordered = [];
+
+  for (let index = ordered.length - 1; index >= 0; index -= 1) {
+    const entry = ordered[index]!;
+    const historyKey = normalizeGeneratedTestHistoryPath(
+      projectRoot,
+      entry.record.testFile
+    );
+    const nextCount = (counts.get(historyKey) ?? 0) + 1;
+
+    if (nextCount > GENERATED_TEST_HISTORY_LIMIT_PER_TEST) {
+      continue;
+    }
+
+    counts.set(historyKey, nextCount);
+    kept.push(entry);
+  }
+
+  return kept
+    .sort(
+      (left, right) =>
+        left.createdAtMs - right.createdAtMs || left.index - right.index
+    )
+    .map((entry) => entry.record);
 }
 
 function getRelativeFileQualityWeight(
@@ -880,7 +939,10 @@ function summarizePackageScoreLearning(
 
   return {
     scoredTestFileCount,
-    unscoredTestFileCount: Math.max(0, uniqueFiles.length - scoredTestFileCount),
+    unscoredTestFileCount: Math.max(
+      0,
+      uniqueFiles.length - scoredTestFileCount
+    ),
   };
 }
 
@@ -903,8 +965,10 @@ function getLatestPackageScanTimestamp(state: TaroState): number {
 }
 
 function shouldRefreshStateFromGeneratedHistory(state: TaroState): boolean {
-  return getLatestGeneratedTestRecordTimestamp(state) >
-    getLatestPackageScanTimestamp(state);
+  return (
+    getLatestGeneratedTestRecordTimestamp(state) >
+    getLatestPackageScanTimestamp(state)
+  );
 }
 
 function normalizeConventionPaths(
@@ -970,7 +1034,10 @@ function scanMockTargetsInFiles(
 
   for (const file of testFiles) {
     const sourceTestFile = relative(projectRoot, file.path).replace(/\\/g, "/");
-    const fileWeight = getRelativeFileQualityWeight(qualityIndex, sourceTestFile);
+    const fileWeight = getRelativeFileQualityWeight(
+      qualityIndex,
+      sourceTestFile
+    );
     for (const target of new Set(extractMockTargets(file.content))) {
       const existing = targets.get(target) ?? {
         files: new Set<string>(),
@@ -1130,10 +1197,7 @@ function classifyFolderPatternBucket(
 ): AtomicFolderPattern {
   const relativePath = relative(projectRoot, filePath).replace(/\\/g, "/");
 
-  if (
-    relativePath.includes("__tests__") ||
-    relativePath.includes("__test__")
-  ) {
+  if (relativePath.includes("__tests__") || relativePath.includes("__test__")) {
     return "__tests__";
   }
   if (/(?:^|\/)tests\//.test(relativePath)) {
@@ -1158,9 +1222,7 @@ function inferWeightedImportStyle(
       value: file.importStyle,
     })),
     qualityIndex
-  ).sort((left, right) =>
-    compareWeightedBuckets(left, right, ["esm", "cjs"])
-  );
+  ).sort((left, right) => compareWeightedBuckets(left, right, ["esm", "cjs"]));
 
   const winner = buckets[0];
   const totalWeight =
@@ -1226,11 +1288,7 @@ function inferWeightedFolderPattern(
   }));
   const buckets = buildWeightedValueBuckets(entries, qualityIndex).sort(
     (left, right) =>
-      compareWeightedBuckets(left, right, [
-        "colocated",
-        "__tests__",
-        "tests",
-      ])
+      compareWeightedBuckets(left, right, ["colocated", "__tests__", "tests"])
   );
   const winner = buckets[0];
   const totalWeight =
@@ -1287,7 +1345,11 @@ function inferWeightedFileExtension(
   return {
     value,
     confidence:
-      value === "mixed" ? toConfidence(winnerShare) : winner ? toConfidence(winnerShare) : "low",
+      value === "mixed"
+        ? toConfidence(winnerShare)
+        : winner
+          ? toConfidence(winnerShare)
+          : "low",
     evidence:
       value === "mixed"
         ? sortPathsByQualityWeight(
@@ -1471,7 +1533,10 @@ function collectRenderHelpers(
 
   for (const file of testFiles) {
     const sourceTestFile = relative(projectRoot, file.path).replace(/\\/g, "/");
-    const fileWeight = getRelativeFileQualityWeight(qualityIndex, sourceTestFile);
+    const fileWeight = getRelativeFileQualityWeight(
+      qualityIndex,
+      sourceTestFile
+    );
     const bindings = parseImportBindings(file.content);
     const usesWithin = file.content.includes("within(");
 
@@ -1548,7 +1613,10 @@ function collectProviderWrappers(
 
   for (const file of testFiles) {
     const sourceTestFile = relative(projectRoot, file.path).replace(/\\/g, "/");
-    const fileWeight = getRelativeFileQualityWeight(qualityIndex, sourceTestFile);
+    const fileWeight = getRelativeFileQualityWeight(
+      qualityIndex,
+      sourceTestFile
+    );
     const bindings = parseImportBindings(file.content);
     const importsByLocal = new Map(
       bindings.map((binding) => [binding.local, binding.importPath])
@@ -1580,11 +1648,7 @@ function collectProviderWrappers(
       }
 
       providers.set(key, {
-        profile: {
-          name,
-          importPath,
-          sourceTestFile,
-        },
+        profile: { name, importPath, sourceTestFile },
         weightedSupport: fileWeight,
         count: 1,
         bestSourceWeight: fileWeight,
@@ -2261,16 +2325,13 @@ async function buildPackageProfile(
     analyzedFiles,
     qualityIndex
   );
-  const conventions = normalizeConventionPaths(
-    projectRoot,
-    {
-      ...deriveConventions(analyzedFiles, descriptor.root),
-      importStyle: importStyle.value,
-      mockPattern: mockPattern.value,
-      folderPattern: folderPattern.value,
-      fileExtension: fileExtension.value,
-    }
-  );
+  const conventions = normalizeConventionPaths(projectRoot, {
+    ...deriveConventions(analyzedFiles, descriptor.root),
+    importStyle: importStyle.value,
+    mockPattern: mockPattern.value,
+    folderPattern: folderPattern.value,
+    fileExtension: fileExtension.value,
+  });
   const repeatedMockTargets = scanMockTargetsInFiles(
     projectRoot,
     files,
@@ -2581,6 +2642,7 @@ function deriveLegacyPackageProfile(
 }
 
 function migrateLegacyHistory(
+  projectRoot: string,
   history: Array<{
     timestamp?: string;
     recordingFile?: string;
@@ -2589,59 +2651,64 @@ function migrateLegacyHistory(
     dimensions?: ScoreResult["dimensions"];
   }>
 ): TaroState["generatedTests"] {
-  return history
-    .filter((entry) => typeof entry.recordingFile === "string")
-    .map((entry): TaroGeneratedTestRecord => {
-      const grade: TaroGeneratedTestRecord["quality"]["grade"] =
-        entry.grade === "A" ||
-        entry.grade === "B" ||
-        entry.grade === "C" ||
-        entry.grade === "D"
-          ? entry.grade
-          : "F";
+  return trimGeneratedTestHistory(
+    projectRoot,
+    history
+      .filter((entry) => typeof entry.recordingFile === "string")
+      .map((entry): TaroGeneratedTestRecord => {
+        const grade: TaroGeneratedTestRecord["quality"]["grade"] =
+          entry.grade === "A" ||
+          entry.grade === "B" ||
+          entry.grade === "C" ||
+          entry.grade === "D"
+            ? entry.grade
+            : "F";
 
-      return {
-        createdAt: entry.timestamp ?? new Date().toISOString(),
-        packagePath: ".",
-        recordingFile: entry.recordingFile!,
-        testFile: entry.recordingFile!.replace(/\.[cm]?[jt]sx?$/, ".test.tsx"),
-        quality: {
-          overall: entry.score ?? 0,
-          grade,
-          dimensions: entry.dimensions ?? {
-            queryQuality: 0,
-            assertionSpecificity: 0,
-            testStructure: 0,
-            boundaryIsolation: 0,
+        return {
+          createdAt: entry.timestamp ?? new Date().toISOString(),
+          packagePath: ".",
+          recordingFile: entry.recordingFile!,
+          testFile: entry.recordingFile!.replace(
+            /\.[cm]?[jt]sx?$/,
+            ".test.tsx"
+          ),
+          quality: {
+            overall: entry.score ?? 0,
+            grade,
+            dimensions: entry.dimensions ?? {
+              queryQuality: 0,
+              assertionSpecificity: 0,
+              testStructure: 0,
+              boundaryIsolation: 0,
+            },
+            signals: {
+              queryCheckpointCount: 0,
+              roleQueryCount: 0,
+              testIdQueryCount: 0,
+              strongAssertionCount: 0,
+              presenceAssertionCount: 0,
+              visibilityAssertionCount: 0,
+              visibilityOnlyTestCount: 0,
+              presenceOnlyTestCount: 0,
+              boundaryWarningCount: 0,
+              boundaryIssueCount: 0,
+              placeholderRenderTarget: false,
+              multipleTestBlocks: false,
+              minimumExpectedTestCount: 0,
+              branchCoverageRatio: 1,
+              missingMockCount: 0,
+              fireEventCount: 0,
+              hasBasePropsConstant: false,
+              hasOverrideRenderHelper: false,
+              duplicatedInlineRenderCount: 0,
+              hasStandaloneUtilityDescribe: false,
+            },
+            reasons: [],
           },
-          signals: {
-            queryCheckpointCount: 0,
-            roleQueryCount: 0,
-            testIdQueryCount: 0,
-            strongAssertionCount: 0,
-            presenceAssertionCount: 0,
-            visibilityAssertionCount: 0,
-            visibilityOnlyTestCount: 0,
-            presenceOnlyTestCount: 0,
-            boundaryWarningCount: 0,
-            boundaryIssueCount: 0,
-            placeholderRenderTarget: false,
-            multipleTestBlocks: false,
-            minimumExpectedTestCount: 0,
-            branchCoverageRatio: 1,
-            missingMockCount: 0,
-            fireEventCount: 0,
-            hasBasePropsConstant: false,
-            hasOverrideRenderHelper: false,
-            duplicatedInlineRenderCount: 0,
-            hasStandaloneUtilityDescribe: false,
-          },
-          reasons: [],
-        },
-        requiresReview: true,
-      };
-    })
-    .slice(-GENERATED_TEST_HISTORY_LIMIT);
+          requiresReview: true,
+        };
+      })
+  );
 }
 
 async function readJsonFile<T>(filePath: string): Promise<T | null> {
@@ -2790,7 +2857,7 @@ async function loadLegacyState(
     );
   }
   if (legacyHistory) {
-    state.generatedTests = migrateLegacyHistory(legacyHistory);
+    state.generatedTests = migrateLegacyHistory(projectRoot, legacyHistory);
   }
 
   return { state, migratedLegacyState: true, warnings: currentState.warnings };
@@ -2915,7 +2982,10 @@ function buildStateSummaryMarkdown(
   }
 
   for (const profile of profiles) {
-    const learningSummary = summarizePackageScoreLearning(profile, qualityIndex);
+    const learningSummary = summarizePackageScoreLearning(
+      profile,
+      qualityIndex
+    );
     lines.push(`## ${profile.packagePath}`);
     lines.push("");
     lines.push(`- Runner: \`${profile.runner.value}\``);
@@ -3062,8 +3132,10 @@ async function scanProjectState(
   const generatedTests =
     options.preserveGeneratedTests === false
       ? []
-      : (existingState?.generatedTests.slice(-GENERATED_TEST_HISTORY_LIMIT) ??
-        []);
+      : trimGeneratedTestHistory(
+          projectRoot,
+          existingState?.generatedTests ?? []
+        );
   const state: TaroState = {
     version: STATE_VERSION,
     meta: {
@@ -3360,6 +3432,7 @@ export const __stateTestUtils = {
   scanProjectState,
   shouldRefreshStateFromGeneratedHistory,
   summarizePackageScoreLearning,
+  trimGeneratedTestHistory,
 };
 
 export async function detectPackageProfileStaleness(
@@ -3542,7 +3615,8 @@ export function resolveTaroPackageProfile(
       const effectiveGuardrailReason: TaroBoundaryGuardrailReason | null =
         boundaryProfile.guardrailReason ??
         getBoundaryGuardrailReason(boundaryProfile.target);
-      const forceKeepReal = effectiveGuardrailReason === "repo-owned-ui-wrapper";
+      const forceKeepReal =
+        effectiveGuardrailReason === "repo-owned-ui-wrapper";
       const forcedSupportImportPath = forceKeepReal
         ? null
         : (preferredBoundaryImplementations[boundaryProfile.target] ??
@@ -3560,7 +3634,8 @@ export function resolveTaroPackageProfile(
         guardrailReason: effectiveGuardrailReason,
         strategy: forcedStrategy,
         pattern:
-          forcedStrategy === "forbid" && effectiveGuardrailReason === "repo-owned-ui-wrapper"
+          forcedStrategy === "forbid" &&
+          effectiveGuardrailReason === "repo-owned-ui-wrapper"
             ? "keep-real"
             : boundaryProfile.pattern,
         supportImportPath: forcedSupportImportPath,
@@ -3628,25 +3703,26 @@ export async function appendGeneratedTestRecord(
   projectRoot: string,
   record: {
     packagePath: string;
-    recordingFile: string;
+    recordingFile?: string | null;
     testFile: string;
     scoreResult: ScoreResult;
   }
 ): Promise<void> {
   const bootstrap = await loadOrBootstrapTaroState(projectRoot);
+  const createdAt = new Date().toISOString();
   const nextState: TaroState = {
     ...bootstrap.state,
     meta: {
       ...bootstrap.state.meta,
-      updatedAt: new Date().toISOString(),
+      updatedAt: createdAt,
       taroVersion: TARO_VERSION,
     },
-    generatedTests: [
+    generatedTests: trimGeneratedTestHistory(projectRoot, [
       ...bootstrap.state.generatedTests,
       {
-        createdAt: new Date().toISOString(),
+        createdAt,
         packagePath: record.packagePath,
-        recordingFile: record.recordingFile,
+        recordingFile: record.recordingFile ?? null,
         testFile: record.testFile,
         quality: {
           overall: record.scoreResult.total,
@@ -3657,7 +3733,7 @@ export async function appendGeneratedTestRecord(
         },
         requiresReview: record.scoreResult.requiresReview,
       },
-    ].slice(-GENERATED_TEST_HISTORY_LIMIT),
+    ]),
   };
 
   await writeTaroState(projectRoot, nextState);

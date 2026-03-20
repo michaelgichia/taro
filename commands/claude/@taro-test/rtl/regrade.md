@@ -1,6 +1,6 @@
 ---
 name: "@taro-test/rtl:regrade"
-description: Regrade an existing RTL test file and refresh the matching stored generated-test grade when a safe state entry exists.
+description: Regrade an existing RTL test file, compare it to the latest stored snapshot when present, and persist a new grade snapshot in `.taro/state.json`.
 argument-hint: "<path/to/test-file>"
 allowed-tools:
   - Read
@@ -13,7 +13,7 @@ argument-instructions: |
 ---
 
 <objective>
-Regrade an existing React Testing Library test file without inventing a hidden Taro runtime scorer, and refresh the matching stored generated-test grade only when a safe state match already exists.
+Regrade an existing React Testing Library test file without inventing a hidden Taro runtime scorer, compare it to the latest stored snapshot when present, and append a new stored grade snapshot.
 </objective>
 
 <context>
@@ -25,10 +25,10 @@ Target test file: $ARGUMENTS
 2. Do not invent or invoke `__regrade`.
 3. Read the target test and `.taro/state.json`.
 4. Find the latest `generatedTests` record whose normalized `testFile` path matches the provided test path.
-5. If no safe match exists:
+5. If no previous match exists:
    - grade the file in the response
-   - explain that there is no stored generated-test record to refresh
-   - do not edit `.taro/state.json`
+   - explain that this is the first stored snapshot for the test
+   - still append a new history record
 6. Score these dimensions explicitly:
    - `robustness` out of 25
    - `readability` out of 15
@@ -50,14 +50,20 @@ Target test file: $ARGUMENTS
      - stored `88 / B`
      - current file regresses to `<App />`, brittle selectors, and weak assertions
      - expected new result: `D` or `F`
-   - No-match example:
+   - First-snapshot example:
      - the file exists but no matching `generatedTests[].testFile` exists
-     - report the grade and leave state untouched
-9. When a safe match exists, update only that matching record's `quality` and `requiresReview` fields. Preserve all other fields and preserve 2-space JSON formatting with a trailing newline.
+     - report the grade, initialize or update state, and append the first stored snapshot
+9. Persist a new `generatedTests` snapshot in `.taro/state.json`:
+   - if state is missing, initialize a valid minimal state object first
+   - reuse the latest matching `packagePath` and `recordingFile` when present
+   - otherwise use the best matching package profile or `"."`, and store `recordingFile: null`
+   - append a fresh snapshot instead of mutating the previous one
+   - keep only the latest 5 snapshots for the normalized `testFile`
+   - preserve unrelated entries exactly and preserve 2-space JSON formatting with a trailing newline
 10. Report:
    - target file
    - whether a stored record was matched
-   - previous score and grade
+   - previous score and grade when present
    - new per-dimension scores
    - new total and letter grade
    - whether `.taro/state.json` was updated

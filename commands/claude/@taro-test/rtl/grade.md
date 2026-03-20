@@ -1,9 +1,10 @@
 ---
 name: "@taro-test/rtl:grade"
-description: Grade an existing RTL test file using Taro's published scoring shape and worked examples.
+description: Grade an existing RTL test file using Taro's published scoring shape and persist a grade snapshot in `.taro/state.json`.
 argument-hint: "<path/to/test-file>"
 allowed-tools:
   - Read
+  - Write
   - Glob
 argument-instructions: |
   Accept exactly one argument: the path to an existing RTL test file.
@@ -19,6 +20,7 @@ This command is example-driven:
 - read the target test directly
 - use minimal repo context
 - score each dimension explicitly
+- persist a new grade snapshot so progress can be tracked over time
 - explain the grade in the open </objective>
 
 <context>
@@ -57,14 +59,23 @@ Target test file: $ARGUMENTS
      - role queries stay the same
      - exact payload and visible success assertions are added
      - a low `C` often becomes a mid/high `B`
-8. If `.taro/state.json` already contains a matching `generatedTests` entry for this file, mention the previous stored grade but do not edit state in `grade`.
+8. Persist a new `generatedTests` snapshot in `.taro/state.json`:
+   - if state is missing, initialize a valid minimal state object first
+   - match prior history by normalized `generatedTests[].testFile`
+   - reuse the latest matching `packagePath` and `recordingFile` when present
+   - otherwise use the best matching package profile or `"."`, and store `recordingFile: null`
+   - append a fresh snapshot instead of overwriting older grades
+   - keep only the latest 5 snapshots for that normalized `testFile`
+   - preserve unrelated entries exactly
+   - keep 2-space JSON formatting with a trailing newline
 9. Report:
    - target file
    - surface scan summary
+   - previous stored score and grade when present
    - per-dimension scores
    - total and letter grade
+   - whether `.taro/state.json` was updated
    - whether manual review is required
    - top blockers
    - the smallest next fixes ordered by impact
-10. If the user wants the stored grade refreshed, route them to `/@taro-test/rtl:regrade`.
 </process>

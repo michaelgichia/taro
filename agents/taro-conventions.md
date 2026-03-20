@@ -61,19 +61,14 @@ When repo evidence is ambiguous, `.taro/overrides.json` can pin package-level po
 - if there is no stable local pattern, say that directly instead of claiming Taro has a single correct style
 - tell the user what repo examples or config need to exist for future generations to improve
 
-
 ## Boundary Pattern Few-Shots
 
 Infer the principle first, then choose the concrete repo artifact. Use the strongest local exemplar instead of generic mocking.
 
-- Partial support import:
-  A shared boundary stays mostly real and a support import overrides only the unstable slice. Reuse that support import; do not recreate the package inline.
-- Keep-real wrapper:
-  A local wrapper is part of the render surface. Keep it real and solve boundary issues at the render layer instead of mocking through it.
-- Factory support:
-  A collaborator exposes stable factory/reset handles. Import those handles and configure behavior per test.
-- Inline-safe boundary:
-  A simple router, env, or platform seam can use a lightweight inline mock when no stronger local pattern exists.
+- Partial support import: A shared boundary stays mostly real and a support import overrides only the unstable slice. Reuse that support import; do not recreate the package inline.
+- Keep-real wrapper: A local wrapper is part of the render surface. Keep it real and solve boundary issues at the render layer instead of mocking through it.
+- Factory support: A collaborator exposes stable factory/reset handles. Import those handles and configure behavior per test.
+- Inline-safe boundary: A simple router, env, or platform seam can use a lightweight inline mock when no stronger local pattern exists.
 
 Never invent a fake shared UI implementation when a partial-support or keep-real pattern exists.
 

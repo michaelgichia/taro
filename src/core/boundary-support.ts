@@ -5,7 +5,9 @@ import {
   classifyBoundaryKind,
   discoverBoundaryImportsFromSource,
   getBoundaryGuardrailReason,
+  inferBoundaryPattern,
 } from "#core/boundary-learning.ts";
+import { loadDynamicImportTargets } from "#core/component-score-context.ts";
 import type {
   RepoRenderTargetCandidate,
   ResolvedTaroPackageProfile,
@@ -167,6 +169,28 @@ function buildNextDynamicMockBlock(runner: TaroTestRunner): string {
     ...helperLines,
     `vi.mock('next/dynamic', () => ({`,
     `  default: () => __taroDynamicPlaceholder,`,
+    `}))`,
+  ].join("\n");
+}
+
+function buildDynamicModulePlaceholderMockBlock(
+  target: string,
+  runner: TaroTestRunner
+): string {
+  const testId = `taro-dynamic-${normalizeBoundaryFileBase(target)}`;
+
+  if (runner === "jest") {
+    return [
+      `jest.mock('${target}', () => ({`,
+      `  __esModule: true,`,
+      `  default: () => <div data-testid="${testId}" />,`,
+      `}))`,
+    ].join("\n");
+  }
+
+  return [
+    `vi.mock('${target}', () => ({`,
+    `  default: () => <div data-testid="${testId}" />,`,
     `}))`,
   ].join("\n");
 }
@@ -518,13 +542,31 @@ export async function planBoundarySupport(params: {
     }
 
     if (importedBoundary.target === "next/dynamic") {
-      const mockBlock = buildNextDynamicMockBlock(boundaryMockRunner);
-      if (!plan.mockBlocks.includes(mockBlock)) {
-        plan.mockBlocks.push(mockBlock);
+      const dynamicImportTargets =
+        await loadDynamicImportTargets(renderTargetFile);
+
+      if (dynamicImportTargets.length > 0) {
+        for (const dynamicTarget of dynamicImportTargets) {
+          const mockBlock = buildDynamicModulePlaceholderMockBlock(
+            dynamicTarget,
+            boundaryMockRunner
+          );
+          if (!plan.mockBlocks.includes(mockBlock)) {
+            plan.mockBlocks.push(mockBlock);
+          }
+        }
+        plan.warnings.push(
+          `next/dynamic was reduced to module-identity placeholders for ${dynamicImportTargets.join(", ")}. If the test depends on the loaded child behavior, replace the placeholder with a repo-local mock example.`
+        );
+      } else {
+        const mockBlock = buildNextDynamicMockBlock(boundaryMockRunner);
+        if (!plan.mockBlocks.includes(mockBlock)) {
+          plan.mockBlocks.push(mockBlock);
+        }
+        plan.warnings.push(
+          "next/dynamic was reduced to a null placeholder shim. If the test depends on the loaded child, replace it with a repo-local mock example."
+        );
       }
-      plan.warnings.push(
-        "next/dynamic was reduced to a null placeholder shim. If the test depends on the loaded child, replace it with a repo-local mock example."
-      );
       plan.requiresReview = true;
       continue;
     }
@@ -568,6 +610,34 @@ export async function planBoundarySupport(params: {
       continue;
     }
 
+    const pattern =
+      profile.pattern ??
+      inferBoundaryPattern({
+        strategy: profile.strategy,
+        guardrailReason: profile.guardrailReason,
+        supportImportPath: profile.supportImportPath,
+        supportExports: profile.supportExports,
+      });
+
+    if (
+      pattern === "partial-support-import" &&
+      profile.supportImportPath &&
+      !profile.supportExports.factoryExport
+    ) {
+      const importLine = `import '${profile.supportImportPath}'`;
+      if (!plan.importLines.includes(importLine)) {
+        plan.importLines.push(importLine);
+      }
+      if (profile.supportExports.resetExport) {
+        const resetImportLine = `import { ${profile.supportExports.resetExport} } from '${profile.supportImportPath}'`;
+        if (!plan.importLines.includes(resetImportLine)) {
+          plan.importLines.push(resetImportLine);
+        }
+        plan.setupLines.push(`${profile.supportExports.resetExport}()`);
+      }
+      continue;
+    }
+
     if (
       profile.strategy !== "shared-module-factory" &&
       profile.strategy !== "scaffolded-module-factory"
@@ -576,8 +646,10 @@ export async function planBoundarySupport(params: {
     }
 
     if (
-      getBoundaryGuardrailReason(profile.target, importedBoundary.importedNames) ===
-      "repo-owned-ui-wrapper"
+      getBoundaryGuardrailReason(
+        profile.target,
+        importedBoundary.importedNames
+      ) === "repo-owned-ui-wrapper"
     ) {
       plan.warnings.push(
         `Keeping ${profile.target} real at test time because it is a protected UI boundary; fix environment issues at the source instead of mocking around the UI boundary.`

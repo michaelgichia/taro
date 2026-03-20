@@ -1209,6 +1209,36 @@ describe("appendGeneratedTestRecord", () => {
     );
   });
 
+  it("persists a manual grade snapshot without a recordingFile", async () => {
+    await initTaroState(projectRoot);
+
+    await appendGeneratedTestRecord(projectRoot, {
+      packagePath: ".",
+      testFile: "/tmp/existing.test.tsx",
+      scoreResult: {
+        total: 91,
+        grade: "A",
+        dimensions: makeScoreDimensions({ queryQuality: 95 }),
+        signals: makeScoreSignals({ roleQueryCount: 6 }),
+        reasons: [],
+        requiresReview: false,
+      },
+    });
+
+    const state = await readTaroState(projectRoot);
+
+    expect(state?.generatedTests).toHaveLength(1);
+    expect(state?.generatedTests[0]).toEqual(
+      expect.objectContaining({
+        packagePath: ".",
+        recordingFile: null,
+        testFile: "/tmp/existing.test.tsx",
+        quality: expect.objectContaining({ overall: 91, grade: "A" }),
+        requiresReview: false,
+      })
+    );
+  });
+
   it("appends multiple records and keeps the most recent up to the limit", async () => {
     await initTaroState(projectRoot);
 
@@ -1236,6 +1266,51 @@ describe("appendGeneratedTestRecord", () => {
     const state = await readTaroState(projectRoot);
 
     expect(state?.generatedTests).toHaveLength(3);
+  });
+
+  it("keeps only the latest five history records per test file", () => {
+    const trimmed = __stateTestUtils.trimGeneratedTestHistory(projectRoot, [
+      ...Array.from({ length: 7 }, (_, index) => ({
+        createdAt: `2026-03-20T0${index}:00:00.000Z`,
+        packagePath: ".",
+        recordingFile: index % 2 === 0 ? `/tmp/recording-${index}.js` : null,
+        testFile: join(projectRoot, "src", "feature.test.tsx"),
+        quality: {
+          overall: 70 + index,
+          grade: "C" as const,
+          dimensions: makeScoreDimensions(),
+          signals: makeScoreSignals(),
+          reasons: [],
+        },
+        requiresReview: index < 4,
+      })),
+      {
+        createdAt: "2026-03-20T07:00:00.000Z",
+        packagePath: ".",
+        recordingFile: null,
+        testFile: join(projectRoot, "src", "other.test.tsx"),
+        quality: {
+          overall: 88,
+          grade: "B",
+          dimensions: makeScoreDimensions(),
+          signals: makeScoreSignals(),
+          reasons: [],
+        },
+        requiresReview: false,
+      },
+    ]);
+
+    expect(
+      trimmed.filter((record) => record.testFile.endsWith("feature.test.tsx"))
+    ).toHaveLength(5);
+    expect(
+      trimmed
+        .filter((record) => record.testFile.endsWith("feature.test.tsx"))
+        .map((record) => record.quality.overall)
+    ).toEqual([72, 73, 74, 75, 76]);
+    expect(
+      trimmed.filter((record) => record.testFile.endsWith("other.test.tsx"))
+    ).toHaveLength(1);
   });
 
   it("backfills legacy scorer signals when reading generated test history", async () => {
@@ -1455,10 +1530,7 @@ describe("score-weighted learning", () => {
     const staleState = {
       ...initialized.state,
       packages: {
-        ".": {
-          ...initialized.state.packages["."]!,
-          scannedAt: staleScannedAt,
-        },
+        ".": { ...initialized.state.packages["."]!, scannedAt: staleScannedAt },
       },
       generatedTests: [
         {

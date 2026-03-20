@@ -1,6 +1,6 @@
 ---
 name: "@taro-test/rtl-grade"
-description: "Grade an existing React Testing Library test file using Taro's published scoring shape and worked examples. Use when a user wants a score for an existing test without regenerating it."
+description: "Grade an existing React Testing Library test file using Taro's published scoring shape, then persist a new grade snapshot in `.taro/state.json`. Use when a user wants a score for an existing test without regenerating it."
 ---
 
 # Taro Grade
@@ -16,6 +16,7 @@ This skill is intentionally example-driven:
 - read the target test directly
 - use minimal repo context
 - score each dimension explicitly
+- persist a new grade snapshot so test quality can be tracked over time
 - explain the result in the open instead of pretending Taro has a private `__grade` command
 
 ## Inputs
@@ -31,6 +32,20 @@ Read in this order:
 3. at most 4 nearby files that materially affect provider wrappers, fixtures, helper setup, or boundary support
 
 If that context is still ambiguous, say so directly instead of expanding the scan.
+
+## State Persistence Rules
+
+After scoring, persist a new `generatedTests` snapshot in `.taro/state.json`.
+
+- if `.taro/state.json` is missing, initialize a valid minimal state object first
+- compare existing history by normalized `generatedTests[].testFile`
+- reuse the latest matching `packagePath` and `recordingFile` when they exist
+- when no prior match exists, use the best matching package profile or `"."`, and store `recordingFile: null`
+- append a fresh history record instead of overwriting older scores
+- keep only the latest 5 snapshots for that normalized `testFile`
+- preserve unrelated entries exactly as they are
+- keep `.taro/state.json` formatted as 2-space JSON with a trailing newline
+- update `meta.updatedAt` and preserve `meta.createdAt`
 
 ## Scoring Shape
 
@@ -116,10 +131,10 @@ Typical movement:
    - assertion strategy
    - fixture strategy
    - mock/reset strategy
-4. If `.taro/state.json` exists, identify the package profile and mention any previous stored grade for that exact `testFile`, but do not edit state in this command.
+4. If `.taro/state.json` exists, identify the package profile and the latest stored grade for that exact normalized `testFile`.
 5. Score each dimension explicitly.
-6. Report the total, grade, blockers, and smallest next fixes ordered by impact.
-7. If the user wants the stored grade refreshed in `.taro/state.json`, route them to `$@taro-test/rtl-regrade`.
+6. Append the new snapshot into `.taro/state.json` using the persistence rules above.
+7. Report the total, grade, blockers, delta versus the previous stored grade when one exists, and the smallest next fixes ordered by impact.
 
 ## Response Contract
 
@@ -127,8 +142,10 @@ Return:
 
 - target file path
 - surface scan summary
+- previous stored score and grade when present
 - per-dimension scores
 - total and letter grade
+- whether `.taro/state.json` was updated
 - whether manual review is required
 - top blockers
 - the best next fixes ordered by impact

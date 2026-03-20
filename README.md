@@ -220,9 +220,11 @@ Use the runtime-native grading entrypoints when you want an AI-facing review of 
 - Codex: `$@taro-test/rtl-grade`
 - Codex: `$@taro-test/rtl-regrade`
 
-`grade` is report-only: it scores the current file using the published Taro scoring shape and worked examples, but it does not mutate `.taro/state.json`.
+`grade` scores the current file using the published Taro scoring shape and worked examples, then appends a new `generatedTests` snapshot into `.taro/state.json`.
 
-`regrade` is for tests that already have a matching `generatedTests` history entry in `.taro/state.json`. It re-scores the current file, compares it to the latest stored grade, and refreshes that matching stored grade when the test-file match is safe. If no matching history entry exists, it reports the new grade without editing state.
+`regrade` re-scores the current file, compares it to the latest stored `generatedTests` snapshot for the same `testFile` when one exists, and appends a new snapshot into `.taro/state.json`.
+
+For both commands, Taro keeps only the latest 5 stored snapshots per `generatedTests[].testFile` so score movement stays visible over time without unbounded per-test history growth.
 
 Stored `generatedTests` grades now bias future package learning during `init`, `refresh`, and stale-state bootstrap. Higher-scored stored tests count more strongly when Taro relearns conventions, helpers, exemplars, and boundary patterns; unscored tests remain neutral.
 
@@ -315,7 +317,7 @@ describe('login flow', () => {
 
 ## Agent Usage
 
-After installation, each runtime gets a namespaced help entrypoint plus `init`, `refresh`, `generate`, `grade`, `regrade`, and `target` entrypoints. Use `init` first, `refresh` for maintenance, `generate` for Recorder-to-RTL output, `grade` for existing-test evaluation, `regrade` when you want to refresh a stored generated-test grade after edits, and `target` when you want to force a specific component path.
+After installation, each runtime gets a namespaced help entrypoint plus `init`, `refresh`, `generate`, `grade`, `regrade`, and `target` entrypoints. Use `init` first, `refresh` for maintenance, `generate` for Recorder-to-RTL output, `grade` for existing-test evaluation with a stored snapshot, `regrade` when you want a delta-focused re-evaluation plus a new stored snapshot after edits, and `target` when you want to force a specific component path.
 
 ### Tips
 

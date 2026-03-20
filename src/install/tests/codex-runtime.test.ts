@@ -268,7 +268,7 @@ describe("buildCodexOperations", () => {
       "utf8"
     );
     expect(regradeSkill).toContain("$@taro-test/rtl-regrade");
-    expect(regradeSkill).toContain("update only the latest matching");
+    expect(regradeSkill).toContain("latest 5 snapshots");
 
     const targetSkill = await readFile(
       join(
