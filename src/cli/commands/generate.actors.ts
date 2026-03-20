@@ -166,8 +166,13 @@ export const loadStateActor = fromPromise(
 
 export const captureVisualActor = fromPromise(
   async ({ input }: { input: CaptureVisualActorInput }) => {
-    const { normalizedRecording, visualAuth, projectRoot, commandOptions } =
-      input;
+    const {
+      normalizedRecording,
+      visualAuth,
+      projectRoot,
+      stdioContext,
+      commandOptions,
+    } = input;
     const earlyAnalyzedRecording = analyzeRecording(normalizedRecording!);
     const recordingUrl = findRecordingUrl(earlyAnalyzedRecording);
     const recoveryStorageStatePath = resolveVisualAuthStorageStatePath(
@@ -177,7 +182,7 @@ export const captureVisualActor = fromPromise(
     const authInstructionsPath =
       visualAuth?.strategy === "instructions" ? visualAuth.path : undefined;
     const interactiveVisualAuth = hasInteractiveVisualAuthCapability(
-      {},
+      stdioContext ?? {},
       commandOptions.interactiveAuth === true
     );
     const visualState = await maybeCaptureVisualState({
@@ -674,7 +679,6 @@ export const finalizeActor = fromPromise(
       throw new Error(`Post-write verification failed: ${verification.error}`);
     }
     try {
-      await refreshTaroState(projectRoot);
       await appendGeneratedTestRecord(projectRoot, {
         packagePath: packageProfile?.packagePath ?? ".",
         recordingFile: filePath,

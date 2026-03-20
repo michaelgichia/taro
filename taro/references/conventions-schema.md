@@ -116,6 +116,7 @@ Beyond runner and file placement, Taro now learns:
 - `init` performs the first bounded repo scan and writes `.taro/state.json`.
 - `refresh` rescans package profiles and rewrites state from fresh evidence.
 - `generate` bootstraps state when missing, derives from learned boundary exemplars, writes `.taro/summary.md`, and refreshes state again after a successful write.
+- When stored `generatedTests` history exists, `init`, `refresh`, and stale-state bootstrap weight higher-scored files more strongly while relearning package conventions and exemplars.
 
 ## Practical Interpretation
 

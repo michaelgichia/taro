@@ -5,7 +5,7 @@
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { cwd, stdin, stdout } from "node:process";
+import { cwd } from "node:process";
 
 import { Command } from "commander";
 import pc from "picocolors";
@@ -25,8 +25,8 @@ import type { SelectorResolutionResult } from "#types/recording.ts";
 export { generateCommandInternals } from "#cli/commands/generate.utils.ts";
 
 interface GenerateCommandContext {
-  input?: Pick<typeof stdin, "isTTY">;
-  output?: Pick<typeof stdout, "isTTY">;
+  input?: { isTTY?: boolean };
+  output?: { isTTY?: boolean };
 }
 
 type DebugTraceRecord =
@@ -246,25 +246,6 @@ function createSelectorDebugReporter(options: {
 }
 
 /**
- * Checks whether this command run can support interactive visual-auth recovery.
- *
- * A forced interactive flag bypasses stdio TTY detection.
- *
- * @param {GenerateCommandContext} [context={}] - Supplies optional stdio handles to inspect instead of the process globals.
- * @param {boolean} [forceInteractiveAuth=false] - Forces interactive auth support even when stdin or stdout is not a TTY.
- * @returns {boolean} `true` when interactive auth recovery is allowed for this run.
- */
-function hasInteractiveVisualAuthCapabilityLocal(
-  context: GenerateCommandContext = {},
-  forceInteractiveAuth = false
-): boolean {
-  return (
-    forceInteractiveAuth ||
-    Boolean((context.input ?? stdin).isTTY && (context.output ?? stdout).isTTY)
-  );
-}
-
-/**
  * Creates the internal `__generate` CLI command for recorder-to-RTL generation.
  *
  * The command loads the recorder export, grounds it against repo state and optional visual evidence,
@@ -327,13 +308,10 @@ export function createGenerateCommand(
           : undefined,
       });
 
-      // hasInteractiveVisualAuthCapabilityLocal is used by the actor pipeline via context
-      // but we keep the reference so the function is not tree-shaken.
-      void hasInteractiveVisualAuthCapabilityLocal;
-
       const initialContext: GenerateMachineContext = {
         filePath,
         projectRoot,
+        stdioContext: context,
         commandOptions,
         debugReporter,
         findings: [],

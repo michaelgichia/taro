@@ -22,6 +22,7 @@ import {
   getProjectStatePath,
 } from "#project-state.ts";
 import type {
+  ConventionFile,
   ConventionsSchema,
   ImportStyle,
   InteractionContractKind,
@@ -44,6 +45,7 @@ import type {
   TaroFileExtension,
   TaroFixtureRootKind,
   TaroFixtureRootProfile,
+  TaroFolderPattern,
   TaroGeneratedTestRecord,
   TaroInteractionContractProfile,
   TaroJestDomSetup,
@@ -135,6 +137,35 @@ const STAGE_PATTERNS: Record<MutationLifecycleStage, RegExp[]> = {
     /role:\s*['"`]alert['"`]/,
   ],
 };
+const SCORE_WEIGHT_MIN = 0.6;
+const SCORE_WEIGHT_MAX = 1.3;
+const SCORE_WEIGHT_BASE = 0.3;
+const SCORE_REVIEW_CAP = 0.85;
+const MIXED_CONVENTION_THRESHOLD = 0.8;
+
+type AtomicFolderPattern = Exclude<TaroFolderPattern, "mixed" | "unknown">;
+type AtomicFileExtension = "ts" | "js";
+
+interface GeneratedTestQualityEntry {
+  createdAtMs: number;
+  overall: number;
+  weight: number;
+  requiresReview: boolean;
+}
+
+type GeneratedTestQualityIndex = Map<string, GeneratedTestQualityEntry>;
+
+interface WeightedValueBucket<T extends string> {
+  value: T;
+  weight: number;
+  count: number;
+  files: string[];
+}
+
+interface PackageScoreLearningSummary {
+  scoredTestFileCount: number;
+  unscoredTestFileCount: number;
+}
 
 const confidenceSchema = z.enum(["low", "medium", "high"]);
 const importStyleSchema = z.enum(["esm", "cjs"]);
@@ -668,17 +699,189 @@ async function canUsePersistedPlaywrightAuth(
   return isReadableFile(resolve(projectRoot, auth.path));
 }
 
-function sortByCountThenName<
-  T extends { count: number; target?: string; name?: string },
->(entries: T[]): T[] {
-  return [...entries].sort((left, right) => {
+function clampNumber(min: number, max: number, value: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizeRepoRelativePath(
+  projectRoot: string,
+  filePath: string
+): string | null {
+  const relativePath = relative(resolve(projectRoot), resolve(filePath)).replace(
+    /\\/g,
+    "/"
+  );
+
+  if (
+    relativePath.length === 0 ||
+    relativePath === ".." ||
+    relativePath.startsWith("../")
+  ) {
+    return null;
+  }
+
+  return relativePath;
+}
+
+function calculateGeneratedTestQualityWeight(
+  record: Pick<TaroGeneratedTestRecord, "quality" | "requiresReview">
+): number {
+  const baseWeight = clampNumber(
+    SCORE_WEIGHT_MIN,
+    SCORE_WEIGHT_MAX,
+    SCORE_WEIGHT_BASE + record.quality.overall / 100
+  );
+
+  return record.requiresReview
+    ? Math.min(baseWeight, SCORE_REVIEW_CAP)
+    : baseWeight;
+}
+
+function buildGeneratedTestQualityIndex(
+  projectRoot: string,
+  generatedTests: TaroGeneratedTestRecord[]
+): GeneratedTestQualityIndex {
+  const qualityIndex: GeneratedTestQualityIndex = new Map();
+
+  for (const record of generatedTests) {
+    const normalizedPath = normalizeRepoRelativePath(
+      projectRoot,
+      record.testFile
+    );
+    if (!normalizedPath) {
+      continue;
+    }
+
+    const createdAtMs = Date.parse(record.createdAt);
+    const nextEntry: GeneratedTestQualityEntry = {
+      createdAtMs: Number.isFinite(createdAtMs) ? createdAtMs : 0,
+      overall: record.quality.overall,
+      weight: calculateGeneratedTestQualityWeight(record),
+      requiresReview: record.requiresReview,
+    };
+    const existing = qualityIndex.get(normalizedPath);
+
+    if (
+      !existing ||
+      nextEntry.createdAtMs >= existing.createdAtMs ||
+      (nextEntry.createdAtMs === existing.createdAtMs &&
+        nextEntry.overall >= existing.overall)
+    ) {
+      qualityIndex.set(normalizedPath, nextEntry);
+    }
+  }
+
+  return qualityIndex;
+}
+
+function getRelativeFileQualityWeight(
+  qualityIndex: GeneratedTestQualityIndex,
+  relativePath: string
+): number {
+  return qualityIndex.get(relativePath)?.weight ?? 1;
+}
+
+function getFileQualityWeight(
+  projectRoot: string,
+  qualityIndex: GeneratedTestQualityIndex,
+  filePath: string
+): number {
+  const normalizedPath = normalizeRepoRelativePath(projectRoot, filePath);
+  return normalizedPath
+    ? getRelativeFileQualityWeight(qualityIndex, normalizedPath)
+    : 1;
+}
+
+function sortPathsByQualityWeight(
+  paths: Iterable<string>,
+  qualityIndex: GeneratedTestQualityIndex
+): string[] {
+  return [...new Set(paths)].sort((left, right) => {
     return (
-      right.count - left.count ||
-      (left.target ?? left.name ?? "").localeCompare(
-        right.target ?? right.name ?? ""
-      )
+      getRelativeFileQualityWeight(qualityIndex, right) -
+        getRelativeFileQualityWeight(qualityIndex, left) ||
+      left.localeCompare(right)
     );
   });
+}
+
+function buildWeightedValueBuckets<T extends string>(
+  entries: Array<{ path: string; value: T }>,
+  qualityIndex: GeneratedTestQualityIndex
+): WeightedValueBucket<T>[] {
+  const buckets = new Map<T, WeightedValueBucket<T>>();
+
+  for (const entry of entries) {
+    const bucket = buckets.get(entry.value) ?? {
+      value: entry.value,
+      weight: 0,
+      count: 0,
+      files: [],
+    };
+    bucket.weight += getRelativeFileQualityWeight(qualityIndex, entry.path);
+    bucket.count += 1;
+    bucket.files.push(entry.path);
+    buckets.set(entry.value, bucket);
+  }
+
+  return [...buckets.values()];
+}
+
+function compareWeightedBuckets<T extends string>(
+  left: WeightedValueBucket<T>,
+  right: WeightedValueBucket<T>,
+  priorityOrder: readonly T[]
+): number {
+  const leftPriority = priorityOrder.indexOf(left.value);
+  const rightPriority = priorityOrder.indexOf(right.value);
+
+  return (
+    right.weight - left.weight ||
+    right.count - left.count ||
+    (leftPriority === -1 ? Number.MAX_SAFE_INTEGER : leftPriority) -
+      (rightPriority === -1 ? Number.MAX_SAFE_INTEGER : rightPriority) ||
+    left.value.localeCompare(right.value)
+  );
+}
+
+function summarizePackageScoreLearning(
+  profile: Pick<TaroPackageProfile, "conventions">,
+  qualityIndex: GeneratedTestQualityIndex
+): PackageScoreLearningSummary {
+  const uniqueFiles = [
+    ...new Set(profile.conventions.testFiles.map((file) => file.path)),
+  ];
+  const scoredTestFileCount = uniqueFiles.filter((file) =>
+    qualityIndex.has(file)
+  ).length;
+
+  return {
+    scoredTestFileCount,
+    unscoredTestFileCount: Math.max(0, uniqueFiles.length - scoredTestFileCount),
+  };
+}
+
+function getLatestGeneratedTestRecordTimestamp(state: TaroState): number {
+  return state.generatedTests.reduce((latest, record) => {
+    const createdAtMs = Date.parse(record.createdAt);
+    return Number.isFinite(createdAtMs)
+      ? Math.max(latest, createdAtMs)
+      : latest;
+  }, 0);
+}
+
+function getLatestPackageScanTimestamp(state: TaroState): number {
+  return Object.values(state.packages).reduce((latest, profile) => {
+    const scannedAtMs = Date.parse(profile.scannedAt);
+    return Number.isFinite(scannedAtMs)
+      ? Math.max(latest, scannedAtMs)
+      : latest;
+  }, 0);
+}
+
+function shouldRefreshStateFromGeneratedHistory(state: TaroState): boolean {
+  return getLatestGeneratedTestRecordTimestamp(state) >
+    getLatestPackageScanTimestamp(state);
 }
 
 function normalizeConventionPaths(
@@ -734,28 +937,40 @@ function deriveMockRecommendations(
 
 function scanMockTargetsInFiles(
   projectRoot: string,
-  testFiles: TestFileContent[]
+  testFiles: TestFileContent[],
+  qualityIndex: GeneratedTestQualityIndex = new Map()
 ): MockTargetUsage[] {
-  const targets = new Map<string, Set<string>>();
+  const targets = new Map<
+    string,
+    { files: Set<string>; weightedSupport: number }
+  >();
 
   for (const file of testFiles) {
-    for (const target of extractMockTargets(file.content)) {
-      const files = targets.get(target) ?? new Set<string>();
-      files.add(relative(projectRoot, file.path).replace(/\\/g, "/"));
-      targets.set(target, files);
+    const sourceTestFile = relative(projectRoot, file.path).replace(/\\/g, "/");
+    const fileWeight = getRelativeFileQualityWeight(qualityIndex, sourceTestFile);
+    for (const target of new Set(extractMockTargets(file.content))) {
+      const existing = targets.get(target) ?? {
+        files: new Set<string>(),
+        weightedSupport: 0,
+      };
+      existing.files.add(sourceTestFile);
+      existing.weightedSupport += fileWeight;
+      targets.set(target, existing);
     }
   }
 
   return [...targets.entries()]
-    .map(([target, files]) => ({
-      target,
-      files: [...files].sort(),
-      count: files.size,
-    }))
     .sort(
-      (left, right) =>
-        right.count - left.count || left.target.localeCompare(right.target)
-    );
+      ([leftTarget, leftEntry], [rightTarget, rightEntry]) =>
+        rightEntry.weightedSupport - leftEntry.weightedSupport ||
+        rightEntry.files.size - leftEntry.files.size ||
+        leftTarget.localeCompare(rightTarget)
+    )
+    .map(([target, entry]) => ({
+      target,
+      files: [...entry.files].sort(),
+      count: entry.files.size,
+    }));
 }
 
 function analyzeMutationLifecycleInFiles(
@@ -884,6 +1099,185 @@ function detectMockInstabilityInFiles(
       left.file.localeCompare(right.file) || left.kind.localeCompare(right.kind)
     );
   });
+}
+
+function classifyFolderPatternBucket(
+  projectRoot: string,
+  filePath: string
+): AtomicFolderPattern {
+  const relativePath = relative(projectRoot, filePath).replace(/\\/g, "/");
+
+  if (
+    relativePath.includes("__tests__") ||
+    relativePath.includes("__test__")
+  ) {
+    return "__tests__";
+  }
+  if (/(?:^|\/)tests\//.test(relativePath)) {
+    return "tests";
+  }
+
+  return "colocated";
+}
+
+function classifyFileExtensionBucket(filePath: string): AtomicFileExtension {
+  return /\.(?:ts|tsx)$/u.test(filePath) ? "ts" : "js";
+}
+
+function inferWeightedImportStyle(
+  projectRoot: string,
+  files: ConventionFile[],
+  qualityIndex: GeneratedTestQualityIndex
+): TaroSignal<ImportStyle> {
+  const buckets = buildWeightedValueBuckets(
+    files.map((file) => ({
+      path: relative(projectRoot, file.path).replace(/\\/g, "/"),
+      value: file.importStyle,
+    })),
+    qualityIndex
+  ).sort((left, right) =>
+    compareWeightedBuckets(left, right, ["esm", "cjs"])
+  );
+
+  const winner = buckets[0];
+  const totalWeight =
+    buckets.reduce((sum, bucket) => sum + bucket.weight, 0) || 1;
+  const value = winner?.value ?? "esm";
+
+  return {
+    value,
+    confidence: winner ? toConfidence(winner.weight / totalWeight) : "low",
+    evidence: winner
+      ? sortPathsByQualityWeight(winner.files, qualityIndex).slice(
+          0,
+          MAX_EVIDENCE
+        )
+      : [],
+  };
+}
+
+function inferWeightedMockPattern(
+  projectRoot: string,
+  files: ConventionFile[],
+  qualityIndex: GeneratedTestQualityIndex
+): TaroSignal<MockPattern> {
+  const buckets = buildWeightedValueBuckets(
+    files.map((file) => ({
+      path: relative(projectRoot, file.path).replace(/\\/g, "/"),
+      value: file.mockPattern,
+    })),
+    qualityIndex
+  ).sort((left, right) =>
+    compareWeightedBuckets(left, right, ["vi.mock", "jest.mock", "none"])
+  );
+
+  const winner = buckets[0];
+  const totalWeight =
+    buckets.reduce((sum, bucket) => sum + bucket.weight, 0) || 1;
+  const value = winner?.value ?? "none";
+
+  return {
+    value,
+    confidence: winner ? toConfidence(winner.weight / totalWeight) : "low",
+    evidence: winner
+      ? sortPathsByQualityWeight(winner.files, qualityIndex).slice(
+          0,
+          MAX_EVIDENCE
+        )
+      : [],
+  };
+}
+
+function inferWeightedFolderPattern(
+  projectRoot: string,
+  files: ConventionFile[],
+  qualityIndex: GeneratedTestQualityIndex
+): TaroSignal<TaroFolderPattern> {
+  if (files.length === 0) {
+    return { value: "unknown", confidence: "low", evidence: [] };
+  }
+
+  const entries = files.map((file) => ({
+    path: relative(projectRoot, file.path).replace(/\\/g, "/"),
+    value: classifyFolderPatternBucket(projectRoot, file.path),
+  }));
+  const buckets = buildWeightedValueBuckets(entries, qualityIndex).sort(
+    (left, right) =>
+      compareWeightedBuckets(left, right, [
+        "colocated",
+        "__tests__",
+        "tests",
+      ])
+  );
+  const winner = buckets[0];
+  const totalWeight =
+    buckets.reduce((sum, bucket) => sum + bucket.weight, 0) || 1;
+  const winnerShare = winner ? winner.weight / totalWeight : 0;
+  const value: TaroFolderPattern =
+    buckets.length > 1 && winnerShare < MIXED_CONVENTION_THRESHOLD
+      ? "mixed"
+      : (winner?.value ?? "unknown");
+
+  return {
+    value,
+    confidence: toConfidence(winnerShare),
+    evidence:
+      value === "mixed"
+        ? sortPathsByQualityWeight(
+            entries.map((entry) => entry.path),
+            qualityIndex
+          ).slice(0, MAX_EVIDENCE)
+        : winner
+          ? sortPathsByQualityWeight(winner.files, qualityIndex).slice(
+              0,
+              MAX_EVIDENCE
+            )
+          : [],
+  };
+}
+
+function inferWeightedFileExtension(
+  projectRoot: string,
+  files: ConventionFile[],
+  qualityIndex: GeneratedTestQualityIndex
+): TaroSignal<TaroFileExtension> {
+  if (files.length === 0) {
+    return { value: "ts", confidence: "low", evidence: [] };
+  }
+
+  const entries = files.map((file) => ({
+    path: relative(projectRoot, file.path).replace(/\\/g, "/"),
+    value: classifyFileExtensionBucket(file.path),
+  }));
+  const buckets = buildWeightedValueBuckets(entries, qualityIndex).sort(
+    (left, right) => compareWeightedBuckets(left, right, ["ts", "js"])
+  );
+  const winner = buckets[0];
+  const totalWeight =
+    buckets.reduce((sum, bucket) => sum + bucket.weight, 0) || 1;
+  const winnerShare = winner ? winner.weight / totalWeight : 0;
+  const value: TaroFileExtension =
+    buckets.length > 1 && winnerShare < MIXED_CONVENTION_THRESHOLD
+      ? "mixed"
+      : (winner?.value ?? "ts");
+
+  return {
+    value,
+    confidence:
+      value === "mixed" ? toConfidence(winnerShare) : winner ? toConfidence(winnerShare) : "low",
+    evidence:
+      value === "mixed"
+        ? sortPathsByQualityWeight(
+            entries.map((entry) => entry.path),
+            qualityIndex
+          ).slice(0, MAX_EVIDENCE)
+        : winner
+          ? sortPathsByQualityWeight(winner.files, qualityIndex).slice(
+              0,
+              MAX_EVIDENCE
+            )
+          : [],
+  };
 }
 
 function inferFileExtension(
@@ -1039,15 +1433,22 @@ function isRenderHelperBinding(binding: {
 
 function collectRenderHelpers(
   projectRoot: string,
-  testFiles: TestFileContent[]
+  testFiles: TestFileContent[],
+  qualityIndex: GeneratedTestQualityIndex = new Map()
 ): TaroRenderHelperProfile[] {
   const helpers = new Map<
     string,
-    { profile: TaroRenderHelperProfile; files: Set<string> }
+    {
+      profile: TaroRenderHelperProfile;
+      files: Set<string>;
+      weightedUsage: number;
+      bestSourceWeight: number;
+    }
   >();
 
   for (const file of testFiles) {
     const sourceTestFile = relative(projectRoot, file.path).replace(/\\/g, "/");
+    const fileWeight = getRelativeFileQualityWeight(qualityIndex, sourceTestFile);
     const bindings = parseImportBindings(file.content);
     const usesWithin = file.content.includes("within(");
 
@@ -1065,6 +1466,15 @@ function collectRenderHelpers(
       if (existing) {
         existing.profile.usageCount += 1;
         existing.profile.usesWithin = existing.profile.usesWithin || usesWithin;
+        existing.weightedUsage += fileWeight;
+        if (
+          fileWeight > existing.bestSourceWeight ||
+          (fileWeight === existing.bestSourceWeight &&
+            sourceTestFile.localeCompare(existing.profile.sourceTestFile) < 0)
+        ) {
+          existing.profile.sourceTestFile = sourceTestFile;
+          existing.bestSourceWeight = fileWeight;
+        }
         existing.files.add(sourceTestFile);
         continue;
       }
@@ -1079,30 +1489,43 @@ function collectRenderHelpers(
           usesWithin,
         },
         files: new Set([sourceTestFile]),
+        weightedUsage: fileWeight,
+        bestSourceWeight: fileWeight,
       });
     }
   }
 
   return [...helpers.values()]
-    .map(({ profile }) => profile)
     .sort((left, right) => {
       return (
-        right.usageCount - left.usageCount ||
-        left.name.localeCompare(right.name) ||
-        left.importPath.localeCompare(right.importPath)
+        right.weightedUsage - left.weightedUsage ||
+        right.profile.usageCount - left.profile.usageCount ||
+        left.profile.name.localeCompare(right.profile.name) ||
+        left.profile.importPath.localeCompare(right.profile.importPath)
       );
     })
+    .map(({ profile }) => profile)
     .slice(0, MAX_EVIDENCE);
 }
 
 function collectProviderWrappers(
   projectRoot: string,
-  testFiles: TestFileContent[]
+  testFiles: TestFileContent[],
+  qualityIndex: GeneratedTestQualityIndex = new Map()
 ): TaroProviderWrapperProfile[] {
-  const providers = new Map<string, TaroProviderWrapperProfile>();
+  const providers = new Map<
+    string,
+    {
+      profile: TaroProviderWrapperProfile;
+      weightedSupport: number;
+      count: number;
+      bestSourceWeight: number;
+    }
+  >();
 
   for (const file of testFiles) {
     const sourceTestFile = relative(projectRoot, file.path).replace(/\\/g, "/");
+    const fileWeight = getRelativeFileQualityWeight(qualityIndex, sourceTestFile);
     const bindings = parseImportBindings(file.content);
     const importsByLocal = new Map(
       bindings.map((binding) => [binding.local, binding.importPath])
@@ -1117,20 +1540,45 @@ function collectProviderWrappers(
         continue;
       }
 
-      providers.set(`${name}|${importPath}`, {
-        name,
-        importPath,
-        sourceTestFile,
+      const key = `${name}|${importPath}`;
+      const existing = providers.get(key);
+      if (existing) {
+        existing.weightedSupport += fileWeight;
+        existing.count += 1;
+        if (
+          fileWeight > existing.bestSourceWeight ||
+          (fileWeight === existing.bestSourceWeight &&
+            sourceTestFile.localeCompare(existing.profile.sourceTestFile) < 0)
+        ) {
+          existing.profile.sourceTestFile = sourceTestFile;
+          existing.bestSourceWeight = fileWeight;
+        }
+        continue;
+      }
+
+      providers.set(key, {
+        profile: {
+          name,
+          importPath,
+          sourceTestFile,
+        },
+        weightedSupport: fileWeight,
+        count: 1,
+        bestSourceWeight: fileWeight,
       });
     }
   }
 
-  return [...providers.values()].sort((left, right) => {
-    return (
-      left.name.localeCompare(right.name) ||
-      left.importPath.localeCompare(right.importPath)
-    );
-  });
+  return [...providers.values()]
+    .sort((left, right) => {
+      return (
+        right.weightedSupport - left.weightedSupport ||
+        right.count - left.count ||
+        left.profile.name.localeCompare(right.profile.name) ||
+        left.profile.importPath.localeCompare(right.profile.importPath)
+      );
+    })
+    .map(({ profile }) => profile);
 }
 
 function extractFixtureRootFromImport(
@@ -1223,15 +1671,23 @@ function collectFixtureRootsFromImports(
 
 function collectSharedMockFactories(
   projectRoot: string,
-  testFiles: TestFileContent[]
+  testFiles: TestFileContent[],
+  qualityIndex: GeneratedTestQualityIndex = new Map()
 ): TaroSharedMockFactoryProfile[] {
   const factories = new Map<
     string,
-    { files: Set<string>; count: number; importPath: string; target: string }
+    {
+      files: Set<string>;
+      count: number;
+      importPath: string;
+      target: string;
+      weightedSupport: number;
+    }
   >();
 
   for (const file of testFiles) {
     const relativePath = relative(projectRoot, file.path).replace(/\\/g, "/");
+    const fileWeight = getRelativeFileQualityWeight(qualityIndex, relativePath);
     for (const binding of parseImportBindings(file.content)) {
       if (!/(mock|fixture|factor)/i.test(binding.importPath)) {
         continue;
@@ -1242,6 +1698,7 @@ function collectSharedMockFactories(
       if (existing) {
         existing.files.add(relativePath);
         existing.count += 1;
+        existing.weightedSupport += fileWeight;
         continue;
       }
 
@@ -1250,18 +1707,26 @@ function collectSharedMockFactories(
         count: 1,
         importPath: binding.importPath,
         target: binding.local,
+        weightedSupport: fileWeight,
       });
     }
   }
 
-  return sortByCountThenName(
-    [...factories.values()].map((entry) => ({
+  return [...factories.values()]
+    .sort((left, right) => {
+      return (
+        right.weightedSupport - left.weightedSupport ||
+        right.count - left.count ||
+        left.target.localeCompare(right.target)
+      );
+    })
+    .map((entry) => ({
       target: entry.target,
       importPath: entry.importPath,
       files: [...entry.files].sort(),
       count: entry.count,
     }))
-  ).slice(0, MAX_EVIDENCE);
+    .slice(0, MAX_EVIDENCE);
 }
 
 function createExemplarTags(
@@ -1296,7 +1761,8 @@ function createExemplarTags(
 function collectExemplars(
   projectRoot: string,
   testFiles: TestFileContent[],
-  renderHelpers: TaroRenderHelperProfile[]
+  renderHelpers: TaroRenderHelperProfile[],
+  qualityIndex: GeneratedTestQualityIndex = new Map()
 ): TaroExemplarProfile[] {
   const helperNames = renderHelpers.map((helper) => helper.name);
 
@@ -1304,13 +1770,16 @@ function collectExemplars(
     .map((file) => ({
       file: relative(projectRoot, file.path).replace(/\\/g, "/"),
       tags: createExemplarTags(file, helperNames),
+      weight: getFileQualityWeight(projectRoot, qualityIndex, file.path),
     }))
     .sort((left, right) => {
       return (
+        right.weight - left.weight ||
         right.tags.length - left.tags.length ||
         left.file.localeCompare(right.file)
       );
     })
+    .map(({ file, tags }) => ({ file, tags }))
     .slice(0, MAX_EXEMPLARS);
 }
 
@@ -1742,20 +2211,55 @@ async function buildPackageProfile(
   descriptor: PackageDescriptor,
   files: TestFileContent[],
   existingState: TaroState | null,
+  qualityIndex: GeneratedTestQualityIndex,
   detectedAt: TaroPlaywrightAuthDetectedAt
 ): Promise<TaroPackageProfile> {
   const scannedAt = new Date().toISOString();
   const analyzedFiles = await Promise.all(
     files.map((file) => analyzeTestFile(file.path))
   );
+  const importStyle = inferWeightedImportStyle(
+    projectRoot,
+    analyzedFiles,
+    qualityIndex
+  );
+  const mockPattern = inferWeightedMockPattern(
+    projectRoot,
+    analyzedFiles,
+    qualityIndex
+  );
+  const folderPattern = inferWeightedFolderPattern(
+    projectRoot,
+    analyzedFiles,
+    qualityIndex
+  );
+  const fileExtension = inferWeightedFileExtension(
+    projectRoot,
+    analyzedFiles,
+    qualityIndex
+  );
   const conventions = normalizeConventionPaths(
     projectRoot,
-    deriveConventions(analyzedFiles, descriptor.root)
+    {
+      ...deriveConventions(analyzedFiles, descriptor.root),
+      importStyle: importStyle.value,
+      mockPattern: mockPattern.value,
+      folderPattern: folderPattern.value,
+      fileExtension: fileExtension.value,
+    }
   );
-  const repeatedMockTargets = scanMockTargetsInFiles(projectRoot, files);
+  const repeatedMockTargets = scanMockTargetsInFiles(
+    projectRoot,
+    files,
+    qualityIndex
+  );
   const mockRecommendations = deriveMockRecommendations(repeatedMockTargets);
-  const renderHelpers = collectRenderHelpers(projectRoot, files);
-  const providerWrappers = collectProviderWrappers(projectRoot, files);
+  const renderHelpers = collectRenderHelpers(projectRoot, files, qualityIndex);
+  const providerWrappers = collectProviderWrappers(
+    projectRoot,
+    files,
+    qualityIndex
+  );
   const fixtureRoots = [
     ...collectFixtureRootsFromImports(files),
     ...(await collectFixtureDirs(descriptor.root)).map((root) => ({
@@ -1799,6 +2303,8 @@ async function buildPackageProfile(
     .flatMap((file) => extractRenderTargetCandidatesFromFile(projectRoot, file))
     .sort((left, right) => {
       return (
+        getRelativeFileQualityWeight(qualityIndex, right.sourceTestFile) -
+          getRelativeFileQualityWeight(qualityIndex, left.sourceTestFile) ||
         left.sourceTestFile.localeCompare(right.sourceTestFile) ||
         left.symbol.localeCompare(right.symbol)
       );
@@ -1814,6 +2320,8 @@ async function buildPackageProfile(
     renderTargets,
     providerWrappers,
     mutationLifecycles,
+    getFileWeight: (relativeFile) =>
+      getRelativeFileQualityWeight(qualityIndex, relativeFile),
   });
   const interactionContracts = deriveInteractionContracts({
     mutationLifecycles,
@@ -1844,19 +2352,23 @@ async function buildPackageProfile(
     scannedAt,
     testFileCount: files.length,
     conventions,
-    importStyle: inferImportStyle(conventions),
+    importStyle,
     runner,
     jestDomSetup,
-    mockPattern: inferMockPattern(conventions),
-    folderPattern: inferFolderPattern(conventions),
-    fileExtension: inferFileExtension(conventions),
+    mockPattern,
+    folderPattern,
+    fileExtension,
     renderHelpers,
     providerWrappers,
     renderTargets,
     repeatedMockTargets: repeatedMockTargets.filter(
       (target) => target.count > 1
     ),
-    sharedMockFactories: collectSharedMockFactories(projectRoot, files),
+    sharedMockFactories: collectSharedMockFactories(
+      projectRoot,
+      files,
+      qualityIndex
+    ),
     boundaryProfiles: boundaryLearning.profiles,
     boundaryExemplars: boundaryLearning.exemplars,
     interactionContracts,
@@ -1868,7 +2380,12 @@ async function buildPackageProfile(
     instabilityWarnings,
     mockRecommendations,
     fixtureRoots,
-    exemplars: collectExemplars(projectRoot, files, renderHelpers),
+    exemplars: collectExemplars(
+      projectRoot,
+      files,
+      renderHelpers,
+      qualityIndex
+    ),
     playwrightAuth,
     warnings: [
       ...warnings,
@@ -2340,7 +2857,14 @@ function summarizeCanonicalBoundarySupport(
   return supportImports.map((entry) => `\`${entry}\``).join(", ");
 }
 
-function buildStateSummaryMarkdown(state: TaroState): string {
+function buildStateSummaryMarkdown(
+  projectRoot: string,
+  state: TaroState
+): string {
+  const qualityIndex = buildGeneratedTestQualityIndex(
+    projectRoot,
+    state.generatedTests
+  );
   const lines = [
     "# Taro Boundary Summary",
     "",
@@ -2358,9 +2882,13 @@ function buildStateSummaryMarkdown(state: TaroState): string {
   }
 
   for (const profile of profiles) {
+    const learningSummary = summarizePackageScoreLearning(profile, qualityIndex);
     lines.push(`## ${profile.packagePath}`);
     lines.push("");
     lines.push(`- Runner: \`${profile.runner.value}\``);
+    lines.push(
+      `- Score-aware learning: ${learningSummary.scoredTestFileCount > 0 ? "active" : "inactive"} (${learningSummary.scoredTestFileCount} scored, ${learningSummary.unscoredTestFileCount} unscored, source=generatedTests, mode=weighted-bias)`
+    );
     lines.push(
       `- Preferred render boundary: \`${summarizeRenderBoundaryPreference(profile)}\``
     );
@@ -2420,7 +2948,7 @@ async function writeTaroSummary(
   state: TaroState
 ): Promise<void> {
   const summaryPath = getProjectStatePath(projectRoot, "summary.md");
-  const content = buildStateSummaryMarkdown(state);
+  const content = buildStateSummaryMarkdown(projectRoot, state);
   const tempPath = `${summaryPath}.${process.pid}.${Date.now()}.tmp`;
   await writeFile(tempPath, content, "utf-8");
   await rename(tempPath, summaryPath);
@@ -2437,6 +2965,14 @@ async function scanProjectState(
   const overridesDiagnostics =
     await readTaroOverridesWithDiagnostics(projectRoot);
   const now = new Date().toISOString();
+  const generatedHistoryForLearning =
+    options.preserveGeneratedTests === false
+      ? []
+      : (loadedLegacy.state?.generatedTests ?? []);
+  const qualityIndex = buildGeneratedTestQualityIndex(
+    projectRoot,
+    generatedHistoryForLearning
+  );
   const testFiles = await readTestFiles(projectRoot);
   const packageDescriptors = await findPackageDescriptors(projectRoot);
   const packagesByKey = new Map<string, TestFileContent[]>();
@@ -2463,6 +2999,7 @@ async function scanProjectState(
           descriptor,
           files,
           loadedLegacy.state,
+          qualityIndex,
           detectedAt
         );
       })
@@ -2503,6 +3040,7 @@ async function scanProjectState(
         (entry) => entry.lowConfidenceScaffold
       ).length,
       fixtureRootCount: profile.fixtureRoots.length,
+      ...summarizePackageScoreLearning(profile, qualityIndex),
       warnings: profile.warnings,
     }))
     .sort((left, right) => left.packagePath.localeCompare(right.packagePath));
@@ -2572,6 +3110,19 @@ export async function loadOrBootstrapTaroState(
     await readTaroOverridesWithDiagnostics(projectRoot);
   const existingState = existingStateDiagnostics.state;
   if (existingState) {
+    if (shouldRefreshStateFromGeneratedHistory(existingState)) {
+      const rescanned = await scanProjectState(projectRoot, {
+        existingState,
+        detectedAt: "refresh",
+      });
+      await writeTaroState(projectRoot, rescanned.state);
+      return rescanned;
+    }
+
+    const qualityIndex = buildGeneratedTestQualityIndex(
+      projectRoot,
+      existingState.generatedTests
+    );
     const summaryPackages: TaroStateSummaryPackage[] = Object.values(
       existingState.packages
     ).map((profile) => ({
@@ -2585,6 +3136,7 @@ export async function loadOrBootstrapTaroState(
         (entry) => entry.lowConfidenceScaffold
       ).length,
       fixtureRootCount: profile.fixtureRoots.length,
+      ...summarizePackageScoreLearning(profile, qualityIndex),
       warnings: profile.warnings,
     }));
     return {
@@ -2743,10 +3295,13 @@ async function getLatestPackageEvidence(
 }
 
 export const __stateTestUtils = {
+  buildGeneratedTestQualityIndex,
+  calculateGeneratedTestQualityWeight,
   collectMockStoreResources,
   collectFixtureDirs,
   collectProviderWrappers,
   collectRenderHelpers,
+  collectSharedMockFactories,
   deriveInteractionContracts,
   detectMockInstabilityInFiles,
   findPackageDescriptors,
@@ -2756,6 +3311,8 @@ export const __stateTestUtils = {
   hasConfigFile,
   inferFileExtension,
   scanProjectState,
+  shouldRefreshStateFromGeneratedHistory,
+  summarizePackageScoreLearning,
 };
 
 export async function detectPackageProfileStaleness(
@@ -3053,6 +3610,7 @@ export async function appendGeneratedTestRecord(
   };
 
   await writeTaroState(projectRoot, nextState);
+  await refreshTaroState(projectRoot);
 }
 
 export function formatStateSummary(
@@ -3077,7 +3635,7 @@ export function formatStateSummary(
 
   for (const pkg of summary.packages) {
     lines.push(
-      `${pc.dim("[taro]")} ${pkg.packagePath}: runner=${pkg.runner}, scannedAt=${pkg.scannedAt}, renderHelpers=${pkg.renderHelperCount}, repeatedMocks=${pkg.repeatedMockTargetCount}, boundaryProfiles=${pkg.boundaryProfileCount}, lowConfidenceBoundaries=${pkg.lowConfidenceBoundaryCount}, fixtureRoots=${pkg.fixtureRootCount}`
+      `${pc.dim("[taro]")} ${pkg.packagePath}: runner=${pkg.runner}, scannedAt=${pkg.scannedAt}, renderHelpers=${pkg.renderHelperCount}, repeatedMocks=${pkg.repeatedMockTargetCount}, boundaryProfiles=${pkg.boundaryProfileCount}, lowConfidenceBoundaries=${pkg.lowConfidenceBoundaryCount}, fixtureRoots=${pkg.fixtureRootCount}, scoredTests=${pkg.scoredTestFileCount}, unscoredTests=${pkg.unscoredTestFileCount}`
     );
   }
   for (const warning of summary.warnings) {

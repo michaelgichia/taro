@@ -3,11 +3,11 @@ import { readFile } from "node:fs/promises";
 import * as babelParser from "@babel/parser";
 import * as t from "@babel/types";
 
-import { resolveComponentDefinitionFromAst } from "#core/component-targeting.ts";
 import {
   classifyBoundaryKind,
   getBoundaryGuardrailReason,
 } from "#core/boundary-learning.ts";
+import { resolveComponentDefinitionFromAst } from "#core/component-targeting.ts";
 import type {
   ComponentScoreContext,
   ScoreImportReference,

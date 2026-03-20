@@ -66,6 +66,7 @@ interface FileBoundaryUsage {
   usesCentralBoundarySupport: boolean;
   usesProviderWrapper: boolean;
   overrideStyle: TaroBoundaryExemplarProfile["overrideStyle"];
+  qualityWeight: number;
 }
 
 const AST_PLUGINS: babelParser.ParserPlugin[] = [
@@ -464,6 +465,7 @@ export async function collectBoundaryLearning(params: {
   renderTargets: RepoRenderTargetCandidate[];
   providerWrappers: TaroProviderWrapperProfile[];
   mutationLifecycles: MutationLifecyclePattern[];
+  getFileWeight?: (relativeFile: string) => number;
 }): Promise<BoundaryLearningResult> {
   const observations = new Map<string, BoundaryObservation[]>();
   const fileUsage = new Map<string, FileBoundaryUsage>();
@@ -479,6 +481,7 @@ export async function collectBoundaryLearning(params: {
       /\\/g,
       "/"
     );
+    const fileQualityWeight = params.getFileWeight?.(relativeFile) ?? 1;
     const usage: FileBoundaryUsage = {
       file: relativeFile,
       targets: new Set(),
@@ -486,6 +489,7 @@ export async function collectBoundaryLearning(params: {
       usesCentralBoundarySupport: false,
       usesProviderWrapper: providerWrapperFiles.has(relativeFile),
       overrideStyle: "none",
+      qualityWeight: fileQualityWeight,
     };
 
     let ast: t.File;
@@ -517,7 +521,7 @@ export async function collectBoundaryLearning(params: {
           inferPayloadSource(next.supportImportPath ?? null),
         files: new Set([relativeFile]),
         evidence: new Set(next.evidence ?? []),
-        weight: next.weight ?? 1,
+        weight: (next.weight ?? 1) * fileQualityWeight,
       };
       existing.push(entry);
       observations.set(target, existing);
@@ -609,7 +613,7 @@ export async function collectBoundaryLearning(params: {
                 for (const entry of entries) {
                   if (entry.supportImportPath === imported.importPath) {
                     entry.supportExports.resetExport = imported.local;
-                    entry.weight += 1;
+                    entry.weight += fileQualityWeight;
                     entry.evidence.add(
                       `${relativeFile}: beforeEach(${imported.local})`
                     );
@@ -639,7 +643,7 @@ export async function collectBoundaryLearning(params: {
                     entry.supportExports.overrideExports,
                     imported.local
                   );
-                  entry.weight += 1;
+                  entry.weight += fileQualityWeight;
                   entry.evidence.add(
                     `${relativeFile}: ${imported.local}.${path.node.callee.property.name}(...)`
                   );
@@ -685,7 +689,7 @@ export async function collectBoundaryLearning(params: {
       payloadSource: "manual",
       files: new Set([wrapper.sourceTestFile]),
       evidence: new Set([`${wrapper.sourceTestFile}: wrapper ${wrapper.name}`]),
-      weight: 2,
+      weight: 2 * (params.getFileWeight?.(wrapper.sourceTestFile) ?? 1),
     });
     observations.set(target, existing);
     const usage = fileUsage.get(wrapper.sourceTestFile);
@@ -765,24 +769,34 @@ export async function collectBoundaryLearning(params: {
 
   const exemplars: TaroBoundaryExemplarProfile[] = [...fileUsage.values()]
     .map((usage) => ({
-      file: usage.file,
-      renderBoundary: inferRenderBoundary(usage.file, params.renderTargets),
-      boundaryTargets: [...usage.targets].sort(),
-      boundaryKinds: [...usage.kinds].sort(),
-      usesProviderWrapper: usage.usesProviderWrapper,
-      usesCentralBoundarySupport: usage.usesCentralBoundarySupport,
-      hasMutationLifecycle: mutationFiles.has(usage.file),
-      overrideStyle: usage.overrideStyle,
-      tags: [
-        ...(usage.usesProviderWrapper ? ["provider-wrapper"] : []),
-        ...(usage.usesCentralBoundarySupport
-          ? ["central-boundary-support"]
-          : []),
-        ...(mutationFiles.has(usage.file) ? ["mutation-lifecycle"] : []),
-        ...[...usage.kinds].map((kind) => `boundary:${kind}`),
-      ].sort(),
+      exemplar: {
+        file: usage.file,
+        renderBoundary: inferRenderBoundary(usage.file, params.renderTargets),
+        boundaryTargets: [...usage.targets].sort(),
+        boundaryKinds: [...usage.kinds].sort(),
+        usesProviderWrapper: usage.usesProviderWrapper,
+        usesCentralBoundarySupport: usage.usesCentralBoundarySupport,
+        hasMutationLifecycle: mutationFiles.has(usage.file),
+        overrideStyle: usage.overrideStyle,
+        tags: [
+          ...(usage.usesProviderWrapper ? ["provider-wrapper"] : []),
+          ...(usage.usesCentralBoundarySupport
+            ? ["central-boundary-support"]
+            : []),
+          ...(mutationFiles.has(usage.file) ? ["mutation-lifecycle"] : []),
+          ...[...usage.kinds].map((kind) => `boundary:${kind}`),
+        ].sort(),
+      },
+      qualityWeight: usage.qualityWeight,
     }))
-    .sort((left, right) => left.file.localeCompare(right.file));
+    .sort((left, right) => {
+      return (
+        right.qualityWeight - left.qualityWeight ||
+        right.exemplar.tags.length - left.exemplar.tags.length ||
+        left.exemplar.file.localeCompare(right.exemplar.file)
+      );
+    })
+    .map(({ exemplar }) => exemplar);
 
   return { profiles, exemplars };
 }

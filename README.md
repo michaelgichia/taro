@@ -224,6 +224,8 @@ Use the runtime-native grading entrypoints when you want an AI-facing review of 
 
 `regrade` is for tests that already have a matching `generatedTests` history entry in `.taro/state.json`. It re-scores the current file, compares it to the latest stored grade, and refreshes that matching stored grade when the test-file match is safe. If no matching history entry exists, it reports the new grade without editing state.
 
+Stored `generatedTests` grades now bias future package learning during `init`, `refresh`, and stale-state bootstrap. Higher-scored stored tests count more strongly when Taro relearns conventions, helpers, exemplars, and boundary patterns; unscored tests remain neutral.
+
 ### Draft-quality output is explicit
 
 When Taro cannot prove the final render/query boundary yet, it keeps the output writable but marks it as draft-quality instead of pretending the gaps are solved.

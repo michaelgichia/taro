@@ -77,6 +77,8 @@ If you need a newer package version first, rerun `pnpm dlx @taro-test/rtl@latest
 4. `regrade` should update `.taro/state.json` only when a matching `generatedTests[].testFile` entry already exists.
 5. If no safe stored match exists, `regrade` should report the fresh score and leave state untouched.
 
+Stored `generatedTests` grades bias later package relearning. During `init`, `refresh`, and stale-state bootstrap, Taro now gives higher-scored stored tests more influence when learning conventions, helpers, exemplars, and boundary strategies. Files without stored grades still participate with neutral weight.
+
 The exact module execution order for generation is documented in [PIPELINE.md](./PIPELINE.md).
 
 ## Learned Context

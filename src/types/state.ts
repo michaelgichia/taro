@@ -269,6 +269,8 @@ export interface TaroStateSummaryPackage {
   boundaryProfileCount: number;
   lowConfidenceBoundaryCount: number;
   fixtureRootCount: number;
+  scoredTestFileCount: number;
+  unscoredTestFileCount: number;
   warnings: string[];
 }
 

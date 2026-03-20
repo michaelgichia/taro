@@ -501,6 +501,46 @@ vi.mock('./api/orders', () => ({
     );
   });
 
+  it("lets a higher-scored shared-factory exemplar beat noisier low-scored inline mocks", async () => {
+    await mkdir(join(testDir, "src"), { recursive: true });
+
+    const result = await collectBoundaryLearning({
+      projectRoot: testDir,
+      testFiles: [
+        {
+          path: join(testDir, "src", "high.test.ts"),
+          content: `
+            import { createOrdersMock } from '../__mocks__/ordersMockFactory'
+
+            vi.mock('./api/orders', () => ({
+              ...createOrdersMock(),
+            }))
+          `,
+        },
+        ...Array.from({ length: 4 }, (_, index) => ({
+          path: join(testDir, "src", `low-${index}.test.ts`),
+          content: `
+            vi.mock('./api/orders', () => ({
+              createOrder: vi.fn(),
+            }))
+          `,
+        })),
+      ],
+      renderTargets: [],
+      providerWrappers: [],
+      mutationLifecycles: [],
+      getFileWeight: (relativeFile) =>
+        relativeFile === "src/high.test.ts" ? 1.25 : 0.6,
+    });
+
+    const ordersProfile = result.profiles.find(
+      (profile) => profile.target === "./api/orders"
+    );
+
+    expect(ordersProfile?.strategy).toBe("shared-module-factory");
+    expect(result.exemplars[0]?.file).toBe("src/high.test.ts");
+  });
+
   it("assigns forbid strategy for guardrail targets (repo-owned UI wrapper)", async () => {
     const filePath = join(testDir, "src", "modal.test.tsx");
     await mkdir(join(testDir, "src"), { recursive: true });

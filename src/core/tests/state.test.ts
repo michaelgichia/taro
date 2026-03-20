@@ -62,6 +62,16 @@ function makeScoreSignals(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function makeScoreDimensions(overrides: Record<string, number> = {}) {
+  return {
+    queryQuality: 80,
+    assertionSpecificity: 80,
+    testStructure: 80,
+    boundaryIsolation: 80,
+    ...overrides,
+  };
+}
+
 describe("initTaroState", () => {
   it("writes .taro/state.json with no package profiles when the repo has no tests", async () => {
     const result = await initTaroState(projectRoot);
@@ -1285,6 +1295,195 @@ describe("appendGeneratedTestRecord", () => {
     expect(
       state?.generatedTests[0]?.quality.reasons[0]?.severity
     ).toBeUndefined();
+  });
+});
+
+describe("score-weighted learning", () => {
+  it("uses the latest generated-test record per file and caps requiresReview weights", () => {
+    const qualityIndex = __stateTestUtils.buildGeneratedTestQualityIndex(
+      projectRoot,
+      [
+        {
+          createdAt: "2026-03-20T08:00:00.000Z",
+          packagePath: ".",
+          recordingFile: "/tmp/app.js",
+          testFile: join(projectRoot, "src", "app.test.tsx"),
+          quality: {
+            overall: 95,
+            grade: "A",
+            dimensions: makeScoreDimensions(),
+            signals: makeScoreSignals(),
+            reasons: [],
+          },
+          requiresReview: false,
+        },
+        {
+          createdAt: "2026-03-20T09:00:00.000Z",
+          packagePath: ".",
+          recordingFile: "/tmp/app-edited.js",
+          testFile: join(projectRoot, "src", "app.test.tsx"),
+          quality: {
+            overall: 92,
+            grade: "A",
+            dimensions: makeScoreDimensions(),
+            signals: makeScoreSignals(),
+            reasons: [],
+          },
+          requiresReview: true,
+        },
+      ]
+    );
+
+    expect(qualityIndex.get("src/app.test.tsx")).toEqual(
+      expect.objectContaining({
+        overall: 92,
+        requiresReview: true,
+        weight: 0.85,
+      })
+    );
+    expect(
+      __stateTestUtils.calculateGeneratedTestQualityWeight({
+        quality: {
+          overall: 65,
+          grade: "D",
+          dimensions: makeScoreDimensions(),
+          signals: makeScoreSignals(),
+          reasons: [],
+        },
+        requiresReview: false,
+      })
+    ).toBe(0.95);
+  });
+
+  it("relearns conventions from higher-scored tests and reports score-aware learning in the summary", async () => {
+    await mkdir(join(projectRoot, "src", "tests"), { recursive: true });
+    await writeFile(
+      join(projectRoot, "src", "tests", "high-a.test.js"),
+      "const subject = require('./subject')\ndescribe('high a', () => { it('works', () => expect(true).toBe(true)) })",
+      "utf-8"
+    );
+    await writeFile(
+      join(projectRoot, "src", "tests", "high-b.test.js"),
+      "const subject = require('./other-subject')\ndescribe('high b', () => { it('works', () => expect(true).toBe(true)) })",
+      "utf-8"
+    );
+    await writeFile(
+      join(projectRoot, "src", "low.test.tsx"),
+      "import { vi } from 'vitest'\nvi.mock('./api/orders', () => ({ createOrder: vi.fn() }))\ndescribe('low', () => { it('works', () => expect(true).toBe(true)) })",
+      "utf-8"
+    );
+
+    await initTaroState(projectRoot);
+
+    await appendGeneratedTestRecord(projectRoot, {
+      packagePath: ".",
+      recordingFile: "/tmp/high-a.js",
+      testFile: join(projectRoot, "src", "tests", "high-a.test.js"),
+      scoreResult: {
+        total: 92,
+        grade: "A",
+        dimensions: makeScoreDimensions(),
+        signals: makeScoreSignals(),
+        reasons: [],
+        requiresReview: false,
+      },
+    });
+    await appendGeneratedTestRecord(projectRoot, {
+      packagePath: ".",
+      recordingFile: "/tmp/high-b.js",
+      testFile: join(projectRoot, "src", "tests", "high-b.test.js"),
+      scoreResult: {
+        total: 90,
+        grade: "A",
+        dimensions: makeScoreDimensions(),
+        signals: makeScoreSignals(),
+        reasons: [],
+        requiresReview: false,
+      },
+    });
+    await appendGeneratedTestRecord(projectRoot, {
+      packagePath: ".",
+      recordingFile: "/tmp/low.js",
+      testFile: join(projectRoot, "src", "low.test.tsx"),
+      scoreResult: {
+        total: 30,
+        grade: "F",
+        dimensions: makeScoreDimensions(),
+        signals: makeScoreSignals(),
+        reasons: [],
+        requiresReview: true,
+      },
+    });
+
+    const state = await readTaroState(projectRoot);
+    const summary = await readFile(
+      join(projectRoot, ".taro", "summary.md"),
+      "utf-8"
+    );
+
+    expect(state?.packages["."]?.importStyle).toEqual(
+      expect.objectContaining({ value: "cjs", confidence: "high" })
+    );
+    expect(state?.packages["."]?.mockPattern).toEqual(
+      expect.objectContaining({ value: "none", confidence: "high" })
+    );
+    expect(state?.packages["."]?.folderPattern).toEqual(
+      expect.objectContaining({ value: "tests", confidence: "high" })
+    );
+    expect(state?.packages["."]?.fileExtension).toEqual(
+      expect.objectContaining({ value: "js", confidence: "high" })
+    );
+    expect(summary).toContain(
+      "Score-aware learning: active (3 scored, 0 unscored, source=generatedTests, mode=weighted-bias)"
+    );
+  });
+
+  it("rescans an existing state when generated-test history is newer than package scans", async () => {
+    await mkdir(join(projectRoot, "src"), { recursive: true });
+    await writeFile(
+      join(projectRoot, "src", "app.test.tsx"),
+      "import { it, expect } from 'vitest'\nit('works', () => expect(true).toBe(true))",
+      "utf-8"
+    );
+
+    const initialized = await initTaroState(projectRoot);
+    const staleScannedAt = "2020-03-20T08:00:00.000Z";
+    const staleState = {
+      ...initialized.state,
+      packages: {
+        ".": {
+          ...initialized.state.packages["."]!,
+          scannedAt: staleScannedAt,
+        },
+      },
+      generatedTests: [
+        {
+          createdAt: "2020-03-20T09:00:00.000Z",
+          packagePath: ".",
+          recordingFile: "/tmp/app.js",
+          testFile: join(projectRoot, "src", "app.test.tsx"),
+          quality: {
+            overall: 88,
+            grade: "B",
+            dimensions: makeScoreDimensions(),
+            signals: makeScoreSignals(),
+            reasons: [],
+          },
+          requiresReview: false,
+        },
+      ],
+    };
+
+    await writeTaroState(projectRoot, staleState);
+
+    const result = await loadOrBootstrapTaroState(projectRoot);
+
+    expect(
+      Date.parse(result.state.packages["."]?.scannedAt ?? "")
+    ).toBeGreaterThan(Date.parse(staleScannedAt));
+    expect(
+      __stateTestUtils.shouldRefreshStateFromGeneratedHistory(result.state)
+    ).toBe(false);
   });
 });
 
@@ -2622,6 +2821,134 @@ describe("state scanning - additional coverage", () => {
         usageCount: 1,
       }),
     ]);
+  });
+
+  it("prefers higher-scored render helpers, shared factories, and exemplars when ranking learned evidence", async () => {
+    const qualityIndex = __stateTestUtils.buildGeneratedTestQualityIndex(
+      projectRoot,
+      [
+        {
+          createdAt: "2026-03-20T08:00:00.000Z",
+          packagePath: ".",
+          recordingFile: "/tmp/high.js",
+          testFile: join(projectRoot, "src", "high.test.tsx"),
+          quality: {
+            overall: 95,
+            grade: "A",
+            dimensions: makeScoreDimensions(),
+            signals: makeScoreSignals(),
+            reasons: [],
+          },
+          requiresReview: false,
+        },
+        {
+          createdAt: "2026-03-20T08:00:00.000Z",
+          packagePath: ".",
+          recordingFile: "/tmp/low.js",
+          testFile: join(projectRoot, "src", "low.test.tsx"),
+          quality: {
+            overall: 20,
+            grade: "F",
+            dimensions: makeScoreDimensions(),
+            signals: makeScoreSignals(),
+            reasons: [],
+          },
+          requiresReview: true,
+        },
+      ]
+    );
+    const testFiles = [
+      {
+        path: join(projectRoot, "src", "low.test.tsx"),
+        content: `
+          import { renderLow } from '@/tests/renderLow'
+          import { lowFactory } from '@/tests/factories/lowFactory'
+          renderLow(<App />)
+        `,
+      },
+      {
+        path: join(projectRoot, "src", "high.test.tsx"),
+        content: `
+          import { renderHigh } from '@/tests/renderHigh'
+          import { highFactory } from '@/tests/factories/highFactory'
+          renderHigh(<App />)
+          within(document.body)
+          userEvent.setup()
+        `,
+      },
+    ];
+    await mkdir(join(projectRoot, "src"), { recursive: true });
+    await writeFile(testFiles[0]!.path, testFiles[0]!.content, "utf-8");
+    await writeFile(testFiles[1]!.path, testFiles[1]!.content, "utf-8");
+
+    const renderHelpers = __stateTestUtils.collectRenderHelpers(
+      projectRoot,
+      testFiles,
+      qualityIndex
+    );
+    const sharedFactories = __stateTestUtils.collectSharedMockFactories(
+      projectRoot,
+      testFiles,
+      qualityIndex
+    );
+    const rescanned = await __stateTestUtils.scanProjectState(projectRoot, {
+      existingState: {
+        version: 1,
+        meta: {
+          createdAt: "2026-03-20T08:00:00.000Z",
+          updatedAt: "2026-03-20T08:00:00.000Z",
+          taroVersion: "test",
+        },
+        packages: {},
+        mockStore: { rootDir: null, importHint: null, resources: [] },
+        generatedTests: [
+          {
+            createdAt: "2026-03-20T08:00:00.000Z",
+            packagePath: ".",
+            recordingFile: "/tmp/high.js",
+            testFile: join(projectRoot, "src", "high.test.tsx"),
+            quality: {
+              overall: 95,
+              grade: "A",
+              dimensions: makeScoreDimensions(),
+              signals: makeScoreSignals(),
+              reasons: [],
+            },
+            requiresReview: false,
+          },
+          {
+            createdAt: "2026-03-20T08:00:00.000Z",
+            packagePath: ".",
+            recordingFile: "/tmp/low.js",
+            testFile: join(projectRoot, "src", "low.test.tsx"),
+            quality: {
+              overall: 20,
+              grade: "F",
+              dimensions: makeScoreDimensions(),
+              signals: makeScoreSignals(),
+              reasons: [],
+            },
+            requiresReview: true,
+          },
+        ],
+      },
+    });
+
+    expect(renderHelpers[0]).toEqual(
+      expect.objectContaining({
+        name: "renderHigh",
+        sourceTestFile: "src/high.test.tsx",
+      })
+    );
+    expect(sharedFactories[0]).toEqual(
+      expect.objectContaining({
+        target: "highFactory",
+        importPath: "@/tests/factories/highFactory",
+      })
+    );
+    expect(rescanned.state.packages["."]?.exemplars[0]?.file).toBe(
+      "src/high.test.tsx"
+    );
   });
 
   it("derives low-confidence interaction contracts, sorts instability warnings, and infers extension confidence", () => {

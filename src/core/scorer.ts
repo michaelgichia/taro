@@ -923,18 +923,11 @@ function analyzeMockCompleteness(params: {
 
 function calculateStructureScoreFromAnalysis(params: {
   analysis: TestCodeAnalysis;
-  branchCoverage: BranchCoverageSignal;
   code: string;
   componentContext: NormalizedComponentScoreContext;
   repoContractIssues: ReturnType<typeof detectRepoContractIssues>;
 }): number {
-  const {
-    analysis,
-    branchCoverage,
-    code,
-    componentContext,
-    repoContractIssues,
-  } = params;
+  const { analysis, code, componentContext, repoContractIssues } = params;
   let score = 50;
 
   if (analysis.describeCount > 0) {
@@ -1003,15 +996,10 @@ export function calculateStructureScore(
 ): number {
   const componentContext = normalizeComponentScoreContext(input);
   const analysis = analyzeTestCode(code, componentContext);
-  const branchCoverage = buildBranchCoverageSignal(
-    analysis.itCount,
-    componentContext
-  );
   const repoContractIssues = detectRepoContractIssues(code);
 
   return calculateStructureScoreFromAnalysis({
     analysis,
-    branchCoverage,
     code,
     componentContext,
     repoContractIssues,
@@ -1563,7 +1551,6 @@ export function scoreGeneratedTest(
     assertionSpecificity: calculateAssertionScore(analysis, repoContractIssues),
     testStructure: calculateStructureScoreFromAnalysis({
       analysis,
-      branchCoverage,
       code,
       componentContext,
       repoContractIssues,

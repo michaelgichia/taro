@@ -41,7 +41,6 @@ import {
   loadOrBootstrapTaroState,
   persistPlaywrightAuthProfile,
   readTaroOverrides,
-  refreshTaroState,
   resolveTaroPackageProfile,
 } from "#core/state.ts";
 import type { JsSuitePlan } from "#core/suite-planner.ts";
@@ -3912,7 +3911,6 @@ export async function finalizeGeneratedOutput(params: {
   log(pc.green("[taro] ✓ post-write verified"));
 
   try {
-    await refreshTaroState(projectRoot);
     await appendGeneratedTestRecord(projectRoot, {
       packagePath: packageProfile?.packagePath ?? ".",
       recordingFile,
@@ -3973,6 +3971,10 @@ export const generateCommandInternals = {
 export interface GenerateMachineContext {
   filePath: string;
   projectRoot: string;
+  stdioContext?: {
+    input?: { isTTY?: boolean };
+    output?: { isTTY?: boolean };
+  };
   commandOptions: {
     auth?: string;
     debugSelectors?: boolean;
@@ -4034,7 +4036,11 @@ export type LoadStateActorInput = Pick<
 >;
 export type CaptureVisualActorInput = Pick<
   GenerateMachineContext,
-  "normalizedRecording" | "visualAuth" | "projectRoot" | "commandOptions"
+  | "normalizedRecording"
+  | "visualAuth"
+  | "projectRoot"
+  | "stdioContext"
+  | "commandOptions"
 >;
 export type SearchContextActorInput = Pick<
   GenerateMachineContext,

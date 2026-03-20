@@ -127,81 +127,12 @@ const GENERIC_TEXTS = new Set([
   "submit",
 ]);
 
-const DEFAULT_ENUM_MEMBER_BY_OBJECT: Record<string, string> = {
-  Country: "Ken",
-  MemberRole: "Regular",
-  OrganisationType: "Business",
-};
-
-function toKebabCase(value: string): string {
-  return value
-    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-    .replace(/[^a-zA-Z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase();
-}
-
-function buildTestIdQuery(
-  method: "getByTestId" | "queryByTestId",
-  testId: string
-): { descriptor: QueryDescriptor; query: string } {
-  const escaped = escapeSingleQuote(testId);
-  const raw = `screen.${method}('${escaped}')`;
-  return {
-    descriptor: {
-      stepId: "component-step-0",
-      method,
-      queryRoot: "screen",
-      target: testId,
-      raw,
-    },
-    query: raw,
-  };
-}
-
-function deriveAssetTestId(importPath: string): string {
-  const normalized = importPath
-    .split("/")
-    .pop()
-    ?.replace(/\.[cm]?[jt]sx?$/u, "")
-    ?.replace(/\.(?:svg|png|jpe?g|gif|webp|avif)$/u, "");
-  return toKebabCase(normalized || importPath);
-}
-
-function deriveComponentSentinelTestId(componentName: string): string {
-  return toKebabCase(componentName);
-}
-
 function buildTextAssertion(name: string): CollectedAssertion {
   return {
     name: `renders "${name}"`,
     label: name,
     matcher: ".toBeVisible()",
     query: buildTextQuery("getByText", name),
-  };
-}
-
-function buildPositiveTestIdAssertion(
-  testId: string,
-  name: string
-): CollectedAssertion {
-  return {
-    name,
-    label: testId,
-    matcher: ".toBeInTheDocument()",
-    query: buildTestIdQuery("getByTestId", testId),
-  };
-}
-
-function buildNegativeTestIdAssertion(
-  testId: string,
-  name: string
-): CollectedAssertion {
-  return {
-    name,
-    label: testId,
-    matcher: ".not.toBeInTheDocument()",
-    query: buildTestIdQuery("queryByTestId", testId),
   };
 }
 
@@ -247,25 +178,6 @@ function getStringAttributeValue(
   }
 
   return null;
-}
-
-function getBooleanAttributeValue(attribute?: t.JSXAttribute | null): boolean {
-  if (!attribute) {
-    return false;
-  }
-
-  if (attribute.value == null) {
-    return true;
-  }
-
-  if (
-    t.isJSXExpressionContainer(attribute.value) &&
-    t.isBooleanLiteral(attribute.value.expression)
-  ) {
-    return attribute.value.expression.value;
-  }
-
-  return false;
 }
 
 function collectLiteralText(node: t.Node | null | undefined): string {
@@ -431,14 +343,6 @@ function escapeSingleQuote(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
-function humanizeIdentifier(value: string): string {
-  return value
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/[_-]+/g, " ")
-    .trim()
-    .toLowerCase();
-}
-
 function toExpressionSource(
   source: string,
   node?: t.Node | null
@@ -569,18 +473,6 @@ function buildAdditionalImportLines(
 
       return `import { ${named.join(", ")} } from '${importPath}'`;
     });
-}
-
-function renderObjectLiteral(entries: Array<[string, string]>): string {
-  if (entries.length === 0) {
-    return "{}";
-  }
-
-  return [
-    "{",
-    ...entries.map(([key, value]) => `  ${key}: ${value},`),
-    "}",
-  ].join("\n");
 }
 
 export function resolveComponentDefinitionFromAst(
@@ -724,23 +616,6 @@ export function resolveComponentDefinitionFromAst(
   };
 }
 
-function resolveComponentDefinition(
-  source: string,
-  defaultNameFallback: string
-): ComponentDefinition | null {
-  let ast: t.File;
-  try {
-    ast = babelParser.parse(source, {
-      sourceType: "module",
-      plugins: AST_PLUGINS,
-    });
-  } catch {
-    return null;
-  }
-
-  return resolveComponentDefinitionFromAst(ast, defaultNameFallback);
-}
-
 function buildBoundaryImports(ast: t.File): string[] {
   const imports = new Set<string>();
 
@@ -788,231 +663,6 @@ function buildBoundaryImports(ast: t.File): string[] {
   }
 
   return [...imports].sort();
-}
-
-function inferEntityPrefix(componentName: string): string {
-  return componentName
-    .replace(/(?:Card|Panel|Form|Dialog|Modal|Drawer|Section|View|Page)$/u, "")
-    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-    .split("-")[0]!
-    .toLowerCase();
-}
-
-function collectComparisonCandidates(
-  roots: Array<t.JSXElement | t.JSXFragment>,
-  propNames: Set<string>,
-  source: string
-): Map<string, string[]> {
-  const valuesByProp = new Map<string, Set<string>>();
-
-  const register = (propName: string, expression: t.Expression) => {
-    const raw = toExpressionSource(source, expression);
-    if (!raw) {
-      return;
-    }
-
-    const bucket = valuesByProp.get(propName) ?? new Set<string>();
-    bucket.add(raw);
-    valuesByProp.set(propName, bucket);
-  };
-
-  const visitExpression = (expression: t.Expression | null | undefined) => {
-    if (!expression) {
-      return;
-    }
-
-    if (
-      t.isBinaryExpression(expression) &&
-      ["===", "=="].includes(expression.operator)
-    ) {
-      if (
-        t.isIdentifier(expression.left) &&
-        propNames.has(expression.left.name)
-      ) {
-        register(expression.left.name, expression.right as t.Expression);
-      } else if (
-        t.isIdentifier(expression.right) &&
-        propNames.has(expression.right.name)
-      ) {
-        register(expression.right.name, expression.left as t.Expression);
-      }
-    }
-
-    if (t.isConditionalExpression(expression)) {
-      visitExpression(expression.test);
-      visitExpression(expression.consequent);
-      visitExpression(expression.alternate);
-      return;
-    }
-
-    if (t.isLogicalExpression(expression)) {
-      visitExpression(expression.left);
-      visitExpression(expression.right);
-      return;
-    }
-
-    if (t.isJSXElement(expression) || t.isJSXFragment(expression)) {
-      visitNode(expression);
-      return;
-    }
-
-    if (t.isCallExpression(expression)) {
-      expression.arguments.forEach((argument) => {
-        if (t.isExpression(argument)) {
-          visitExpression(argument);
-        }
-      });
-    }
-  };
-
-  const visitNode = (node: t.JSXElement | t.JSXFragment) => {
-    const children = t.isJSXElement(node) ? node.children : node.children;
-    for (const child of children) {
-      if (
-        t.isJSXExpressionContainer(child) &&
-        t.isExpression(child.expression)
-      ) {
-        visitExpression(child.expression);
-        continue;
-      }
-
-      if (t.isJSXElement(child) || t.isJSXFragment(child)) {
-        visitNode(child);
-      }
-    }
-  };
-
-  roots.forEach((root) => visitNode(root));
-
-  return new Map(
-    [...valuesByProp.entries()].map(([propName, values]) => [
-      propName,
-      [...values.values()].sort(),
-    ])
-  );
-}
-
-function inferBasePropValues(params: {
-  comparisonCandidates: Map<string, string[]>;
-  componentName: string;
-  importBindings: Map<string, ImportedBinding>;
-  propNames: string[];
-}): {
-  baseProps: Map<string, InferredPropValue>;
-  importBindingsUsed: string[];
-} {
-  const { comparisonCandidates, componentName, importBindings, propNames } =
-    params;
-  const baseProps = new Map<string, InferredPropValue>();
-  const importBindingsUsed = new Set<string>();
-  const entityPrefix = inferEntityPrefix(componentName) || "record";
-  const readableComponentName = componentName.replace(
-    /([a-z0-9])([A-Z])/g,
-    "$1 $2"
-  );
-
-  const useBinding = (
-    bindingName: string,
-    expression: string
-  ): InferredPropValue => {
-    importBindingsUsed.add(bindingName);
-    return { expression };
-  };
-
-  for (const propName of propNames) {
-    const lowerName = propName.toLowerCase();
-    const comparisonValues = comparisonCandidates.get(propName) ?? [];
-
-    if (lowerName === "id" || lowerName.endsWith("id")) {
-      baseProps.set(propName, {
-        expression: `'${escapeSingleQuote(entityPrefix)}_1'`,
-        literalValue: `${entityPrefix}_1`,
-      });
-      continue;
-    }
-
-    if (lowerName.endsWith("slug")) {
-      baseProps.set(propName, {
-        expression: `'example-${escapeSingleQuote(entityPrefix)}'`,
-        literalValue: `example-${entityPrefix}`,
-      });
-      continue;
-    }
-
-    if (/(?:^|)(?:displayname|name|title|label)$/u.test(lowerName)) {
-      const value = `${readableComponentName} Example`;
-      baseProps.set(propName, {
-        expression: `'${escapeSingleQuote(value)}'`,
-        literalValue: value,
-      });
-      continue;
-    }
-
-    if (lowerName.endsWith("at") || lowerName.includes("date")) {
-      baseProps.set(propName, {
-        expression: "'2025-01-15T08:30:00.000Z'",
-        literalValue: "2025-01-15T08:30:00.000Z",
-      });
-      continue;
-    }
-
-    if (/(?:count|total|quantity|amount|number)$/u.test(lowerName)) {
-      baseProps.set(propName, { expression: "3", literalValue: 3 });
-      continue;
-    }
-
-    if (/^(?:is|has|should)[A-Z_]/u.test(propName)) {
-      baseProps.set(propName, { expression: "false", literalValue: false });
-      continue;
-    }
-
-    if (lowerName.includes("country") && importBindings.has("Country")) {
-      baseProps.set(
-        propName,
-        useBinding(
-          "Country",
-          `Country.${DEFAULT_ENUM_MEMBER_BY_OBJECT.Country}`
-        )
-      );
-      continue;
-    }
-
-    if (lowerName.includes("role") && importBindings.has("MemberRole")) {
-      baseProps.set(
-        propName,
-        useBinding(
-          "MemberRole",
-          `MemberRole.${DEFAULT_ENUM_MEMBER_BY_OBJECT.MemberRole}`
-        )
-      );
-      continue;
-    }
-
-    if (lowerName.includes("type") && importBindings.has("OrganisationType")) {
-      baseProps.set(
-        propName,
-        useBinding(
-          "OrganisationType",
-          `OrganisationType.${DEFAULT_ENUM_MEMBER_BY_OBJECT.OrganisationType}`
-        )
-      );
-      continue;
-    }
-
-    if (comparisonValues.length > 0) {
-      const expression = comparisonValues[0]!;
-      const rootIdentifier = expression.split(".")[0]!;
-      if (importBindings.has(rootIdentifier)) {
-        importBindingsUsed.add(rootIdentifier);
-      }
-      baseProps.set(propName, { expression });
-      continue;
-    }
-
-    baseProps.set(propName, { expression: "undefined" });
-  }
-
-  return { baseProps, importBindingsUsed: [...importBindingsUsed].sort() };
 }
 
 function parseSimplePropComparison(

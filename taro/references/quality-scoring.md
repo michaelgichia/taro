@@ -4,6 +4,7 @@ Purpose: Provide a deterministic, explainable score for each generated test file
 
 - measure whether changes improve quality,
 - avoid regressions,
+- bias future package learning toward stronger stored exemplars when score history exists,
 - and prioritize upgrades (rewrite suggestions) over time.
 
 Scoring must be:
