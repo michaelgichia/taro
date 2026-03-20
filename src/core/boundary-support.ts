@@ -483,7 +483,8 @@ export async function planBoundarySupport(params: {
     for (const importedBoundary of discoveredImports) {
       if (
         isScaffoldableBoundaryKind(importedBoundary.kind) ||
-        importedBoundary.kind === "router"
+        importedBoundary.kind === "router" ||
+        boundaryProfiles.has(importedBoundary.target)
       ) {
         relevantTargets.add(importedBoundary.target);
       }
@@ -528,7 +529,7 @@ export async function planBoundarySupport(params: {
       continue;
     }
 
-    if (importedBoundary.guardrailReason) {
+    if (importedBoundary.guardrailReason === "repo-owned-ui-wrapper") {
       const conflictingProfile =
         boundaryProfiles.get(importedBoundary.target) ?? null;
       if (conflictingProfile && conflictingProfile.strategy !== "forbid") {
@@ -575,7 +576,8 @@ export async function planBoundarySupport(params: {
     }
 
     if (
-      getBoundaryGuardrailReason(profile.target, importedBoundary.importedNames)
+      getBoundaryGuardrailReason(profile.target, importedBoundary.importedNames) ===
+      "repo-owned-ui-wrapper"
     ) {
       plan.warnings.push(
         `Keeping ${profile.target} real at test time because it is a protected UI boundary; fix environment issues at the source instead of mocking around the UI boundary.`

@@ -5,6 +5,7 @@ import pc from "picocolors";
 import { z } from "zod";
 
 import {
+  buildBoundaryTeachingProfile,
   classifyBoundaryKind,
   collectBoundaryLearning,
   getBoundaryGuardrailReason,
@@ -205,6 +206,13 @@ const boundaryStrategySchema = z.enum([
   "forbid",
   "real-runtime",
 ]);
+const boundaryPatternSchema = z.enum([
+  "keep-real",
+  "partial-support-import",
+  "factory-support",
+  "provider-wrapper",
+  "inline-safe",
+]);
 const boundaryPayloadSourceSchema = z.enum([
   "mock-store",
   "fixtures",
@@ -282,6 +290,7 @@ const boundaryProfileSchema = z.object({
   target: z.string(),
   kind: boundaryKindSchema,
   strategy: boundaryStrategySchema,
+  pattern: boundaryPatternSchema.optional(),
   guardrailReason: boundaryGuardrailReasonSchema.nullable().default(null),
   supportImportPath: z.string().nullable(),
   supportPath: z.string().nullable(),
@@ -312,6 +321,19 @@ const boundaryExemplarProfileSchema = z.object({
   hasMutationLifecycle: z.boolean(),
   overrideStyle: z.enum(["stable-handles", "inline-reconfigure", "none"]),
   tags: z.array(z.string()),
+});
+const boundaryTeachingExampleSchema = z.object({
+  target: z.string(),
+  pattern: boundaryPatternSchema,
+  summary: z.string(),
+  reason: z.string(),
+  confidence: confidenceSchema,
+  evidence: z.array(z.string()),
+  counterExamples: z.array(z.string()),
+});
+const boundaryTeachingProfileSchema = z.object({
+  dominantPatterns: z.array(boundaryPatternSchema),
+  examples: z.array(boundaryTeachingExampleSchema),
 });
 const mockTargetUsageSchema = z.object({
   target: z.string(),
@@ -422,6 +444,7 @@ const packageProfileSchema = z.object({
   sharedMockFactories: z.array(sharedMockFactoryProfileSchema),
   boundaryProfiles: z.array(boundaryProfileSchema).default([]),
   boundaryExemplars: z.array(boundaryExemplarProfileSchema).default([]),
+  teaching: boundaryTeachingProfileSchema.default({ dominantPatterns: [], examples: [] }),
   interactionContracts: z.array(interactionContractProfileSchema).default([]),
   inlineSafeMockTargets: z.array(z.string()),
   mutationLifecycles: z.array(mutationLifecyclePatternSchema),
@@ -2371,6 +2394,7 @@ async function buildPackageProfile(
     ),
     boundaryProfiles: boundaryLearning.profiles,
     boundaryExemplars: boundaryLearning.exemplars,
+    teaching: buildBoundaryTeachingProfile(boundaryLearning.profiles),
     interactionContracts,
     inlineSafeMockTargets: mockRecommendations
       .filter((recommendation) => recommendation.kind === "inline")
@@ -2541,6 +2565,7 @@ function deriveLegacyPackageProfile(
     sharedMockFactories: [],
     boundaryProfiles: [],
     boundaryExemplars: [],
+    teaching: { dominantPatterns: [], examples: [] },
     interactionContracts: [],
     inlineSafeMockTargets: [],
     mutationLifecycles: [],
@@ -2857,6 +2882,14 @@ function summarizeCanonicalBoundarySupport(
   return supportImports.map((entry) => `\`${entry}\``).join(", ");
 }
 
+function summarizeBoundaryTeaching(profile: TaroPackageProfile): string {
+  const patterns = profile.teaching?.dominantPatterns ?? [];
+  if (patterns.length === 0) {
+    return "none";
+  }
+  return patterns.map((pattern) => `\`${pattern}\``).join(", ");
+}
+
 function buildStateSummaryMarkdown(
   projectRoot: string,
   state: TaroState
@@ -2900,6 +2933,9 @@ function buildStateSummaryMarkdown(
       `- Canonical boundary support: ${summarizeCanonicalBoundarySupport(profile)}`
     );
     lines.push(
+      `- Dominant boundary patterns: ${summarizeBoundaryTeaching(profile)}`
+    );
+    lines.push(
       `- Learned boundary profiles: ${profile.boundaryProfiles.length}`
     );
     lines.push(
@@ -2919,6 +2955,17 @@ function buildStateSummaryMarkdown(
         playwrightAuth: profile.playwrightAuth,
       })
     );
+    lines.push("");
+    lines.push("### Boundary Teaching");
+    if ((profile.teaching?.examples.length ?? 0) === 0) {
+      lines.push("- No abstract boundary teaching examples recorded yet.");
+    } else {
+      for (const example of profile.teaching?.examples ?? []) {
+        lines.push(
+          `- \`${example.target}\`: pattern=${example.pattern}, confidence=${example.confidence}, summary=${example.summary}`
+        );
+      }
+    }
     lines.push("");
     lines.push("### Exemplars");
     if (profile.boundaryExemplars.length === 0) {
@@ -3492,16 +3539,16 @@ export function resolveTaroPackageProfile(
 
   const resolvedBoundaryProfiles = [...boundaryProfilesByTarget.values()]
     .map((boundaryProfile) => {
-      const forcedSupportImportPath = boundaryProfile.guardrailReason
-        ? null
-        : (preferredBoundaryImplementations[boundaryProfile.target] ??
-          boundaryProfile.supportImportPath);
       const effectiveGuardrailReason: TaroBoundaryGuardrailReason | null =
         boundaryProfile.guardrailReason ??
         getBoundaryGuardrailReason(boundaryProfile.target);
+      const forceKeepReal = effectiveGuardrailReason === "repo-owned-ui-wrapper";
+      const forcedSupportImportPath = forceKeepReal
+        ? null
+        : (preferredBoundaryImplementations[boundaryProfile.target] ??
+          boundaryProfile.supportImportPath);
       const forcedStrategy =
-        effectiveGuardrailReason ||
-        forbidBoundaryTargets.includes(boundaryProfile.target)
+        forceKeepReal || forbidBoundaryTargets.includes(boundaryProfile.target)
           ? "forbid"
           : (boundaryPolicies[boundaryProfile.target] ??
             (preferredBoundaryImplementations[boundaryProfile.target]
@@ -3512,6 +3559,10 @@ export function resolveTaroPackageProfile(
         ...boundaryProfile,
         guardrailReason: effectiveGuardrailReason,
         strategy: forcedStrategy,
+        pattern:
+          forcedStrategy === "forbid" && effectiveGuardrailReason === "repo-owned-ui-wrapper"
+            ? "keep-real"
+            : boundaryProfile.pattern,
         supportImportPath: forcedSupportImportPath,
         supportExports:
           forcedStrategy === "forbid"

@@ -1,3 +1,4 @@
+import { inferBoundaryPattern } from "#core/boundary-learning.ts";
 import type { MockAnalysis } from "#core/mock-intelligence.ts";
 import { resolveSemanticMarkerAssertion } from "#core/resolver.ts";
 import type {
@@ -463,6 +464,60 @@ function hasMutationSignals(mockAnalysis: MockAnalysis | null): boolean {
   );
 }
 
+function collectBoundaryPatternHints(
+  mockAnalysis: MockAnalysis | null
+): string[] {
+  if (!mockAnalysis) {
+    return [];
+  }
+
+  const profiles = mockAnalysis.boundaryProfiles ?? [];
+  const patterns = new Set(
+    profiles.map((profile) =>
+      profile.pattern ??
+      inferBoundaryPattern({
+        strategy: profile.strategy,
+        guardrailReason: profile.guardrailReason,
+        supportImportPath: profile.supportImportPath,
+        supportExports: profile.supportExports,
+      })
+    )
+  );
+  const hints: string[] = [];
+
+  if (patterns.has("partial-support-import")) {
+    hints.push(
+      "Shared boundary examples favor partial support imports. Reuse the support shape and keep the collaborator mostly real instead of recreating it inline."
+    );
+  }
+
+  if (
+    profiles.some(
+      (profile) =>
+        (profile.pattern ??
+          inferBoundaryPattern({
+            strategy: profile.strategy,
+            guardrailReason: profile.guardrailReason,
+            supportImportPath: profile.supportImportPath,
+            supportExports: profile.supportExports,
+          })) === "keep-real" &&
+        profile.guardrailReason === "repo-owned-ui-wrapper"
+    )
+  ) {
+    hints.push(
+      "Repo-owned wrapper examples are treated as part of the render boundary. Keep them real and solve setup issues at the boundary itself."
+    );
+  }
+
+  if (patterns.has("inline-safe")) {
+    hints.push(
+      "Inline-safe collaborators exist in repo examples. Lightweight inline mocks are acceptable only when no stronger local support pattern applies."
+    );
+  }
+
+  return hints;
+}
+
 function findRepeatedMockTarget(
   mockAnalysis: MockAnalysis | null
 ): string | null {
@@ -644,6 +699,8 @@ export function planJsSuite(params: {
       `Reuse learned boundary support for collaborators such as "${repeatedTarget}" instead of re-mocking internal query hooks inline.`
     );
   }
+
+  warnings.push(...collectBoundaryPatternHints(mockAnalysis));
 
   const baseGroups = enrichGroupSteps(
     buildFallbackGroups(analyzedRecording, fallbackTitle),

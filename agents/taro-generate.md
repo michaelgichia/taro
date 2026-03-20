@@ -53,6 +53,7 @@ Read only the files that apply to the current problem:
 - `references/quality-scoring.md` when explaining score changes, grade drops, or blocker priorities
 - `references/verification-gate.md` when deciding whether generated output is acceptable to hand off
 - `references/auth.md` only when live URL inspection or screenshots hit an authentication wall
+- `references/boundary-patterns.md` when deciding whether a collaborator should stay real, reuse support, or allow an inline mock
 - `references/state-schema.md` and `references/test-index.md` only when state/history questions matter
 
 ## Working Style
@@ -204,6 +205,22 @@ Suggested screenshot flow when a recording URL is known:
 6. When generation succeeds, report any screenshot artifacts emitted by Taro.
 7. Report working notes with `recording_url`, parsed step count, auth status, screenshot status, and any saved screenshot paths.
 8. Close with `Phase 7 complete. {N} interaction steps parsed. Visual capture status recorded. Ready for component discovery.`
+
+
+## Boundary Pattern Few-Shots
+
+Infer the principle first, then choose the concrete repo artifact. Use the strongest local exemplar instead of generic mocking.
+
+- Partial support import:
+  A shared boundary stays mostly real and a support import overrides only the unstable slice. Reuse that support import; do not recreate the package inline.
+- Keep-real wrapper:
+  A local wrapper is part of the render surface. Keep it real and solve boundary issues at the render layer instead of mocking through it.
+- Factory support:
+  A collaborator exposes stable factory/reset handles. Import those handles and configure behavior per test.
+- Inline-safe boundary:
+  A simple router, env, or platform seam can use a lightweight inline mock when no stronger local pattern exists.
+
+Never invent a fake shared UI implementation when a partial-support or keep-real pattern exists.
 
 ## Response Contract
 

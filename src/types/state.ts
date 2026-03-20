@@ -60,6 +60,12 @@ export type TaroBoundaryPayloadSource =
 export type TaroBoundaryGuardrailReason =
   | "repo-owned-ui-wrapper"
   | "ui-package";
+export type TaroBoundaryPattern =
+  | "keep-real"
+  | "partial-support-import"
+  | "factory-support"
+  | "provider-wrapper"
+  | "inline-safe";
 export type TaroQueryHookPolicy =
   | "avoid"
   | "allow-centralized"
@@ -116,6 +122,7 @@ export interface TaroBoundaryProfile {
   target: string;
   kind: TaroBoundaryKind;
   strategy: TaroBoundaryStrategy;
+  pattern?: TaroBoundaryPattern;
   guardrailReason: TaroBoundaryGuardrailReason | null;
   supportImportPath: string | null;
   supportPath: string | null;
@@ -151,6 +158,21 @@ export interface TaroBoundaryExemplarProfile {
   tags: string[];
 }
 
+export interface TaroBoundaryTeachingExample {
+  target: string;
+  pattern: TaroBoundaryPattern;
+  summary: string;
+  reason: string;
+  confidence: TaroStateConfidence;
+  evidence: string[];
+  counterExamples: string[];
+}
+
+export interface TaroBoundaryTeachingProfile {
+  dominantPatterns: TaroBoundaryPattern[];
+  examples: TaroBoundaryTeachingExample[];
+}
+
 export interface TaroInteractionContractProfile extends InteractionContractPattern {
   supportTargets: string[];
   overrideStyle: "stable-handles" | "inline-reconfigure" | "none";
@@ -183,6 +205,7 @@ export interface TaroPackageProfile {
   sharedMockFactories: TaroSharedMockFactoryProfile[];
   boundaryProfiles: TaroBoundaryProfile[];
   boundaryExemplars: TaroBoundaryExemplarProfile[];
+  teaching?: TaroBoundaryTeachingProfile;
   interactionContracts: TaroInteractionContractProfile[];
   inlineSafeMockTargets: string[];
   mutationLifecycles: MutationLifecyclePattern[];

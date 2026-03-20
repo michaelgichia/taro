@@ -11,6 +11,9 @@ import type {
   RepoRenderTargetCandidate,
   TaroBoundaryExemplarProfile,
   TaroBoundaryGuardrailReason,
+  TaroBoundaryPattern,
+  TaroBoundaryTeachingExample,
+  TaroBoundaryTeachingProfile,
   TaroBoundaryKind,
   TaroBoundaryPayloadSource,
   TaroBoundaryProfile,
@@ -52,6 +55,7 @@ interface BoundaryObservation {
   strategy: TaroBoundaryStrategy;
   guardrailReason: TaroBoundaryGuardrailReason | null;
   supportImportPath: string | null;
+  usesOriginalRuntime: boolean;
   supportExports: TaroBoundaryProfile["supportExports"];
   payloadSource: TaroBoundaryPayloadSource;
   files: Set<string>;
@@ -358,13 +362,254 @@ export const __boundaryLearningTestUtils = {
   isComponentLikeExportName,
 };
 
+
+function isProtectedKeepRealGuardrail(
+  guardrailReason: TaroBoundaryGuardrailReason | null
+): boolean {
+  return guardrailReason === "repo-owned-ui-wrapper";
+}
+
+function getFactoryFunction(
+  factory: t.Expression | t.SpreadElement | t.ArgumentPlaceholder | undefined
+):
+  | t.ArrowFunctionExpression
+  | t.FunctionExpression
+  | t.FunctionDeclaration
+  | null {
+  if (!factory) {
+    return null;
+  }
+  if (
+    t.isArrowFunctionExpression(factory) ||
+    t.isFunctionExpression(factory) ||
+    t.isFunctionDeclaration(factory)
+  ) {
+    return factory;
+  }
+  return null;
+}
+
+function detectOriginalRuntimeReuse(params: {
+  factory:
+    | t.Expression
+    | t.SpreadElement
+    | t.ArgumentPlaceholder
+    | undefined;
+  returnedObject: t.ObjectExpression | null;
+}): boolean {
+  const fn = getFactoryFunction(params.factory);
+  if (!fn || !params.returnedObject) {
+    return false;
+  }
+
+  const importOriginalParams = new Set(
+    fn.params
+      .filter((param): param is t.Identifier => t.isIdentifier(param))
+      .map((param) => param.name)
+  );
+  const runtimeAliases = new Set(importOriginalParams);
+
+  if (t.isBlockStatement(fn.body)) {
+    for (const statement of fn.body.body) {
+      if (!t.isVariableDeclaration(statement)) {
+        continue;
+      }
+      for (const declaration of statement.declarations) {
+        if (!t.isIdentifier(declaration.id)) {
+          continue;
+        }
+        const init = declaration.init
+        if (
+          (t.isCallExpression(init) &&
+            t.isIdentifier(init.callee) &&
+            importOriginalParams.has(init.callee.name)) ||
+          (t.isAwaitExpression(init) &&
+            t.isCallExpression(init.argument) &&
+            t.isIdentifier(init.argument.callee) &&
+            importOriginalParams.has(init.argument.callee.name))
+        ) {
+          runtimeAliases.add(declaration.id.name)
+        }
+      }
+    }
+  }
+
+  return params.returnedObject.properties.some((property) => {
+    if (!t.isSpreadElement(property)) {
+      return false;
+    }
+    const argument = property.argument;
+    if (t.isIdentifier(argument) && runtimeAliases.has(argument.name)) {
+      return true;
+    }
+    if (
+      t.isCallExpression(argument) &&
+      t.isIdentifier(argument.callee) &&
+      importOriginalParams.has(argument.callee.name)
+    ) {
+      return true;
+    }
+    if (
+      t.isAwaitExpression(argument) &&
+      t.isCallExpression(argument.argument) &&
+      t.isIdentifier(argument.argument.callee) &&
+      importOriginalParams.has(argument.argument.callee.name)
+    ) {
+      return true;
+    }
+    return false;
+  });
+}
+
+export function inferBoundaryPattern(params: {
+  strategy: TaroBoundaryStrategy;
+  guardrailReason: TaroBoundaryGuardrailReason | null;
+  supportImportPath: string | null;
+  supportExports?: TaroBoundaryProfile["supportExports"] | null;
+  usesOriginalRuntime?: boolean;
+}): TaroBoundaryPattern {
+  const supportExports = params.supportExports ?? createEmptySupportExports();
+
+  if (params.strategy === "provider-wrapper") {
+    return "provider-wrapper";
+  }
+  if (params.strategy === "inline-safe") {
+    return "inline-safe";
+  }
+  if (
+    isProtectedKeepRealGuardrail(params.guardrailReason) ||
+    params.strategy === "forbid"
+  ) {
+    return "keep-real";
+  }
+  if (params.usesOriginalRuntime && params.supportImportPath) {
+    return "partial-support-import";
+  }
+  if (params.supportImportPath || supportExports.factoryExport) {
+    return "factory-support";
+  }
+  return "keep-real";
+}
+
+function describeBoundaryPattern(
+  profile: Pick<
+    TaroBoundaryProfile,
+    "target" | "kind" | "guardrailReason" | "supportImportPath" | "supportExports"
+  > & { pattern?: TaroBoundaryPattern }
+): { summary: string; reason: string } {
+  const pattern = profile.pattern ??
+    inferBoundaryPattern({
+      strategy: "real-runtime",
+      guardrailReason: profile.guardrailReason,
+      supportImportPath: profile.supportImportPath,
+      supportExports: profile.supportExports,
+    });
+
+  switch (pattern) {
+    case "partial-support-import":
+      return {
+        summary: `Keep ${profile.target} mostly real and reuse a partial support import when instability is isolated to a narrow export.`,
+        reason:
+          "Local examples preserve the real boundary surface and override only the unstable slice instead of rebuilding the package inline.",
+      };
+    case "factory-support":
+      return {
+        summary: `Reuse stable support handles for ${profile.target} rather than rebuilding collaborator state per test.`,
+        reason:
+          "Local examples expose shared factory or reset handles that keep setup explicit and deterministic.",
+      };
+    case "provider-wrapper":
+      return {
+        summary: `Keep ${profile.target} behind a provider wrapper instead of mocking the collaborator directly.`,
+        reason:
+          "Repo examples show this boundary is best satisfied by rendering through a wrapper rather than replacing it with a test double.",
+      };
+    case "inline-safe":
+      return {
+        summary: `Treat ${profile.target} as an inline-safe collaborator when no stronger local pattern exists.`,
+        reason:
+          "Repo examples show lightweight inline mocking is acceptable here because the boundary is simple and setup-oriented.",
+      };
+    case "keep-real":
+    default:
+      return {
+        summary: `Keep ${profile.target} real at the render boundary instead of mocking through it.`,
+        reason:
+          profile.guardrailReason === "repo-owned-ui-wrapper"
+            ? "Repo evidence treats this collaborator as part of the render surface, so environment or portal issues should be solved at the boundary itself."
+            : "No stronger support pattern was learned, so the safest default is to preserve the real collaborator surface.",
+      };
+  }
+}
+
+export function buildBoundaryTeachingProfile(
+  profiles: TaroBoundaryProfile[]
+): TaroBoundaryTeachingProfile {
+  const patternCounts = new Map<TaroBoundaryPattern, number>();
+  for (const profile of profiles) {
+    const pattern =
+      profile.pattern ??
+      inferBoundaryPattern({
+        strategy: profile.strategy,
+        guardrailReason: profile.guardrailReason,
+        supportImportPath: profile.supportImportPath,
+        supportExports: profile.supportExports,
+      });
+    patternCounts.set(pattern, (patternCounts.get(pattern) ?? 0) + 1);
+  }
+
+  const dominantPatterns = [...patternCounts.entries()]
+    .sort((left, right) => {
+      return right[1] - left[1] || left[0].localeCompare(right[0]);
+    })
+    .slice(0, 3)
+    .map(([pattern]) => pattern);
+
+  const examples: TaroBoundaryTeachingExample[] = [];
+  const usedPatterns = new Set<TaroBoundaryPattern>();
+  const sortedProfiles = [...profiles].sort((left, right) => {
+    const confidenceOrder = { high: 3, medium: 2, low: 1 };
+    return (
+      confidenceOrder[right.confidence] - confidenceOrder[left.confidence] ||
+      left.target.localeCompare(right.target)
+    );
+  });
+
+  for (const profile of sortedProfiles) {
+    const pattern =
+      profile.pattern ??
+      inferBoundaryPattern({
+        strategy: profile.strategy,
+        guardrailReason: profile.guardrailReason,
+        supportImportPath: profile.supportImportPath,
+        supportExports: profile.supportExports,
+      });
+    if (usedPatterns.has(pattern) || examples.length >= 3) {
+      continue;
+    }
+    usedPatterns.add(pattern);
+    const description = describeBoundaryPattern({ ...profile, pattern });
+    examples.push({
+      target: profile.target,
+      pattern,
+      summary: description.summary,
+      reason: description.reason,
+      confidence: profile.confidence,
+      evidence: profile.evidence.slice(0, 2),
+      counterExamples: profile.conflictTargets.slice(0, 2),
+    });
+  }
+
+  return { dominantPatterns, examples };
+}
+
 function inferStrategy(params: {
   target: string;
   guardrailReason: TaroBoundaryGuardrailReason | null;
   supportImportPath: string | null;
   usedFactoryExport: boolean;
 }): TaroBoundaryStrategy {
-  if (params.guardrailReason) {
+  if (isProtectedKeepRealGuardrail(params.guardrailReason)) {
     return "forbid";
   }
   if (params.usedFactoryExport && params.supportImportPath) {
@@ -515,6 +760,7 @@ export async function collectBoundaryLearning(params: {
         strategy: next.strategy,
         guardrailReason: next.guardrailReason ?? null,
         supportImportPath: next.supportImportPath ?? null,
+        usesOriginalRuntime: next.usesOriginalRuntime ?? false,
         supportExports,
         payloadSource:
           next.payloadSource ??
@@ -545,6 +791,10 @@ export async function collectBoundaryLearning(params: {
           let supportImportPath: string | null = null;
           const supportExports = createEmptySupportExports();
           let usedFactoryExport = false;
+          const usesOriginalRuntime = detectOriginalRuntimeReuse({
+            factory: path.node.arguments[1],
+            returnedObject,
+          });
 
           if (returnedObject) {
             for (const property of returnedObject.properties) {
@@ -595,6 +845,7 @@ export async function collectBoundaryLearning(params: {
             }),
             guardrailReason,
             supportImportPath,
+            usesOriginalRuntime,
             supportExports,
             payloadSource: inferPayloadSource(supportImportPath),
             evidence: new Set([
@@ -685,6 +936,7 @@ export async function collectBoundaryLearning(params: {
       strategy: "provider-wrapper",
       guardrailReason: getBoundaryGuardrailReason(target, []),
       supportImportPath: wrapper.importPath,
+      usesOriginalRuntime: false,
       supportExports: createEmptySupportExports(),
       payloadSource: "manual",
       files: new Set([wrapper.sourceTestFile]),
@@ -738,6 +990,27 @@ export async function collectBoundaryLearning(params: {
         target,
         kind: winner.kind,
         strategy: winner.strategy,
+        pattern: inferBoundaryPattern({
+          strategy: winner.strategy,
+          guardrailReason: winner.guardrailReason,
+          supportImportPath:
+            winner.strategy === "forbid" ? null : winner.supportImportPath,
+          supportExports:
+            winner.strategy === "forbid"
+              ? createEmptySupportExports()
+              : {
+                  factoryExport: winner.supportExports.factoryExport,
+                  resetExport: winner.supportExports.resetExport,
+                  overrideExports: [
+                    ...winner.supportExports.overrideExports,
+                  ].sort(),
+                  spyExports: [...winner.supportExports.spyExports].sort(),
+                  fixtureExports: [
+                    ...winner.supportExports.fixtureExports,
+                  ].sort(),
+                },
+          usesOriginalRuntime: winner.usesOriginalRuntime,
+        }),
         guardrailReason: winner.guardrailReason,
         supportImportPath:
           winner.strategy === "forbid" ? null : winner.supportImportPath,
@@ -878,6 +1151,9 @@ export function summarizeBoundaryProfiles(
         `${profile.strategy}`,
         `confidence=${profile.confidence}`,
       ];
+      if (profile.pattern) {
+        detail.push(`pattern=${profile.pattern}`);
+      }
       if (profile.guardrailReason) {
         detail.push(`guardrail=${profile.guardrailReason}`);
       }

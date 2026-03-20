@@ -470,6 +470,7 @@ describe("initTaroState", () => {
           target: "@/features/orders/api",
           kind: "data-module",
           strategy: "shared-module-factory",
+          pattern: "partial-support-import",
           supportImportPath: "@/tests/mocks/orders-api",
           supportExports: expect.objectContaining({
             factoryExport: "createOrdersApiMock",
@@ -517,7 +518,10 @@ describe("initTaroState", () => {
       "- Canonical boundary support: `@/tests/mocks/orders-api`, `@/tests/renderWithProviders`"
     );
     expect(summary).toContain(
-      "- `@/features/orders/api`: data-module, shared-module-factory, confidence=high, support=@/tests/mocks/orders-api"
+      "- Dominant boundary patterns: `partial-support-import`, `provider-wrapper`"
+    );
+    expect(summary).toContain(
+      "- `@/features/orders/api`: data-module, shared-module-factory, confidence=high, pattern=partial-support-import, support=@/tests/mocks/orders-api"
     );
   });
 
@@ -611,7 +615,7 @@ describe("initTaroState", () => {
       ])
     );
     expect(summary).toContain(
-      "- `@/components/library/Modal`: local-child, forbid, confidence=high, guardrail=repo-owned-ui-wrapper"
+      "- `@/components/library/Modal`: local-child, forbid, confidence=high, pattern=keep-real, guardrail=repo-owned-ui-wrapper"
     );
     expect(
       persisted.packages["packages/example-app"]?.boundaryProfiles.find(

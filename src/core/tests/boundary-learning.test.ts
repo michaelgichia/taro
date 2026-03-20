@@ -7,10 +7,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   __boundaryLearningTestUtils,
+  buildBoundaryTeachingProfile,
   classifyBoundaryKind,
   collectBoundaryLearning,
   discoverBoundaryImportsFromSource,
   getBoundaryGuardrailReason,
+  inferBoundaryPattern,
   summarizeBoundaryProfiles,
 } from "#core/boundary-learning.ts";
 import type { TaroBoundaryProfile } from "#types/state.ts";
@@ -1717,5 +1719,86 @@ describe("summarizeBoundaryProfiles", () => {
     const lines = summarizeBoundaryProfiles(profiles, baseOptions);
     expect(lines[0]).toMatch(/support=/);
     expect(lines[0]).toContain("../__mocks__/axiosMock");
+  });
+});
+
+
+describe("inferBoundaryPattern", () => {
+  it("prefers partial-support-import for shared support that preserves original runtime", () => {
+    expect(
+      inferBoundaryPattern({
+        strategy: "shared-module-factory",
+        guardrailReason: null,
+        supportImportPath: "@/tests/mocks/shared-ui",
+        supportExports: {
+          factoryExport: "createSharedUiMock",
+          resetExport: null,
+          overrideExports: [],
+          spyExports: [],
+          fixtureExports: [],
+        },
+        usesOriginalRuntime: true,
+      })
+    ).toBe("partial-support-import");
+  });
+
+  it("treats missing support export metadata as absent instead of throwing", () => {
+    expect(
+      inferBoundaryPattern({
+        strategy: "shared-module-factory",
+        guardrailReason: null,
+        supportImportPath: "@/tests/mocks/shared-ui",
+      })
+    ).toBe("factory-support");
+  });
+
+  it("keeps repo-owned wrappers in the keep-real pattern", () => {
+    expect(
+      inferBoundaryPattern({
+        strategy: "forbid",
+        guardrailReason: "repo-owned-ui-wrapper",
+        supportImportPath: null,
+        supportExports: {
+          factoryExport: null,
+          resetExport: null,
+          overrideExports: [],
+          spyExports: [],
+          fixtureExports: [],
+        },
+      })
+    ).toBe("keep-real");
+  });
+});
+
+describe("buildBoundaryTeachingProfile", () => {
+  it("summarizes dominant patterns and examples", () => {
+    const teaching = buildBoundaryTeachingProfile([
+      {
+        target: "@repo/ui",
+        kind: "unknown",
+        strategy: "shared-module-factory",
+        pattern: "partial-support-import",
+        guardrailReason: null,
+        supportImportPath: "@/tests/mocks/ui",
+        supportPath: null,
+        supportExports: {
+          factoryExport: "createUiMock",
+          resetExport: null,
+          overrideExports: [],
+          spyExports: [],
+          fixtureExports: [],
+        },
+        payloadSource: "typed-defaults",
+        confidence: "high",
+        files: [],
+        evidence: ["feature.test.tsx: mock target @repo/ui"],
+        conflictTargets: [],
+        lowConfidenceScaffold: false,
+      },
+    ]);
+
+    expect(teaching.dominantPatterns).toEqual(["partial-support-import"]);
+    expect(teaching.examples[0]?.pattern).toBe("partial-support-import");
+    expect(teaching.examples[0]?.summary).toContain("mostly real");
   });
 });

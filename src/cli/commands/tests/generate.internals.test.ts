@@ -1197,6 +1197,7 @@ describe('Example flow', () => {
         boundaryProfiles: [
           {
             strategy: "shared-module-factory",
+            pattern: "factory-support",
             supportImportPath: "@/tests/mocks/orders-api",
             target: "@/orders/api",
           },
@@ -1212,10 +1213,10 @@ describe('Example flow', () => {
       'Generated test mocks forbidden boundary target "@/legacy/api".'
     );
     expect(warnings.join("\n")).toContain(
-      'Generated test mocks protected UI boundary "@/ui/Modal".'
+      'Generated test violates a keep-real boundary pattern for "@/ui/Modal".'
     );
     expect(warnings).toContain(
-      'Generated test bypasses learned central boundary support for "@/orders/api".'
+      'Generated test bypasses a learned factory-support pattern for "@/orders/api". Reuse the strongest local support handles instead of rebuilding the boundary inline.'
     );
     expect(warnings).toContain(
       "Generated test may bypass a learned provider-wrapper boundary because no shared render helper was applied."

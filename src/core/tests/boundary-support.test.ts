@@ -587,6 +587,62 @@ describe("planBoundarySupport", () => {
     expect(plan.importLines).toEqual([]);
   });
 
+
+  it("reuses shared UI package support when the learned pattern is partial support", async () => {
+    const root = await createSandbox();
+
+    vi.mocked(discoverBoundaryImportsFromSource).mockResolvedValue([
+      {
+        target: "@shared/ui",
+        importedNames: ["Button"],
+        kind: "unknown",
+        guardrailReason: "ui-package",
+      },
+    ]);
+    vi.mocked(getBoundaryGuardrailReason).mockReturnValue("ui-package");
+
+    const packageProfile = makePackageProfile({
+      boundaryProfiles: [
+        {
+          target: "@shared/ui",
+          kind: "unknown",
+          strategy: "shared-module-factory",
+          pattern: "partial-support-import",
+          guardrailReason: "ui-package",
+          supportImportPath: "../mocks/shared-ui",
+          supportPath: null,
+          supportExports: {
+            factoryExport: "createSharedUiMock",
+            resetExport: null,
+            overrideExports: [],
+            spyExports: [],
+            fixtureExports: [],
+          },
+          payloadSource: "typed-defaults",
+          confidence: "high",
+          files: [],
+          evidence: [],
+          conflictTargets: [],
+          lowConfidenceScaffold: false,
+        },
+      ],
+    });
+
+    const plan = await planBoundarySupport({
+      projectRoot: root,
+      outputPath: join(root, "src", "feature", "feature.test.ts"),
+      packageProfile,
+      renderTargetFile: "src/Component.tsx",
+      renderTarget: null,
+    });
+
+    expect(plan.importLines).toContain(
+      "import { createSharedUiMock } from '../mocks/shared-ui'"
+    );
+    expect(plan.mockBlocks[0]).toContain("vi.mock('@shared/ui'");
+    expect(plan.warnings).toEqual([]);
+  });
+
   it("adds warning when profile has no supportImportPath", async () => {
     const root = await createSandbox();
 

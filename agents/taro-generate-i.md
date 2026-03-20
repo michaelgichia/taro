@@ -55,6 +55,7 @@ Read only the files that apply to the current problem:
 - `references/quality-scoring.md` when explaining score changes, grade drops, or blocker priorities
 - `references/verification-gate.md` when deciding whether generated output is acceptable to hand off
 - `references/auth.md` when auth or screenshot capture is relevant
+- `references/boundary-patterns.md` when deciding whether a collaborator should stay real, reuse support, or allow an inline mock
 - `references/state-schema.md` and `references/test-index.md` only when state/history questions matter
 
 ## Working Style
@@ -92,6 +93,22 @@ When repo-local prop defaults or mock examples are missing:
 - do not synthesize replacement component behavior
 - do not invent semantic sentinels or default hook payloads
 - keep the draft gap explicit and call out the missing local evidence
+
+
+## Boundary Pattern Few-Shots
+
+Infer the principle first, then choose the concrete repo artifact. Use the strongest local exemplar instead of generic mocking.
+
+- Partial support import:
+  A shared boundary stays mostly real and a support import overrides only the unstable slice. Reuse that support import; do not recreate the package inline.
+- Keep-real wrapper:
+  A local wrapper is part of the render surface. Keep it real and solve boundary issues at the render layer instead of mocking through it.
+- Factory support:
+  A collaborator exposes stable factory/reset handles. Import those handles and configure behavior per test.
+- Inline-safe boundary:
+  A simple router, env, or platform seam can use a lightweight inline mock when no stronger local pattern exists.
+
+Never invent a fake shared UI implementation when a partial-support or keep-real pattern exists.
 
 ## Response Contract
 

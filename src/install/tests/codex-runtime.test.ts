@@ -38,6 +38,7 @@ const EXPECTED_SKILLS = [
 const EXPECTED_GENERATE_REFERENCES = [
   "assertion-markers.md",
   "auth.md",
+  "boundary-patterns.md",
   "conventions-schema.md",
   "entry-path-fidelity.md",
   "intent-model.md",

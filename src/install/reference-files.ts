@@ -1,6 +1,7 @@
 export const TARO_REFERENCE_FILES = [
   "assertion-markers.md",
   "auth.md",
+  "boundary-patterns.md",
   "conventions-schema.md",
   "entry-path-fidelity.md",
   "intent-model.md",

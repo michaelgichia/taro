@@ -11,7 +11,10 @@ import * as t from "@babel/types";
 import pc from "picocolors";
 
 import { analyzeBoundaryIsolation } from "#core/boundary-intelligence.ts";
-import { discoverBoundaryImportsFromSource } from "#core/boundary-learning.ts";
+import {
+  discoverBoundaryImportsFromSource,
+  inferBoundaryPattern,
+} from "#core/boundary-learning.ts";
 import { planBoundarySupport } from "#core/boundary-support.ts";
 import {
   type Finding,
@@ -3192,7 +3195,7 @@ export async function auditBoundaryPolicy(
 
   for (const discoveredImport of discoveredImports) {
     if (
-      !discoveredImport.guardrailReason ||
+      discoveredImport.guardrailReason !== "repo-owned-ui-wrapper" ||
       (!code.includes(`vi.mock('${discoveredImport.target}'`) &&
         !code.includes(`vi.mock("${discoveredImport.target}"`) &&
         !code.includes(`jest.mock('${discoveredImport.target}'`) &&
@@ -3202,24 +3205,45 @@ export async function auditBoundaryPolicy(
     }
 
     warnings.push(
-      `Generated test mocks protected UI boundary "${discoveredImport.target}". Repo-owned UI wrappers must remain real at test time; fix portal, animation, or cleanup issues at the source instead of mocking around them.`
+      `Generated test violates a keep-real boundary pattern for "${discoveredImport.target}". Solve render-layer issues at the boundary itself instead of mocking through the wrapper.`
     );
   }
 
   for (const profile of packageProfile?.boundaryProfiles ?? []) {
+    const pattern =
+      profile.pattern ??
+      inferBoundaryPattern({
+        strategy: profile.strategy,
+        guardrailReason: profile.guardrailReason,
+        supportImportPath: profile.supportImportPath,
+        supportExports: profile.supportExports,
+      });
+    const mocksBoundary =
+      code.includes(`vi.mock('${profile.target}'`) ||
+      code.includes(`vi.mock("${profile.target}"`) ||
+      code.includes(`jest.mock('${profile.target}'`) ||
+      code.includes(`jest.mock("${profile.target}"`);
+
     if (
-      ["shared-module-factory", "scaffolded-module-factory"].includes(
-        profile.strategy
-      ) &&
+      pattern === "partial-support-import" &&
       profile.supportImportPath &&
-      (code.includes(`vi.mock('${profile.target}'`) ||
-        code.includes(`vi.mock("${profile.target}"`) ||
-        code.includes(`jest.mock('${profile.target}'`) ||
-        code.includes(`jest.mock("${profile.target}"`)) &&
+      mocksBoundary &&
       !code.includes(profile.supportImportPath)
     ) {
       warnings.push(
-        `Generated test bypasses learned central boundary support for "${profile.target}".`
+        `Generated test ignored a learned partial-support pattern for "${profile.target}". Reuse the repo support import and keep the shared boundary mostly real.`
+      );
+      continue;
+    }
+
+    if (
+      pattern === "factory-support" &&
+      profile.supportImportPath &&
+      mocksBoundary &&
+      !code.includes(profile.supportImportPath)
+    ) {
+      warnings.push(
+        `Generated test bypasses a learned factory-support pattern for "${profile.target}". Reuse the strongest local support handles instead of rebuilding the boundary inline.`
       );
     }
   }
