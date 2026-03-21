@@ -20,10 +20,7 @@ export default [
       ecmaVersion: "latest",
       sourceType: "module",
       parser: tsParser,
-      parserOptions: {
-        ecmaVersion: "latest",
-        sourceType: "module",
-      },
+      parserOptions: { ecmaVersion: "latest", sourceType: "module" },
       globals: {
         ...globals.node,
         ...globals.browser,
@@ -40,9 +37,7 @@ export default [
         NodeJS: "readonly",
       },
     },
-    plugins: {
-      "unused-imports": unusedImports,
-    },
+    plugins: { "unused-imports": unusedImports },
     rules: {
       "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": "off",

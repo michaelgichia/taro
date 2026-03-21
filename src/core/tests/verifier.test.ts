@@ -1,18 +1,18 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from "vitest";
 
-import { verifySyntax } from '#core/verifier.ts'
+import { verifySyntax } from "#core/verifier.ts";
 
-describe('verifySyntax', () => {
-  it('accepts valid TypeScript, TSX, and JSX inputs with extension-aware parser plugins', () => {
+describe("verifySyntax", () => {
+  it("accepts valid TypeScript, TSX, and JSX inputs with extension-aware parser plugins", () => {
     expect(
       verifySyntax(
         `
           export const total: number = 4
           const label = total + 1
         `,
-        '/tmp/example.test.ts'
+        "/tmp/example.test.ts"
       )
-    ).toEqual({ valid: true })
+    ).toEqual({ valid: true });
 
     expect(
       verifySyntax(
@@ -21,9 +21,9 @@ describe('verifySyntax', () => {
             return <button type="button">Save</button>
           }
         `,
-        '/tmp/example.test.tsx'
+        "/tmp/example.test.tsx"
       )
-    ).toEqual({ valid: true })
+    ).toEqual({ valid: true });
 
     expect(
       verifySyntax(
@@ -32,22 +32,22 @@ describe('verifySyntax', () => {
             return <div>Ready</div>
           }
         `,
-        '/tmp/example.test.js'
+        "/tmp/example.test.js"
       )
-    ).toEqual({ valid: true })
-  })
+    ).toEqual({ valid: true });
+  });
 
-  it('returns parser errors for invalid code', () => {
+  it("returns parser errors for invalid code", () => {
     const brokenTsx = verifySyntax(
       `
         export function Example() {
           return <div>
         }
       `,
-      '/tmp/example.test.tsx'
-    )
+      "/tmp/example.test.tsx"
+    );
 
-    expect(brokenTsx.valid).toBe(false)
-    expect(brokenTsx.error).toBeTypeOf('string')
-  })
-})
+    expect(brokenTsx.valid).toBe(false);
+    expect(brokenTsx.error).toBeTypeOf("string");
+  });
+});

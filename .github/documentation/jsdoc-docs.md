@@ -1,7 +1,6 @@
 # JSDoc Template for Coding Agents
 
-Use this template when writing JSDoc for any non-trivial function. Fill in each section
-according to the rules below. Omit optional sections only when they genuinely don't apply.
+Use this template when writing JSDoc for any non-trivial function. Fill in each section according to the rules below. Omit optional sections only when they genuinely don't apply.
 
 ---
 
@@ -39,17 +38,20 @@ according to the rules below. Omit optional sections only when they genuinely do
 ## Rules
 
 ### Summary line
-- **Start with a verb**: *Returns*, *Builds*, *Resolves*, *Formats*, *Checks*
+
+- **Start with a verb**: _Returns_, _Builds_, _Resolves_, _Formats_, _Checks_
 - **Describe the output**, not the implementation
 - If the return value has a non-obvious format, call it out immediately rather than deferring to `@returns`
 
 ### Body (the paragraph block)
+
 - Include it when the summary alone would leave a careful caller with open questions
 - Lead with the most surprising or constraining fact
 - Use inline code for literals, function names, and examples
 - **Do not paraphrase the summary** — every sentence must add new information
 
 ### `@param`
+
 - Write the **behavioural contract**, not a restatement of the name
   - ❌ `isGlobal - Whether this is a global install`
   - ✅ `isGlobal - When false, bypasses all runtime-specific logic and delegates to getDirName(runtime)`
@@ -57,15 +59,16 @@ according to the rules below. Omit optional sections only when they genuinely do
 - For booleans, spell out what `false` (or `true`) does, not just what the flag means
 
 ### `@returns`
+
 - **Never omit this.** If the function returns anything, document it.
 - State both the type and what the value represents
-- When the format is non-obvious (pre-quoted strings, comma-separated segments, encoded values),
-  include a concrete example on the next line, indented two spaces
+- When the format is non-obvious (pre-quoted strings, comma-separated segments, encoded values), include a concrete example on the next line, indented two spaces
 
 ### What to omit
-| Section | Omit when |
-|---|---|
-| Body paragraph | Summary + tags fully capture the contract |
-| `@throws` | Function doesn't throw |
-| `@param` description | Name + type are truly self-evident (rare) |
-| `@returns` | Function is `void` / always returns `undefined` |
+
+| Section              | Omit when                                       |
+| -------------------- | ----------------------------------------------- |
+| Body paragraph       | Summary + tags fully capture the contract       |
+| `@throws`            | Function doesn't throw                          |
+| `@param` description | Name + type are truly self-evident (rare)       |
+| `@returns`           | Function is `void` / always returns `undefined` |

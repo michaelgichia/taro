@@ -2,7 +2,7 @@
  * Convention learning types for extracting test patterns
  */
 
-export type NamingPattern = 'camelCase' | 'kebab-case' | 'snake_case';
+export type NamingPattern = "camelCase" | "kebab-case" | "snake_case";
 
 export interface NamingConventions {
   pattern: NamingPattern;
@@ -10,7 +10,10 @@ export interface NamingConventions {
   itTemplate: string;
 }
 
-export type SetupLocation = 'inside-describe' | 'outside-describe' | 'beforeeach';
+export type SetupLocation =
+  | "inside-describe"
+  | "outside-describe"
+  | "beforeeach";
 
 export interface StructureConventions {
   describePerComponent: boolean;
@@ -50,24 +53,17 @@ export type ConventionKey = keyof TestConvention;
 export function createEmptyConvention(): TestConvention {
   return {
     naming: {
-      pattern: 'camelCase',
-      describePrefix: '',
-      itTemplate: 'should {description}'
+      pattern: "camelCase",
+      describePrefix: "",
+      itTemplate: "should {description}",
     },
     structure: {
       describePerComponent: true,
       helpersInDescribe: false,
-      setupLocation: 'inside-describe'
+      setupLocation: "inside-describe",
     },
-    queries: {
-      preferred: [],
-      avoided: []
-    },
-    matchers: {
-      common: []
-    },
-    imports: {
-      common: []
-    }
+    queries: { preferred: [], avoided: [] },
+    matchers: { common: [] },
+    imports: { common: [] },
   };
 }

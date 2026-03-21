@@ -12,17 +12,18 @@ argument-instructions: |
   If the user also provides a Recorder file path in the prompt, pass it through with `--recording`.
   Example: /@taro-test/rtl:target src/features/CheckoutForm.tsx
 ---
+
 <objective>
 Generate a colocated React Testing Library test for a specific component file.
 
 Taro must:
+
 - treat the component path as the render target of record
 - optionally combine that component target with a Recorder `.js` export when one is supplied
 - infer conservative, user-visible assertions from the component itself when no Recorder file exists
 - keep boundary warnings or blocking findings explicit instead of faking confidence
 
-Output: a generated test written next to the supplied component, plus a report containing the command run, component path, optional recording path, generated file path, score and grade, manual review status, and the most important blockers or advisories.
-</objective>
+Output: a generated test written next to the supplied component, plus a report containing the command run, component path, optional recording path, generated file path, score and grade, manual review status, and the most important blockers or advisories. </objective>
 
 <process>
 1. Confirm the component file path.

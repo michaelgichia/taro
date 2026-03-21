@@ -1,49 +1,49 @@
-import { stdin, stdout } from 'node:process'
-import { createInterface } from 'node:readline/promises'
+import { stdin, stdout } from "node:process";
+import { createInterface } from "node:readline/promises";
 
-import pc from 'picocolors'
+import pc from "picocolors";
 
-import { RUNTIME_REGISTRY } from '#install/registry.ts'
+import { RUNTIME_REGISTRY } from "#install/registry.ts";
 import type {
   InstallLocation,
   InstallSelection,
   NormalizedInstallOptions,
   RuntimeLocationSelections,
   RuntimeTarget,
-} from '#install/types.ts'
-import { SUPPORTED_RUNTIMES } from '#install/types.ts'
+} from "#install/types.ts";
+import { SUPPORTED_RUNTIMES } from "#install/types.ts";
 
 interface PromptIO {
-  input?: typeof stdin
-  output?: typeof stdout
-  createInterfaceImpl?: typeof createInterface
-  log?: typeof console.log
+  input?: typeof stdin;
+  output?: typeof stdout;
+  createInterfaceImpl?: typeof createInterface;
+  log?: typeof console.log;
 }
 
-export const ALL_RUNTIMES_CHOICE = SUPPORTED_RUNTIMES.length + 1
+export const ALL_RUNTIMES_CHOICE = SUPPORTED_RUNTIMES.length + 1;
 
 export function runtimeMenu(): string {
   const lines = SUPPORTED_RUNTIMES.map((runtime, index) => {
-    return `  ${index + 1}. ${RUNTIME_REGISTRY[runtime].displayName}`
-  })
+    return `  ${index + 1}. ${RUNTIME_REGISTRY[runtime].displayName}`;
+  });
 
-  lines.push(`  ${ALL_RUNTIMES_CHOICE}. All runtimes`)
+  lines.push(`  ${ALL_RUNTIMES_CHOICE}. All runtimes`);
 
-  return lines.join('\n')
+  return lines.join("\n");
 }
 
 export function parseRuntimeSelection(answer: string): RuntimeTarget[] | null {
   const selections = answer
-    .split(',')
+    .split(",")
     .map((part) => Number(part.trim()))
-    .filter((value) => !Number.isNaN(value))
+    .filter((value) => !Number.isNaN(value));
 
   if (selections.length === 0) {
-    return null
+    return null;
   }
 
   if (selections.includes(ALL_RUNTIMES_CHOICE)) {
-    return [...SUPPORTED_RUNTIMES]
+    return [...SUPPORTED_RUNTIMES];
   }
 
   const runtimes = Array.from(
@@ -52,105 +52,107 @@ export function parseRuntimeSelection(answer: string): RuntimeTarget[] | null {
         .filter((value) => value >= 1 && value <= SUPPORTED_RUNTIMES.length)
         .map((value) => SUPPORTED_RUNTIMES[value - 1]!)
     )
-  )
+  );
 
-  return runtimes.length > 0 ? runtimes : null
+  return runtimes.length > 0 ? runtimes : null;
 }
 
 export function parseLocation(answer: string): InstallLocation | null {
-  const normalized = answer.trim().toLowerCase()
+  const normalized = answer.trim().toLowerCase();
 
-  if (normalized === '1' || normalized === 'g' || normalized === 'global') {
-    return 'global'
+  if (normalized === "1" || normalized === "g" || normalized === "global") {
+    return "global";
   }
 
-  if (normalized === '2' || normalized === 'l' || normalized === 'local') {
-    return 'local'
+  if (normalized === "2" || normalized === "l" || normalized === "local") {
+    return "local";
   }
 
-  return null
+  return null;
 }
 
 export function deriveSelectionSource(
   normalized: NormalizedInstallOptions
-): InstallSelection['source'] {
-  if (normalized.source === 'flags' && normalized.mode === 'non-interactive') {
-    return 'flags'
+): InstallSelection["source"] {
+  if (normalized.source === "flags" && normalized.mode === "non-interactive") {
+    return "flags";
   }
 
-  if (normalized.source === 'prompt') {
-    return 'prompt'
+  if (normalized.source === "prompt") {
+    return "prompt";
   }
 
-  return 'mixed'
+  return "mixed";
 }
 
 export async function promptForInstallChoices(
   normalized: NormalizedInstallOptions,
   io: PromptIO = { input: stdin, output: stdout }
 ): Promise<InstallSelection> {
-  const createInterfaceImpl = io.createInterfaceImpl ?? createInterface
-  const log = io.log ?? console.log
+  const createInterfaceImpl = io.createInterfaceImpl ?? createInterface;
+  const log = io.log ?? console.log;
   const rl = createInterfaceImpl({
     input: io.input ?? stdin,
     output: io.output ?? stdout,
-  })
+  });
 
   try {
-    let runtimes = [...normalized.runtimes]
+    let runtimes = [...normalized.runtimes];
 
     if (normalized.needsRuntimePrompt) {
       while (runtimes.length === 0) {
-        log(pc.bold('Choose the runtimes to install:'))
-        log(runtimeMenu())
+        log(pc.bold("Choose the runtimes to install:"));
+        log(runtimeMenu());
         const answer = await rl.question(
-          'Enter one or more numbers separated by commas: '
-        )
-        const selectedRuntimes = parseRuntimeSelection(answer)
+          "Enter one or more numbers separated by commas: "
+        );
+        const selectedRuntimes = parseRuntimeSelection(answer);
 
         if (selectedRuntimes) {
-          runtimes = selectedRuntimes
-          break
+          runtimes = selectedRuntimes;
+          break;
         }
 
-        log(pc.yellow('Select at least one runtime to continue.\n'))
+        log(pc.yellow("Select at least one runtime to continue.\n"));
       }
     }
 
-    const locations = { ...normalized.locations } as Partial<RuntimeLocationSelections>
+    const locations = {
+      ...normalized.locations,
+    } as Partial<RuntimeLocationSelections>;
 
     for (const runtime of runtimes) {
       if (locations[runtime]) {
-        continue
+        continue;
       }
 
-      let location: InstallLocation | null = null
+      let location: InstallLocation | null = null;
 
       while (!location) {
         log(
           `\n${pc.bold(RUNTIME_REGISTRY[runtime].displayName)} installation location:`
-        )
-        log('  1. Global')
-        log('  2. Local')
+        );
+        log("  1. Global");
+        log("  2. Local");
 
-        const answer = await rl.question('Choose 1 or 2: ')
-        location = parseLocation(answer)
+        const answer = await rl.question("Choose 1 or 2: ");
+        location = parseLocation(answer);
 
         if (!location) {
-          log(pc.yellow('Choose `1` for global or `2` for local.'))
+          log(pc.yellow("Choose `1` for global or `2` for local."));
         }
       }
 
-      locations[runtime] = location
+      locations[runtime] = location;
     }
 
     return {
-      mode: 'interactive',
+      mode: "interactive",
       runtimes,
       locations: locations as RuntimeLocationSelections,
       source: deriveSelectionSource(normalized),
-    }
+    };
   } finally {
-    rl.close()
+    rl.close();
   }
 }

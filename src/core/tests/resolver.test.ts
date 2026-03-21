@@ -1,5 +1,5 @@
-import type { Page } from 'playwright'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Page } from "playwright";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   captureVisualState,
@@ -13,39 +13,37 @@ import {
   resolveSelector,
   resolveSemanticMarkerAssertion,
   selectMatcher,
-} from '#core/resolver.ts'
+} from "#core/resolver.ts";
 import type {
   ElementInfo,
   NormalizedStep,
   QueryDescriptor,
   SelectorDescriptor,
-} from '#types/recording.ts'
+} from "#types/recording.ts";
 
 const { chromiumLaunchMock, pageEvaluateMock } = vi.hoisted(() => {
-  const pageEvaluateMock = vi.fn().mockResolvedValue({
-    role: 'dialog',
-    title: 'Checkout Dialog',
-    description: 'Confirm the purchase',
-    actions: ['Cancel', 'Confirm'],
-    isOpen: true,
-  })
-  const chromiumLaunchMock = vi.fn()
-  return { chromiumLaunchMock, pageEvaluateMock }
-})
+  const pageEvaluateMock = vi
+    .fn()
+    .mockResolvedValue({
+      role: "dialog",
+      title: "Checkout Dialog",
+      description: "Confirm the purchase",
+      actions: ["Cancel", "Confirm"],
+      isOpen: true,
+    });
+  const chromiumLaunchMock = vi.fn();
+  return { chromiumLaunchMock, pageEvaluateMock };
+});
 
-vi.mock('playwright', () => ({
-  chromium: {
-    launch: chromiumLaunchMock,
-  },
-}))
+vi.mock("playwright", () => ({ chromium: { launch: chromiumLaunchMock } }));
 
 const accessibleButton: ElementInfo = {
-  tagName: 'button',
-  role: 'button',
-  ariaLabel: 'Save',
+  tagName: "button",
+  role: "button",
+  ariaLabel: "Save",
   ariaLabelledBy: null,
   labelText: null,
-  innerText: 'Save',
+  innerText: "Save",
   altText: null,
   title: null,
   testId: null,
@@ -53,15 +51,15 @@ const accessibleButton: ElementInfo = {
   type: undefined,
   placeholder: null,
   isPresent: true,
-}
+};
 
 const inaccessibleElement: ElementInfo = {
-  tagName: 'div',
+  tagName: "div",
   role: null,
   ariaLabel: null,
   ariaLabelledBy: null,
   labelText: null,
-  innerText: '',
+  innerText: "",
   altText: null,
   title: null,
   testId: null,
@@ -69,87 +67,90 @@ const inaccessibleElement: ElementInfo = {
   type: undefined,
   placeholder: null,
   isPresent: true,
-}
+};
 
 const inputElement: ElementInfo = {
-  tagName: 'input',
-  role: 'textbox',
-  ariaLabel: 'Customer Name',
+  tagName: "input",
+  role: "textbox",
+  ariaLabel: "Customer Name",
   ariaLabelledBy: null,
   labelText: null,
-  innerText: '',
+  innerText: "",
   altText: null,
   title: null,
   testId: null,
-  value: 'Acme Corp',
-  type: 'text',
+  value: "Acme Corp",
+  type: "text",
   placeholder: null,
   isPresent: true,
-}
+};
 
 const selectorDescriptor: SelectorDescriptor = {
-  stepId: 'js-step-1',
-  selector: '#save',
-  selectorKind: 'document.querySelector',
+  stepId: "js-step-1",
+  selector: "#save",
+  selectorKind: "document.querySelector",
   line: 12,
   raw: "document.querySelector('#save')",
-}
+};
 
 const unsupportedSelectorDescriptor: SelectorDescriptor = {
-  stepId: 'js-step-2',
-  selector: '#radix-_r_8s_-content-items > div:nth-of-type(1) input',
-  selectorKind: 'document.querySelector',
+  stepId: "js-step-2",
+  selector: "#radix-_r_8s_-content-items > div:nth-of-type(1) input",
+  selectorKind: "document.querySelector",
   line: 18,
   raw: "document.querySelector('#radix-_r_8s_-content-items > div:nth-of-type(1) input')",
-}
+};
 
 const preservedQuery: QueryDescriptor = {
-  stepId: 'js-step-1',
-  method: 'getByRole',
-  queryRoot: 'screen',
+  stepId: "js-step-1",
+  method: "getByRole",
+  queryRoot: "screen",
   line: 12,
-  target: '#save',
-  quality: 'excellent',
+  target: "#save",
+  quality: "excellent",
   raw: "screen.getByRole('button', { name: 'Save' })",
-}
+};
 
 function createSemanticMarkerStep(options: {
-  id: string
-  target: string
+  id: string;
+  target: string;
   proofSubject:
-    | 'heading'
-    | 'visible-message'
-    | 'concrete-value'
-    | 'field-label'
-    | 'selector-target'
-    | 'unknown'
-  method?: string
-  queryRoot?: 'screen' | 'within' | 'document'
-  role?: string
-  name?: string
-  raw?: string
-  selector?: string
-  anchorStepId?: string
-  relation?: 'follows' | 'same-target' | 'precedes'
-  unresolvedReason?: 'missing-anchor' | 'ambiguous-field-context' | 'unsupported-proof-subject'
+    | "heading"
+    | "visible-message"
+    | "concrete-value"
+    | "field-label"
+    | "selector-target"
+    | "unknown";
+  method?: string;
+  queryRoot?: "screen" | "within" | "document";
+  role?: string;
+  name?: string;
+  raw?: string;
+  selector?: string;
+  anchorStepId?: string;
+  relation?: "follows" | "same-target" | "precedes";
+  unresolvedReason?:
+    | "missing-anchor"
+    | "ambiguous-field-context"
+    | "unsupported-proof-subject";
 }): NormalizedStep {
   const {
     id,
     target,
     proofSubject,
-    method = 'getByText',
-    queryRoot = 'screen',
+    method = "getByText",
+    queryRoot = "screen",
     role,
     name,
     raw,
     selector,
-    anchorStepId = 'js-step-1',
-    relation = 'follows',
+    anchorStepId = "js-step-1",
+    relation = "follows",
     unresolvedReason,
-  } = options
+  } = options;
 
   const query =
-    method === 'none'
+    method === "none"
       ? undefined
       : {
           stepId: id,
@@ -160,40 +161,32 @@ function createSemanticMarkerStep(options: {
           ...(name ? { name } : {}),
           raw:
             raw ??
-            (method === 'getByRole' && role
+            (method === "getByRole" && role
               ? `screen.getByRole('${role}', { name: '${name ?? target}' })`
               : `screen.${method}('${target}')`),
-        }
+        };
 
   const semanticMarkerCandidate = {
     stepId: id,
-    status: unresolvedReason ? ('unresolved' as const) : ('qualified' as const),
-    originalGesture: 'dblClick' as const,
+    status: unresolvedReason ? ("unresolved" as const) : ("qualified" as const),
+    originalGesture: "dblClick" as const,
     proofSubject,
     target,
     proofText: target,
-    sourceContext: {
-      line: 12,
-      originalType: 'dblClick',
-    },
+    sourceContext: { line: 12, originalType: "dblClick" },
     ...(query ? { query } : {}),
     ...(selector
       ? {
           selector: {
             stepId: id,
             selector,
-            selectorKind: 'document.querySelector' as const,
+            selectorKind: "document.querySelector" as const,
             raw: `document.querySelector('${selector}')`,
           },
         }
       : {}),
-    anchor: unresolvedReason
-      ? {
-          anchorStepId,
-          relation,
-        }
-      : undefined,
-  }
+    anchor: unresolvedReason ? { anchorStepId, relation } : undefined,
+  };
 
   const semanticMarkerLink =
     unresolvedReason || !anchorStepId
@@ -205,22 +198,19 @@ function createSemanticMarkerStep(options: {
           proofSubject,
           target,
           proofText: target,
-          sourceContext: {
-            line: 12,
-            originalType: 'dblClick',
-          },
+          sourceContext: { line: 12, originalType: "dblClick" },
           ...(query ? { query } : {}),
           ...(selector
             ? {
                 selector: {
                   stepId: id,
                   selector,
-                  selectorKind: 'document.querySelector' as const,
+                  selectorKind: "document.querySelector" as const,
                   raw: `document.querySelector('${selector}')`,
                 },
               }
             : {}),
-        }
+        };
 
   const unresolvedSemanticMarker = unresolvedReason
     ? {
@@ -229,36 +219,28 @@ function createSemanticMarkerStep(options: {
         proofSubject,
         target,
         proofText: target,
-        sourceContext: {
-          line: 12,
-          originalType: 'dblClick',
-        },
+        sourceContext: { line: 12, originalType: "dblClick" },
         ...(query ? { query } : {}),
         ...(selector
           ? {
               selector: {
                 stepId: id,
                 selector,
-                selectorKind: 'document.querySelector' as const,
+                selectorKind: "document.querySelector" as const,
                 raw: `document.querySelector('${selector}')`,
               },
             }
           : {}),
-        anchor: anchorStepId
-          ? {
-              anchorStepId,
-              relation,
-            }
-          : undefined,
+        anchor: anchorStepId ? { anchorStepId, relation } : undefined,
       }
-    : undefined
+    : undefined;
 
   return {
     id,
-    action: 'click',
+    action: "click",
     target,
-    originalType: 'dblClick',
-    source: 'js',
+    originalType: "dblClick",
+    source: "js",
     semanticMarkerCandidate,
     ...(semanticMarkerLink ? { semanticMarkerLink } : {}),
     ...(unresolvedSemanticMarker ? { unresolvedSemanticMarker } : {}),
@@ -267,40 +249,40 @@ function createSemanticMarkerStep(options: {
       ...(semanticMarkerLink ? { semanticMarkerLink } : {}),
       ...(unresolvedSemanticMarker ? { unresolvedSemanticMarker } : {}),
     },
-  }
+  };
 }
 
 function foundInspection(element: ElementInfo) {
-  return { status: 'found' as const, element }
+  return { status: "found" as const, element };
 }
 
 function missingInspection() {
-  return { status: 'selector-not-found' as const }
+  return { status: "selector-not-found" as const };
 }
 
 function failedInspection(error: string) {
-  return { status: 'inspection-failed' as const, error }
+  return { status: "inspection-failed" as const, error };
 }
 
 interface MockVisualPageState {
-  authSignals?: string[]
+  authSignals?: string[];
   dialog?: {
-    actions: string[]
-    description: string | null
-    isOpen: boolean
-    role: 'dialog' | 'alertdialog' | null
-    title: string | null
-  } | null
-  elements?: Record<string, ElementInfo | null>
-  matchedLandmarks?: string[]
-  textElements?: Record<string, ElementInfo | null>
-  title: string
-  url: string
+    actions: string[];
+    description: string | null;
+    isOpen: boolean;
+    role: "dialog" | "alertdialog" | null;
+    title: string | null;
+  } | null;
+  elements?: Record<string, ElementInfo | null>;
+  matchedLandmarks?: string[];
+  textElements?: Record<string, ElementInfo | null>;
+  title: string;
+  url: string;
 }
 
 function createPlaywrightSession(states: MockVisualPageState[]) {
-  let currentIndex = 0
-  const currentState = () => states[Math.min(currentIndex, states.length - 1)]!
+  let currentIndex = 0;
+  const currentState = () => states[Math.min(currentIndex, states.length - 1)]!;
 
   const page = {
     evaluate: vi.fn(async () => currentState().dialog ?? null),
@@ -308,31 +290,31 @@ function createPlaywrightSession(states: MockVisualPageState[]) {
     locator: vi.fn((selector: string) => ({
       first: () => ({
         evaluate: vi.fn(async () => {
-          if (selector === 'body') {
+          if (selector === "body") {
             return {
               authSignals: currentState().authSignals ?? [],
               matchedLandmarks: currentState().matchedLandmarks ?? [],
-            }
+            };
           }
 
-          const element = currentState().elements?.[selector]
+          const element = currentState().elements?.[selector];
           if (!element) {
-            throw new Error(`selector not found: ${selector}`)
+            throw new Error(`selector not found: ${selector}`);
           }
 
-          return element
+          return element;
         }),
       }),
     })),
     getByText: vi.fn((text: string) => ({
       first: () => ({
         evaluate: vi.fn(async () => {
-          const element = currentState().textElements?.[text]
+          const element = currentState().textElements?.[text];
           if (!element) {
-            throw new Error(`text not found: ${text}`)
+            throw new Error(`text not found: ${text}`);
           }
 
-          return element
+          return element;
         }),
       }),
     })),
@@ -341,428 +323,422 @@ function createPlaywrightSession(states: MockVisualPageState[]) {
     url: vi.fn(() => currentState().url),
     waitForTimeout: vi.fn(async () => {
       if (currentIndex < states.length - 1) {
-        currentIndex += 1
+        currentIndex += 1;
       }
     }),
-  }
+  };
 
   const context = {
     newPage: vi.fn(async () => page),
     storageState: vi.fn(async () => undefined),
-  }
+  };
 
   const browser = {
     close: vi.fn(async () => undefined),
     newContext: vi.fn(async () => context),
-  }
+  };
 
-  chromiumLaunchMock.mockResolvedValue(browser)
+  chromiumLaunchMock.mockResolvedValue(browser);
 
-  return { browser, context, page }
+  return { browser, context, page };
 }
 
 async function withPatchedDomGlobals<T>(
   globals: Record<string, unknown>,
   run: () => Promise<T> | T
 ): Promise<T> {
-  const previousEntries = Object.entries(globals).map(([key]) => [
-    key,
-    Object.prototype.hasOwnProperty.call(globalThis, key),
-    (globalThis as Record<string, unknown>)[key],
-  ] as const)
+  const previousEntries = Object.entries(globals).map(
+    ([key]) =>
+      [
+        key,
+        Object.prototype.hasOwnProperty.call(globalThis, key),
+        (globalThis as Record<string, unknown>)[key],
+      ] as const
+  );
 
   Object.entries(globals).forEach(([key, value]) => {
-    ;(globalThis as Record<string, unknown>)[key] = value
-  })
+    (globalThis as Record<string, unknown>)[key] = value;
+  });
 
   try {
-    return await run()
+    return await run();
   } finally {
     previousEntries.forEach(([key, existed, value]) => {
       if (existed) {
-        ;(globalThis as Record<string, unknown>)[key] = value
+        (globalThis as Record<string, unknown>)[key] = value;
       } else {
-        delete (globalThis as Record<string, unknown>)[key]
+        delete (globalThis as Record<string, unknown>)[key];
       }
-    })
+    });
   }
 }
 
 beforeEach(() => {
-  chromiumLaunchMock.mockReset()
+  chromiumLaunchMock.mockReset();
   pageEvaluateMock.mockResolvedValue({
-    role: 'dialog',
-    title: 'Checkout Dialog',
-    description: 'Confirm the purchase',
-    actions: ['Cancel', 'Confirm'],
+    role: "dialog",
+    title: "Checkout Dialog",
+    description: "Confirm the purchase",
+    actions: ["Cancel", "Confirm"],
     isOpen: true,
-  })
-  pageEvaluateMock.mockClear()
-})
+  });
+  pageEvaluateMock.mockClear();
+});
 
-describe('deriveAccessibleQuery', () => {
-  it('returns getByRole with name when role and accessible name present', () => {
-    const result = deriveAccessibleQuery(accessibleButton)
-    expect(result?.method).toBe('getByRole')
-    expect(result?.quality).toBe('excellent')
-    expect(result?.query).toContain("getByRole('button'")
-    expect(result?.query).toContain('Save')
-  })
+describe("deriveAccessibleQuery", () => {
+  it("returns getByRole with name when role and accessible name present", () => {
+    const result = deriveAccessibleQuery(accessibleButton);
+    expect(result?.method).toBe("getByRole");
+    expect(result?.quality).toBe("excellent");
+    expect(result?.query).toContain("getByRole('button'");
+    expect(result?.query).toContain("Save");
+  });
 
-  it('returns null when element has no trustworthy accessible query evidence', () => {
-    const result = deriveAccessibleQuery(inaccessibleElement)
-    expect(result).toBeNull()
-  })
+  it("returns null when element has no trustworthy accessible query evidence", () => {
+    const result = deriveAccessibleQuery(inaccessibleElement);
+    expect(result).toBeNull();
+  });
 
-  it('uses getByLabelText when ariaLabel present but no implied role', () => {
-    const labeledDiv: ElementInfo = { ...inaccessibleElement, ariaLabel: 'Menu panel' }
-    const result = deriveAccessibleQuery(labeledDiv)
-    expect(result?.method).toBe('getByLabelText')
-    expect(result?.quality).toBe('excellent')
-  })
+  it("uses getByLabelText when ariaLabel present but no implied role", () => {
+    const labeledDiv: ElementInfo = {
+      ...inaccessibleElement,
+      ariaLabel: "Menu panel",
+    };
+    const result = deriveAccessibleQuery(labeledDiv);
+    expect(result?.method).toBe("getByLabelText");
+    expect(result?.quality).toBe("excellent");
+  });
 
-  it('supports title, alt text, and display value as fallback families', () => {
+  it("supports title, alt text, and display value as fallback families", () => {
     const titledResult = deriveAccessibleQuery({
       ...inaccessibleElement,
-      title: 'Open details',
-    })
+      title: "Open details",
+    });
     const imageResult = deriveAccessibleQuery({
       ...inaccessibleElement,
-      tagName: 'img',
-      altText: 'Invoice preview',
-    })
+      tagName: "img",
+      altText: "Invoice preview",
+    });
     const displayValueResult = deriveAccessibleQuery({
       ...inaccessibleElement,
-      tagName: 'input',
-      value: 'KES 4,800.00',
-      type: 'text',
-    })
+      tagName: "input",
+      value: "KES 4,800.00",
+      type: "text",
+    });
 
-    expect(titledResult?.method).toBe('getByTitle')
-    expect(imageResult?.method).toBe('getByAltText')
-    expect(displayValueResult?.method).toBe('getByDisplayValue')
-  })
-})
+    expect(titledResult?.method).toBe("getByTitle");
+    expect(imageResult?.method).toBe("getByAltText");
+    expect(displayValueResult?.method).toBe("getByDisplayValue");
+  });
+});
 
-describe('resolveSelector', () => {
-  it('preserves recorder query evidence before attempting selector inspection', async () => {
-    const inspect = vi.fn().mockResolvedValue(foundInspection(accessibleButton))
+describe("resolveSelector", () => {
+  it("preserves recorder query evidence before attempting selector inspection", async () => {
+    const inspect = vi
+      .fn()
+      .mockResolvedValue(foundInspection(accessibleButton));
 
     const result = await resolveSelector(selectorDescriptor, {
-      debug: {
-        inspectSource: 'preserved-query',
-        phase: 'pre-step',
-      },
-      url: 'http://localhost:3000',
+      debug: { inspectSource: "preserved-query", phase: "pre-step" },
+      url: "http://localhost:3000",
       preservedQuery,
       inspect,
-    })
+    });
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'resolved',
-        outcome: 'preserved-query',
-        source: 'baseline',
-        stepId: 'js-step-1',
+        status: "resolved",
+        outcome: "preserved-query",
+        source: "baseline",
+        stepId: "js-step-1",
         selector: selectorDescriptor,
-        url: 'http://localhost:3000',
+        url: "http://localhost:3000",
         query: preservedQuery,
         warnings: [],
         debug: expect.objectContaining({
-          cssSelector: '#save',
+          cssSelector: "#save",
           derivedQuery: "screen.getByRole('button', { name: 'Save' })",
-          inspectSource: 'preserved-query',
-          pageUrl: 'http://localhost:3000',
-          phase: 'pre-step',
-          result: 'resolved',
+          inspectSource: "preserved-query",
+          pageUrl: "http://localhost:3000",
+          phase: "pre-step",
+          result: "resolved",
         }),
       })
-    )
-    expect(inspect).not.toHaveBeenCalled()
-  })
+    );
+    expect(inspect).not.toHaveBeenCalled();
+  });
 
-  it('returns an accessible live-dom query when inspection provides trustworthy evidence', async () => {
-    const inspect = vi.fn().mockResolvedValue(foundInspection(accessibleButton))
+  it("returns an accessible live-dom query when inspection provides trustworthy evidence", async () => {
+    const inspect = vi
+      .fn()
+      .mockResolvedValue(foundInspection(accessibleButton));
 
     const result = await resolveSelector(selectorDescriptor, {
-      debug: {
-        inspectSource: 'persistent-page',
-        phase: 'pre-step',
-      },
-      url: 'http://localhost:3000',
+      debug: { inspectSource: "persistent-page", phase: "pre-step" },
+      url: "http://localhost:3000",
       inspect,
-    })
+    });
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'resolved',
-        outcome: 'accessible-query',
-        source: 'live-dom',
-        stepId: 'js-step-1',
+        status: "resolved",
+        outcome: "accessible-query",
+        source: "live-dom",
+        stepId: "js-step-1",
         selector: selectorDescriptor,
-        url: 'http://localhost:3000',
+        url: "http://localhost:3000",
         query: expect.objectContaining({
-          method: 'getByRole',
-          quality: 'excellent',
+          method: "getByRole",
+          quality: "excellent",
           raw: "screen.getByRole('button', { name: 'Save' })",
         }),
         inspectedElement: expect.objectContaining({
-          role: 'button',
-          innerText: 'Save',
+          role: "button",
+          innerText: "Save",
         }),
         warnings: [],
       })
-    )
-  })
+    );
+  });
 
-  it('returns no-url unresolved state when no URL is available', async () => {
-    const result = await resolveSelector(selectorDescriptor)
-    if (result.status !== 'unresolved') {
-      throw new Error('expected unresolved selector result')
+  it("returns no-url unresolved state when no URL is available", async () => {
+    const result = await resolveSelector(selectorDescriptor);
+    if (result.status !== "unresolved") {
+      throw new Error("expected unresolved selector result");
     }
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        outcome: 'no-url',
-        stepId: 'js-step-1',
+        status: "unresolved",
+        outcome: "no-url",
+        stepId: "js-step-1",
         selector: selectorDescriptor,
       })
-    )
-    expect(result.reason).toContain('No recorded URL')
-    expect('query' in result).toBe(false)
-  })
+    );
+    expect(result.reason).toContain("No recorded URL");
+    expect("query" in result).toBe(false);
+  });
 
-  it('returns selector-inaccessible instead of inventing a getByTestId query', async () => {
-    const inspect = vi.fn().mockResolvedValue(foundInspection(inaccessibleElement))
+  it("returns selector-inaccessible instead of inventing a getByTestId query", async () => {
+    const inspect = vi
+      .fn()
+      .mockResolvedValue(foundInspection(inaccessibleElement));
 
     const result = await resolveSelector(selectorDescriptor, {
-      url: 'http://localhost:3000',
+      url: "http://localhost:3000",
       inspect,
-    })
-    if (result.status !== 'unresolved') {
-      throw new Error('expected unresolved selector result')
+    });
+    if (result.status !== "unresolved") {
+      throw new Error("expected unresolved selector result");
     }
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        outcome: 'selector-inaccessible',
-        stepId: 'js-step-1',
+        status: "unresolved",
+        outcome: "selector-inaccessible",
+        stepId: "js-step-1",
         selector: selectorDescriptor,
       })
-    )
-    expect(result.reason).toContain('trustworthy accessible query evidence')
-    expect('query' in result).toBe(false)
-  })
+    );
+    expect(result.reason).toContain("trustworthy accessible query evidence");
+    expect("query" in result).toBe(false);
+  });
 
-  it('skips volatile Radix and positional selectors before Playwright inspection', async () => {
-    const inspect = vi.fn().mockResolvedValue(foundInspection(accessibleButton))
+  it("skips volatile Radix and positional selectors before Playwright inspection", async () => {
+    const inspect = vi
+      .fn()
+      .mockResolvedValue(foundInspection(accessibleButton));
 
     const result = await resolveSelector(unsupportedSelectorDescriptor, {
-      url: 'http://localhost:3000',
+      url: "http://localhost:3000",
       inspect,
-    })
-    if (result.status !== 'unresolved') {
-      throw new Error('expected unresolved selector result')
+    });
+    if (result.status !== "unresolved") {
+      throw new Error("expected unresolved selector result");
     }
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        outcome: 'unsupported-selector',
+        status: "unresolved",
+        outcome: "unsupported-selector",
         selector: unsupportedSelectorDescriptor,
       })
-    )
-    expect(result.reason).toContain('volatile DOM implementation detail')
-    expect(result.reason).toContain('ByRole')
-    expect(inspect).not.toHaveBeenCalled()
-  })
+    );
+    expect(result.reason).toContain("volatile DOM implementation detail");
+    expect(result.reason).toContain("ByRole");
+    expect(inspect).not.toHaveBeenCalled();
+  });
 
-  it('returns selector-not-found when the inspected page does not contain the selector', async () => {
-    const inspect = vi.fn().mockResolvedValue(missingInspection())
+  it("returns selector-not-found when the inspected page does not contain the selector", async () => {
+    const inspect = vi.fn().mockResolvedValue(missingInspection());
 
     const result = await resolveSelector(selectorDescriptor, {
-      url: 'http://localhost:3000',
+      url: "http://localhost:3000",
       inspect,
-    })
-    if (result.status !== 'unresolved') {
-      throw new Error('expected unresolved selector result')
+    });
+    if (result.status !== "unresolved") {
+      throw new Error("expected unresolved selector result");
     }
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        outcome: 'selector-not-found',
-        stepId: 'js-step-1',
+        status: "unresolved",
+        outcome: "selector-not-found",
+        stepId: "js-step-1",
         selector: selectorDescriptor,
       })
-    )
-  })
+    );
+  });
 
-  it('returns inspection-failed when Playwright inspection fails', async () => {
-    const inspect = vi.fn().mockResolvedValue(failedInspection('browser blocked'))
+  it("returns inspection-failed when Playwright inspection fails", async () => {
+    const inspect = vi
+      .fn()
+      .mockResolvedValue(failedInspection("browser blocked"));
 
     const result = await resolveSelector(selectorDescriptor, {
-      debug: {
-        inspectSource: 'persistent-page',
-        phase: 'pre-step',
-      },
-      url: 'http://localhost:3000',
+      debug: { inspectSource: "persistent-page", phase: "pre-step" },
+      url: "http://localhost:3000",
       inspect,
-    })
-    if (result.status !== 'unresolved') {
-      throw new Error('expected unresolved selector result')
+    });
+    if (result.status !== "unresolved") {
+      throw new Error("expected unresolved selector result");
     }
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        outcome: 'inspection-failed',
+        status: "unresolved",
+        outcome: "inspection-failed",
         debug: expect.objectContaining({
-          cssSelector: '#save',
-          inspectSource: 'persistent-page',
-          inspectionError: 'browser blocked',
-          pageUrl: 'http://localhost:3000',
-          phase: 'pre-step',
-          reason: 'Playwright inspection failed for selector #save.',
-          result: 'unresolved',
+          cssSelector: "#save",
+          inspectSource: "persistent-page",
+          inspectionError: "browser blocked",
+          pageUrl: "http://localhost:3000",
+          phase: "pre-step",
+          reason: "Playwright inspection failed for selector #save.",
+          result: "unresolved",
         }),
-        inspectionError: 'browser blocked',
+        inspectionError: "browser blocked",
       })
-    )
-  })
+    );
+  });
 
-  it('captures thrown inspection errors as unresolved results', async () => {
-    const inspect = vi.fn().mockRejectedValue(new Error('navigation timeout'))
+  it("captures thrown inspection errors as unresolved results", async () => {
+    const inspect = vi.fn().mockRejectedValue(new Error("navigation timeout"));
 
     const result = await resolveSelector(selectorDescriptor, {
-      url: 'http://localhost:3000',
+      url: "http://localhost:3000",
       inspect,
-    })
-    if (result.status !== 'unresolved') {
-      throw new Error('expected unresolved selector result')
+    });
+    if (result.status !== "unresolved") {
+      throw new Error("expected unresolved selector result");
     }
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        outcome: 'inspection-failed',
-        inspectionError: 'navigation timeout',
+        status: "unresolved",
+        outcome: "inspection-failed",
+        inspectionError: "navigation timeout",
       })
-    )
-  })
-})
+    );
+  });
+});
 
-describe('replayStep', () => {
-  it('replays navigate and keyDown steps with explicit Playwright actions in debug output', async () => {
-    const gotoMock = vi.fn().mockResolvedValue(undefined)
-    const pressMock = vi.fn().mockResolvedValue(undefined)
+describe("replayStep", () => {
+  it("replays navigate and keyDown steps with explicit Playwright actions in debug output", async () => {
+    const gotoMock = vi.fn().mockResolvedValue(undefined);
+    const pressMock = vi.fn().mockResolvedValue(undefined);
     const page = {
       goto: gotoMock,
-      keyboard: {
-        press: pressMock,
-      },
-      title: vi.fn().mockResolvedValue('Workspace'),
-      url: vi.fn().mockReturnValue('http://localhost:3000/workspace'),
-    }
+      keyboard: { press: pressMock },
+      title: vi.fn().mockResolvedValue("Workspace"),
+      url: vi.fn().mockReturnValue("http://localhost:3000/workspace"),
+    };
 
     const navigateResult = await replayStep(
       page as unknown as Page,
       {
-        action: 'navigate',
-        id: 'js-step-5',
-        originalType: 'navigate',
-        target: 'http://localhost:3000/orders',
+        action: "navigate",
+        id: "js-step-5",
+        originalType: "navigate",
+        target: "http://localhost:3000/orders",
       },
-      {
-        collectDebug: true,
-        timeoutMs: 1500,
-      }
-    )
+      { collectDebug: true, timeoutMs: 1500 }
+    );
 
     expect(navigateResult).toEqual(
       expect.objectContaining({
         replayed: true,
         debug: expect.objectContaining({
-          locatorSource: 'step.target',
-          locatorValue: 'http://localhost:3000/orders',
+          locatorSource: "step.target",
+          locatorValue: "http://localhost:3000/orders",
           playwrightAction: "page.goto('http://localhost:3000/orders')",
-          result: 'replayed',
+          result: "replayed",
           timeoutMs: 1500,
         }),
       })
-    )
-    expect(gotoMock).toHaveBeenCalledWith('http://localhost:3000/orders', {
+    );
+    expect(gotoMock).toHaveBeenCalledWith("http://localhost:3000/orders", {
       timeout: 1500,
-      waitUntil: 'domcontentloaded',
-    })
+      waitUntil: "domcontentloaded",
+    });
 
     const keyDownResult = await replayStep(
       page as unknown as Page,
       {
-        action: 'keyDown',
-        id: 'js-step-6',
-        originalType: 'keyDown',
-        key: 'Enter',
+        action: "keyDown",
+        id: "js-step-6",
+        originalType: "keyDown",
+        key: "Enter",
       },
-      {
-        collectDebug: true,
-      }
-    )
+      { collectDebug: true }
+    );
 
     expect(keyDownResult).toEqual(
       expect.objectContaining({
         replayed: true,
         debug: expect.objectContaining({
-          locatorValue: 'Enter',
+          locatorValue: "Enter",
           playwrightAction: "page.keyboard.press('Enter')",
-          result: 'replayed',
+          result: "replayed",
         }),
       })
-    )
-    expect(pressMock).toHaveBeenCalledWith('Enter')
-  })
+    );
+    expect(pressMock).toHaveBeenCalledWith("Enter");
+  });
 
-  it('captures locator selection details when replay cannot resolve a locator', async () => {
+  it("captures locator selection details when replay cannot resolve a locator", async () => {
     const page = {
-      title: vi.fn().mockResolvedValue('Workspace'),
-      url: vi.fn().mockReturnValue('http://localhost:3000/workspace'),
-    }
+      title: vi.fn().mockResolvedValue("Workspace"),
+      url: vi.fn().mockReturnValue("http://localhost:3000/workspace"),
+    };
 
     const result = await replayStep(
       page as unknown as Page,
-      {
-        action: 'click',
-        id: 'js-step-7',
-        originalType: 'click',
-      },
-      {
-        collectDebug: true,
-      }
-    )
+      { action: "click", id: "js-step-7", originalType: "click" },
+      { collectDebug: true }
+    );
 
     expect(result).toEqual(
       expect.objectContaining({
         replayed: false,
-        warning: 'No locator for click on (unknown)',
+        warning: "No locator for click on (unknown)",
         debug: expect.objectContaining({
-          action: 'click',
-          error: 'No locator for click on (unknown)',
-          locatorSource: 'none',
-          pageTitle: 'Workspace',
-          pageUrl: 'http://localhost:3000/workspace',
-          playwrightAction: 'click()',
-          result: 'failed',
-          stepId: 'js-step-7',
+          action: "click",
+          error: "No locator for click on (unknown)",
+          locatorSource: "none",
+          pageTitle: "Workspace",
+          pageUrl: "http://localhost:3000/workspace",
+          playwrightAction: "click()",
+          result: "failed",
+          stepId: "js-step-7",
         }),
       })
-    )
-  })
+    );
+  });
 
-  it('replays fill steps through placeholder locators when there is exactly one placeholder match', async () => {
-    const placeholderClickMock = vi.fn().mockResolvedValue(undefined)
-    const placeholderFillMock = vi.fn().mockResolvedValue(undefined)
+  it("replays fill steps through placeholder locators when there is exactly one placeholder match", async () => {
+    const placeholderClickMock = vi.fn().mockResolvedValue(undefined);
+    const placeholderFillMock = vi.fn().mockResolvedValue(undefined);
     const page = {
       getByPlaceholder: vi.fn(() => ({
         count: vi.fn().mockResolvedValue(1),
@@ -777,49 +753,50 @@ describe('replayStep', () => {
           waitFor: vi.fn().mockResolvedValue(undefined),
         }),
       })),
-      title: vi.fn().mockResolvedValue('Workspace'),
-      url: vi.fn().mockReturnValue('http://localhost:3000/workspace'),
-    }
+      title: vi.fn().mockResolvedValue("Workspace"),
+      url: vi.fn().mockReturnValue("http://localhost:3000/workspace"),
+    };
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'fill',
-        id: 'js-step-8',
-        originalType: 'change',
-        target: 'Customer Name',
-        value: 'Acme Corp',
+        action: "fill",
+        id: "js-step-8",
+        originalType: "change",
+        target: "Customer Name",
+        value: "Acme Corp",
       },
-      {
-        collectDebug: true,
-      }
-    )
+      { collectDebug: true }
+    );
 
     expect(result).toEqual(
       expect.objectContaining({
         replayed: true,
         debug: expect.objectContaining({
-          action: 'fill',
-          fallbackLocators: ['step.target:Customer Name'],
-          locatorSource: 'fill.placeholder',
-          locatorValue: 'Customer Name',
-          playwrightAction: "page.getByPlaceholder('Customer Name').fill('Acme Corp')",
-          result: 'replayed',
+          action: "fill",
+          fallbackLocators: ["step.target:Customer Name"],
+          locatorSource: "fill.placeholder",
+          locatorValue: "Customer Name",
+          playwrightAction:
+            "page.getByPlaceholder('Customer Name').fill('Acme Corp')",
+          result: "replayed",
         }),
       })
-    )
-    expect(placeholderClickMock).toHaveBeenCalled()
-    expect(placeholderFillMock).toHaveBeenCalledWith('Acme Corp', { timeout: 5000 })
-  })
+    );
+    expect(placeholderClickMock).toHaveBeenCalled();
+    expect(placeholderFillMock).toHaveBeenCalledWith("Acme Corp", {
+      timeout: 5000,
+    });
+  });
 
-  it('falls back to the resolved locator for fill/select actions and truncates long failures', async () => {
-    const fallbackClickMock = vi.fn().mockResolvedValue(undefined)
-    const fallbackFillMock = vi.fn().mockResolvedValue(undefined)
-    const selectClickMock = vi.fn().mockRejectedValue(new Error('x'.repeat(250)))
+  it("falls back to the resolved locator for fill/select actions and truncates long failures", async () => {
+    const fallbackClickMock = vi.fn().mockResolvedValue(undefined);
+    const fallbackFillMock = vi.fn().mockResolvedValue(undefined);
+    const selectClickMock = vi
+      .fn()
+      .mockRejectedValue(new Error("x".repeat(250)));
     const page = {
-      getByPlaceholder: vi.fn(() => ({
-        count: vi.fn().mockResolvedValue(0),
-      })),
+      getByPlaceholder: vi.fn(() => ({ count: vi.fn().mockResolvedValue(0) })),
       locator: vi.fn((selector: string) => ({
         first: () =>
           selector === '[data-testid="status"]'
@@ -834,90 +811,87 @@ describe('replayStep', () => {
                 waitFor: vi.fn().mockResolvedValue(undefined),
               },
       })),
-      title: vi.fn().mockResolvedValue('Workspace'),
-      url: vi.fn().mockReturnValue('http://localhost:3000/workspace'),
-    }
+      title: vi.fn().mockResolvedValue("Workspace"),
+      url: vi.fn().mockReturnValue("http://localhost:3000/workspace"),
+    };
 
     const fillResult = await replayStep(
       page as unknown as Page,
       {
-        action: 'fill',
-        id: 'js-step-9',
-        originalType: 'change',
+        action: "fill",
+        id: "js-step-9",
+        originalType: "change",
         target: 'input[name="customer"]',
-        value: 'Acme Corp',
+        value: "Acme Corp",
       },
-      {
-        collectDebug: true,
-      }
-    )
+      { collectDebug: true }
+    );
 
     expect(fillResult).toEqual(
       expect.objectContaining({
         replayed: true,
         debug: expect.objectContaining({
-          locatorSource: 'step.target',
+          locatorSource: "step.target",
           locatorValue: 'input[name="customer"]',
           playwrightAction: "locator.fill('Acme Corp')",
-          result: 'replayed',
+          result: "replayed",
         }),
       })
-    )
-    expect(fallbackClickMock).toHaveBeenCalled()
-    expect(fallbackFillMock).toHaveBeenCalledWith('Acme Corp', { timeout: 5000 })
+    );
+    expect(fallbackClickMock).toHaveBeenCalled();
+    expect(fallbackFillMock).toHaveBeenCalledWith("Acme Corp", {
+      timeout: 5000,
+    });
 
     const selectResult = await replayStep(
       page as unknown as Page,
       {
-        action: 'select',
-        id: 'js-step-10',
-        originalType: 'click',
+        action: "select",
+        id: "js-step-10",
+        originalType: "click",
         target: '[data-testid="status"]',
       },
-      {
-        collectDebug: true,
-      }
-    )
+      { collectDebug: true }
+    );
 
-    expect(selectResult.replayed).toBe(false)
-    expect(selectResult.warning).toMatch(/^select on \[data-testid="status"\] failed: x+\.\.\.$/)
+    expect(selectResult.replayed).toBe(false);
+    expect(selectResult.warning).toMatch(
+      /^select on \[data-testid="status"\] failed: x+\.\.\.$/
+    );
     expect(selectResult.debug).toEqual(
       expect.objectContaining({
-        locatorSource: 'step.target',
+        locatorSource: "step.target",
         locatorValue: '[data-testid="status"]',
-        playwrightAction: 'locator.click()',
-        result: 'failed',
+        playwrightAction: "locator.click()",
+        result: "failed",
       })
-    )
-  })
+    );
+  });
 
-  it('returns a no-debug failure payload when navigation throws without debug collection', async () => {
+  it("returns a no-debug failure payload when navigation throws without debug collection", async () => {
     const page = {
-      goto: vi.fn().mockRejectedValue(new Error('network error')),
-      title: vi.fn().mockResolvedValue('Workspace'),
-      url: vi.fn().mockReturnValue('http://localhost:3000/workspace'),
-    }
+      goto: vi.fn().mockRejectedValue(new Error("network error")),
+      title: vi.fn().mockResolvedValue("Workspace"),
+      url: vi.fn().mockReturnValue("http://localhost:3000/workspace"),
+    };
 
-    const result = await replayStep(
-      page as unknown as Page,
-      {
-        action: 'navigate',
-        id: 'js-step-11',
-        originalType: 'navigate',
-        target: 'http://localhost:3000/broken',
-      }
-    )
+    const result = await replayStep(page as unknown as Page, {
+      action: "navigate",
+      id: "js-step-11",
+      originalType: "navigate",
+      target: "http://localhost:3000/broken",
+    });
 
     expect(result).toEqual({
       replayed: false,
-      warning: 'navigate on http://localhost:3000/broken failed: network error',
+      warning: "navigate on http://localhost:3000/broken failed: network error",
       debug: undefined,
-    })
-  })
-})
+    });
+  });
+});
 
-describe('createPageInspector', () => {
-  it('returns found and selector-not-found results from a persistent page', async () => {
+describe("createPageInspector", () => {
+  it("returns found and selector-not-found results from a persistent page", async () => {
     const foundPage = {
       locator: vi.fn(() => ({
         count: vi.fn().mockResolvedValue(1),
@@ -925,82 +899,72 @@ describe('createPageInspector', () => {
           evaluate: vi.fn().mockResolvedValue(accessibleButton),
         }),
       })),
-    }
+    };
     const missingPage = {
-      locator: vi.fn(() => ({
-        count: vi.fn().mockResolvedValue(0),
-      })),
-    }
+      locator: vi.fn(() => ({ count: vi.fn().mockResolvedValue(0) })),
+    };
     const failingPage = {
       locator: vi.fn(() => ({
         count: vi.fn().mockResolvedValue(1),
         first: () => ({
-          evaluate: vi.fn().mockRejectedValue(new Error('detached')),
+          evaluate: vi.fn().mockRejectedValue(new Error("detached")),
         }),
       })),
-    }
+    };
 
     await expect(
       createPageInspector(foundPage as unknown as Page)(
-        'http://localhost:3000',
-        '#save'
+        "http://localhost:3000",
+        "#save"
       )
-    ).resolves.toEqual({
-      status: 'found',
-      element: accessibleButton,
-    })
+    ).resolves.toEqual({ status: "found", element: accessibleButton });
 
     await expect(
       createPageInspector(missingPage as unknown as Page)(
-        'http://localhost:3000',
-        '#missing'
+        "http://localhost:3000",
+        "#missing"
       )
-    ).resolves.toEqual({
-      status: 'selector-not-found',
-    })
+    ).resolves.toEqual({ status: "selector-not-found" });
 
     await expect(
       createPageInspector(failingPage as unknown as Page)(
-        'http://localhost:3000',
-        '#broken'
+        "http://localhost:3000",
+        "#broken"
       )
-    ).resolves.toEqual({
-      status: 'selector-not-found',
-    })
+    ).resolves.toEqual({ status: "selector-not-found" });
+  });
 
-  })
-
-  it('reads normalized element details by executing the page evaluate callback', async () => {
+  it("reads normalized element details by executing the page evaluate callback", async () => {
     class FakeHTMLElement {
       constructor(
         public tagName: string,
         private attributes: Record<string, string | undefined>,
-        public innerText = ''
+        public innerText = ""
       ) {}
 
       getAttribute(name: string) {
-        return this.attributes[name] ?? null
+        return this.attributes[name] ?? null;
       }
     }
 
     class FakeHTMLInputElement extends FakeHTMLElement {
-      alt = ''
-      labels = [{ textContent: '  Primary Customer  ' }]
-      placeholder = 'Customer Name'
-      type = 'text'
-      value = 'Acme Corp'
+      alt = "";
+      labels = [{ textContent: "  Primary Customer  " }];
+      placeholder = "Customer Name";
+      type = "text";
+      value = "Acme Corp";
 
       constructor() {
         super(
-          'INPUT',
+          "INPUT",
           {
-            'aria-labelledby': 'customer-hint',
-            'data-test-id': 'customer-input',
-            role: 'textbox',
-            title: 'Customer field',
+            "aria-labelledby": "customer-hint",
+            "data-test-id": "customer-input",
+            role: "textbox",
+            title: "Customer field",
           },
-          ''
-        )
+          ""
+        );
       }
     }
 
@@ -1012,7 +976,7 @@ describe('createPageInspector', () => {
           ),
         }),
       })),
-    }
+    };
 
     const result = await withPatchedDomGlobals(
       {
@@ -1025,59 +989,61 @@ describe('createPageInspector', () => {
         HTMLTextAreaElement: class {},
         document: {
           getElementById: (id: string) =>
-            id === 'customer-hint' ? { textContent: 'Customer hint' } : null,
+            id === "customer-hint" ? { textContent: "Customer hint" } : null,
         },
       },
-      () => createPageInspector(page as unknown as Page)('http://localhost:3000', '#customer')
-    )
+      () =>
+        createPageInspector(page as unknown as Page)(
+          "http://localhost:3000",
+          "#customer"
+        )
+    );
 
     expect(result).toEqual({
-      status: 'found',
+      status: "found",
       element: {
-        tagName: 'input',
-        role: 'textbox',
+        tagName: "input",
+        role: "textbox",
         ariaLabel: null,
-        ariaLabelledBy: 'customer-hint',
-        labelText: 'Primary Customer',
-        innerText: '',
+        ariaLabelledBy: "customer-hint",
+        labelText: "Primary Customer",
+        innerText: "",
         altText: null,
-        title: 'Customer field',
-        testId: 'customer-input',
-        value: 'Acme Corp',
-        type: 'text',
-        placeholder: 'Customer Name',
+        title: "Customer field",
+        testId: "customer-input",
+        value: "Acme Corp",
+        type: "text",
+        placeholder: "Customer Name",
         isPresent: true,
       },
-    })
-  })
+    });
+  });
 
-  it('falls back to aria-labelledby text for later labelable element types', async () => {
+  it("falls back to aria-labelledby text for later labelable element types", async () => {
     class FakeHTMLElement {
       constructor(
         public tagName: string,
         private attributes: Record<string, string | undefined>,
-        public innerText = ''
+        public innerText = ""
       ) {}
 
       getAttribute(name: string) {
-        return this.attributes[name] ?? null
+        return this.attributes[name] ?? null;
       }
     }
 
     class FakeHTMLTextAreaElement extends FakeHTMLElement {
-      labels = null
-      placeholder = 'Notes'
-      type = 'textarea'
-      value = 'Remember this'
+      labels = null;
+      placeholder = "Notes";
+      type = "textarea";
+      value = "Remember this";
 
       constructor() {
         super(
-          'TEXTAREA',
-          {
-            'aria-labelledby': 'notes-label helper-text',
-          },
-          '   '
-        )
+          "TEXTAREA",
+          { "aria-labelledby": "notes-label helper-text" },
+          "   "
+        );
       }
     }
 
@@ -1089,7 +1055,7 @@ describe('createPageInspector', () => {
           ),
         }),
       })),
-    }
+    };
 
     const result = await withPatchedDomGlobals(
       {
@@ -1102,46 +1068,48 @@ describe('createPageInspector', () => {
         HTMLTextAreaElement: FakeHTMLTextAreaElement,
         document: {
           getElementById: (id: string) =>
-            id === 'notes-label'
-              ? { textContent: '  Notes  ' }
-              : id === 'helper-text'
-                ? { textContent: '  optional  ' }
+            id === "notes-label"
+              ? { textContent: "  Notes  " }
+              : id === "helper-text"
+                ? { textContent: "  optional  " }
                 : null,
         },
       },
-      () => createPageInspector(page as unknown as Page)('http://localhost:3000', '#notes')
-    )
+      () =>
+        createPageInspector(page as unknown as Page)(
+          "http://localhost:3000",
+          "#notes"
+        )
+    );
 
     expect(result).toEqual({
-      status: 'found',
+      status: "found",
       element: expect.objectContaining({
-        tagName: 'textarea',
-        ariaLabelledBy: 'notes-label helper-text',
-        labelText: 'Notes optional',
-        placeholder: 'Notes',
-        value: 'Remember this',
+        tagName: "textarea",
+        ariaLabelledBy: "notes-label helper-text",
+        labelText: "Notes optional",
+        placeholder: "Notes",
+        value: "Remember this",
       }),
-    })
-  })
+    });
+  });
 
-  it('returns null label metadata for non-labelable elements', async () => {
+  it("returns null label metadata for non-labelable elements", async () => {
     class FakeHTMLElement {
       constructor(
         public tagName: string,
         private attributes: Record<string, string | undefined>,
-        public innerText = ''
+        public innerText = ""
       ) {}
 
       getAttribute(name: string) {
-        return this.attributes[name] ?? null
+        return this.attributes[name] ?? null;
       }
     }
 
     class FakeHTMLDivElement extends FakeHTMLElement {
       constructor() {
-        super('DIV', {
-          'aria-label': 'Decorative wrapper',
-        })
+        super("DIV", { "aria-label": "Decorative wrapper" });
       }
     }
 
@@ -1153,7 +1121,7 @@ describe('createPageInspector', () => {
           ),
         }),
       })),
-    }
+    };
 
     const result = await withPatchedDomGlobals(
       {
@@ -1164,836 +1132,822 @@ describe('createPageInspector', () => {
         HTMLProgressElement: class {},
         HTMLSelectElement: class {},
         HTMLTextAreaElement: class {},
-        document: {
-          getElementById: () => null,
-        },
+        document: { getElementById: () => null },
       },
-      () => createPageInspector(page as unknown as Page)('http://localhost:3000', '#wrapper')
-    )
+      () =>
+        createPageInspector(page as unknown as Page)(
+          "http://localhost:3000",
+          "#wrapper"
+        )
+    );
 
     expect(result).toEqual({
-      status: 'found',
+      status: "found",
       element: expect.objectContaining({
-        tagName: 'div',
-        ariaLabel: 'Decorative wrapper',
+        tagName: "div",
+        ariaLabel: "Decorative wrapper",
         labelText: null,
       }),
-    })
-  })
-})
+    });
+  });
+});
 
-describe('emitQry03Warning', () => {
-  it('emits the accessible-query warning with the selector included', () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+describe("emitQry03Warning", () => {
+  it("emits the accessible-query warning with the selector included", () => {
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
 
-    emitQry03Warning('[data-testid="save"]')
+    emitQry03Warning('[data-testid="save"]');
 
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('QRY-03:')
-    )
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("QRY-03:"));
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining('[data-testid="save"]')
-    )
-    warnSpy.mockRestore()
-  })
-})
+    );
+    warnSpy.mockRestore();
+  });
+});
 
-describe('resolveSemanticMarkerAssertion', () => {
-  it('prefers role-and-name proof over weaker visible text evidence', () => {
+describe("resolveSemanticMarkerAssertion", () => {
+  it("prefers role-and-name proof over weaker visible text evidence", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-2',
-        target: 'Review Example',
-        proofSubject: 'heading',
-        method: 'getByRole',
-        role: 'heading',
-        name: 'Review Example',
+        id: "js-step-2",
+        target: "Review Example",
+        proofSubject: "heading",
+        method: "getByRole",
+        role: "heading",
+        name: "Review Example",
       })
-    )
+    );
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'resolved',
-        anchorStepId: 'js-step-1',
+        status: "resolved",
+        anchorStepId: "js-step-1",
         assertion: expect.objectContaining({
-          proofKind: 'role-name',
-          matcher: 'toBeVisible',
-          expectation: 'visibility',
+          proofKind: "role-name",
+          matcher: "toBeVisible",
+          expectation: "visibility",
           query: expect.objectContaining({
-            method: 'findByRole',
-            role: 'heading',
-            target: 'Review Example',
+            method: "findByRole",
+            role: "heading",
+            target: "Review Example",
             raw: "screen.findByRole('heading', { name: 'Review Example' })",
           }),
-          queryExpression: "screen.findByRole('heading', { name: 'Review Example' })",
+          queryExpression:
+            "screen.findByRole('heading', { name: 'Review Example' })",
         }),
       })
-    )
-  })
+    );
+  });
 
-  it('resolves exact visible text when stronger accessible evidence is absent', () => {
+  it("resolves exact visible text when stronger accessible evidence is absent", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-3',
-        target: 'Saved successfully',
-        proofSubject: 'visible-message',
+        id: "js-step-3",
+        target: "Saved successfully",
+        proofSubject: "visible-message",
       })
-    )
+    );
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'resolved',
+        status: "resolved",
         assertion: expect.objectContaining({
-          proofKind: 'visible-text',
+          proofKind: "visible-text",
           query: expect.objectContaining({
-            method: 'findByText',
+            method: "findByText",
             raw: "screen.findByText('Saved successfully')",
           }),
         }),
       })
-    )
-  })
+    );
+  });
 
-  it('resolves concrete visible values before any form-context fallback', () => {
+  it("resolves concrete visible values before any form-context fallback", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-4',
-        target: 'KES 4,800.00',
-        proofSubject: 'concrete-value',
+        id: "js-step-4",
+        target: "KES 4,800.00",
+        proofSubject: "concrete-value",
       })
-    )
+    );
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'resolved',
+        status: "resolved",
         assertion: expect.objectContaining({
-          proofKind: 'visible-value',
+          proofKind: "visible-value",
           query: expect.objectContaining({
-            method: 'findByText',
+            method: "findByText",
             raw: "screen.findByText('KES 4,800.00')",
           }),
         }),
       })
-    )
-  })
+    );
+  });
 
-  it('prefers label-based form fallback before placeholder-based fallback', () => {
+  it("prefers label-based form fallback before placeholder-based fallback", () => {
     const labelResult = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-5',
-        target: 'Customer Name',
-        proofSubject: 'field-label',
+        id: "js-step-5",
+        target: "Customer Name",
+        proofSubject: "field-label",
       })
-    )
+    );
     const placeholderResult = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-6',
-        target: 'Enter customer name',
-        proofSubject: 'field-label',
-        method: 'getByPlaceholderText',
+        id: "js-step-6",
+        target: "Enter customer name",
+        proofSubject: "field-label",
+        method: "getByPlaceholderText",
         raw: "screen.getByPlaceholderText('Enter customer name')",
       })
-    )
+    );
 
     expect(labelResult).toEqual(
       expect.objectContaining({
-        status: 'resolved',
+        status: "resolved",
         assertion: expect.objectContaining({
-          proofKind: 'label-text',
+          proofKind: "label-text",
           query: expect.objectContaining({
-            method: 'findByLabelText',
+            method: "findByLabelText",
             raw: "screen.findByLabelText('Customer Name')",
           }),
         }),
       })
-    )
+    );
     expect(placeholderResult).toEqual(
       expect.objectContaining({
-        status: 'resolved',
+        status: "resolved",
         assertion: expect.objectContaining({
-          proofKind: 'placeholder-text',
+          proofKind: "placeholder-text",
           query: expect.objectContaining({
-            method: 'findByPlaceholderText',
+            method: "findByPlaceholderText",
             raw: "screen.findByPlaceholderText('Enter customer name')",
           }),
         }),
       })
-    )
-  })
+    );
+  });
 
-  it('leaves ambiguous field context unresolved instead of guessing a control', () => {
+  it("leaves ambiguous field context unresolved instead of guessing a control", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-7',
-        target: 'Customer Reference / Name',
-        proofSubject: 'field-label',
-        unresolvedReason: 'ambiguous-field-context',
+        id: "js-step-7",
+        target: "Customer Reference / Name",
+        proofSubject: "field-label",
+        unresolvedReason: "ambiguous-field-context",
       })
-    )
+    );
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'ambiguous-field-context',
-        anchorStepId: 'js-step-1',
+        status: "unresolved",
+        reason: "ambiguous-field-context",
+        anchorStepId: "js-step-1",
       })
-    )
-  })
+    );
+  });
 
-  it('rejects CSS-only and icon-only marker evidence', () => {
+  it("rejects CSS-only and icon-only marker evidence", () => {
     const cssOnlyResult = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-8',
-        target: 'div.css-19bb58m',
-        proofSubject: 'selector-target',
-        method: 'none',
-        selector: 'div.css-19bb58m',
+        id: "js-step-8",
+        target: "div.css-19bb58m",
+        proofSubject: "selector-target",
+        method: "none",
+        selector: "div.css-19bb58m",
       })
-    )
+    );
     const iconOnlyResult = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-9',
-        target: '+',
-        proofSubject: 'heading',
-        method: 'getByRole',
-        role: 'button',
-        name: '+',
+        id: "js-step-9",
+        target: "+",
+        proofSubject: "heading",
+        method: "getByRole",
+        role: "button",
+        name: "+",
       })
-    )
+    );
 
     expect(cssOnlyResult).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'css-only-evidence',
+        status: "unresolved",
+        reason: "css-only-evidence",
       })
-    )
+    );
     expect(iconOnlyResult).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'icon-only-target',
+        status: "unresolved",
+        reason: "icon-only-target",
       })
-    )
-  })
+    );
+  });
 
-  it('rejects hidden implementation detail evidence', () => {
+  it("rejects hidden implementation detail evidence", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-10',
-        target: 'Customer Name',
-        proofSubject: 'field-label',
-        method: 'getByTestId',
+        id: "js-step-10",
+        target: "Customer Name",
+        proofSubject: "field-label",
+        method: "getByTestId",
         raw: "screen.getByTestId('customer-name')",
       })
-    )
+    );
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'hidden-evidence',
+        status: "unresolved",
+        reason: "hidden-evidence",
       })
-    )
-  })
-})
+    );
+  });
+});
 
-describe('selectMatcher', () => {
-  it('returns toHaveValue for fill action on input with value', () => {
-    const matcher = selectMatcher(inputElement, 'fill')
-    expect(matcher).toContain('toHaveValue')
-  })
+describe("selectMatcher", () => {
+  it("returns toHaveValue for fill action on input with value", () => {
+    const matcher = selectMatcher(inputElement, "fill");
+    expect(matcher).toContain("toHaveValue");
+  });
 
-  it('returns toBeChecked for checkbox', () => {
-    const checkbox: ElementInfo = { ...inputElement, type: 'checkbox', value: undefined }
-    const matcher = selectMatcher(checkbox, 'assert')
-    expect(matcher).toBe('.toBeChecked()')
-  })
+  it("returns toBeChecked for checkbox", () => {
+    const checkbox: ElementInfo = {
+      ...inputElement,
+      type: "checkbox",
+      value: undefined,
+    };
+    const matcher = selectMatcher(checkbox, "assert");
+    expect(matcher).toBe(".toBeChecked()");
+  });
 
-  it('returns toHaveTextContent for assert on element with innerText', () => {
-    const textEl: ElementInfo = { ...inaccessibleElement, innerText: 'Hello World' }
-    const matcher = selectMatcher(textEl, 'assert')
-    expect(matcher).toContain('toHaveTextContent')
-  })
+  it("returns toHaveTextContent for assert on element with innerText", () => {
+    const textEl: ElementInfo = {
+      ...inaccessibleElement,
+      innerText: "Hello World",
+    };
+    const matcher = selectMatcher(textEl, "assert");
+    expect(matcher).toContain("toHaveTextContent");
+  });
 
-  it('returns toBeInTheDocument as fallback', () => {
-    const matcher = selectMatcher(inaccessibleElement, 'assert')
-    expect(matcher).toBe('.toBeInTheDocument()')
-  })
-})
+  it("returns toBeInTheDocument as fallback", () => {
+    const matcher = selectMatcher(inaccessibleElement, "assert");
+    expect(matcher).toBe(".toBeInTheDocument()");
+  });
+});
 
-describe('captureVisualState', () => {
-  let logSpy: ReturnType<typeof vi.spyOn>
+describe("captureVisualState", () => {
+  let logSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
-  })
+    logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  });
 
   afterEach(() => {
-    logSpy.mockRestore()
-  })
+    logSpy.mockRestore();
+  });
 
-  it('captures visual state with a runtime-owned Playwright browser', async () => {
+  it("captures visual state with a runtime-owned Playwright browser", async () => {
     const session = createPlaywrightSession([
       {
         dialog: {
-          role: 'dialog',
-          title: 'Checkout Dialog',
-          description: 'Confirm the purchase',
-          actions: ['Cancel', 'Confirm'],
+          role: "dialog",
+          title: "Checkout Dialog",
+          description: "Confirm the purchase",
+          actions: ["Cancel", "Confirm"],
           isOpen: true,
         },
-        elements: {
-          '#save': accessibleButton,
-        },
-        matchedLandmarks: ['Checkout Dialog'],
-        title: 'Checkout Dialog',
-        url: 'http://localhost:3000',
+        elements: { "#save": accessibleButton },
+        matchedLandmarks: ["Checkout Dialog"],
+        title: "Checkout Dialog",
+        url: "http://localhost:3000",
       },
-    ])
+    ]);
 
-    const result = await captureVisualState('http://localhost:3000', {
+    const result = await captureVisualState("http://localhost:3000", {
       expected: {
-        landmarks: ['Checkout Dialog'],
-        title: 'Checkout Dialog',
-        url: 'http://localhost:3000',
+        landmarks: ["Checkout Dialog"],
+        title: "Checkout Dialog",
+        url: "http://localhost:3000",
       },
-      reason: 'dialog-detected',
-      screenshotDir: '/tmp/taro-visual',
-      selector: '#save',
-    })
+      reason: "dialog-detected",
+      screenshotDir: "/tmp/taro-visual",
+      selector: "#save",
+    });
 
     expect(result).toEqual(
       expect.objectContaining({
-        finalUrl: 'http://localhost:3000',
-        pageTitle: 'Checkout Dialog',
-        reason: 'dialog-detected',
-        selector: '#save',
+        finalUrl: "http://localhost:3000",
+        pageTitle: "Checkout Dialog",
+        reason: "dialog-detected",
+        selector: "#save",
         startingPointConfirmed: true,
-        status: 'captured',
-        url: 'http://localhost:3000',
+        status: "captured",
+        url: "http://localhost:3000",
         warnings: [],
       })
-    )
+    );
     expect(result?.dialog).toEqual(
-      expect.objectContaining({
-        title: 'Checkout Dialog',
-      })
-    )
-    expect(result?.element).toEqual(accessibleButton)
-    expect(result?.screenshotPath).toBe('/tmp/taro-visual/starting-point.png')
-    expect(chromiumLaunchMock).toHaveBeenCalledWith({ headless: true })
-    expect(session.context.newPage).toHaveBeenCalledTimes(1)
-    expect(session.page.goto).toHaveBeenCalledWith('http://localhost:3000', {
+      expect.objectContaining({ title: "Checkout Dialog" })
+    );
+    expect(result?.element).toEqual(accessibleButton);
+    expect(result?.screenshotPath).toBe("/tmp/taro-visual/starting-point.png");
+    expect(chromiumLaunchMock).toHaveBeenCalledWith({ headless: true });
+    expect(session.context.newPage).toHaveBeenCalledTimes(1);
+    expect(session.page.goto).toHaveBeenCalledWith("http://localhost:3000", {
       timeout: 5000,
-      waitUntil: 'domcontentloaded',
-    })
+      waitUntil: "domcontentloaded",
+    });
     expect(session.page.screenshot).toHaveBeenCalledWith({
       fullPage: true,
-      path: '/tmp/taro-visual/starting-point.png',
-    })
-    expect(session.browser.close).toHaveBeenCalledTimes(1)
-  })
+      path: "/tmp/taro-visual/starting-point.png",
+    });
+    expect(session.browser.close).toHaveBeenCalledTimes(1);
+  });
 
-  it('waits for the recorded page state before capturing the starting screenshot', async () => {
+  it("waits for the recorded page state before capturing the starting screenshot", async () => {
     const session = createPlaywrightSession([
       {
         dialog: null,
-        elements: {
-          '#save': null,
-        },
+        elements: { "#save": null },
         matchedLandmarks: [],
-        title: 'Loading',
-        url: 'http://localhost:3000/loading',
+        title: "Loading",
+        url: "http://localhost:3000/loading",
       },
       {
         dialog: {
-          role: 'dialog',
-          title: 'Add Sale (Invoice)',
-          description: 'Create a Kenya sale',
-          actions: ['Continue', 'Save'],
+          role: "dialog",
+          title: "Add Sale (Invoice)",
+          description: "Create a Kenya sale",
+          actions: ["Continue", "Save"],
           isOpen: true,
         },
-        elements: {
-          '#save': accessibleButton,
-        },
-        matchedLandmarks: ['Add Sale (Invoice)'],
-        title: 'DigiTax',
-        url: 'http://localhost:3000/dashboard?tab=sales',
+        elements: { "#save": accessibleButton },
+        matchedLandmarks: ["Add Sale (Invoice)"],
+        title: "DigiTax",
+        url: "http://localhost:3000/dashboard?tab=sales",
       },
-    ])
+    ]);
 
-    const result = await captureVisualState('http://localhost:3000/dashboard?tab=sales', {
-      expected: {
-        landmarks: ['Add Sale (Invoice)'],
-        title: 'DigiTax',
-        url: 'http://localhost:3000/dashboard?tab=sales',
-      },
-      reason: 'page-context',
-      screenshotDir: '/tmp/taro-visual',
-      selector: '#save',
-      timeoutMs: 1000,
-    })
+    const result = await captureVisualState(
+      "http://localhost:3000/dashboard?tab=sales",
+      {
+        expected: {
+          landmarks: ["Add Sale (Invoice)"],
+          title: "DigiTax",
+          url: "http://localhost:3000/dashboard?tab=sales",
+        },
+        reason: "page-context",
+        screenshotDir: "/tmp/taro-visual",
+        selector: "#save",
+        timeoutMs: 1000,
+      }
+    );
 
     expect(result).toEqual(
       expect.objectContaining({
-        finalUrl: 'http://localhost:3000/dashboard?tab=sales',
-        pageTitle: 'DigiTax',
-        screenshotPath: '/tmp/taro-visual/starting-point.png',
+        finalUrl: "http://localhost:3000/dashboard?tab=sales",
+        pageTitle: "DigiTax",
+        screenshotPath: "/tmp/taro-visual/starting-point.png",
         startingPointConfirmed: true,
-        status: 'captured',
+        status: "captured",
         warnings: [],
       })
-    )
-    expect(session.page.waitForTimeout).toHaveBeenCalled()
-  })
+    );
+    expect(session.page.waitForTimeout).toHaveBeenCalled();
+  });
 
-  it('treats non-CSS readiness probes as visible text instead of CSS selectors', async () => {
+  it("treats non-CSS readiness probes as visible text instead of CSS selectors", async () => {
     const session = createPlaywrightSession([
       {
         dialog: null,
         elements: {},
-        matchedLandmarks: ['Add Item'],
-        textElements: {
-          'Add Item': accessibleButton,
-        },
-        title: 'DigiTax',
-        url: 'http://localhost:3000/dashboard?tab=items',
+        matchedLandmarks: ["Add Item"],
+        textElements: { "Add Item": accessibleButton },
+        title: "DigiTax",
+        url: "http://localhost:3000/dashboard?tab=items",
       },
-    ])
+    ]);
 
-    const result = await captureVisualState('http://localhost:3000/dashboard?tab=items', {
-      expected: {
-        landmarks: ['Add Item'],
-        title: 'DigiTax',
-        url: 'http://localhost:3000/dashboard?tab=items',
-      },
-      reason: 'page-context',
-      selector: 'Add Item',
-      timeoutMs: 1000,
-    })
+    const result = await captureVisualState(
+      "http://localhost:3000/dashboard?tab=items",
+      {
+        expected: {
+          landmarks: ["Add Item"],
+          title: "DigiTax",
+          url: "http://localhost:3000/dashboard?tab=items",
+        },
+        reason: "page-context",
+        selector: "Add Item",
+        timeoutMs: 1000,
+      }
+    );
 
     expect(result).toEqual(
       expect.objectContaining({
-        selector: 'Add Item',
+        selector: "Add Item",
         startingPointConfirmed: true,
-        status: 'captured',
+        status: "captured",
         warnings: [],
       })
-    )
-    expect(result?.element).toEqual(accessibleButton)
-    expect(session.page.getByText).toHaveBeenCalledWith('Add Item', { exact: true })
-  })
+    );
+    expect(result?.element).toEqual(accessibleButton);
+    expect(session.page.getByText).toHaveBeenCalledWith("Add Item", {
+      exact: true,
+    });
+  });
 
-  it('retries transient Playwright navigation failures before giving up', async () => {
+  it("retries transient Playwright navigation failures before giving up", async () => {
     const session = createPlaywrightSession([
       {
         dialog: {
-          role: 'dialog',
-          title: 'Checkout Dialog',
-          description: 'Confirm the purchase',
-          actions: ['Cancel', 'Confirm'],
+          role: "dialog",
+          title: "Checkout Dialog",
+          description: "Confirm the purchase",
+          actions: ["Cancel", "Confirm"],
           isOpen: true,
         },
-        elements: {
-          '#save': accessibleButton,
-        },
-        matchedLandmarks: ['Checkout Dialog'],
-        title: 'Checkout Dialog',
-        url: 'http://localhost:3000/dashboard',
+        elements: { "#save": accessibleButton },
+        matchedLandmarks: ["Checkout Dialog"],
+        title: "Checkout Dialog",
+        url: "http://localhost:3000/dashboard",
       },
-    ])
+    ]);
 
     session.page.goto
-      .mockRejectedValueOnce(new Error('page.goto: Timeout 5000ms exceeded.'))
-      .mockResolvedValue(undefined)
+      .mockRejectedValueOnce(new Error("page.goto: Timeout 5000ms exceeded."))
+      .mockResolvedValue(undefined);
 
-    const result = await captureVisualState('http://localhost:3000/dashboard', {
+    const result = await captureVisualState("http://localhost:3000/dashboard", {
       expected: {
-        landmarks: ['Checkout Dialog'],
-        title: 'Checkout Dialog',
-        url: 'http://localhost:3000/dashboard',
+        landmarks: ["Checkout Dialog"],
+        title: "Checkout Dialog",
+        url: "http://localhost:3000/dashboard",
       },
-      reason: 'dialog-detected',
-      screenshotDir: '/tmp/taro-visual',
-      selector: '#save',
-    })
+      reason: "dialog-detected",
+      screenshotDir: "/tmp/taro-visual",
+      selector: "#save",
+    });
 
-    expect(result?.status).toBe('captured')
-    expect(session.page.goto).toHaveBeenCalledTimes(2)
-    expect(session.browser.close).toHaveBeenCalledTimes(2)
-  })
+    expect(result?.status).toBe("captured");
+    expect(session.page.goto).toHaveBeenCalledTimes(2);
+    expect(session.browser.close).toHaveBeenCalledTimes(2);
+  });
 
-  it('treats an interactive redirect away from the expected page as an auth checkpoint even without login copy', async () => {
+  it("treats an interactive redirect away from the expected page as an auth checkpoint even without login copy", async () => {
     const session = createPlaywrightSession([
       {
         dialog: null,
-        elements: {
-          '#save': null,
-        },
+        elements: { "#save": null },
         matchedLandmarks: [],
-        title: 'DigiTax',
-        url: 'http://localhost:3000/',
+        title: "DigiTax",
+        url: "http://localhost:3000/",
       },
-    ])
+    ]);
 
-    const result = await captureVisualState('http://localhost:3000/dashboard', {
-      authRecovery: {
-        enabled: true,
-        timeoutMs: 1000,
-      },
+    const result = await captureVisualState("http://localhost:3000/dashboard", {
+      authRecovery: { enabled: true, timeoutMs: 1000 },
       expected: {
-        landmarks: ['Checkout Dialog'],
-        title: 'DigiTax',
-        url: 'http://localhost:3000/dashboard',
+        landmarks: ["Checkout Dialog"],
+        title: "DigiTax",
+        url: "http://localhost:3000/dashboard",
       },
-      reason: 'dialog-detected',
-      screenshotDir: '/tmp/taro-visual',
-      selector: '#save',
+      reason: "dialog-detected",
+      screenshotDir: "/tmp/taro-visual",
+      selector: "#save",
       timeoutMs: 1000,
-    })
+    });
 
     expect(result).toEqual(
       expect.objectContaining({
-        finalUrl: 'http://localhost:3000/',
-        screenshotPath: '/tmp/taro-visual/auth-checkpoint.png',
-        status: 'auth-recovery-timed-out',
+        finalUrl: "http://localhost:3000/",
+        screenshotPath: "/tmp/taro-visual/auth-checkpoint.png",
+        status: "auth-recovery-timed-out",
       })
-    )
+    );
     expect(result?.interrupt?.signals).toEqual(
       expect.arrayContaining([
-        'route-mismatch',
-        'expected-selector-missing',
-        'expected-landmarks-missing',
+        "route-mismatch",
+        "expected-selector-missing",
+        "expected-landmarks-missing",
       ])
-    )
+    );
     expect(result?.authRecovery?.retryToExpectedUrl).toEqual(
       expect.objectContaining({
         attemptCount: 5,
         attempted: true,
-        outcome: 'succeeded',
-        targetUrl: 'http://localhost:3000/dashboard',
+        outcome: "succeeded",
+        targetUrl: "http://localhost:3000/dashboard",
       })
-    )
-    expect(session.page.goto).toHaveBeenCalledTimes(6)
-    expect(session.page.goto).toHaveBeenLastCalledWith('http://localhost:3000/dashboard', {
-      timeout: expect.any(Number),
-      waitUntil: 'domcontentloaded',
-    })
-  })
+    );
+    expect(session.page.goto).toHaveBeenCalledTimes(6);
+    expect(session.page.goto).toHaveBeenLastCalledWith(
+      "http://localhost:3000/dashboard",
+      { timeout: expect.any(Number), waitUntil: "domcontentloaded" }
+    );
+  });
 
-  it('recovers auth in interactive runs and persists storage state', async () => {
+  it("recovers auth in interactive runs and persists storage state", async () => {
     const session = createPlaywrightSession([
       {
-        authSignals: ['auth-copy'],
+        authSignals: ["auth-copy"],
         dialog: null,
-        elements: {
-          '#save': null,
-        },
+        elements: { "#save": null },
         matchedLandmarks: [],
-        title: 'Sign In',
-        url: 'http://localhost:3000/login',
+        title: "Sign In",
+        url: "http://localhost:3000/login",
       },
       {
         dialog: {
-          role: 'dialog',
-          title: 'Checkout Dialog',
-          description: 'Confirm the purchase',
-          actions: ['Cancel', 'Confirm'],
+          role: "dialog",
+          title: "Checkout Dialog",
+          description: "Confirm the purchase",
+          actions: ["Cancel", "Confirm"],
           isOpen: true,
         },
-        elements: {
-          '#save': accessibleButton,
-        },
-        matchedLandmarks: ['Checkout Dialog'],
-        title: 'Checkout Dialog',
-        url: 'http://localhost:3000/dashboard',
+        elements: { "#save": accessibleButton },
+        matchedLandmarks: ["Checkout Dialog"],
+        title: "Checkout Dialog",
+        url: "http://localhost:3000/dashboard",
       },
-    ])
+    ]);
 
-    const result = await captureVisualState('http://localhost:3000/dashboard', {
+    const result = await captureVisualState("http://localhost:3000/dashboard", {
       auth: {
-        path: '/tmp/playwright/.auth/user.json',
-        strategy: 'storageState',
+        path: "/tmp/playwright/.auth/user.json",
+        strategy: "storageState",
       },
       authRecovery: {
         enabled: true,
-        persistedAuthPath: '.taro/playwright/.auth/user.json',
-        saveStorageStatePath: '/tmp/playwright/.auth/user.json',
+        persistedAuthPath: ".taro/playwright/.auth/user.json",
+        saveStorageStatePath: "/tmp/playwright/.auth/user.json",
         timeoutMs: 2000,
       },
       expected: {
-        landmarks: ['Checkout Dialog'],
-        title: 'Checkout Dialog',
-        url: 'http://localhost:3000/dashboard',
+        landmarks: ["Checkout Dialog"],
+        title: "Checkout Dialog",
+        url: "http://localhost:3000/dashboard",
       },
-      reason: 'dialog-detected',
-      screenshotDir: '/tmp/taro-visual',
-      selector: '#save',
-    })
+      reason: "dialog-detected",
+      screenshotDir: "/tmp/taro-visual",
+      selector: "#save",
+    });
 
-    expect(result?.status).toBe('auth-recovered')
-    expect(result?.startingPointConfirmed).toBe(true)
+    expect(result?.status).toBe("auth-recovered");
+    expect(result?.startingPointConfirmed).toBe(true);
     expect(result?.authRecovery).toEqual(
       expect.objectContaining({
-        persistedAuthPath: '.taro/playwright/.auth/user.json',
-        status: 'succeeded',
+        persistedAuthPath: ".taro/playwright/.auth/user.json",
+        status: "succeeded",
       })
-    )
-    expect(result?.screenshotPath).toBe('/tmp/taro-visual/starting-point.png')
-    expect(chromiumLaunchMock).toHaveBeenCalledWith({ headless: false })
+    );
+    expect(result?.screenshotPath).toBe("/tmp/taro-visual/starting-point.png");
+    expect(chromiumLaunchMock).toHaveBeenCalledWith({ headless: false });
     expect(session.browser.newContext).toHaveBeenCalledWith({
-      storageState: '/tmp/playwright/.auth/user.json',
-    })
-    expect(session.page.goto).toHaveBeenCalledTimes(1)
-    expect(session.page.waitForTimeout).toHaveBeenCalled()
+      storageState: "/tmp/playwright/.auth/user.json",
+    });
+    expect(session.page.goto).toHaveBeenCalledTimes(1);
+    expect(session.page.waitForTimeout).toHaveBeenCalled();
     expect(session.context.storageState).toHaveBeenCalledWith({
-      path: '/tmp/playwright/.auth/user.json',
-    })
-  })
+      path: "/tmp/playwright/.auth/user.json",
+    });
+  });
 
-  it('recovers after an interactive redirect checkpoint without explicit auth cues', async () => {
+  it("recovers after an interactive redirect checkpoint without explicit auth cues", async () => {
     const session = createPlaywrightSession([
       {
         dialog: null,
-        elements: {
-          '#save': null,
-        },
+        elements: { "#save": null },
         matchedLandmarks: [],
-        title: 'DigiTax',
-        url: 'http://localhost:3000/',
+        title: "DigiTax",
+        url: "http://localhost:3000/",
       },
       {
         dialog: {
-          role: 'dialog',
-          title: 'Checkout Dialog',
-          description: 'Confirm the purchase',
-          actions: ['Cancel', 'Confirm'],
+          role: "dialog",
+          title: "Checkout Dialog",
+          description: "Confirm the purchase",
+          actions: ["Cancel", "Confirm"],
           isOpen: true,
         },
-        elements: {
-          '#save': accessibleButton,
-        },
-        matchedLandmarks: ['Checkout Dialog'],
-        title: 'Checkout Dialog',
-        url: 'http://localhost:3000/dashboard',
+        elements: { "#save": accessibleButton },
+        matchedLandmarks: ["Checkout Dialog"],
+        title: "Checkout Dialog",
+        url: "http://localhost:3000/dashboard",
       },
-    ])
+    ]);
 
-    const result = await captureVisualState('http://localhost:3000/dashboard', {
+    const result = await captureVisualState("http://localhost:3000/dashboard", {
       auth: {
-        path: '/tmp/playwright/.auth/user.json',
-        strategy: 'storageState',
+        path: "/tmp/playwright/.auth/user.json",
+        strategy: "storageState",
       },
       authRecovery: {
         enabled: true,
-        persistedAuthPath: '.taro/playwright/.auth/user.json',
-        saveStorageStatePath: '/tmp/playwright/.auth/user.json',
+        persistedAuthPath: ".taro/playwright/.auth/user.json",
+        saveStorageStatePath: "/tmp/playwright/.auth/user.json",
         timeoutMs: 2000,
       },
       expected: {
-        landmarks: ['Checkout Dialog'],
-        title: 'Checkout Dialog',
-        url: 'http://localhost:3000/dashboard',
+        landmarks: ["Checkout Dialog"],
+        title: "Checkout Dialog",
+        url: "http://localhost:3000/dashboard",
       },
-      reason: 'dialog-detected',
-      screenshotDir: '/tmp/taro-visual',
-      selector: '#save',
+      reason: "dialog-detected",
+      screenshotDir: "/tmp/taro-visual",
+      selector: "#save",
       timeoutMs: 1000,
-    })
+    });
 
-    expect(result?.status).toBe('auth-recovered')
-    expect(result?.startingPointConfirmed).toBe(true)
+    expect(result?.status).toBe("auth-recovered");
+    expect(result?.startingPointConfirmed).toBe(true);
     expect(result?.interrupt?.signals).toEqual(
       expect.arrayContaining([
-        'route-mismatch',
-        'expected-selector-missing',
-        'expected-landmarks-missing',
+        "route-mismatch",
+        "expected-selector-missing",
+        "expected-landmarks-missing",
       ])
-    )
+    );
     expect(result?.authRecovery?.retryToExpectedUrl).toEqual(
       expect.objectContaining({
         attempted: true,
-        outcome: 'succeeded',
-        targetUrl: 'http://localhost:3000/dashboard',
+        outcome: "succeeded",
+        targetUrl: "http://localhost:3000/dashboard",
       })
-    )
-    expect(session.page.goto).toHaveBeenCalledTimes(2)
-    expect(session.page.goto).toHaveBeenLastCalledWith('http://localhost:3000/dashboard', {
-      timeout: expect.any(Number),
-      waitUntil: 'domcontentloaded',
-    })
-    expect(session.page.waitForTimeout).toHaveBeenCalled()
+    );
+    expect(session.page.goto).toHaveBeenCalledTimes(2);
+    expect(session.page.goto).toHaveBeenLastCalledWith(
+      "http://localhost:3000/dashboard",
+      { timeout: expect.any(Number), waitUntil: "domcontentloaded" }
+    );
+    expect(session.page.waitForTimeout).toHaveBeenCalled();
     expect(session.context.storageState).toHaveBeenCalledWith({
-      path: '/tmp/playwright/.auth/user.json',
-    })
-  })
+      path: "/tmp/playwright/.auth/user.json",
+    });
+  });
 
-  it('caps post-auth deep-link retries at five attempts when the expected route stays unavailable', async () => {
+  it("caps post-auth deep-link retries at five attempts when the expected route stays unavailable", async () => {
     const session = createPlaywrightSession([
       {
         dialog: null,
-        elements: {
-          '#save': null,
-        },
+        elements: { "#save": null },
         matchedLandmarks: [],
-        title: 'DigiTax',
-        url: 'http://localhost:3000/',
+        title: "DigiTax",
+        url: "http://localhost:3000/",
       },
-    ])
+    ]);
 
-    session.page.goto.mockResolvedValueOnce(undefined).mockImplementation(async () => {
-      throw new Error('page.goto: Timeout 1000ms exceeded.')
-    })
+    session.page.goto
+      .mockResolvedValueOnce(undefined)
+      .mockImplementation(async () => {
+        throw new Error("page.goto: Timeout 1000ms exceeded.");
+      });
 
-    const result = await captureVisualState('http://localhost:3000/dashboard', {
-      authRecovery: {
-        enabled: true,
-        timeoutMs: 1000,
-      },
+    const result = await captureVisualState("http://localhost:3000/dashboard", {
+      authRecovery: { enabled: true, timeoutMs: 1000 },
       expected: {
-        landmarks: ['Checkout Dialog'],
-        title: 'DigiTax',
-        url: 'http://localhost:3000/dashboard',
+        landmarks: ["Checkout Dialog"],
+        title: "DigiTax",
+        url: "http://localhost:3000/dashboard",
       },
-      reason: 'dialog-detected',
-      screenshotDir: '/tmp/taro-visual',
-      selector: '#save',
+      reason: "dialog-detected",
+      screenshotDir: "/tmp/taro-visual",
+      selector: "#save",
       timeoutMs: 1000,
-    })
+    });
 
-    expect(result?.status).toBe('auth-recovery-timed-out')
+    expect(result?.status).toBe("auth-recovery-timed-out");
     expect(result?.authRecovery?.retryToExpectedUrl).toEqual(
       expect.objectContaining({
         attemptCount: 5,
         attempted: true,
-        error: 'page.goto: Timeout 1000ms exceeded.',
-        outcome: 'failed',
-        targetUrl: 'http://localhost:3000/dashboard',
+        error: "page.goto: Timeout 1000ms exceeded.",
+        outcome: "failed",
+        targetUrl: "http://localhost:3000/dashboard",
       })
-    )
-    expect(session.page.goto).toHaveBeenCalledTimes(6)
-  })
+    );
+    expect(session.page.goto).toHaveBeenCalledTimes(6);
+  });
 
-  it('saves storage state before full starting-point confirmation and reuses the latest timeout snapshot', async () => {
+  it("saves storage state before full starting-point confirmation and reuses the latest timeout snapshot", async () => {
     const session = createPlaywrightSession([
       {
-        authSignals: ['auth-copy'],
+        authSignals: ["auth-copy"],
         dialog: null,
-        elements: {
-          '#save': null,
-        },
+        elements: { "#save": null },
         matchedLandmarks: [],
-        title: 'Sign In',
-        url: 'http://localhost:3000/login',
+        title: "Sign In",
+        url: "http://localhost:3000/login",
       },
       {
         dialog: null,
-        elements: {
-          '#save': null,
-        },
+        elements: { "#save": null },
         matchedLandmarks: [],
-        title: 'DigiTax',
-        url: 'http://localhost:3000/',
+        title: "DigiTax",
+        url: "http://localhost:3000/",
       },
-    ])
+    ]);
 
-    const result = await captureVisualState('http://localhost:3000/dashboard', {
+    const result = await captureVisualState("http://localhost:3000/dashboard", {
       authRecovery: {
         enabled: true,
-        persistedAuthPath: '.taro/playwright/.auth/user.json',
-        saveStorageStatePath: '/tmp/playwright/.auth/user.json',
+        persistedAuthPath: ".taro/playwright/.auth/user.json",
+        saveStorageStatePath: "/tmp/playwright/.auth/user.json",
         timeoutMs: 1000,
       },
       expected: {
-        landmarks: ['Checkout Dialog'],
-        title: 'Checkout Dialog',
-        url: 'http://localhost:3000/dashboard',
+        landmarks: ["Checkout Dialog"],
+        title: "Checkout Dialog",
+        url: "http://localhost:3000/dashboard",
       },
-      reason: 'dialog-detected',
-      screenshotDir: '/tmp/taro-visual',
-      selector: '#save',
+      reason: "dialog-detected",
+      screenshotDir: "/tmp/taro-visual",
+      selector: "#save",
       timeoutMs: 1000,
-    })
+    });
 
-    expect(result?.status).toBe('auth-recovery-timed-out')
+    expect(result?.status).toBe("auth-recovery-timed-out");
     expect(result?.authRecovery).toEqual(
       expect.objectContaining({
-        persistedAuthPath: '.taro/playwright/.auth/user.json',
-        status: 'timed-out',
+        persistedAuthPath: ".taro/playwright/.auth/user.json",
+        status: "timed-out",
       })
-    )
-    expect(result?.finalUrl).toBe('http://localhost:3000/')
-    expect(result?.pageTitle).toBe('DigiTax')
+    );
+    expect(result?.finalUrl).toBe("http://localhost:3000/");
+    expect(result?.pageTitle).toBe("DigiTax");
     expect(session.context.storageState).toHaveBeenCalledWith({
-      path: '/tmp/playwright/.auth/user.json',
-    })
-    expect(session.page.goto).toHaveBeenCalledTimes(6)
-  })
-})
+      path: "/tmp/playwright/.auth/user.json",
+    });
+    expect(session.page.goto).toHaveBeenCalledTimes(6);
+  });
+});
 
-describe('inspectElements', () => {
-  it('uses a single Playwright session to inspect multiple selectors', async () => {
+describe("inspectElements", () => {
+  it("uses a single Playwright session to inspect multiple selectors", async () => {
     const session = createPlaywrightSession([
       {
-        elements: {
-          '#confirm': inputElement,
-          '#save': accessibleButton,
-        },
-        title: 'Checkout Dialog',
-        url: 'http://localhost:3000',
+        elements: { "#confirm": inputElement, "#save": accessibleButton },
+        title: "Checkout Dialog",
+        url: "http://localhost:3000",
       },
-    ])
+    ]);
 
-    const result = await inspectElements('http://localhost:3000', ['#save', '#confirm'])
+    const result = await inspectElements("http://localhost:3000", [
+      "#save",
+      "#confirm",
+    ]);
 
-    expect(result.get('#save')).toEqual(accessibleButton)
-    expect(result.get('#confirm')).toEqual(inputElement)
-    expect(chromiumLaunchMock).toHaveBeenCalledWith({ headless: true })
-    expect(session.context.newPage).toHaveBeenCalledTimes(1)
-    expect(session.browser.close).toHaveBeenCalledTimes(1)
-  })
-})
+    expect(result.get("#save")).toEqual(accessibleButton);
+    expect(result.get("#confirm")).toEqual(inputElement);
+    expect(chromiumLaunchMock).toHaveBeenCalledWith({ headless: true });
+    expect(session.context.newPage).toHaveBeenCalledTimes(1);
+    expect(session.browser.close).toHaveBeenCalledTimes(1);
+  });
+});
 
-describe('extractDialogState', () => {
-  it('returns dialog information from the page', async () => {
-    const page = { evaluate: pageEvaluateMock }
-    const state = await extractDialogState(page as any)
+describe("extractDialogState", () => {
+  it("returns dialog information from the page", async () => {
+    const page = { evaluate: pageEvaluateMock };
+    const state = await extractDialogState(page as any);
 
     expect(state).toEqual({
-      role: 'dialog',
-      title: 'Checkout Dialog',
-      description: 'Confirm the purchase',
-      actions: ['Cancel', 'Confirm'],
+      role: "dialog",
+      title: "Checkout Dialog",
+      description: "Confirm the purchase",
+      actions: ["Cancel", "Confirm"],
       isOpen: true,
-    })
-  })
+    });
+  });
 
-  it('returns null when page evaluation fails', async () => {
-    pageEvaluateMock.mockRejectedValueOnce(new Error('not available'))
-    const page = { evaluate: pageEvaluateMock }
+  it("returns null when page evaluation fails", async () => {
+    pageEvaluateMock.mockRejectedValueOnce(new Error("not available"));
+    const page = { evaluate: pageEvaluateMock };
 
-    const state = await extractDialogState(page as any)
+    const state = await extractDialogState(page as any);
 
-    expect(state).toBeNull()
-  })
+    expect(state).toBeNull();
+  });
 
-  it('derives dialog details by executing the DOM callback inside page.evaluate', async () => {
+  it("derives dialog details by executing the DOM callback inside page.evaluate", async () => {
     const dialog = {
-      getAttribute: (name: string) => (name === 'role' ? 'alertdialog' : null),
+      getAttribute: (name: string) => (name === "role" ? "alertdialog" : null),
       querySelector: (selector: string) => {
-        if (selector === 'h1, h2, h3, [aria-labelledby]') {
-          return { textContent: '  Confirm transfer  ' }
+        if (selector === "h1, h2, h3, [aria-labelledby]") {
+          return { textContent: "  Confirm transfer  " };
         }
 
-        if (selector === '[aria-describedby], p') {
-          return { textContent: '  This action is permanent.  ' }
+        if (selector === "[aria-describedby], p") {
+          return { textContent: "  This action is permanent.  " };
         }
 
-        return null
+        return null;
       },
       querySelectorAll: (selector: string) =>
         selector === 'button, [role="button"]'
-          ? [{ innerText: ' Cancel ' }, { innerText: ' Confirm ' }]
+          ? [{ innerText: " Cancel " }, { innerText: " Confirm " }]
           : [],
-    }
+    };
 
     const page = {
       evaluate: vi.fn(async (fn: () => unknown) =>
@@ -2001,100 +1955,97 @@ describe('extractDialogState', () => {
           {
             document: {
               querySelector: (selector: string) =>
-                selector === '[role="dialog"], [role="alertdialog"]' ? dialog : null,
+                selector === '[role="dialog"], [role="alertdialog"]'
+                  ? dialog
+                  : null,
             },
           },
           () => fn()
         )
       ),
-    }
+    };
 
     await expect(extractDialogState(page as any)).resolves.toEqual({
-      role: 'alertdialog',
-      title: 'Confirm transfer',
-      description: 'This action is permanent.',
-      actions: ['Cancel', 'Confirm'],
+      role: "alertdialog",
+      title: "Confirm transfer",
+      description: "This action is permanent.",
+      actions: ["Cancel", "Confirm"],
       isOpen: true,
-    })
-  })
+    });
+  });
 
-  it('returns null when the evaluated DOM does not contain a dialog', async () => {
+  it("returns null when the evaluated DOM does not contain a dialog", async () => {
     const page = {
       evaluate: vi.fn(async (fn: () => unknown) =>
-        withPatchedDomGlobals(
-          {
-            document: {
-              querySelector: () => null,
-            },
-          },
-          () => fn()
+        withPatchedDomGlobals({ document: { querySelector: () => null } }, () =>
+          fn()
         )
       ),
-    }
+    };
 
-    await expect(extractDialogState(page as any)).resolves.toBeNull()
-  })
-})
+    await expect(extractDialogState(page as any)).resolves.toBeNull();
+  });
+});
 
-describe('deriveAccessibleQuery - getAccessibleName fallback chain', () => {
-  it('uses altText as accessible name for an img element (has implied role + altText)', () => {
+describe("deriveAccessibleQuery - getAccessibleName fallback chain", () => {
+  it("uses altText as accessible name for an img element (has implied role + altText)", () => {
     // img tag maps to 'img' role via ROLE_MAP, altText becomes accessible name
     // innerText must be null/undefined (not '') to allow altText to be used via ?? chain
     const imgEl: ElementInfo = {
-      tagName: 'img',
+      tagName: "img",
       role: null,
       ariaLabel: null,
       ariaLabelledBy: null,
       labelText: null,
       innerText: null as unknown as string,
-      altText: 'Company Logo',
+      altText: "Company Logo",
       title: null,
       testId: null,
       value: undefined,
       type: undefined,
       placeholder: null,
       isPresent: true,
-    }
-    const result = deriveAccessibleQuery(imgEl)
+    };
+    const result = deriveAccessibleQuery(imgEl);
     // img has both implied role 'img' and altText as accessible name → getByRole
-    expect(result?.method).toBe('getByRole')
-    expect(result?.query).toContain("getByRole('img'")
-    expect(result?.query).toContain('Company Logo')
-  })
+    expect(result?.method).toBe("getByRole");
+    expect(result?.query).toContain("getByRole('img'");
+    expect(result?.query).toContain("Company Logo");
+  });
 
-  it('uses title as accessible name for role element when only title is available', () => {
+  it("uses title as accessible name for role element when only title is available", () => {
     // heading tag with title — title becomes accessible name via getAccessibleName
     // innerText and altText must be null/undefined for title to be the accessible name
     const titledHeading: ElementInfo = {
-      tagName: 'h1',
+      tagName: "h1",
       role: null,
       ariaLabel: null,
       ariaLabelledBy: null,
       labelText: null,
       innerText: null as unknown as string,
       altText: null,
-      title: 'Main heading',
+      title: "Main heading",
       testId: null,
       value: undefined,
       type: undefined,
       placeholder: null,
       isPresent: true,
-    }
-    const result = deriveAccessibleQuery(titledHeading)
+    };
+    const result = deriveAccessibleQuery(titledHeading);
     // h1 has implied role 'heading', title serves as accessible name
-    expect(result?.method).toBe('getByRole')
-    expect(result?.query).toContain("getByRole('heading'")
-    expect(result?.query).toContain('Main heading')
-  })
+    expect(result?.method).toBe("getByRole");
+    expect(result?.query).toContain("getByRole('heading'");
+    expect(result?.query).toContain("Main heading");
+  });
 
-  it('returns null when role element has no accessible name at all', () => {
+  it("returns null when role element has no accessible name at all", () => {
     const emptyButton: ElementInfo = {
-      tagName: 'button',
-      role: 'button',
+      tagName: "button",
+      role: "button",
       ariaLabel: null,
       ariaLabelledBy: null,
       labelText: null,
-      innerText: '',
+      innerText: "",
       altText: null,
       title: null,
       testId: null,
@@ -2102,769 +2053,771 @@ describe('deriveAccessibleQuery - getAccessibleName fallback chain', () => {
       type: undefined,
       placeholder: null,
       isPresent: true,
-    }
+    };
     // No accessible name → getByRole can't be used → falls through to other methods
     // Since no label, placeholder, innerText, altText, title, value, testId → returns null
-    const result = deriveAccessibleQuery(emptyButton)
-    expect(result).toBeNull()
-  })
-})
+    const result = deriveAccessibleQuery(emptyButton);
+    expect(result).toBeNull();
+  });
+});
 
-describe('deriveAccessibleQuery - priority branches', () => {
-  it('returns getByPlaceholderText when placeholder exists and no role or label', () => {
+describe("deriveAccessibleQuery - priority branches", () => {
+  it("returns getByPlaceholderText when placeholder exists and no role or label", () => {
     const el: ElementInfo = {
       ...inaccessibleElement,
-      placeholder: 'Enter your email',
-    }
-    const result = deriveAccessibleQuery(el)
-    expect(result?.method).toBe('getByPlaceholderText')
-    expect(result?.quality).toBe('acceptable')
-    expect(result?.query).toContain("getByPlaceholderText('Enter your email')")
-  })
+      placeholder: "Enter your email",
+    };
+    const result = deriveAccessibleQuery(el);
+    expect(result?.method).toBe("getByPlaceholderText");
+    expect(result?.quality).toBe("acceptable");
+    expect(result?.query).toContain("getByPlaceholderText('Enter your email')");
+  });
 
-  it('returns getByText when innerText exists and no role, label, or placeholder', () => {
-    const el: ElementInfo = {
-      ...inaccessibleElement,
-      innerText: 'Click here',
-    }
-    const result = deriveAccessibleQuery(el)
-    expect(result?.method).toBe('getByText')
-    expect(result?.quality).toBe('good')
-    expect(result?.query).toContain("getByText('Click here')")
-  })
+  it("returns getByText when innerText exists and no role, label, or placeholder", () => {
+    const el: ElementInfo = { ...inaccessibleElement, innerText: "Click here" };
+    const result = deriveAccessibleQuery(el);
+    expect(result?.method).toBe("getByText");
+    expect(result?.quality).toBe("good");
+    expect(result?.query).toContain("getByText('Click here')");
+  });
 
-  it('returns getByTestId when testId exists and no other accessible hook', () => {
-    const el: ElementInfo = {
-      ...inaccessibleElement,
-      testId: 'submit-btn',
-    }
-    const result = deriveAccessibleQuery(el)
-    expect(result?.method).toBe('getByTestId')
-    expect(result?.quality).toBe('fragile')
-    expect(result?.query).toContain("getByTestId('submit-btn')")
-  })
+  it("returns getByTestId when testId exists and no other accessible hook", () => {
+    const el: ElementInfo = { ...inaccessibleElement, testId: "submit-btn" };
+    const result = deriveAccessibleQuery(el);
+    expect(result?.method).toBe("getByTestId");
+    expect(result?.quality).toBe("fragile");
+    expect(result?.query).toContain("getByTestId('submit-btn')");
+  });
 
-  it('escapes single quotes in accessible names', () => {
+  it("escapes single quotes in accessible names", () => {
     const el: ElementInfo = {
       ...inaccessibleElement,
       innerText: "It's a button",
-    }
-    const result = deriveAccessibleQuery(el)
-    expect(result?.method).toBe('getByText')
-    expect(result?.query).toContain("getByText('It\\'s a button')")
-  })
+    };
+    const result = deriveAccessibleQuery(el);
+    expect(result?.method).toBe("getByText");
+    expect(result?.query).toContain("getByText('It\\'s a button')");
+  });
 
-  it('uses ROLE_MAP implied role when element has no explicit role attribute', () => {
+  it("uses ROLE_MAP implied role when element has no explicit role attribute", () => {
     const buttonEl: ElementInfo = {
       ...inaccessibleElement,
-      tagName: 'button',
+      tagName: "button",
       role: null,
-      innerText: 'Submit',
-    }
-    const result = deriveAccessibleQuery(buttonEl)
-    expect(result?.method).toBe('getByRole')
-    expect(result?.query).toContain("getByRole('button'")
-    expect(result?.query).toContain('Submit')
-  })
+      innerText: "Submit",
+    };
+    const result = deriveAccessibleQuery(buttonEl);
+    expect(result?.method).toBe("getByRole");
+    expect(result?.query).toContain("getByRole('button'");
+    expect(result?.query).toContain("Submit");
+  });
 
-  it('uses getByLabelText when labelText is present and no implied role', () => {
+  it("uses getByLabelText when labelText is present and no implied role", () => {
     const el: ElementInfo = {
       ...inaccessibleElement,
-      tagName: 'div',
-      labelText: 'Full Name',
-    }
-    const result = deriveAccessibleQuery(el)
-    expect(result?.method).toBe('getByLabelText')
-    expect(result?.quality).toBe('excellent')
-    expect(result?.query).toContain("getByLabelText('Full Name')")
-  })
-})
+      tagName: "div",
+      labelText: "Full Name",
+    };
+    const result = deriveAccessibleQuery(el);
+    expect(result?.method).toBe("getByLabelText");
+    expect(result?.quality).toBe("excellent");
+    expect(result?.query).toContain("getByLabelText('Full Name')");
+  });
+});
 
-describe('selectMatcher - additional branches', () => {
-  it('returns toBeVisible for assert action on dialog role', () => {
+describe("selectMatcher - additional branches", () => {
+  it("returns toBeVisible for assert action on dialog role", () => {
     const dialogEl: ElementInfo = {
       ...inaccessibleElement,
-      role: 'dialog',
-      innerText: '',
-    }
-    const matcher = selectMatcher(dialogEl, 'assert')
-    expect(matcher).toBe('.toBeVisible()')
-  })
+      role: "dialog",
+      innerText: "",
+    };
+    const matcher = selectMatcher(dialogEl, "assert");
+    expect(matcher).toBe(".toBeVisible()");
+  });
 
-  it('returns toHaveValue for fill even when value is empty string', () => {
+  it("returns toHaveValue for fill even when value is empty string", () => {
     const el: ElementInfo = {
       ...inaccessibleElement,
-      tagName: 'input',
-      value: '',
-    }
-    const matcher = selectMatcher(el, 'fill')
-    expect(matcher).toContain('toHaveValue')
-  })
+      tagName: "input",
+      value: "",
+    };
+    const matcher = selectMatcher(el, "fill");
+    expect(matcher).toContain("toHaveValue");
+  });
 
-  it('returns toBeInTheDocument when action is fill but no value', () => {
-    const el: ElementInfo = { ...inaccessibleElement }
-    const matcher = selectMatcher(el, 'fill')
-    expect(matcher).toBe('.toBeInTheDocument()')
-  })
-})
+  it("returns toBeInTheDocument when action is fill but no value", () => {
+    const el: ElementInfo = { ...inaccessibleElement };
+    const matcher = selectMatcher(el, "fill");
+    expect(matcher).toBe(".toBeInTheDocument()");
+  });
+});
 
-describe('resolveSemanticMarkerAssertion - additional branches', () => {
-  it('returns missing-marker-candidate when step has no semantic marker candidate', () => {
+describe("resolveSemanticMarkerAssertion - additional branches", () => {
+  it("returns missing-marker-candidate when step has no semantic marker candidate", () => {
     const step: NormalizedStep = {
-      id: 'js-step-99',
-      action: 'click',
-      target: 'Submit',
-      originalType: 'click',
-      source: 'js',
-    }
-    const result = resolveSemanticMarkerAssertion(step)
+      id: "js-step-99",
+      action: "click",
+      target: "Submit",
+      originalType: "click",
+      source: "js",
+    };
+    const result = resolveSemanticMarkerAssertion(step);
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'missing-marker-candidate',
+        status: "unresolved",
+        reason: "missing-marker-candidate",
       })
-    )
-  })
+    );
+  });
 
-  it('returns missing-anchor when candidate has no anchor', () => {
+  it("returns missing-anchor when candidate has no anchor", () => {
     const step: NormalizedStep = {
-      id: 'js-step-anchor-test',
-      action: 'click',
-      target: 'Review Order',
-      originalType: 'click',
-      source: 'js',
+      id: "js-step-anchor-test",
+      action: "click",
+      target: "Review Order",
+      originalType: "click",
+      source: "js",
       semanticMarkerCandidate: {
-        stepId: 'js-step-anchor-test',
-        status: 'qualified',
-        originalGesture: 'click',
-        proofSubject: 'heading',
-        target: 'Review Order',
-        proofText: 'Review Order',
-        sourceContext: { line: 1, originalType: 'click' },
+        stepId: "js-step-anchor-test",
+        status: "qualified",
+        originalGesture: "click",
+        proofSubject: "heading",
+        target: "Review Order",
+        proofText: "Review Order",
+        sourceContext: { line: 1, originalType: "click" },
         query: {
-          stepId: 'js-step-anchor-test',
-          method: 'getByText',
-          queryRoot: 'screen',
-          target: 'Review Order',
+          stepId: "js-step-anchor-test",
+          method: "getByText",
+          queryRoot: "screen",
+          target: "Review Order",
           raw: "screen.getByText('Review Order')",
         },
         anchor: undefined,
       },
-    }
-    const result = resolveSemanticMarkerAssertion(step)
+    };
+    const result = resolveSemanticMarkerAssertion(step);
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'missing-anchor',
+        status: "unresolved",
+        reason: "missing-anchor",
       })
-    )
-  })
+    );
+  });
 
-  it('returns unsupported-proof-subject when candidate proofSubject is unknown', () => {
+  it("returns unsupported-proof-subject when candidate proofSubject is unknown", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-unknown',
-        target: 'Something',
-        proofSubject: 'unknown',
+        id: "js-step-unknown",
+        target: "Something",
+        proofSubject: "unknown",
       })
-    )
+    );
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'unsupported-proof-subject',
+        status: "unresolved",
+        reason: "unsupported-proof-subject",
       })
-    )
-  })
+    );
+  });
 
-  it('returns missing-query when candidate has no query', () => {
+  it("returns missing-query when candidate has no query", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-noquery',
-        target: 'Review Order',
-        proofSubject: 'heading',
-        method: 'none',
+        id: "js-step-noquery",
+        target: "Review Order",
+        proofSubject: "heading",
+        method: "none",
       })
-    )
+    );
     expect(result).toEqual(
-      expect.objectContaining({
-        status: 'unresolved',
-        reason: 'missing-query',
-      })
-    )
-  })
+      expect.objectContaining({ status: "unresolved", reason: "missing-query" })
+    );
+  });
 
-  it('returns hidden-evidence when query uses document root', () => {
+  it("returns hidden-evidence when query uses document root", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-docroot',
-        target: 'Order #123',
-        proofSubject: 'heading',
-        method: 'getByText',
-        queryRoot: 'document',
+        id: "js-step-docroot",
+        target: "Order #123",
+        proofSubject: "heading",
+        method: "getByText",
+        queryRoot: "document",
         raw: "document.getByText('Order #123')",
       })
-    )
+    );
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'hidden-evidence',
+        status: "unresolved",
+        reason: "hidden-evidence",
       })
-    )
-  })
+    );
+  });
 
-  it('returns hidden-evidence when raw query contains querySelector', () => {
+  it("returns hidden-evidence when raw query contains querySelector", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-queryselector',
-        target: 'Order Summary',
-        proofSubject: 'heading',
-        method: 'getByText',
+        id: "js-step-queryselector",
+        target: "Order Summary",
+        proofSubject: "heading",
+        method: "getByText",
         raw: "document.querySelector('.heading')",
       })
-    )
+    );
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'hidden-evidence',
+        status: "unresolved",
+        reason: "hidden-evidence",
       })
-    )
-  })
+    );
+  });
 
-  it('resolves concrete-value via findByDisplayValue when method is getByDisplayValue', () => {
+  it("resolves concrete-value via findByDisplayValue when method is getByDisplayValue", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-displayval',
-        target: 'KES 4,800.00',
-        proofSubject: 'concrete-value',
-        method: 'getByDisplayValue',
+        id: "js-step-displayval",
+        target: "KES 4,800.00",
+        proofSubject: "concrete-value",
+        method: "getByDisplayValue",
         raw: "screen.getByDisplayValue('KES 4,800.00')",
       })
-    )
+    );
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'resolved',
+        status: "resolved",
         assertion: expect.objectContaining({
-          proofKind: 'visible-value',
-          query: expect.objectContaining({
-            method: 'findByDisplayValue',
-          }),
+          proofKind: "visible-value",
+          query: expect.objectContaining({ method: "findByDisplayValue" }),
         }),
       })
-    )
-  })
+    );
+  });
 
-  it('returns unsupported-proof-subject for unknown proof subject with async query method', () => {
+  it("returns unsupported-proof-subject for unknown proof subject with async query method", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-unsupported',
-        target: 'Some Label',
+        id: "js-step-unsupported",
+        target: "Some Label",
         // 'field-label' with isTextQueryMethod and label hint ends up resolved, so use a step
         // that has a query but falls through all known proofSubjects
-        proofSubject: 'unknown',
-        method: 'getByText',
+        proofSubject: "unknown",
+        method: "getByText",
       })
-    )
-    expect(result.status).toBe('unresolved')
-  })
+    );
+    expect(result.status).toBe("unresolved");
+  });
 
-  it('returns unresolved for field-label with generic container text', () => {
+  it("returns unresolved for field-label with generic container text", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-generic',
-        target: 'Details Section',
-        proofSubject: 'field-label',
+        id: "js-step-generic",
+        target: "Details Section",
+        proofSubject: "field-label",
       })
-    )
+    );
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'generic-container',
+        status: "unresolved",
+        reason: "generic-container",
       })
-    )
-  })
+    );
+  });
 
-  it('returns unresolved for field-label with icon-only text', () => {
+  it("returns unresolved for field-label with icon-only text", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-icon-field',
-        target: '★',
-        proofSubject: 'field-label',
+        id: "js-step-icon-field",
+        target: "★",
+        proofSubject: "field-label",
       })
-    )
+    );
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'icon-only-target',
+        status: "unresolved",
+        reason: "icon-only-target",
       })
-    )
-  })
+    );
+  });
 
-  it('returns unresolved for field-label with ambiguous slash-separated text', () => {
+  it("returns unresolved for field-label with ambiguous slash-separated text", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-slash',
-        target: 'Name/Address',
-        proofSubject: 'field-label',
+        id: "js-step-slash",
+        target: "Name/Address",
+        proofSubject: "field-label",
       })
-    )
+    );
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'ambiguous-field-context',
+        status: "unresolved",
+        reason: "ambiguous-field-context",
       })
-    )
-  })
+    );
+  });
 
-  it('resolves field-label with label-text when method matches label hint', () => {
+  it("resolves field-label with label-text when method matches label hint", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-label-hint',
-        target: 'Search Query',
-        proofSubject: 'field-label',
-        method: 'getByText',
+        id: "js-step-label-hint",
+        target: "Search Query",
+        proofSubject: "field-label",
+        method: "getByText",
         raw: "screen.getByText('Search Query')",
       })
-    )
+    );
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'resolved',
+        status: "resolved",
         assertion: expect.objectContaining({
-          proofKind: 'label-text',
-          query: expect.objectContaining({
-            method: 'findByLabelText',
-          }),
+          proofKind: "label-text",
+          query: expect.objectContaining({ method: "findByLabelText" }),
         }),
       })
-    )
-  })
+    );
+  });
 
-  it('resolves field-label via isLabelTextQueryMethod branch when method is getByLabelText', () => {
+  it("resolves field-label via isLabelTextQueryMethod branch when method is getByLabelText", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-label-method',
-        target: 'Email Address',
-        proofSubject: 'field-label',
-        method: 'getByLabelText',
+        id: "js-step-label-method",
+        target: "Email Address",
+        proofSubject: "field-label",
+        method: "getByLabelText",
         raw: "screen.getByLabelText('Email Address')",
       })
-    )
+    );
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'resolved',
+        status: "resolved",
         assertion: expect.objectContaining({
-          proofKind: 'label-text',
+          proofKind: "label-text",
           query: expect.objectContaining({
-            method: 'findByLabelText',
-            target: 'Email Address',
+            method: "findByLabelText",
+            target: "Email Address",
           }),
         }),
       })
-    )
-  })
+    );
+  });
 
-  it('returns ambiguous-field-context for text query on non-label-hint text', () => {
+  it("returns ambiguous-field-context for text query on non-label-hint text", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-ambiguous-text',
-        target: 'Miscellaneous',
-        proofSubject: 'field-label',
-        method: 'getByText',
+        id: "js-step-ambiguous-text",
+        target: "Miscellaneous",
+        proofSubject: "field-label",
+        method: "getByText",
         raw: "screen.getByText('Miscellaneous')",
       })
-    )
+    );
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'ambiguous-field-context',
+        status: "unresolved",
+        reason: "ambiguous-field-context",
       })
-    )
-  })
+    );
+  });
 
-  it('returns unsupported-field-context for non-text non-label non-placeholder method', () => {
+  it("returns unsupported-field-context for non-text non-label non-placeholder method", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-title-field',
-        target: 'Item Name',
-        proofSubject: 'field-label',
-        method: 'getByTitle',
+        id: "js-step-title-field",
+        target: "Item Name",
+        proofSubject: "field-label",
+        method: "getByTitle",
         raw: "screen.getByTitle('Item Name')",
       })
-    )
+    );
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'unsupported-field-context',
+        status: "unresolved",
+        reason: "unsupported-field-context",
       })
-    )
-  })
+    );
+  });
 
-  it('returns missing-query when visible-message has no proof text', () => {
+  it("returns missing-query when visible-message has no proof text", () => {
     const step: NormalizedStep = {
-      id: 'js-step-no-proof',
-      action: 'click',
+      id: "js-step-no-proof",
+      action: "click",
       target: undefined,
-      originalType: 'click',
-      source: 'js',
+      originalType: "click",
+      source: "js",
       semanticMarkerLink: {
-        markerStepId: 'js-step-no-proof',
-        anchorStepId: 'js-step-1',
-        relation: 'follows',
-        proofSubject: 'visible-message',
+        markerStepId: "js-step-no-proof",
+        anchorStepId: "js-step-1",
+        relation: "follows",
+        proofSubject: "visible-message",
         target: undefined,
         proofText: undefined,
-        sourceContext: { line: 1, originalType: 'click' },
+        sourceContext: { line: 1, originalType: "click" },
         query: {
-          stepId: 'js-step-no-proof',
-          method: 'getByText',
-          queryRoot: 'screen',
+          stepId: "js-step-no-proof",
+          method: "getByText",
+          queryRoot: "screen",
           target: undefined,
           raw: "screen.getByText('')",
         },
       },
       semanticMarkerCandidate: {
-        stepId: 'js-step-no-proof',
-        status: 'qualified',
-        originalGesture: 'click',
-        proofSubject: 'visible-message',
+        stepId: "js-step-no-proof",
+        status: "qualified",
+        originalGesture: "click",
+        proofSubject: "visible-message",
         target: undefined,
         proofText: undefined,
-        sourceContext: { line: 1, originalType: 'click' },
-        anchor: { anchorStepId: 'js-step-1', relation: 'follows' },
+        sourceContext: { line: 1, originalType: "click" },
+        anchor: { anchorStepId: "js-step-1", relation: "follows" },
         query: {
-          stepId: 'js-step-no-proof',
-          method: 'getByText',
-          queryRoot: 'screen',
+          stepId: "js-step-no-proof",
+          method: "getByText",
+          queryRoot: "screen",
           target: undefined,
           raw: "screen.getByText('')",
         },
       },
-    }
-    const result = resolveSemanticMarkerAssertion(step)
+    };
+    const result = resolveSemanticMarkerAssertion(step);
     expect(result).toEqual(
-      expect.objectContaining({
-        status: 'unresolved',
-        reason: 'missing-query',
-      })
-    )
-  })
-})
+      expect.objectContaining({ status: "unresolved", reason: "missing-query" })
+    );
+  });
+});
 
-describe('openCapturePage', () => {
-  it('opens a browser context with storageState auth', async () => {
+describe("openCapturePage", () => {
+  it("opens a browser context with storageState auth", async () => {
     const session = createPlaywrightSession([
       {
         dialog: null,
         elements: {},
-        title: 'Dashboard',
-        url: 'http://localhost:3000/dashboard',
+        title: "Dashboard",
+        url: "http://localhost:3000/dashboard",
       },
-    ])
+    ]);
 
     const result = await openCapturePage({
-      auth: { path: '/tmp/auth.json', strategy: 'storageState' },
+      auth: { path: "/tmp/auth.json", strategy: "storageState" },
       headless: true,
       timeoutMs: 5000,
-      url: 'http://localhost:3000/dashboard',
-    })
+      url: "http://localhost:3000/dashboard",
+    });
 
-    expect(result.browser).toBeDefined()
-    expect(result.context).toBeDefined()
-    expect(result.page).toBeDefined()
+    expect(result.browser).toBeDefined();
+    expect(result.context).toBeDefined();
+    expect(result.page).toBeDefined();
     expect(session.browser.newContext).toHaveBeenCalledWith({
-      storageState: '/tmp/auth.json',
-    })
-    await result.browser.close()
-  })
+      storageState: "/tmp/auth.json",
+    });
+    await result.browser.close();
+  });
 
-  it('opens a browser context without auth when auth is null', async () => {
+  it("opens a browser context without auth when auth is null", async () => {
     const session = createPlaywrightSession([
       {
         dialog: null,
         elements: {},
-        title: 'Home',
-        url: 'http://localhost:3000/',
+        title: "Home",
+        url: "http://localhost:3000/",
       },
-    ])
+    ]);
 
     const result = await openCapturePage({
       auth: null,
       headless: true,
       timeoutMs: 5000,
-      url: 'http://localhost:3000/',
-    })
+      url: "http://localhost:3000/",
+    });
 
-    expect(result.browser).toBeDefined()
-    expect(session.browser.newContext).toHaveBeenCalledWith()
-    await result.browser.close()
-  })
+    expect(result.browser).toBeDefined();
+    expect(session.browser.newContext).toHaveBeenCalledWith();
+    await result.browser.close();
+  });
 
-  it('retries on retryable errors and succeeds on second attempt', async () => {
+  it("retries on retryable errors and succeeds on second attempt", async () => {
     const session = createPlaywrightSession([
       {
         dialog: null,
         elements: {},
-        title: 'App',
-        url: 'http://localhost:3000/',
+        title: "App",
+        url: "http://localhost:3000/",
       },
-    ])
+    ]);
 
     // First attempt goto throws a retryable error
     session.page.goto
-      .mockRejectedValueOnce(new Error('Timeout 5000ms exceeded'))
-      .mockResolvedValue(undefined)
+      .mockRejectedValueOnce(new Error("Timeout 5000ms exceeded"))
+      .mockResolvedValue(undefined);
 
     const result = await openCapturePage({
       headless: true,
       timeoutMs: 5000,
-      url: 'http://localhost:3000/',
-    })
+      url: "http://localhost:3000/",
+    });
 
-    expect(result.page).toBeDefined()
+    expect(result.page).toBeDefined();
     // browser.close called once for the failed attempt, then succeeds on second
-    expect(session.browser.close).toHaveBeenCalled()
-    await result.browser.close()
-  }, 10000)
+    expect(session.browser.close).toHaveBeenCalled();
+    await result.browser.close();
+  }, 10000);
 
-  it('throws immediately on non-retryable errors', async () => {
+  it("throws immediately on non-retryable errors", async () => {
     const session = createPlaywrightSession([
       {
         dialog: null,
         elements: {},
-        title: 'App',
-        url: 'http://localhost:3000/',
+        title: "App",
+        url: "http://localhost:3000/",
       },
-    ])
+    ]);
 
-    session.page.goto.mockRejectedValue(new Error('net::ERR_DNS_FAIL'))
+    session.page.goto.mockRejectedValue(new Error("net::ERR_DNS_FAIL"));
 
     await expect(
       openCapturePage({
         headless: true,
         timeoutMs: 5000,
-        url: 'http://localhost:3000/bad',
+        url: "http://localhost:3000/bad",
       })
-    ).rejects.toThrow('net::ERR_DNS_FAIL')
-  })
-})
+    ).rejects.toThrow("net::ERR_DNS_FAIL");
+  });
+});
 
-describe('captureVisualState - additional branches', () => {
-  it('returns capture-failed status when browser launch throws', async () => {
-    chromiumLaunchMock.mockRejectedValueOnce(new Error('Browser binary not found'))
+describe("captureVisualState - additional branches", () => {
+  it("returns capture-failed status when browser launch throws", async () => {
+    chromiumLaunchMock.mockRejectedValueOnce(
+      new Error("Browser binary not found")
+    );
 
-    const result = await captureVisualState('http://localhost:3000', {
-      reason: 'test',
-    })
+    const result = await captureVisualState("http://localhost:3000", {
+      reason: "test",
+    });
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'capture-failed',
-        url: 'http://localhost:3000',
-        reason: 'test',
+        status: "capture-failed",
+        url: "http://localhost:3000",
+        reason: "test",
       })
-    )
-    expect(result?.warnings[0]).toContain('Playwright visual capture failed.')
-    expect(result?.warnings[0]).toContain('Browser binary not found')
-  })
+    );
+    expect(result?.warnings[0]).toContain("Playwright visual capture failed.");
+    expect(result?.warnings[0]).toContain("Browser binary not found");
+  });
 
-  it('emits auth-interrupted state when no auth recovery is enabled', async () => {
+  it("emits auth-interrupted state when no auth recovery is enabled", async () => {
     createPlaywrightSession([
       {
-        authSignals: ['auth-copy'],
+        authSignals: ["auth-copy"],
         dialog: null,
-        elements: { '#save': null },
+        elements: { "#save": null },
         matchedLandmarks: [],
-        title: 'Sign In',
-        url: 'http://localhost:3000/login',
+        title: "Sign In",
+        url: "http://localhost:3000/login",
       },
-    ])
+    ]);
 
-    const result = await captureVisualState('http://localhost:3000/dashboard', {
-      expected: {
-        url: 'http://localhost:3000/dashboard',
-        title: 'Dashboard',
-      },
-      reason: 'test',
-      selector: '#save',
-    })
+    const result = await captureVisualState("http://localhost:3000/dashboard", {
+      expected: { url: "http://localhost:3000/dashboard", title: "Dashboard" },
+      reason: "test",
+      selector: "#save",
+    });
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'auth-interrupted',
+        status: "auth-interrupted",
         startingPointConfirmed: false,
       })
-    )
-    expect(result?.interrupt?.kind).toBe('auth-required')
-    expect(result?.interrupt?.signals).toContain('route-mismatch')
-  })
+    );
+    expect(result?.interrupt?.kind).toBe("auth-required");
+    expect(result?.interrupt?.signals).toContain("route-mismatch");
+  });
 
-  it('emits captured status with warnings when starting point not confirmed', async () => {
+  it("emits captured status with warnings when starting point not confirmed", async () => {
     createPlaywrightSession([
       {
         dialog: null,
-        elements: { '#missing': null },
+        elements: { "#missing": null },
         matchedLandmarks: [],
-        title: 'App',
-        url: 'http://localhost:3000/wrong-page',
+        title: "App",
+        url: "http://localhost:3000/wrong-page",
       },
-    ])
+    ]);
 
-    const result = await captureVisualState('http://localhost:3000/target', {
-      expected: {
-        url: 'http://localhost:3000/target',
-        title: 'Target Page',
-      },
-      reason: 'test',
-      selector: '#missing',
+    const result = await captureVisualState("http://localhost:3000/target", {
+      expected: { url: "http://localhost:3000/target", title: "Target Page" },
+      reason: "test",
+      selector: "#missing",
       timeoutMs: 100,
-    })
+    });
 
-    expect(result?.status).toBe('captured')
-    expect(result?.startingPointConfirmed).toBe(false)
-    expect(result?.warnings.length).toBeGreaterThan(0)
-  })
+    expect(result?.status).toBe("captured");
+    expect(result?.startingPointConfirmed).toBe(false);
+    expect(result?.warnings.length).toBeGreaterThan(0);
+  });
 
-  it('uses auth-checkpoint screenshot name when auth interrupt occurs', async () => {
+  it("uses auth-checkpoint screenshot name when auth interrupt occurs", async () => {
     createPlaywrightSession([
       {
-        authSignals: ['auth-copy'],
+        authSignals: ["auth-copy"],
         dialog: null,
         elements: {},
         matchedLandmarks: [],
-        title: 'Sign In',
-        url: 'http://localhost:3000/login',
+        title: "Sign In",
+        url: "http://localhost:3000/login",
       },
-    ])
+    ]);
 
-    const result = await captureVisualState('http://localhost:3000/app', {
-      expected: {
-        url: 'http://localhost:3000/app',
-      },
-      reason: 'test',
-      screenshotDir: '/tmp/taro-visual',
-    })
+    const result = await captureVisualState("http://localhost:3000/app", {
+      expected: { url: "http://localhost:3000/app" },
+      reason: "test",
+      screenshotDir: "/tmp/taro-visual",
+    });
 
-    expect(result?.status).toBe('auth-interrupted')
-    expect(result?.screenshotPath).toBe('/tmp/taro-visual/auth-checkpoint.png')
-  })
-})
+    expect(result?.status).toBe("auth-interrupted");
+    expect(result?.screenshotPath).toBe("/tmp/taro-visual/auth-checkpoint.png");
+  });
+});
 
-describe('inspectElements - error handling', () => {
-  it('sets all selectors to null when browser launch fails', async () => {
-    chromiumLaunchMock.mockRejectedValueOnce(new Error('browser crashed'))
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+describe("inspectElements - error handling", () => {
+  it("sets all selectors to null when browser launch fails", async () => {
+    chromiumLaunchMock.mockRejectedValueOnce(new Error("browser crashed"));
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
 
-    const result = await inspectElements('http://localhost:3000', ['#a', '#b', '#c'])
+    const result = await inspectElements("http://localhost:3000", [
+      "#a",
+      "#b",
+      "#c",
+    ]);
 
-    expect(result.get('#a')).toBeNull()
-    expect(result.get('#b')).toBeNull()
-    expect(result.get('#c')).toBeNull()
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('QRY-02:'))
-    warnSpy.mockRestore()
-  })
-})
+    expect(result.get("#a")).toBeNull();
+    expect(result.get("#b")).toBeNull();
+    expect(result.get("#c")).toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("QRY-02:"));
+    warnSpy.mockRestore();
+  });
+});
 
-describe('replayStep - additional branches', () => {
-  it('skips noop actions (assert, unknown, waitForSelector, scroll, doubleClick)', async () => {
+describe("replayStep - additional branches", () => {
+  it("skips noop actions (assert, unknown, waitForSelector, scroll, doubleClick)", async () => {
     const page = {
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
 
-    for (const action of ['assert', 'unknown', 'waitForSelector', 'scroll'] as const) {
+    for (const action of [
+      "assert",
+      "unknown",
+      "waitForSelector",
+      "scroll",
+    ] as const) {
       const result = await replayStep(
         page as unknown as Page,
         { action, id: `step-${action}`, originalType: action },
         { collectDebug: true }
-      )
-      expect(result.replayed).toBe(true)
+      );
+      expect(result.replayed).toBe(true);
     }
-  })
+  });
 
-  it('replays click action using metadata.selector when available', async () => {
-    const clickMock = vi.fn().mockResolvedValue(undefined)
+  it("replays click action using metadata.selector when available", async () => {
+    const clickMock = vi.fn().mockResolvedValue(undefined);
     const page = {
       locator: vi.fn(() => ({
-        first: () => ({ click: clickMock, waitFor: vi.fn().mockResolvedValue(undefined) }),
+        first: () => ({
+          click: clickMock,
+          waitFor: vi.fn().mockResolvedValue(undefined),
+        }),
       })),
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'click',
-        id: 'step-meta-selector',
-        originalType: 'click',
-        target: '#fallback',
-        metadata: { selector: { selector: '#specific-btn' } },
+        action: "click",
+        id: "step-meta-selector",
+        originalType: "click",
+        target: "#fallback",
+        metadata: { selector: { selector: "#specific-btn" } },
       },
       { collectDebug: true }
-    )
+    );
 
-    expect(result.replayed).toBe(true)
-    expect(result.debug?.locatorSource).toBe('metadata.selector')
-    expect(result.debug?.locatorValue).toBe('#specific-btn')
-    expect(result.debug?.playwrightAction).toBe('locator.click()')
-    expect(page.locator).toHaveBeenCalledWith('#specific-btn')
-    expect(clickMock).toHaveBeenCalled()
-  })
+    expect(result.replayed).toBe(true);
+    expect(result.debug?.locatorSource).toBe("metadata.selector");
+    expect(result.debug?.locatorValue).toBe("#specific-btn");
+    expect(result.debug?.playwrightAction).toBe("locator.click()");
+    expect(page.locator).toHaveBeenCalledWith("#specific-btn");
+    expect(clickMock).toHaveBeenCalled();
+  });
 
-  it('replays click using metadata.query when selector metadata is absent', async () => {
-    const clickMock = vi.fn().mockResolvedValue(undefined)
-    const getByRoleMock = vi.fn(() => ({ click: clickMock, waitFor: vi.fn().mockResolvedValue(undefined) }))
+  it("replays click using metadata.query when selector metadata is absent", async () => {
+    const clickMock = vi.fn().mockResolvedValue(undefined);
+    const getByRoleMock = vi.fn(() => ({
+      click: clickMock,
+      waitFor: vi.fn().mockResolvedValue(undefined),
+    }));
     const page = {
       getByRole: getByRoleMock,
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'click',
-        id: 'step-meta-query',
-        originalType: 'click',
+        action: "click",
+        id: "step-meta-query",
+        originalType: "click",
         metadata: {
-          query: { method: 'getByRole', role: 'button', name: 'Save', target: 'Save' },
+          query: {
+            method: "getByRole",
+            role: "button",
+            name: "Save",
+            target: "Save",
+          },
         },
       },
       { collectDebug: true }
-    )
+    );
 
-    expect(result.replayed).toBe(true)
-    expect(result.debug?.locatorSource).toBe('metadata.query')
-    expect(result.debug?.locatorValue).toContain('getByRole')
-    expect(getByRoleMock).toHaveBeenCalledWith('button', { name: 'Save' })
-    expect(clickMock).toHaveBeenCalled()
-  })
+    expect(result.replayed).toBe(true);
+    expect(result.debug?.locatorSource).toBe("metadata.query");
+    expect(result.debug?.locatorValue).toContain("getByRole");
+    expect(getByRoleMock).toHaveBeenCalledWith("button", { name: "Save" });
+    expect(clickMock).toHaveBeenCalled();
+  });
 
-  it('returns replayed:true for doubleClick action (noop early return)', async () => {
+  it("returns replayed:true for doubleClick action (noop early return)", async () => {
     const page = {
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
 
     // doubleClick is in the noopActions list so it returns early with replayed:true
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'doubleClick',
-        id: 'step-dblclick',
-        originalType: 'dblClick',
-        target: '#item',
+        action: "doubleClick",
+        id: "step-dblclick",
+        originalType: "dblClick",
+        target: "#item",
       },
       { collectDebug: true }
-    )
+    );
 
-    expect(result.replayed).toBe(true)
+    expect(result.replayed).toBe(true);
     // noop early return sets playwrightAction to 'noop'
-    expect(result.debug?.playwrightAction).toBe('noop')
-    expect(result.debug?.result).toBe('skipped')
-  })
+    expect(result.debug?.playwrightAction).toBe("noop");
+    expect(result.debug?.result).toBe("skipped");
+  });
 
-  it('returns failure when locator.click() throws for click action', async () => {
-    const clickMock = vi.fn().mockRejectedValue(new Error('element not attached'))
+  it("returns failure when locator.click() throws for click action", async () => {
+    const clickMock = vi
+      .fn()
+      .mockRejectedValue(new Error("element not attached"));
     const page = {
       locator: vi.fn(() => ({
         first: () => ({
@@ -2873,271 +2826,274 @@ describe('replayStep - additional branches', () => {
           evaluateAll: vi.fn().mockResolvedValue(null),
         }),
       })),
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'click',
-        id: 'step-click-fail',
-        originalType: 'click',
-        target: '#btn',
+        action: "click",
+        id: "step-click-fail",
+        originalType: "click",
+        target: "#btn",
       },
       { collectDebug: true }
-    )
+    );
 
-    expect(result.replayed).toBe(false)
-    expect(result.warning).toContain('element not attached')
-    expect(result.debug?.result).toBe('failed')
-    expect(result.debug?.playwrightAction).toBe('locator.click()')
-  })
+    expect(result.replayed).toBe(false);
+    expect(result.warning).toContain("element not attached");
+    expect(result.debug?.result).toBe("failed");
+    expect(result.debug?.playwrightAction).toBe("locator.click()");
+  });
 
-  it('returns failure when navigate throws and collectDebug is true', async () => {
+  it("returns failure when navigate throws and collectDebug is true", async () => {
     const page = {
-      goto: vi.fn().mockRejectedValue(new Error('net::ERR_CONNECTION_REFUSED')),
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
+      goto: vi.fn().mockRejectedValue(new Error("net::ERR_CONNECTION_REFUSED")),
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'navigate',
-        id: 'step-nav-fail',
-        originalType: 'navigate',
-        target: 'http://localhost:9999/broken',
+        action: "navigate",
+        id: "step-nav-fail",
+        originalType: "navigate",
+        target: "http://localhost:9999/broken",
       },
       { collectDebug: true }
-    )
+    );
 
-    expect(result.replayed).toBe(false)
-    expect(result.debug?.result).toBe('failed')
-    expect(result.debug?.locatorSource).toBe('step.target')
-    expect(result.debug?.playwrightAction).toContain('page.goto')
-    expect(result.warning).toContain('net::ERR_CONNECTION_REFUSED')
-  })
+    expect(result.replayed).toBe(false);
+    expect(result.debug?.result).toBe("failed");
+    expect(result.debug?.locatorSource).toBe("step.target");
+    expect(result.debug?.playwrightAction).toContain("page.goto");
+    expect(result.warning).toContain("net::ERR_CONNECTION_REFUSED");
+  });
 
-  it('returns failure when keyDown throws and collectDebug is true', async () => {
+  it("returns failure when keyDown throws and collectDebug is true", async () => {
     const page = {
-      keyboard: { press: vi.fn().mockRejectedValue(new Error('keyboard error')) },
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
+      keyboard: {
+        press: vi.fn().mockRejectedValue(new Error("keyboard error")),
+      },
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'keyDown',
-        id: 'step-key-fail',
-        originalType: 'keyDown',
-        key: 'Tab',
+        action: "keyDown",
+        id: "step-key-fail",
+        originalType: "keyDown",
+        key: "Tab",
       },
       { collectDebug: true }
-    )
+    );
 
-    expect(result.replayed).toBe(false)
-    expect(result.debug?.result).toBe('failed')
-    expect(result.debug?.playwrightAction).toContain("page.keyboard.press('Tab')")
-    expect(result.debug?.locatorSource).toBe('none')
-  })
+    expect(result.replayed).toBe(false);
+    expect(result.debug?.result).toBe("failed");
+    expect(result.debug?.playwrightAction).toContain(
+      "page.keyboard.press('Tab')"
+    );
+    expect(result.debug?.locatorSource).toBe("none");
+  });
 
-  it('replays fill action with fallback locator when no placeholder match', async () => {
-    const clickMock = vi.fn().mockResolvedValue(undefined)
-    const fillMock = vi.fn().mockResolvedValue(undefined)
+  it("replays fill action with fallback locator when no placeholder match", async () => {
+    const clickMock = vi.fn().mockResolvedValue(undefined);
+    const fillMock = vi.fn().mockResolvedValue(undefined);
     const page = {
-      getByPlaceholder: vi.fn(() => ({
-        count: vi.fn().mockResolvedValue(0),
-      })),
+      getByPlaceholder: vi.fn(() => ({ count: vi.fn().mockResolvedValue(0) })),
       locator: vi.fn(() => ({
-        first: () => ({ click: clickMock, fill: fillMock, waitFor: vi.fn().mockResolvedValue(undefined) }),
+        first: () => ({
+          click: clickMock,
+          fill: fillMock,
+          waitFor: vi.fn().mockResolvedValue(undefined),
+        }),
       })),
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'fill',
-        id: 'step-fill-fallback',
-        originalType: 'change',
-        target: '#email-input',
-        value: 'user@example.com',
+        action: "fill",
+        id: "step-fill-fallback",
+        originalType: "change",
+        target: "#email-input",
+        value: "user@example.com",
       },
       { collectDebug: true }
-    )
+    );
 
-    expect(result.replayed).toBe(true)
-    expect(result.debug?.playwrightAction).toBe("locator.fill('user@example.com')")
-    expect(result.debug?.locatorSource).toBe('step.target')
-    expect(clickMock).toHaveBeenCalled()
-    expect(fillMock).toHaveBeenCalledWith('user@example.com', { timeout: 5000 })
-  })
+    expect(result.replayed).toBe(true);
+    expect(result.debug?.playwrightAction).toBe(
+      "locator.fill('user@example.com')"
+    );
+    expect(result.debug?.locatorSource).toBe("step.target");
+    expect(clickMock).toHaveBeenCalled();
+    expect(fillMock).toHaveBeenCalledWith("user@example.com", {
+      timeout: 5000,
+    });
+  });
 
-  it('handles fill action when step.value is undefined', async () => {
+  it("handles fill action when step.value is undefined", async () => {
     const page = {
-      getByPlaceholder: vi.fn(() => ({
-        count: vi.fn().mockResolvedValue(0),
-      })),
-      locator: vi.fn(() => ({
-        first: () => ({}),
-      })),
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
+      getByPlaceholder: vi.fn(() => ({ count: vi.fn().mockResolvedValue(0) })),
+      locator: vi.fn(() => ({ first: () => ({}) })),
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'fill',
-        id: 'step-fill-no-value',
-        originalType: 'change',
-        target: '#input',
+        action: "fill",
+        id: "step-fill-no-value",
+        originalType: "change",
+        target: "#input",
       },
       { collectDebug: true }
-    )
+    );
 
     // No value means no fill performed but action executes default path
-    expect(result.replayed).toBe(true)
-  })
+    expect(result.replayed).toBe(true);
+  });
 
-  it('replays select action using step.target locator', async () => {
-    const clickMock = vi.fn().mockResolvedValue(undefined)
-    const page = {
-      locator: vi.fn(() => ({
-        first: () => ({ click: clickMock, waitFor: vi.fn().mockResolvedValue(undefined) }),
-      })),
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
-
-    const result = await replayStep(
-      page as unknown as Page,
-      {
-        action: 'select',
-        id: 'step-select',
-        originalType: 'click',
-        target: '#status-dropdown',
-      },
-      { collectDebug: true }
-    )
-
-    expect(result.replayed).toBe(true)
-    expect(result.debug?.playwrightAction).toBe('locator.click()')
-    expect(clickMock).toHaveBeenCalled()
-  })
-
-  it('handles step.target that throws during locator creation gracefully', async () => {
-    const page = {
-      locator: vi.fn(() => {
-        throw new Error('invalid selector syntax')
-      }),
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
-
-    const result = await replayStep(
-      page as unknown as Page,
-      {
-        action: 'click',
-        id: 'step-bad-sel',
-        originalType: 'click',
-        target: ':::invalid:::',
-      },
-      { collectDebug: true }
-    )
-
-    // When locator creation itself throws, resolveStepLocator returns null
-    expect(result.replayed).toBe(false)
-    expect(result.warning).toContain('No locator for click')
-  })
-
-  it('returns replayed:true for default case action without debug', async () => {
-    const page = {
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
-
-    // 'scroll' is in noopActions, so returns early - test unknown noop
-    const result = await replayStep(
-      page as unknown as Page,
-      {
-        action: 'waitForSelector',
-        id: 'step-wait',
-        originalType: 'waitForSelector',
-        target: '#app',
-      }
-    )
-
-    expect(result.replayed).toBe(true)
-    expect(result.debug).toBeUndefined()
-  })
-})
-
-describe('createPageInspector - inspection-failed handling', () => {
-  it('returns selector-not-found when readOptionalElementInfo catches an error', async () => {
+  it("replays select action using step.target locator", async () => {
+    const clickMock = vi.fn().mockResolvedValue(undefined);
     const page = {
       locator: vi.fn(() => ({
         first: () => ({
-          evaluate: vi.fn().mockRejectedValue(new Error('page detached')),
+          click: clickMock,
+          waitFor: vi.fn().mockResolvedValue(undefined),
         }),
       })),
-    }
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
 
-    const inspector = createPageInspector(page as unknown as Page)
+    const result = await replayStep(
+      page as unknown as Page,
+      {
+        action: "select",
+        id: "step-select",
+        originalType: "click",
+        target: "#status-dropdown",
+      },
+      { collectDebug: true }
+    );
+
+    expect(result.replayed).toBe(true);
+    expect(result.debug?.playwrightAction).toBe("locator.click()");
+    expect(clickMock).toHaveBeenCalled();
+  });
+
+  it("handles step.target that throws during locator creation gracefully", async () => {
+    const page = {
+      locator: vi.fn(() => {
+        throw new Error("invalid selector syntax");
+      }),
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
+
+    const result = await replayStep(
+      page as unknown as Page,
+      {
+        action: "click",
+        id: "step-bad-sel",
+        originalType: "click",
+        target: ":::invalid:::",
+      },
+      { collectDebug: true }
+    );
+
+    // When locator creation itself throws, resolveStepLocator returns null
+    expect(result.replayed).toBe(false);
+    expect(result.warning).toContain("No locator for click");
+  });
+
+  it("returns replayed:true for default case action without debug", async () => {
+    const page = {
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
+
+    // 'scroll' is in noopActions, so returns early - test unknown noop
+    const result = await replayStep(page as unknown as Page, {
+      action: "waitForSelector",
+      id: "step-wait",
+      originalType: "waitForSelector",
+      target: "#app",
+    });
+
+    expect(result.replayed).toBe(true);
+    expect(result.debug).toBeUndefined();
+  });
+});
+
+describe("createPageInspector - inspection-failed handling", () => {
+  it("returns selector-not-found when readOptionalElementInfo catches an error", async () => {
+    const page = {
+      locator: vi.fn(() => ({
+        first: () => ({
+          evaluate: vi.fn().mockRejectedValue(new Error("page detached")),
+        }),
+      })),
+    };
+
+    const inspector = createPageInspector(page as unknown as Page);
     // readOptionalElementInfo wraps errors and returns null,
     // so the inspector returns selector-not-found
-    const result = await inspector('http://localhost:3000', '#broken')
-    expect(result.status).toBe('selector-not-found')
-  })
+    const result = await inspector("http://localhost:3000", "#broken");
+    expect(result.status).toBe("selector-not-found");
+  });
 
-  it('returns found when element is found on the page', async () => {
+  it("returns found when element is found on the page", async () => {
     const page = {
       locator: vi.fn(() => ({
         first: () => ({
           evaluate: vi.fn().mockResolvedValue(accessibleButton),
         }),
       })),
-    }
+    };
 
-    const inspector = createPageInspector(page as unknown as Page)
-    const result = await inspector('http://localhost:3000', '#save')
-    expect(result).toEqual({ status: 'found', element: accessibleButton })
-  })
-})
+    const inspector = createPageInspector(page as unknown as Page);
+    const result = await inspector("http://localhost:3000", "#save");
+    expect(result).toEqual({ status: "found", element: accessibleButton });
+  });
+});
 
-describe('replayStep - error path playwrightAction for various actions', () => {
-  it('records locator.click() for error path of click action without debug', async () => {
+describe("replayStep - error path playwrightAction for various actions", () => {
+  it("records locator.click() for error path of click action without debug", async () => {
     const page = {
       locator: vi.fn(() => ({
         first: () => ({
-          click: vi.fn().mockRejectedValue(new Error('click failed')),
+          click: vi.fn().mockRejectedValue(new Error("click failed")),
           waitFor: vi.fn().mockResolvedValue(undefined),
           evaluateAll: vi.fn().mockResolvedValue(null),
         }),
       })),
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
 
-    const result = await replayStep(
-      page as unknown as Page,
-      {
-        action: 'click',
-        id: 'step-click-err-nodebug',
-        originalType: 'click',
-        target: '#btn',
-      }
-    )
+    const result = await replayStep(page as unknown as Page, {
+      action: "click",
+      id: "step-click-err-nodebug",
+      originalType: "click",
+      target: "#btn",
+    });
 
-    expect(result.replayed).toBe(false)
-    expect(result.warning).toContain('click failed')
-    expect(result.debug).toBeUndefined()
-  })
+    expect(result.replayed).toBe(false);
+    expect(result.warning).toContain("click failed");
+    expect(result.debug).toBeUndefined();
+  });
 
-  it('records default action() for error path of unmatched action type with debug', async () => {
+  it("records default action() for error path of unmatched action type with debug", async () => {
     // Use a non-standard action that gets past the noop check and fails
     // The default case in the switch returns replayed:true, so to hit line 2329
     // we need an error to occur at a locator that produces an action outside the known types.
@@ -3147,44 +3103,42 @@ describe('replayStep - error path playwrightAction for various actions', () => {
     // Since all known actions have specific playwrightAction strings in the error handler,
     // line 2329 (the final `${action}()` in the catch ternary) requires an unknown action.
     // We can trigger this with a locator that throws for a 'fill' action with no value.
-    const clickMock = vi.fn().mockRejectedValue(new Error('action error'))
+    const clickMock = vi.fn().mockRejectedValue(new Error("action error"));
     const page = {
       locator: vi.fn(() => ({
         first: () => ({
           click: clickMock,
-          fill: vi.fn().mockRejectedValue(new Error('action error')),
+          fill: vi.fn().mockRejectedValue(new Error("action error")),
           waitFor: vi.fn().mockResolvedValue(undefined),
           evaluateAll: vi.fn().mockResolvedValue(null),
         }),
       })),
-      getByPlaceholder: vi.fn(() => ({
-        count: vi.fn().mockResolvedValue(0),
-      })),
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
+      getByPlaceholder: vi.fn(() => ({ count: vi.fn().mockResolvedValue(0) })),
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
 
     // select action that fails - the error handler uses 'locator.click()' for select
     const selectResult = await replayStep(
       page as unknown as Page,
       {
-        action: 'select',
-        id: 'step-select-fail-debug',
-        originalType: 'click',
-        target: '#sel',
+        action: "select",
+        id: "step-select-fail-debug",
+        originalType: "click",
+        target: "#sel",
       },
       { collectDebug: true }
-    )
+    );
 
-    expect(selectResult.replayed).toBe(false)
-    expect(selectResult.debug?.playwrightAction).toBe('locator.click()')
-  })
-})
+    expect(selectResult.replayed).toBe(false);
+    expect(selectResult.debug?.playwrightAction).toBe("locator.click()");
+  });
+});
 
-describe('replayStep - fill placeholder path without debug', () => {
-  it('replays fill via placeholder locator and returns no debug when collectDebug is false', async () => {
-    const placeholderClickMock = vi.fn().mockResolvedValue(undefined)
-    const placeholderFillMock = vi.fn().mockResolvedValue(undefined)
+describe("replayStep - fill placeholder path without debug", () => {
+  it("replays fill via placeholder locator and returns no debug when collectDebug is false", async () => {
+    const placeholderClickMock = vi.fn().mockResolvedValue(undefined);
+    const placeholderFillMock = vi.fn().mockResolvedValue(undefined);
     const page = {
       getByPlaceholder: vi.fn(() => ({
         count: vi.fn().mockResolvedValue(1),
@@ -3199,468 +3153,495 @@ describe('replayStep - fill placeholder path without debug', () => {
           waitFor: vi.fn().mockResolvedValue(undefined),
         }),
       })),
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'fill',
-        id: 'step-fill-nodebug',
-        originalType: 'change',
-        target: 'Email',
-        value: 'user@example.com',
+        action: "fill",
+        id: "step-fill-nodebug",
+        originalType: "change",
+        target: "Email",
+        value: "user@example.com",
       }
       // collectDebug is not set (false)
-    )
+    );
 
-    expect(result.replayed).toBe(true)
-    expect(result.debug).toBeUndefined()
-    expect(placeholderClickMock).toHaveBeenCalled()
-    expect(placeholderFillMock).toHaveBeenCalledWith('user@example.com', { timeout: 5000 })
-  })
-})
+    expect(result.replayed).toBe(true);
+    expect(result.debug).toBeUndefined();
+    expect(placeholderClickMock).toHaveBeenCalled();
+    expect(placeholderFillMock).toHaveBeenCalledWith("user@example.com", {
+      timeout: 5000,
+    });
+  });
+});
 
-describe('replayStep - no debug mode paths', () => {
-  it('returns navigate result without debug trace when collectDebug is not set', async () => {
+describe("replayStep - no debug mode paths", () => {
+  it("returns navigate result without debug trace when collectDebug is not set", async () => {
     const page = {
       goto: vi.fn().mockResolvedValue(undefined),
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
 
-    const result = await replayStep(
-      page as unknown as Page,
-      {
-        action: 'navigate',
-        id: 'step-nav-nodebug',
-        originalType: 'navigate',
-        target: 'http://localhost:3000/page',
-      }
-    )
+    const result = await replayStep(page as unknown as Page, {
+      action: "navigate",
+      id: "step-nav-nodebug",
+      originalType: "navigate",
+      target: "http://localhost:3000/page",
+    });
 
-    expect(result.replayed).toBe(true)
-    expect(result.debug).toBeUndefined()
-  })
+    expect(result.replayed).toBe(true);
+    expect(result.debug).toBeUndefined();
+  });
 
-  it('returns keyDown result without debug trace when collectDebug is not set', async () => {
+  it("returns keyDown result without debug trace when collectDebug is not set", async () => {
     const page = {
       keyboard: { press: vi.fn().mockResolvedValue(undefined) },
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
 
-    const result = await replayStep(
-      page as unknown as Page,
-      {
-        action: 'keyDown',
-        id: 'step-key-nodebug',
-        originalType: 'keyDown',
-        key: 'Escape',
-      }
-    )
+    const result = await replayStep(page as unknown as Page, {
+      action: "keyDown",
+      id: "step-key-nodebug",
+      originalType: "keyDown",
+      key: "Escape",
+    });
 
-    expect(result.replayed).toBe(true)
-    expect(result.debug).toBeUndefined()
-  })
+    expect(result.replayed).toBe(true);
+    expect(result.debug).toBeUndefined();
+  });
 
-  it('returns no-locator failure without debug when collectDebug is not set', async () => {
+  it("returns no-locator failure without debug when collectDebug is not set", async () => {
     const page = {
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
 
-    const result = await replayStep(
-      page as unknown as Page,
-      {
-        action: 'click',
-        id: 'step-nolocator-nodebug',
-        originalType: 'click',
-        // no target, no metadata
-      }
-    )
+    const result = await replayStep(page as unknown as Page, {
+      action: "click",
+      id: "step-nolocator-nodebug",
+      originalType: "click",
+      // no target, no metadata
+    });
 
-    expect(result.replayed).toBe(false)
-    expect(result.debug).toBeUndefined()
-    expect(result.warning).toContain('No locator for click')
-  })
-})
+    expect(result.replayed).toBe(false);
+    expect(result.debug).toBeUndefined();
+    expect(result.warning).toContain("No locator for click");
+  });
+});
 
-describe('resolveSelector - inspectSource derivation', () => {
-  it('derives inspectSource as fresh-browser when no preservedQuery and default inspect', async () => {
-    const inspect = vi.fn().mockResolvedValue(foundInspection(accessibleButton))
+describe("resolveSelector - inspectSource derivation", () => {
+  it("derives inspectSource as fresh-browser when no preservedQuery and default inspect", async () => {
+    const inspect = vi
+      .fn()
+      .mockResolvedValue(foundInspection(accessibleButton));
 
     const result = await resolveSelector(selectorDescriptor, {
-      url: 'http://localhost:3000',
+      url: "http://localhost:3000",
       inspect,
-    })
+    });
 
-    expect(result.debug?.inspectSource).toBe('persistent-page')
-  })
+    expect(result.debug?.inspectSource).toBe("persistent-page");
+  });
 
-  it('derives inspectSource as preserved-query when preservedQuery provided', async () => {
-    const inspect = vi.fn().mockResolvedValue(foundInspection(accessibleButton))
+  it("derives inspectSource as preserved-query when preservedQuery provided", async () => {
+    const inspect = vi
+      .fn()
+      .mockResolvedValue(foundInspection(accessibleButton));
 
     const result = await resolveSelector(selectorDescriptor, {
-      url: 'http://localhost:3000',
+      url: "http://localhost:3000",
       preservedQuery,
       inspect,
-    })
+    });
 
-    expect(result.debug?.inspectSource).toBe('preserved-query')
-  })
-})
+    expect(result.debug?.inspectSource).toBe("preserved-query");
+  });
+});
 
-describe('replayStep - formatQueryDescriptorForDebug empty return', () => {
-  it('records locator value as method() when metadata.query has no role and no target', async () => {
-    const clickMock = vi.fn().mockResolvedValue(undefined)
+describe("replayStep - formatQueryDescriptorForDebug empty return", () => {
+  it("records locator value as method() when metadata.query has no role and no target", async () => {
+    const clickMock = vi.fn().mockResolvedValue(undefined);
     const page = {
-      getByText: vi.fn(() => ({ click: clickMock, waitFor: vi.fn().mockResolvedValue(undefined) })),
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
+      getByText: vi.fn(() => ({
+        click: clickMock,
+        waitFor: vi.fn().mockResolvedValue(undefined),
+      })),
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'click',
-        id: 'step-meta-notarget',
-        originalType: 'click',
+        action: "click",
+        id: "step-meta-notarget",
+        originalType: "click",
         metadata: {
           // method is getByText but no target — formatQueryDescriptorForDebug returns "getByText()"
-          query: { method: 'getByText' },
+          query: { method: "getByText" },
         },
       },
       { collectDebug: true }
-    )
+    );
 
-    expect(result.debug?.locatorValue).toBe('getByText()')
-    expect(result.debug?.locatorSource).toBe('metadata.query')
-  })
-})
+    expect(result.debug?.locatorValue).toBe("getByText()");
+    expect(result.debug?.locatorSource).toBe("metadata.query");
+  });
+});
 
-describe('replayStep - metadata.query branches (queryToPlaywrightLocator)', () => {
+describe("replayStep - metadata.query branches (queryToPlaywrightLocator)", () => {
   function makePageWithMethods() {
     const page = {
-      getByText: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined), waitFor: vi.fn().mockResolvedValue(undefined) })),
-      getByLabel: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined), waitFor: vi.fn().mockResolvedValue(undefined) })),
+      getByText: vi.fn(() => ({
+        click: vi.fn().mockResolvedValue(undefined),
+        waitFor: vi.fn().mockResolvedValue(undefined),
+      })),
+      getByLabel: vi.fn(() => ({
+        click: vi.fn().mockResolvedValue(undefined),
+        waitFor: vi.fn().mockResolvedValue(undefined),
+      })),
       getByPlaceholder: vi.fn(() => ({
         count: vi.fn().mockResolvedValue(0),
         click: vi.fn().mockResolvedValue(undefined),
         fill: vi.fn().mockResolvedValue(undefined),
         waitFor: vi.fn().mockResolvedValue(undefined),
       })),
-      getByTestId: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined), waitFor: vi.fn().mockResolvedValue(undefined) })),
-      getByTitle: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined), waitFor: vi.fn().mockResolvedValue(undefined) })),
-      getByAltText: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined), waitFor: vi.fn().mockResolvedValue(undefined) })),
-      getByRole: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined), waitFor: vi.fn().mockResolvedValue(undefined) })),
-      locator: vi.fn(() => ({
-        first: () => ({ click: vi.fn().mockResolvedValue(undefined), waitFor: vi.fn().mockResolvedValue(undefined) }),
+      getByTestId: vi.fn(() => ({
+        click: vi.fn().mockResolvedValue(undefined),
+        waitFor: vi.fn().mockResolvedValue(undefined),
       })),
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
-    return page
+      getByTitle: vi.fn(() => ({
+        click: vi.fn().mockResolvedValue(undefined),
+        waitFor: vi.fn().mockResolvedValue(undefined),
+      })),
+      getByAltText: vi.fn(() => ({
+        click: vi.fn().mockResolvedValue(undefined),
+        waitFor: vi.fn().mockResolvedValue(undefined),
+      })),
+      getByRole: vi.fn(() => ({
+        click: vi.fn().mockResolvedValue(undefined),
+        waitFor: vi.fn().mockResolvedValue(undefined),
+      })),
+      locator: vi.fn(() => ({
+        first: () => ({
+          click: vi.fn().mockResolvedValue(undefined),
+          waitFor: vi.fn().mockResolvedValue(undefined),
+        }),
+      })),
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
+    return page;
   }
 
-  it('uses getByText locator when metadata.query method is getByText', async () => {
-    const page = makePageWithMethods()
+  it("uses getByText locator when metadata.query method is getByText", async () => {
+    const page = makePageWithMethods();
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'click',
-        id: 'step-meta-text',
-        originalType: 'click',
-        metadata: {
-          query: { method: 'getByText', target: 'Submit Order' },
-        },
+        action: "click",
+        id: "step-meta-text",
+        originalType: "click",
+        metadata: { query: { method: "getByText", target: "Submit Order" } },
       },
       { collectDebug: true }
-    )
+    );
 
-    expect(result.replayed).toBe(true)
-    expect(result.debug?.locatorSource).toBe('metadata.query')
-    expect(result.debug?.locatorValue).toContain('getByText')
-    expect(page.getByText).toHaveBeenCalledWith('Submit Order')
-  })
+    expect(result.replayed).toBe(true);
+    expect(result.debug?.locatorSource).toBe("metadata.query");
+    expect(result.debug?.locatorValue).toContain("getByText");
+    expect(page.getByText).toHaveBeenCalledWith("Submit Order");
+  });
 
-  it('uses getByLabel locator when metadata.query method is getByLabelText', async () => {
-    const page = makePageWithMethods()
+  it("uses getByLabel locator when metadata.query method is getByLabelText", async () => {
+    const page = makePageWithMethods();
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'click',
-        id: 'step-meta-label',
-        originalType: 'click',
+        action: "click",
+        id: "step-meta-label",
+        originalType: "click",
         metadata: {
-          query: { method: 'getByLabelText', target: 'Email Address' },
+          query: { method: "getByLabelText", target: "Email Address" },
         },
       },
       { collectDebug: true }
-    )
+    );
 
-    expect(result.replayed).toBe(true)
-    expect(result.debug?.locatorSource).toBe('metadata.query')
-    expect(page.getByLabel).toHaveBeenCalledWith('Email Address')
-  })
+    expect(result.replayed).toBe(true);
+    expect(result.debug?.locatorSource).toBe("metadata.query");
+    expect(page.getByLabel).toHaveBeenCalledWith("Email Address");
+  });
 
-  it('uses getByTestId locator when metadata.query method is getByTestId', async () => {
-    const page = makePageWithMethods()
+  it("uses getByTestId locator when metadata.query method is getByTestId", async () => {
+    const page = makePageWithMethods();
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'click',
-        id: 'step-meta-testid',
-        originalType: 'click',
-        metadata: {
-          query: { method: 'getByTestId', target: 'confirm-btn' },
-        },
+        action: "click",
+        id: "step-meta-testid",
+        originalType: "click",
+        metadata: { query: { method: "getByTestId", target: "confirm-btn" } },
       },
       { collectDebug: true }
-    )
+    );
 
-    expect(result.replayed).toBe(true)
-    expect(page.getByTestId).toHaveBeenCalledWith('confirm-btn')
-  })
+    expect(result.replayed).toBe(true);
+    expect(page.getByTestId).toHaveBeenCalledWith("confirm-btn");
+  });
 
-  it('uses getByTitle locator when metadata.query method is getByTitle', async () => {
-    const page = makePageWithMethods()
+  it("uses getByTitle locator when metadata.query method is getByTitle", async () => {
+    const page = makePageWithMethods();
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'click',
-        id: 'step-meta-title',
-        originalType: 'click',
-        metadata: {
-          query: { method: 'getByTitle', target: 'Close dialog' },
-        },
+        action: "click",
+        id: "step-meta-title",
+        originalType: "click",
+        metadata: { query: { method: "getByTitle", target: "Close dialog" } },
       },
       { collectDebug: true }
-    )
+    );
 
-    expect(result.replayed).toBe(true)
-    expect(page.getByTitle).toHaveBeenCalledWith('Close dialog')
-  })
+    expect(result.replayed).toBe(true);
+    expect(page.getByTitle).toHaveBeenCalledWith("Close dialog");
+  });
 
-  it('uses getByAltText locator when metadata.query method is getByAltText', async () => {
-    const page = makePageWithMethods()
+  it("uses getByAltText locator when metadata.query method is getByAltText", async () => {
+    const page = makePageWithMethods();
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'click',
-        id: 'step-meta-alt',
-        originalType: 'click',
-        metadata: {
-          query: { method: 'getByAltText', target: 'Company Logo' },
-        },
+        action: "click",
+        id: "step-meta-alt",
+        originalType: "click",
+        metadata: { query: { method: "getByAltText", target: "Company Logo" } },
       },
       { collectDebug: true }
-    )
+    );
 
-    expect(result.replayed).toBe(true)
-    expect(page.getByAltText).toHaveBeenCalledWith('Company Logo')
-  })
+    expect(result.replayed).toBe(true);
+    expect(page.getByAltText).toHaveBeenCalledWith("Company Logo");
+  });
 
-  it('uses locator with value selector when metadata.query method is getByDisplayValue', async () => {
-    const clickMock = vi.fn().mockResolvedValue(undefined)
+  it("uses locator with value selector when metadata.query method is getByDisplayValue", async () => {
+    const clickMock = vi.fn().mockResolvedValue(undefined);
     const page = {
       getByText: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined) })),
-      getByLabel: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined) })),
+      getByLabel: vi.fn(() => ({
+        click: vi.fn().mockResolvedValue(undefined),
+      })),
       getByPlaceholder: vi.fn(() => ({
         count: vi.fn().mockResolvedValue(0),
         click: vi.fn().mockResolvedValue(undefined),
         fill: vi.fn().mockResolvedValue(undefined),
       })),
-      getByTestId: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined) })),
-      getByTitle: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined) })),
-      getByAltText: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined) })),
+      getByTestId: vi.fn(() => ({
+        click: vi.fn().mockResolvedValue(undefined),
+      })),
+      getByTitle: vi.fn(() => ({
+        click: vi.fn().mockResolvedValue(undefined),
+      })),
+      getByAltText: vi.fn(() => ({
+        click: vi.fn().mockResolvedValue(undefined),
+      })),
       getByRole: vi.fn(() => ({ click: vi.fn().mockResolvedValue(undefined) })),
       // locator must return an object with a click method at the top level (not nested in first())
       // because queryToPlaywrightLocator returns page.locator(...) directly (not .first())
       locator: vi.fn(() => ({
         click: clickMock,
         waitFor: vi.fn().mockResolvedValue(undefined),
-        first: () => ({ click: clickMock, waitFor: vi.fn().mockResolvedValue(undefined) }),
+        first: () => ({
+          click: clickMock,
+          waitFor: vi.fn().mockResolvedValue(undefined),
+        }),
       })),
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'click',
-        id: 'step-meta-displayval',
-        originalType: 'click',
-        metadata: {
-          query: { method: 'getByDisplayValue', target: 'Active' },
-        },
+        action: "click",
+        id: "step-meta-displayval",
+        originalType: "click",
+        metadata: { query: { method: "getByDisplayValue", target: "Active" } },
       },
       { collectDebug: true }
-    )
+    );
 
-    expect(result.replayed).toBe(true)
-    expect(page.locator).toHaveBeenCalledWith('[value="Active"]')
-  })
+    expect(result.replayed).toBe(true);
+    expect(page.locator).toHaveBeenCalledWith('[value="Active"]');
+  });
 
-  it('uses getByRole without name option when metadata.query has role but no name', async () => {
-    const page = makePageWithMethods()
+  it("uses getByRole without name option when metadata.query has role but no name", async () => {
+    const page = makePageWithMethods();
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'click',
-        id: 'step-meta-role-noname',
-        originalType: 'click',
+        action: "click",
+        id: "step-meta-role-noname",
+        originalType: "click",
         metadata: {
-          query: { method: 'getByRole', role: 'button', target: 'Submit' },
+          query: { method: "getByRole", role: "button", target: "Submit" },
         },
       },
       { collectDebug: true }
-    )
+    );
 
-    expect(result.replayed).toBe(true)
+    expect(result.replayed).toBe(true);
     // getByRole called without name option when name is absent
-    expect(page.getByRole).toHaveBeenCalledWith('button', undefined)
-  })
+    expect(page.getByRole).toHaveBeenCalledWith("button", undefined);
+  });
 
-  it('uses getByPlaceholder locator when metadata.query method is getByPlaceholderText', async () => {
-    const clickMock = vi.fn().mockResolvedValue(undefined)
-    const page = {
-      getByPlaceholder: vi.fn(() => ({ click: clickMock, waitFor: vi.fn().mockResolvedValue(undefined) })),
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
-
-    const result = await replayStep(
-      page as unknown as Page,
-      {
-        action: 'click',
-        id: 'step-meta-placeholder',
-        originalType: 'click',
-        metadata: {
-          query: { method: 'getByPlaceholderText', target: 'Enter email' },
-        },
-      },
-      { collectDebug: true }
-    )
-
-    expect(result.replayed).toBe(true)
-    expect(page.getByPlaceholder).toHaveBeenCalledWith('Enter email')
-  })
-
-  it('returns no locator (replayed:false) when metadata.query method is unrecognized', async () => {
-    const page = makePageWithMethods()
-
-    const result = await replayStep(
-      page as unknown as Page,
-      {
-        action: 'click',
-        id: 'step-meta-unknown-method',
-        originalType: 'click',
-        metadata: {
-          query: { method: 'getByCustomMethod', target: 'value' },
-        },
-      },
-      { collectDebug: true }
-    )
-
-    expect(result.replayed).toBe(false)
-    expect(result.warning).toContain('No locator for click')
-    expect(result.debug?.locatorSource).toBe('metadata.query')
-  })
-})
-
-describe('replayStep - success path playwrightAction string', () => {
-  it('records locator.click() in debug for click action with locator', async () => {
-    const clickMock = vi.fn().mockResolvedValue(undefined)
-    const page = {
-      locator: vi.fn(() => ({
-        first: () => ({ click: clickMock, waitFor: vi.fn().mockResolvedValue(undefined) }),
-      })),
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
-
-    const result = await replayStep(
-      page as unknown as Page,
-      {
-        action: 'click',
-        id: 'step-click-debug',
-        originalType: 'click',
-        target: '#submit',
-      },
-      { collectDebug: true }
-    )
-
-    expect(result.replayed).toBe(true)
-    expect(result.debug?.playwrightAction).toBe('locator.click()')
-    expect(result.debug?.locatorSource).toBe('step.target')
-    expect(result.debug?.locatorValue).toBe('#submit')
-  })
-
-  it('records locator.click() in debug for select action with locator', async () => {
-    const clickMock = vi.fn().mockResolvedValue(undefined)
-    const page = {
-      locator: vi.fn(() => ({
-        first: () => ({ click: clickMock, waitFor: vi.fn().mockResolvedValue(undefined) }),
-      })),
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
-
-    const result = await replayStep(
-      page as unknown as Page,
-      {
-        action: 'select',
-        id: 'step-select-debug',
-        originalType: 'click',
-        target: '#status',
-      },
-      { collectDebug: true }
-    )
-
-    expect(result.replayed).toBe(true)
-    expect(result.debug?.playwrightAction).toBe('locator.click()')
-  })
-
-  it('does not include debug trace when collectDebug is false', async () => {
-    const clickMock = vi.fn().mockResolvedValue(undefined)
-    const page = {
-      locator: vi.fn(() => ({
-        first: () => ({ click: clickMock, waitFor: vi.fn().mockResolvedValue(undefined) }),
-      })),
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
-
-    const result = await replayStep(
-      page as unknown as Page,
-      {
-        action: 'click',
-        id: 'step-no-debug',
-        originalType: 'click',
-        target: '#btn',
-      }
-    )
-
-    expect(result.replayed).toBe(true)
-    expect(result.debug).toBeUndefined()
-  })
-
-  it('records failure playwrightAction for fill error', async () => {
-    const clickMock = vi.fn().mockResolvedValue(undefined)
-    const fillMock = vi.fn().mockRejectedValue(new Error('fill timeout'))
+  it("uses getByPlaceholder locator when metadata.query method is getByPlaceholderText", async () => {
+    const clickMock = vi.fn().mockResolvedValue(undefined);
     const page = {
       getByPlaceholder: vi.fn(() => ({
-        count: vi.fn().mockResolvedValue(0),
+        click: clickMock,
+        waitFor: vi.fn().mockResolvedValue(undefined),
       })),
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
+
+    const result = await replayStep(
+      page as unknown as Page,
+      {
+        action: "click",
+        id: "step-meta-placeholder",
+        originalType: "click",
+        metadata: {
+          query: { method: "getByPlaceholderText", target: "Enter email" },
+        },
+      },
+      { collectDebug: true }
+    );
+
+    expect(result.replayed).toBe(true);
+    expect(page.getByPlaceholder).toHaveBeenCalledWith("Enter email");
+  });
+
+  it("returns no locator (replayed:false) when metadata.query method is unrecognized", async () => {
+    const page = makePageWithMethods();
+
+    const result = await replayStep(
+      page as unknown as Page,
+      {
+        action: "click",
+        id: "step-meta-unknown-method",
+        originalType: "click",
+        metadata: { query: { method: "getByCustomMethod", target: "value" } },
+      },
+      { collectDebug: true }
+    );
+
+    expect(result.replayed).toBe(false);
+    expect(result.warning).toContain("No locator for click");
+    expect(result.debug?.locatorSource).toBe("metadata.query");
+  });
+});
+
+describe("replayStep - success path playwrightAction string", () => {
+  it("records locator.click() in debug for click action with locator", async () => {
+    const clickMock = vi.fn().mockResolvedValue(undefined);
+    const page = {
+      locator: vi.fn(() => ({
+        first: () => ({
+          click: clickMock,
+          waitFor: vi.fn().mockResolvedValue(undefined),
+        }),
+      })),
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
+
+    const result = await replayStep(
+      page as unknown as Page,
+      {
+        action: "click",
+        id: "step-click-debug",
+        originalType: "click",
+        target: "#submit",
+      },
+      { collectDebug: true }
+    );
+
+    expect(result.replayed).toBe(true);
+    expect(result.debug?.playwrightAction).toBe("locator.click()");
+    expect(result.debug?.locatorSource).toBe("step.target");
+    expect(result.debug?.locatorValue).toBe("#submit");
+  });
+
+  it("records locator.click() in debug for select action with locator", async () => {
+    const clickMock = vi.fn().mockResolvedValue(undefined);
+    const page = {
+      locator: vi.fn(() => ({
+        first: () => ({
+          click: clickMock,
+          waitFor: vi.fn().mockResolvedValue(undefined),
+        }),
+      })),
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
+
+    const result = await replayStep(
+      page as unknown as Page,
+      {
+        action: "select",
+        id: "step-select-debug",
+        originalType: "click",
+        target: "#status",
+      },
+      { collectDebug: true }
+    );
+
+    expect(result.replayed).toBe(true);
+    expect(result.debug?.playwrightAction).toBe("locator.click()");
+  });
+
+  it("does not include debug trace when collectDebug is false", async () => {
+    const clickMock = vi.fn().mockResolvedValue(undefined);
+    const page = {
+      locator: vi.fn(() => ({
+        first: () => ({
+          click: clickMock,
+          waitFor: vi.fn().mockResolvedValue(undefined),
+        }),
+      })),
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
+
+    const result = await replayStep(page as unknown as Page, {
+      action: "click",
+      id: "step-no-debug",
+      originalType: "click",
+      target: "#btn",
+    });
+
+    expect(result.replayed).toBe(true);
+    expect(result.debug).toBeUndefined();
+  });
+
+  it("records failure playwrightAction for fill error", async () => {
+    const clickMock = vi.fn().mockResolvedValue(undefined);
+    const fillMock = vi.fn().mockRejectedValue(new Error("fill timeout"));
+    const page = {
+      getByPlaceholder: vi.fn(() => ({ count: vi.fn().mockResolvedValue(0) })),
       locator: vi.fn(() => ({
         first: () => ({
           click: clickMock,
@@ -3669,30 +3650,30 @@ describe('replayStep - success path playwrightAction string', () => {
           evaluateAll: vi.fn().mockResolvedValue(null),
         }),
       })),
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'fill',
-        id: 'step-fill-error',
-        originalType: 'change',
-        target: '#input',
-        value: 'test value',
+        action: "fill",
+        id: "step-fill-error",
+        originalType: "change",
+        target: "#input",
+        value: "test value",
       },
       { collectDebug: true }
-    )
+    );
 
-    expect(result.replayed).toBe(false)
-    expect(result.debug?.result).toBe('failed')
-    expect(result.debug?.playwrightAction).toBe("locator.fill('test value')")
-    expect(result.warning).toContain('fill timeout')
-  })
+    expect(result.replayed).toBe(false);
+    expect(result.debug?.result).toBe("failed");
+    expect(result.debug?.playwrightAction).toBe("locator.fill('test value')");
+    expect(result.warning).toContain("fill timeout");
+  });
 
-  it('records failure with locator.click() playwrightAction for select error', async () => {
-    const clickMock = vi.fn().mockRejectedValue(new Error('select failed'))
+  it("records failure with locator.click() playwrightAction for select error", async () => {
+    const clickMock = vi.fn().mockRejectedValue(new Error("select failed"));
     const page = {
       locator: vi.fn(() => ({
         first: () => ({
@@ -3701,925 +3682,908 @@ describe('replayStep - success path playwrightAction string', () => {
           evaluateAll: vi.fn().mockResolvedValue(null),
         }),
       })),
-      title: vi.fn().mockResolvedValue('App'),
-      url: vi.fn().mockReturnValue('http://localhost:3000'),
-    }
+      title: vi.fn().mockResolvedValue("App"),
+      url: vi.fn().mockReturnValue("http://localhost:3000"),
+    };
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'select',
-        id: 'step-select-error',
-        originalType: 'click',
-        target: '#dropdown',
+        action: "select",
+        id: "step-select-error",
+        originalType: "click",
+        target: "#dropdown",
       },
       { collectDebug: true }
-    )
+    );
 
-    expect(result.replayed).toBe(false)
-    expect(result.debug?.playwrightAction).toBe('locator.click()')
-    expect(result.warning).toContain('select failed')
-  })
-})
+    expect(result.replayed).toBe(false);
+    expect(result.debug?.playwrightAction).toBe("locator.click()");
+    expect(result.warning).toContain("select failed");
+  });
+});
 
-describe('captureVisualState - auth recovery error path', () => {
-  let logSpy: ReturnType<typeof vi.spyOn>
+describe("captureVisualState - auth recovery error path", () => {
+  let logSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
-  })
+    logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  });
 
   afterEach(() => {
-    logSpy.mockRestore()
-  })
+    logSpy.mockRestore();
+  });
 
-  it('returns auth-recovery-failed when inspectVisualPage throws during recovery', async () => {
+  it("returns auth-recovery-failed when inspectVisualPage throws during recovery", async () => {
     const session = createPlaywrightSession([
       {
-        authSignals: ['auth-copy'],
+        authSignals: ["auth-copy"],
         dialog: null,
-        elements: { '#save': null },
+        elements: { "#save": null },
         matchedLandmarks: [],
-        title: 'Sign In',
-        url: 'http://localhost:3000/login',
+        title: "Sign In",
+        url: "http://localhost:3000/login",
       },
-    ])
+    ]);
 
     // Make page.title() throw during the recovery polling loop to trigger the catch block
     session.page.title
-      .mockResolvedValueOnce('Sign In') // waitForStartingPoint initial call
-      .mockRejectedValue(new Error('page crashed during recovery'))
+      .mockResolvedValueOnce("Sign In") // waitForStartingPoint initial call
+      .mockRejectedValue(new Error("page crashed during recovery"));
 
-    const result = await captureVisualState('http://localhost:3000/dashboard', {
-      authRecovery: {
-        enabled: true,
-        timeoutMs: 500,
-      },
-      expected: {
-        url: 'http://localhost:3000/dashboard',
-      },
-      reason: 'test',
-    })
+    const result = await captureVisualState("http://localhost:3000/dashboard", {
+      authRecovery: { enabled: true, timeoutMs: 500 },
+      expected: { url: "http://localhost:3000/dashboard" },
+      reason: "test",
+    });
 
-    expect(result?.status).toMatch(/auth-recovery/)
-  })
-})
+    expect(result?.status).toMatch(/auth-recovery/);
+  });
+});
 
-describe('captureVisualState - shouldRetryExpectedUrlDuringAuthRecovery', () => {
-  let logSpy: ReturnType<typeof vi.spyOn>
+describe("captureVisualState - shouldRetryExpectedUrlDuringAuthRecovery", () => {
+  let logSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
-  })
+    logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  });
 
   afterEach(() => {
-    logSpy.mockRestore()
-  })
+    logSpy.mockRestore();
+  });
 
-  it('does not attempt redirect navigation when expected URL is not set during recovery', async () => {
+  it("does not attempt redirect navigation when expected URL is not set during recovery", async () => {
     const session = createPlaywrightSession([
       {
-        authSignals: ['auth-copy'],
+        authSignals: ["auth-copy"],
         dialog: null,
-        elements: { '#save': null },
+        elements: { "#save": null },
         matchedLandmarks: [],
-        title: 'Login',
-        url: 'http://localhost:3000/login',
+        title: "Login",
+        url: "http://localhost:3000/login",
       },
-    ])
+    ]);
 
-    const result = await captureVisualState('http://localhost:3000/dashboard', {
-      authRecovery: {
-        enabled: true,
-        timeoutMs: 500,
-      },
+    const result = await captureVisualState("http://localhost:3000/dashboard", {
+      authRecovery: { enabled: true, timeoutMs: 500 },
       expected: {
         // No URL set here - shouldRetryExpectedUrlDuringAuthRecovery returns false early
-        title: 'Dashboard',
+        title: "Dashboard",
       },
-      reason: 'test',
-      selector: '#save',
+      reason: "test",
+      selector: "#save",
       timeoutMs: 500,
-    })
+    });
 
     // Should time out since auth interrupt is detected (route mismatch) but no expected URL to retry
-    expect(result?.status).toMatch(/auth/)
+    expect(result?.status).toMatch(/auth/);
     // goto should only have been called once (initial navigation), not for URL retry
-    expect(session.page.goto).toHaveBeenCalledTimes(1)
-  })
-})
+    expect(session.page.goto).toHaveBeenCalledTimes(1);
+  });
+});
 
-describe('captureVisualState - buildStartingPointWarnings', () => {
-  it('includes all starting-point warnings when page lands at wrong URL, title, and selector', async () => {
+describe("captureVisualState - buildStartingPointWarnings", () => {
+  it("includes all starting-point warnings when page lands at wrong URL, title, and selector", async () => {
     createPlaywrightSession([
       {
         dialog: null,
-        elements: { '#target': null },
+        elements: { "#target": null },
         matchedLandmarks: [],
-        title: 'Wrong Title',
-        url: 'http://localhost:3000/wrong',
+        title: "Wrong Title",
+        url: "http://localhost:3000/wrong",
       },
-    ])
+    ]);
 
-    const result = await captureVisualState('http://localhost:3000/expected', {
+    const result = await captureVisualState("http://localhost:3000/expected", {
       expected: {
-        url: 'http://localhost:3000/expected',
-        title: 'Expected Title',
-        landmarks: ['Expected Landmark'],
+        url: "http://localhost:3000/expected",
+        title: "Expected Title",
+        landmarks: ["Expected Landmark"],
       },
-      reason: 'test',
-      selector: '#target',
+      reason: "test",
+      selector: "#target",
       timeoutMs: 100,
-    })
+    });
 
-    expect(result?.status).toBe('captured')
-    expect(result?.startingPointConfirmed).toBe(false)
-    const warnings = result?.warnings ?? []
-    expect(warnings.some((w) => w.includes('URL'))).toBe(true)
-  })
+    expect(result?.status).toBe("captured");
+    expect(result?.startingPointConfirmed).toBe(false);
+    const warnings = result?.warnings ?? [];
+    expect(warnings.some((w) => w.includes("URL"))).toBe(true);
+  });
 
-  it('includes landmarks warning when no expected landmarks are matched', async () => {
+  it("includes landmarks warning when no expected landmarks are matched", async () => {
     createPlaywrightSession([
       {
         dialog: null,
         elements: {},
         matchedLandmarks: [],
-        title: 'App',
-        url: 'http://localhost:3000/page',
+        title: "App",
+        url: "http://localhost:3000/page",
       },
-    ])
+    ]);
 
-    const result = await captureVisualState('http://localhost:3000/page', {
+    const result = await captureVisualState("http://localhost:3000/page", {
       expected: {
-        url: 'http://localhost:3000/page',
-        title: 'App',
-        landmarks: ['Expected Landmark'],
+        url: "http://localhost:3000/page",
+        title: "App",
+        landmarks: ["Expected Landmark"],
       },
-      reason: 'test',
+      reason: "test",
       timeoutMs: 100,
-    })
+    });
 
-    expect(result?.status).toBe('captured')
-    expect(result?.startingPointConfirmed).toBe(false)
-    const warnings = result?.warnings ?? []
-    expect(warnings.some((w) => w.includes('landmark'))).toBe(true)
-  })
+    expect(result?.status).toBe("captured");
+    expect(result?.startingPointConfirmed).toBe(false);
+    const warnings = result?.warnings ?? [];
+    expect(warnings.some((w) => w.includes("landmark"))).toBe(true);
+  });
 
-  it('isStartingPointConfirmed returns true when route matches and no selector required', async () => {
+  it("isStartingPointConfirmed returns true when route matches and no selector required", async () => {
     createPlaywrightSession([
       {
         dialog: null,
         elements: {},
         matchedLandmarks: [],
-        title: 'Dashboard',
-        url: 'http://localhost:3000/dashboard',
+        title: "Dashboard",
+        url: "http://localhost:3000/dashboard",
       },
-    ])
+    ]);
 
     // No selector, no landmarks - just URL/title match
-    const result = await captureVisualState('http://localhost:3000/dashboard', {
-      expected: {
-        url: 'http://localhost:3000/dashboard',
-      },
-      reason: 'test',
+    const result = await captureVisualState("http://localhost:3000/dashboard", {
+      expected: { url: "http://localhost:3000/dashboard" },
+      reason: "test",
       timeoutMs: 100,
-    })
+    });
 
-    expect(result?.status).toBe('captured')
-    expect(result?.startingPointConfirmed).toBe(true)
-  })
-})
+    expect(result?.status).toBe("captured");
+    expect(result?.startingPointConfirmed).toBe(true);
+  });
+});
 
-describe('resolveSemanticMarkerAssertion - getQueryScope fallback branches', () => {
-  it('resolves via getQueryScope screen branch when raw is absent but queryRoot is screen', () => {
+describe("resolveSemanticMarkerAssertion - getQueryScope fallback branches", () => {
+  it("resolves via getQueryScope screen branch when raw is absent but queryRoot is screen", () => {
     // Build a step where query.raw is empty/missing to bypass the regex match
     // so getQueryScope falls through to the queryRoot === 'screen' branch
     const step: NormalizedStep = {
-      id: 'js-step-scope-screen',
-      action: 'click',
-      target: 'Review',
-      originalType: 'click',
-      source: 'js',
+      id: "js-step-scope-screen",
+      action: "click",
+      target: "Review",
+      originalType: "click",
+      source: "js",
       semanticMarkerLink: {
-        markerStepId: 'js-step-scope-screen',
-        anchorStepId: 'js-step-1',
-        relation: 'follows',
-        proofSubject: 'heading',
-        target: 'Review',
-        proofText: 'Review',
-        sourceContext: { line: 1, originalType: 'click' },
+        markerStepId: "js-step-scope-screen",
+        anchorStepId: "js-step-1",
+        relation: "follows",
+        proofSubject: "heading",
+        target: "Review",
+        proofText: "Review",
+        sourceContext: { line: 1, originalType: "click" },
         query: {
-          stepId: 'js-step-scope-screen',
-          method: 'getByRole',
-          queryRoot: 'screen',
-          role: 'heading',
-          target: 'Review',
-          name: 'Review',
+          stepId: "js-step-scope-screen",
+          method: "getByRole",
+          queryRoot: "screen",
+          role: "heading",
+          target: "Review",
+          name: "Review",
           // raw is intentionally absent/undefined so regex match fails
           raw: undefined as unknown as string,
         },
       },
       semanticMarkerCandidate: {
-        stepId: 'js-step-scope-screen',
-        status: 'qualified',
-        originalGesture: 'click',
-        proofSubject: 'heading',
-        target: 'Review',
-        proofText: 'Review',
-        sourceContext: { line: 1, originalType: 'click' },
-        anchor: { anchorStepId: 'js-step-1', relation: 'follows' },
+        stepId: "js-step-scope-screen",
+        status: "qualified",
+        originalGesture: "click",
+        proofSubject: "heading",
+        target: "Review",
+        proofText: "Review",
+        sourceContext: { line: 1, originalType: "click" },
+        anchor: { anchorStepId: "js-step-1", relation: "follows" },
         query: {
-          stepId: 'js-step-scope-screen',
-          method: 'getByRole',
-          queryRoot: 'screen',
-          role: 'heading',
-          target: 'Review',
-          name: 'Review',
+          stepId: "js-step-scope-screen",
+          method: "getByRole",
+          queryRoot: "screen",
+          role: "heading",
+          target: "Review",
+          name: "Review",
           raw: undefined as unknown as string,
         },
       },
-    }
+    };
 
     // With no raw, buildScopedQueryExpression returns undefined → asyncQuery is undefined
     // So resolveRoleNameAssertion returns undefined → falls through to role-name returning missing-query or visible-text
-    const result = resolveSemanticMarkerAssertion(step)
+    const result = resolveSemanticMarkerAssertion(step);
     // The assertion builder returns undefined when asyncQuery.raw is undefined,
     // so the assertion builds correctly only when raw is set
-    expect(['resolved', 'unresolved']).toContain(result.status)
-  })
+    expect(["resolved", "unresolved"]).toContain(result.status);
+  });
 
-  it('resolves visible-message assertion when query has within queryRoot and a target', () => {
+  it("resolves visible-message assertion when query has within queryRoot and a target", () => {
     // within queryRoot maps to 'screen' scope, so the query can be built
     const step: NormalizedStep = {
-      id: 'js-step-scope-within',
-      action: 'click',
-      target: 'Submit',
-      originalType: 'click',
-      source: 'js',
+      id: "js-step-scope-within",
+      action: "click",
+      target: "Submit",
+      originalType: "click",
+      source: "js",
       semanticMarkerLink: {
-        markerStepId: 'js-step-scope-within',
-        anchorStepId: 'js-step-1',
-        relation: 'follows',
-        proofSubject: 'visible-message',
-        target: 'Submit',
-        proofText: 'Submit',
-        sourceContext: { line: 1, originalType: 'click' },
+        markerStepId: "js-step-scope-within",
+        anchorStepId: "js-step-1",
+        relation: "follows",
+        proofSubject: "visible-message",
+        target: "Submit",
+        proofText: "Submit",
+        sourceContext: { line: 1, originalType: "click" },
         query: {
-          stepId: 'js-step-scope-within',
-          method: 'getByText',
-          queryRoot: 'within',
-          target: 'Submit',
+          stepId: "js-step-scope-within",
+          method: "getByText",
+          queryRoot: "within",
+          target: "Submit",
           raw: undefined as unknown as string,
         },
       },
       semanticMarkerCandidate: {
-        stepId: 'js-step-scope-within',
-        status: 'qualified',
-        originalGesture: 'click',
-        proofSubject: 'visible-message',
-        target: 'Submit',
-        proofText: 'Submit',
-        sourceContext: { line: 1, originalType: 'click' },
-        anchor: { anchorStepId: 'js-step-1', relation: 'follows' },
+        stepId: "js-step-scope-within",
+        status: "qualified",
+        originalGesture: "click",
+        proofSubject: "visible-message",
+        target: "Submit",
+        proofText: "Submit",
+        sourceContext: { line: 1, originalType: "click" },
+        anchor: { anchorStepId: "js-step-1", relation: "follows" },
         query: {
-          stepId: 'js-step-scope-within',
-          method: 'getByText',
-          queryRoot: 'within',
-          target: 'Submit',
+          stepId: "js-step-scope-within",
+          method: "getByText",
+          queryRoot: "within",
+          target: "Submit",
           raw: undefined as unknown as string,
         },
       },
-    }
+    };
 
-    const result = resolveSemanticMarkerAssertion(step)
+    const result = resolveSemanticMarkerAssertion(step);
     // 'within' maps to scope 'screen', so buildScopedQueryExpression builds the raw expression
     // and the assertion is resolved
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'resolved',
+        status: "resolved",
         assertion: expect.objectContaining({
-          proofKind: 'visible-text',
+          proofKind: "visible-text",
           queryExpression: "screen.findByText('Submit')",
         }),
       })
-    )
-  })
-})
+    );
+  });
+});
 
-describe('resolveSemanticMarkerAssertion - final fallthrough paths', () => {
-  it('returns missing-query when proofSubject is unexpected and method has no async equivalent', () => {
+describe("resolveSemanticMarkerAssertion - final fallthrough paths", () => {
+  it("returns missing-query when proofSubject is unexpected and method has no async equivalent", () => {
     const step: NormalizedStep = {
-      id: 'js-step-fallthrough-missing',
-      action: 'click',
-      target: 'Some Content',
-      originalType: 'click',
-      source: 'js',
+      id: "js-step-fallthrough-missing",
+      action: "click",
+      target: "Some Content",
+      originalType: "click",
+      source: "js",
       semanticMarkerLink: {
-        markerStepId: 'js-step-fallthrough-missing',
-        anchorStepId: 'js-step-1',
-        relation: 'follows',
-        proofSubject: 'visible-message',
-        target: 'Some Content',
-        proofText: 'Some Content',
-        sourceContext: { line: 1, originalType: 'click' },
+        markerStepId: "js-step-fallthrough-missing",
+        anchorStepId: "js-step-1",
+        relation: "follows",
+        proofSubject: "visible-message",
+        target: "Some Content",
+        proofText: "Some Content",
+        sourceContext: { line: 1, originalType: "click" },
         query: {
-          stepId: 'js-step-fallthrough-missing',
-          method: 'getByRole',
-          queryRoot: 'screen',
-          target: 'Some Content',
+          stepId: "js-step-fallthrough-missing",
+          method: "getByRole",
+          queryRoot: "screen",
+          target: "Some Content",
           raw: "screen.getByRole('some-content')",
         },
       },
       semanticMarkerCandidate: {
-        stepId: 'js-step-fallthrough-missing',
-        status: 'qualified',
-        originalGesture: 'click',
+        stepId: "js-step-fallthrough-missing",
+        status: "qualified",
+        originalGesture: "click",
         // Use unexpected proofSubject to reach final fallthrough
-        proofSubject: 'another-unknown' as unknown as 'heading',
-        target: 'Some Content',
-        proofText: 'Some Content',
-        sourceContext: { line: 1, originalType: 'click' },
-        anchor: { anchorStepId: 'js-step-1', relation: 'follows' },
+        proofSubject: "another-unknown" as unknown as "heading",
+        target: "Some Content",
+        proofText: "Some Content",
+        sourceContext: { line: 1, originalType: "click" },
+        anchor: { anchorStepId: "js-step-1", relation: "follows" },
         query: {
-          stepId: 'js-step-fallthrough-missing',
+          stepId: "js-step-fallthrough-missing",
           // Use an unsupported method that has no async equivalent
-          method: 'customQuery',
-          queryRoot: 'screen',
-          target: 'Some Content',
+          method: "customQuery",
+          queryRoot: "screen",
+          target: "Some Content",
           raw: "screen.customQuery('Some Content')",
         },
       },
-    }
+    };
 
-    const result = resolveSemanticMarkerAssertion(step)
-    expect(result.status).toBe('unresolved')
-    expect(result.reason).toBe('missing-query')
-  })
+    const result = resolveSemanticMarkerAssertion(step);
+    expect(result.status).toBe("unresolved");
+    expect(result.reason).toBe("missing-query");
+  });
 
-  it('returns unsupported-proof-subject when proofSubject is an unexpected value with async method', () => {
+  it("returns unsupported-proof-subject when proofSubject is an unexpected value with async method", () => {
     const step: NormalizedStep = {
-      id: 'js-step-fallthrough',
-      action: 'click',
-      target: 'Some Content',
-      originalType: 'click',
-      source: 'js',
+      id: "js-step-fallthrough",
+      action: "click",
+      target: "Some Content",
+      originalType: "click",
+      source: "js",
       semanticMarkerLink: {
-        markerStepId: 'js-step-fallthrough',
-        anchorStepId: 'js-step-1',
-        relation: 'follows',
-        proofSubject: 'visible-message',
-        target: 'Some Content',
-        proofText: 'Some Content',
-        sourceContext: { line: 1, originalType: 'click' },
+        markerStepId: "js-step-fallthrough",
+        anchorStepId: "js-step-1",
+        relation: "follows",
+        proofSubject: "visible-message",
+        target: "Some Content",
+        proofText: "Some Content",
+        sourceContext: { line: 1, originalType: "click" },
         query: {
-          stepId: 'js-step-fallthrough',
-          method: 'getByText',
-          queryRoot: 'screen',
-          target: 'Some Content',
+          stepId: "js-step-fallthrough",
+          method: "getByText",
+          queryRoot: "screen",
+          target: "Some Content",
           raw: "screen.getByText('Some Content')",
         },
       },
       semanticMarkerCandidate: {
-        stepId: 'js-step-fallthrough',
-        status: 'qualified',
-        originalGesture: 'click',
+        stepId: "js-step-fallthrough",
+        status: "qualified",
+        originalGesture: "click",
         // Cast to an unexpected proofSubject to trigger the final fallthrough
-        proofSubject: 'unexpected-subject' as unknown as 'heading',
-        target: 'Some Content',
-        proofText: 'Some Content',
-        sourceContext: { line: 1, originalType: 'click' },
-        anchor: { anchorStepId: 'js-step-1', relation: 'follows' },
+        proofSubject: "unexpected-subject" as unknown as "heading",
+        target: "Some Content",
+        proofText: "Some Content",
+        sourceContext: { line: 1, originalType: "click" },
+        anchor: { anchorStepId: "js-step-1", relation: "follows" },
         query: {
-          stepId: 'js-step-fallthrough',
-          method: 'getByText',
-          queryRoot: 'screen',
-          target: 'Some Content',
+          stepId: "js-step-fallthrough",
+          method: "getByText",
+          queryRoot: "screen",
+          target: "Some Content",
           raw: "screen.getByText('Some Content')",
         },
       },
-    }
+    };
 
-    const result = resolveSemanticMarkerAssertion(step)
+    const result = resolveSemanticMarkerAssertion(step);
     // Falls through to asyncMethod check - getByText has a singular async form
-    expect(result.status).toBe('unresolved')
-    expect(['unsupported-proof-subject', 'missing-query']).toContain(result.reason)
-  })
-})
+    expect(result.status).toBe("unresolved");
+    expect(["unsupported-proof-subject", "missing-query"]).toContain(
+      result.reason
+    );
+  });
+});
 
-describe('resolveSemanticMarkerAssertion - concrete-value missing-query fallback', () => {
-  it('returns missing-query for concrete-value when icon-only proof text', () => {
+describe("resolveSemanticMarkerAssertion - concrete-value missing-query fallback", () => {
+  it("returns missing-query for concrete-value when icon-only proof text", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-icon-concrete',
-        target: '★',
-        proofSubject: 'concrete-value',
-        method: 'getByText',
+        id: "js-step-icon-concrete",
+        target: "★",
+        proofSubject: "concrete-value",
+        method: "getByText",
         raw: "screen.getByText('★')",
       })
-    )
+    );
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'icon-only-target',
+        status: "unresolved",
+        reason: "icon-only-target",
       })
-    )
-  })
+    );
+  });
 
-  it('returns missing-query for visible-message when proof text is icon-only', () => {
+  it("returns missing-query for visible-message when proof text is icon-only", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-icon-msg',
-        target: '→',
-        proofSubject: 'visible-message',
-        method: 'getByText',
+        id: "js-step-icon-msg",
+        target: "→",
+        proofSubject: "visible-message",
+        method: "getByText",
         raw: "screen.getByText('→')",
       })
-    )
+    );
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'icon-only-target',
+        status: "unresolved",
+        reason: "icon-only-target",
       })
-    )
-  })
-})
+    );
+  });
+});
 
-describe('resolveSemanticMarkerAssertion - resolveRoleNameAssertion no-scope path', () => {
-  it('falls through resolveRoleNameAssertion when queryRoot is document (no scope)', () => {
+describe("resolveSemanticMarkerAssertion - resolveRoleNameAssertion no-scope path", () => {
+  it("falls through resolveRoleNameAssertion when queryRoot is document (no scope)", () => {
     // queryRoot: 'document' with no extractable scope from raw causes
     // buildAsyncQueryDescriptor to return undefined (no scope → no raw expression).
     // resolveRoleNameAssertion returns undefined and the outer function continues
     // to the proofSubject branches.
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-doc-scope',
-        target: 'Save',
-        proofSubject: 'heading',
-        method: 'getByRole',
-        role: 'heading',
-        queryRoot: 'document',
+        id: "js-step-doc-scope",
+        target: "Save",
+        proofSubject: "heading",
+        method: "getByRole",
+        role: "heading",
+        queryRoot: "document",
         // raw is intentionally empty so getQueryScope cannot extract a scope
-        raw: '',
+        raw: "",
       })
-    )
+    );
     // With queryRoot: 'document' and empty raw, buildAsyncQueryDescriptor returns
     // undefined → resolveRoleNameAssertion returns undefined →
     // resolveVisibleTextAssertion is attempted but proofText='Save' is valid
     // and asyncQuery is also undefined (same empty raw) → missing-query
-    expect(result).toEqual(
-      expect.objectContaining({
-        status: 'unresolved',
-      })
-    )
-  })
+    expect(result).toEqual(expect.objectContaining({ status: "unresolved" }));
+  });
 
-  it('returns undefined from resolveRoleNameAssertion when anchor relation is absent (hits line 541)', () => {
+  it("returns undefined from resolveRoleNameAssertion when anchor relation is absent (hits line 541)", () => {
     // role query with anchorStepId but no relation → buildAssertion returns undefined at
     // the !anchor.relation check → resolveRoleNameAssertion returns undefined at line 541.
     // The outer anchor check only tests anchorStepId (truthy), so it passes through.
     const query: QueryDescriptor = {
-      stepId: 'js-step-no-rel-role',
-      method: 'getByRole',
-      queryRoot: 'screen',
-      role: 'button',
-      target: 'Submit',
-      name: 'Submit',
+      stepId: "js-step-no-rel-role",
+      method: "getByRole",
+      queryRoot: "screen",
+      role: "button",
+      target: "Submit",
+      name: "Submit",
       raw: "screen.getByRole('button', { name: 'Submit' })",
-    } as QueryDescriptor
+    } as QueryDescriptor;
     const candidate = {
-      stepId: 'js-step-no-rel-role',
-      status: 'qualified' as const,
-      originalGesture: 'dblClick' as const,
-      proofSubject: 'heading' as const,
-      target: 'Submit',
-      proofText: 'Submit',
-      sourceContext: { line: 12, originalType: 'dblClick' },
+      stepId: "js-step-no-rel-role",
+      status: "qualified" as const,
+      originalGesture: "dblClick" as const,
+      proofSubject: "heading" as const,
+      target: "Submit",
+      proofText: "Submit",
+      sourceContext: { line: 12, originalType: "dblClick" },
       query,
       anchor: undefined,
-    }
+    };
     const link = {
-      markerStepId: 'js-step-no-rel-role',
-      anchorStepId: 'js-step-1',
+      markerStepId: "js-step-no-rel-role",
+      anchorStepId: "js-step-1",
       // relation intentionally absent to make buildAssertion return undefined
-      relation: undefined as unknown as 'follows',
-      proofSubject: 'heading' as const,
-      target: 'Submit',
-      proofText: 'Submit',
-      sourceContext: { line: 12, originalType: 'dblClick' },
+      relation: undefined as unknown as "follows",
+      proofSubject: "heading" as const,
+      target: "Submit",
+      proofText: "Submit",
+      sourceContext: { line: 12, originalType: "dblClick" },
       query,
-    }
+    };
     const step: NormalizedStep = {
-      id: 'js-step-no-rel-role',
-      action: 'click',
-      target: 'Submit',
-      originalType: 'dblClick',
-      source: 'js',
+      id: "js-step-no-rel-role",
+      action: "click",
+      target: "Submit",
+      originalType: "dblClick",
+      source: "js",
       semanticMarkerLink: link,
       semanticMarkerCandidate: candidate,
-      metadata: { semanticMarkerLink: link, semanticMarkerCandidate: candidate },
-    } as unknown as NormalizedStep
-    const result = resolveSemanticMarkerAssertion(step)
+      metadata: {
+        semanticMarkerLink: link,
+        semanticMarkerCandidate: candidate,
+      },
+    } as unknown as NormalizedStep;
+    const result = resolveSemanticMarkerAssertion(step);
     // No relation → resolveRoleNameAssertion returns undefined at line 541 →
     // resolveVisibleTextAssertion is tried with proofText='Submit' and a valid raw → resolved
-    expect(result).toEqual(
-      expect.objectContaining({
-        status: 'unresolved',
-      })
-    )
-  })
-})
+    expect(result).toEqual(expect.objectContaining({ status: "unresolved" }));
+  });
+});
 
-describe('resolveSemanticMarkerAssertion - resolveVisibleTextAssertion paths', () => {
-  it('returns missing-query for heading when proofText is empty (hits lines 560-561)', () => {
+describe("resolveSemanticMarkerAssertion - resolveVisibleTextAssertion paths", () => {
+  it("returns missing-query for heading when proofText is empty (hits lines 560-561)", () => {
     // Empty target → normalizeProofText returns undefined → resolveVisibleTextAssertion
     // returns undefined at lines 560-561 → outer falls back to missing-query.
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-empty-heading',
-        target: '',
-        proofSubject: 'heading',
-        method: 'getByText',
+        id: "js-step-empty-heading",
+        target: "",
+        proofSubject: "heading",
+        method: "getByText",
         raw: "screen.getByText('')",
       })
-    )
+    );
     expect(result).toEqual(
-      expect.objectContaining({
-        status: 'unresolved',
-        reason: 'missing-query',
-      })
-    )
-  })
+      expect.objectContaining({ status: "unresolved", reason: "missing-query" })
+    );
+  });
 
-  it('returns undefined from resolveVisibleTextAssertion when anchor relation is absent (hits line 571)', () => {
+  it("returns undefined from resolveVisibleTextAssertion when anchor relation is absent (hits line 571)", () => {
     // anchor relation absent → buildAssertion returns undefined → resolveVisibleTextAssertion
     // returns undefined at line 571 → outer falls to missing-query.
     const query: QueryDescriptor = {
-      stepId: 'js-step-no-rel-msg',
-      method: 'getByText',
-      queryRoot: 'screen',
-      target: 'Operation complete',
+      stepId: "js-step-no-rel-msg",
+      method: "getByText",
+      queryRoot: "screen",
+      target: "Operation complete",
       raw: "screen.getByText('Operation complete')",
-    } as QueryDescriptor
+    } as QueryDescriptor;
     const candidate = {
-      stepId: 'js-step-no-rel-msg',
-      status: 'qualified' as const,
-      originalGesture: 'dblClick' as const,
-      proofSubject: 'visible-message' as const,
-      target: 'Operation complete',
-      proofText: 'Operation complete',
-      sourceContext: { line: 12, originalType: 'dblClick' },
+      stepId: "js-step-no-rel-msg",
+      status: "qualified" as const,
+      originalGesture: "dblClick" as const,
+      proofSubject: "visible-message" as const,
+      target: "Operation complete",
+      proofText: "Operation complete",
+      sourceContext: { line: 12, originalType: "dblClick" },
       query,
       anchor: undefined,
-    }
+    };
     const link = {
-      markerStepId: 'js-step-no-rel-msg',
-      anchorStepId: 'js-step-1',
-      relation: undefined as unknown as 'follows',
-      proofSubject: 'visible-message' as const,
-      target: 'Operation complete',
-      proofText: 'Operation complete',
-      sourceContext: { line: 12, originalType: 'dblClick' },
+      markerStepId: "js-step-no-rel-msg",
+      anchorStepId: "js-step-1",
+      relation: undefined as unknown as "follows",
+      proofSubject: "visible-message" as const,
+      target: "Operation complete",
+      proofText: "Operation complete",
+      sourceContext: { line: 12, originalType: "dblClick" },
       query,
-    }
+    };
     const step: NormalizedStep = {
-      id: 'js-step-no-rel-msg',
-      action: 'click',
-      target: 'Operation complete',
-      originalType: 'dblClick',
-      source: 'js',
+      id: "js-step-no-rel-msg",
+      action: "click",
+      target: "Operation complete",
+      originalType: "dblClick",
+      source: "js",
       semanticMarkerLink: link,
       semanticMarkerCandidate: candidate,
-      metadata: { semanticMarkerLink: link, semanticMarkerCandidate: candidate },
-    } as unknown as NormalizedStep
-    const result = resolveSemanticMarkerAssertion(step)
+      metadata: {
+        semanticMarkerLink: link,
+        semanticMarkerCandidate: candidate,
+      },
+    } as unknown as NormalizedStep;
+    const result = resolveSemanticMarkerAssertion(step);
     expect(result).toEqual(
-      expect.objectContaining({
-        status: 'unresolved',
-        reason: 'missing-query',
-      })
-    )
-  })
-})
+      expect.objectContaining({ status: "unresolved", reason: "missing-query" })
+    );
+  });
+});
 
-describe('resolveSemanticMarkerAssertion - resolveVisibleValueAssertion paths', () => {
-  it('returns missing-query for concrete-value when proofText is empty (hits lines 581-582)', () => {
+describe("resolveSemanticMarkerAssertion - resolveVisibleValueAssertion paths", () => {
+  it("returns missing-query for concrete-value when proofText is empty (hits lines 581-582)", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-empty-value',
-        target: '',
-        proofSubject: 'concrete-value',
-        method: 'getByText',
+        id: "js-step-empty-value",
+        target: "",
+        proofSubject: "concrete-value",
+        method: "getByText",
         raw: "screen.getByText('')",
       })
-    )
+    );
     expect(result).toEqual(
-      expect.objectContaining({
-        status: 'unresolved',
-        reason: 'missing-query',
-      })
-    )
-  })
+      expect.objectContaining({ status: "unresolved", reason: "missing-query" })
+    );
+  });
 
-  it('returns hidden-evidence for concrete-value when queryRoot is document (exercises line 725-733 hidden-evidence check)', () => {
+  it("returns hidden-evidence for concrete-value when queryRoot is document (exercises line 725-733 hidden-evidence check)", () => {
     // queryRoot: 'document' triggers the hidden-evidence guard in resolveSemanticMarkerAssertion
     // before reaching resolveVisibleValueAssertion.
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-doc-value',
-        target: 'Acme Corp',
-        proofSubject: 'concrete-value',
-        method: 'getByText',
-        queryRoot: 'document',
-        raw: '',
+        id: "js-step-doc-value",
+        target: "Acme Corp",
+        proofSubject: "concrete-value",
+        method: "getByText",
+        queryRoot: "document",
+        raw: "",
       })
-    )
+    );
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'hidden-evidence',
+        status: "unresolved",
+        reason: "hidden-evidence",
       })
-    )
-  })
+    );
+  });
 
-  it('returns missing-query for concrete-value when anchor relation is absent (hits line 604 and 747)', () => {
+  it("returns missing-query for concrete-value when anchor relation is absent (hits line 604 and 747)", () => {
     // anchor relation absent → buildAssertion returns undefined → resolveVisibleValueAssertion
     // returns undefined at line 604 → outer missing-query (line 747).
     const query: QueryDescriptor = {
-      stepId: 'js-step-no-rel-value',
-      method: 'getByText',
-      queryRoot: 'screen',
-      target: 'Total: 500',
+      stepId: "js-step-no-rel-value",
+      method: "getByText",
+      queryRoot: "screen",
+      target: "Total: 500",
       raw: "screen.getByText('Total: 500')",
-    } as QueryDescriptor
+    } as QueryDescriptor;
     const candidate = {
-      stepId: 'js-step-no-rel-value',
-      status: 'qualified' as const,
-      originalGesture: 'dblClick' as const,
-      proofSubject: 'concrete-value' as const,
-      target: 'Total: 500',
-      proofText: 'Total: 500',
-      sourceContext: { line: 12, originalType: 'dblClick' },
+      stepId: "js-step-no-rel-value",
+      status: "qualified" as const,
+      originalGesture: "dblClick" as const,
+      proofSubject: "concrete-value" as const,
+      target: "Total: 500",
+      proofText: "Total: 500",
+      sourceContext: { line: 12, originalType: "dblClick" },
       query,
       anchor: undefined,
-    }
+    };
     const link = {
-      markerStepId: 'js-step-no-rel-value',
-      anchorStepId: 'js-step-1',
-      relation: undefined as unknown as 'follows',
-      proofSubject: 'concrete-value' as const,
-      target: 'Total: 500',
-      proofText: 'Total: 500',
-      sourceContext: { line: 12, originalType: 'dblClick' },
+      markerStepId: "js-step-no-rel-value",
+      anchorStepId: "js-step-1",
+      relation: undefined as unknown as "follows",
+      proofSubject: "concrete-value" as const,
+      target: "Total: 500",
+      proofText: "Total: 500",
+      sourceContext: { line: 12, originalType: "dblClick" },
       query,
-    }
+    };
     const step: NormalizedStep = {
-      id: 'js-step-no-rel-value',
-      action: 'click',
-      target: 'Total: 500',
-      originalType: 'dblClick',
-      source: 'js',
+      id: "js-step-no-rel-value",
+      action: "click",
+      target: "Total: 500",
+      originalType: "dblClick",
+      source: "js",
       semanticMarkerLink: link,
       semanticMarkerCandidate: candidate,
-      metadata: { semanticMarkerLink: link, semanticMarkerCandidate: candidate },
-    } as unknown as NormalizedStep
-    const result = resolveSemanticMarkerAssertion(step)
+      metadata: {
+        semanticMarkerLink: link,
+        semanticMarkerCandidate: candidate,
+      },
+    } as unknown as NormalizedStep;
+    const result = resolveSemanticMarkerAssertion(step);
     expect(result).toEqual(
-      expect.objectContaining({
-        status: 'unresolved',
-        reason: 'missing-query',
-      })
-    )
-  })
-})
+      expect.objectContaining({ status: "unresolved", reason: "missing-query" })
+    );
+  });
+});
 
-describe('resolveSemanticMarkerAssertion - resolveFieldContextAssertion unresolved paths', () => {
-  it('returns missing-query for field-label when proofText is empty (hits lines 614-615)', () => {
+describe("resolveSemanticMarkerAssertion - resolveFieldContextAssertion unresolved paths", () => {
+  it("returns missing-query for field-label when proofText is empty (hits lines 614-615)", () => {
     // Empty target → normalizeProofText returns undefined → resolveFieldContextAssertion
     // returns missing-query at lines 614-615.
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-empty-field',
-        target: '',
-        proofSubject: 'field-label',
-        method: 'getByLabelText',
+        id: "js-step-empty-field",
+        target: "",
+        proofSubject: "field-label",
+        method: "getByLabelText",
         raw: "screen.getByLabelText('')",
       })
-    )
+    );
     expect(result).toEqual(
-      expect.objectContaining({
-        status: 'unresolved',
-        reason: 'missing-query',
-      })
-    )
-  })
+      expect.objectContaining({ status: "unresolved", reason: "missing-query" })
+    );
+  });
 
-  it('returns unsupported-field-context for getByLabelText when anchor relation is absent (hits line 644)', () => {
+  it("returns unsupported-field-context for getByLabelText when anchor relation is absent (hits line 644)", () => {
     // getByLabelText + valid proofText + anchor relation absent → buildAssertion returns undefined
     // → resolveFieldContextAssertion returns unsupported-field-context at line 644.
     const query: QueryDescriptor = {
-      stepId: 'js-step-no-rel-label',
-      method: 'getByLabelText',
-      queryRoot: 'screen',
-      target: 'Email Address',
+      stepId: "js-step-no-rel-label",
+      method: "getByLabelText",
+      queryRoot: "screen",
+      target: "Email Address",
       raw: "screen.getByLabelText('Email Address')",
-    } as QueryDescriptor
+    } as QueryDescriptor;
     const candidate = {
-      stepId: 'js-step-no-rel-label',
-      status: 'qualified' as const,
-      originalGesture: 'dblClick' as const,
-      proofSubject: 'field-label' as const,
-      target: 'Email Address',
-      proofText: 'Email Address',
-      sourceContext: { line: 12, originalType: 'dblClick' },
+      stepId: "js-step-no-rel-label",
+      status: "qualified" as const,
+      originalGesture: "dblClick" as const,
+      proofSubject: "field-label" as const,
+      target: "Email Address",
+      proofText: "Email Address",
+      sourceContext: { line: 12, originalType: "dblClick" },
       query,
       anchor: undefined,
-    }
+    };
     const link = {
-      markerStepId: 'js-step-no-rel-label',
-      anchorStepId: 'js-step-1',
-      relation: undefined as unknown as 'follows',
-      proofSubject: 'field-label' as const,
-      target: 'Email Address',
-      proofText: 'Email Address',
-      sourceContext: { line: 12, originalType: 'dblClick' },
+      markerStepId: "js-step-no-rel-label",
+      anchorStepId: "js-step-1",
+      relation: undefined as unknown as "follows",
+      proofSubject: "field-label" as const,
+      target: "Email Address",
+      proofText: "Email Address",
+      sourceContext: { line: 12, originalType: "dblClick" },
       query,
-    }
+    };
     const step: NormalizedStep = {
-      id: 'js-step-no-rel-label',
-      action: 'click',
-      target: 'Email Address',
-      originalType: 'dblClick',
-      source: 'js',
+      id: "js-step-no-rel-label",
+      action: "click",
+      target: "Email Address",
+      originalType: "dblClick",
+      source: "js",
       semanticMarkerLink: link,
       semanticMarkerCandidate: candidate,
-      metadata: { semanticMarkerLink: link, semanticMarkerCandidate: candidate },
-    } as unknown as NormalizedStep
-    const result = resolveSemanticMarkerAssertion(step)
+      metadata: {
+        semanticMarkerLink: link,
+        semanticMarkerCandidate: candidate,
+      },
+    } as unknown as NormalizedStep;
+    const result = resolveSemanticMarkerAssertion(step);
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'unsupported-field-context',
+        status: "unresolved",
+        reason: "unsupported-field-context",
       })
-    )
-  })
+    );
+  });
 
-  it('returns unsupported-field-context for getByPlaceholderText when anchor relation is absent (hits line 662)', () => {
+  it("returns unsupported-field-context for getByPlaceholderText when anchor relation is absent (hits line 662)", () => {
     // getByPlaceholderText + valid proofText + anchor relation absent → buildAssertion returns undefined
     // → resolveFieldContextAssertion returns unsupported-field-context at line 662.
     const query: QueryDescriptor = {
-      stepId: 'js-step-no-rel-placeholder',
-      method: 'getByPlaceholderText',
-      queryRoot: 'screen',
-      target: 'Enter email',
+      stepId: "js-step-no-rel-placeholder",
+      method: "getByPlaceholderText",
+      queryRoot: "screen",
+      target: "Enter email",
       raw: "screen.getByPlaceholderText('Enter email')",
-    } as QueryDescriptor
+    } as QueryDescriptor;
     const candidate = {
-      stepId: 'js-step-no-rel-placeholder',
-      status: 'qualified' as const,
-      originalGesture: 'dblClick' as const,
-      proofSubject: 'field-label' as const,
-      target: 'Enter email',
-      proofText: 'Enter email',
-      sourceContext: { line: 12, originalType: 'dblClick' },
+      stepId: "js-step-no-rel-placeholder",
+      status: "qualified" as const,
+      originalGesture: "dblClick" as const,
+      proofSubject: "field-label" as const,
+      target: "Enter email",
+      proofText: "Enter email",
+      sourceContext: { line: 12, originalType: "dblClick" },
       query,
       anchor: undefined,
-    }
+    };
     const link = {
-      markerStepId: 'js-step-no-rel-placeholder',
-      anchorStepId: 'js-step-1',
-      relation: undefined as unknown as 'follows',
-      proofSubject: 'field-label' as const,
-      target: 'Enter email',
-      proofText: 'Enter email',
-      sourceContext: { line: 12, originalType: 'dblClick' },
+      markerStepId: "js-step-no-rel-placeholder",
+      anchorStepId: "js-step-1",
+      relation: undefined as unknown as "follows",
+      proofSubject: "field-label" as const,
+      target: "Enter email",
+      proofText: "Enter email",
+      sourceContext: { line: 12, originalType: "dblClick" },
       query,
-    }
+    };
     const step: NormalizedStep = {
-      id: 'js-step-no-rel-placeholder',
-      action: 'click',
-      target: 'Enter email',
-      originalType: 'dblClick',
-      source: 'js',
+      id: "js-step-no-rel-placeholder",
+      action: "click",
+      target: "Enter email",
+      originalType: "dblClick",
+      source: "js",
       semanticMarkerLink: link,
       semanticMarkerCandidate: candidate,
-      metadata: { semanticMarkerLink: link, semanticMarkerCandidate: candidate },
-    } as unknown as NormalizedStep
-    const result = resolveSemanticMarkerAssertion(step)
+      metadata: {
+        semanticMarkerLink: link,
+        semanticMarkerCandidate: candidate,
+      },
+    } as unknown as NormalizedStep;
+    const result = resolveSemanticMarkerAssertion(step);
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'unsupported-field-context',
+        status: "unresolved",
+        reason: "unsupported-field-context",
       })
-    )
-  })
+    );
+  });
 
-  it('returns unsupported-field-context for getByText with label hint when anchor relation is absent (hits line 680)', () => {
+  it("returns unsupported-field-context for getByText with label hint when anchor relation is absent (hits line 680)", () => {
     // getByText + FIELD_LABEL_HINT_PATTERN match + valid proofText + anchor relation absent
     // → buildAssertion returns undefined → resolveFieldContextAssertion returns
     // unsupported-field-context at line 680.
     // "Search Query" matches \bsearch\b in FIELD_LABEL_HINT_PATTERN.
     const query: QueryDescriptor = {
-      stepId: 'js-step-no-rel-label-hint',
-      method: 'getByText',
-      queryRoot: 'screen',
-      target: 'Search Query',
+      stepId: "js-step-no-rel-label-hint",
+      method: "getByText",
+      queryRoot: "screen",
+      target: "Search Query",
       raw: "screen.getByText('Search Query')",
-    } as QueryDescriptor
+    } as QueryDescriptor;
     const candidate = {
-      stepId: 'js-step-no-rel-label-hint',
-      status: 'qualified' as const,
-      originalGesture: 'dblClick' as const,
-      proofSubject: 'field-label' as const,
-      target: 'Search Query',
-      proofText: 'Search Query',
-      sourceContext: { line: 12, originalType: 'dblClick' },
+      stepId: "js-step-no-rel-label-hint",
+      status: "qualified" as const,
+      originalGesture: "dblClick" as const,
+      proofSubject: "field-label" as const,
+      target: "Search Query",
+      proofText: "Search Query",
+      sourceContext: { line: 12, originalType: "dblClick" },
       query,
       anchor: undefined,
-    }
+    };
     const link = {
-      markerStepId: 'js-step-no-rel-label-hint',
-      anchorStepId: 'js-step-1',
-      relation: undefined as unknown as 'follows',
-      proofSubject: 'field-label' as const,
-      target: 'Search Query',
-      proofText: 'Search Query',
-      sourceContext: { line: 12, originalType: 'dblClick' },
+      markerStepId: "js-step-no-rel-label-hint",
+      anchorStepId: "js-step-1",
+      relation: undefined as unknown as "follows",
+      proofSubject: "field-label" as const,
+      target: "Search Query",
+      proofText: "Search Query",
+      sourceContext: { line: 12, originalType: "dblClick" },
       query,
-    }
+    };
     const step: NormalizedStep = {
-      id: 'js-step-no-rel-label-hint',
-      action: 'click',
-      target: 'Search Query',
-      originalType: 'dblClick',
-      source: 'js',
+      id: "js-step-no-rel-label-hint",
+      action: "click",
+      target: "Search Query",
+      originalType: "dblClick",
+      source: "js",
       semanticMarkerLink: link,
       semanticMarkerCandidate: candidate,
-      metadata: { semanticMarkerLink: link, semanticMarkerCandidate: candidate },
-    } as unknown as NormalizedStep
-    const result = resolveSemanticMarkerAssertion(step)
+      metadata: {
+        semanticMarkerLink: link,
+        semanticMarkerCandidate: candidate,
+      },
+    } as unknown as NormalizedStep;
+    const result = resolveSemanticMarkerAssertion(step);
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'unsupported-field-context',
+        status: "unresolved",
+        reason: "unsupported-field-context",
       })
-    )
-  })
-})
+    );
+  });
+});
 
-describe('resolveSelector - default inspectSelector (no custom inspect)', () => {
-  it('resolves selector using default browser-based inspect when accessible element found', async () => {
+describe("resolveSelector - default inspectSelector (no custom inspect)", () => {
+  it("resolves selector using default browser-based inspect when accessible element found", async () => {
     createPlaywrightSession([
       {
-        elements: { '#save': accessibleButton },
-        title: 'App',
-        url: 'http://localhost:3000',
+        elements: { "#save": accessibleButton },
+        title: "App",
+        url: "http://localhost:3000",
       },
-    ])
+    ]);
 
     const result = await resolveSelector(selectorDescriptor, {
-      url: 'http://localhost:3000',
+      url: "http://localhost:3000",
       // no custom inspect — exercises inspectSelector (lines 1750-1784)
-    })
+    });
 
-    expect(result.status).toBe('resolved')
-    expect(chromiumLaunchMock).toHaveBeenCalledWith({ headless: true })
-  })
+    expect(result.status).toBe("resolved");
+    expect(chromiumLaunchMock).toHaveBeenCalledWith({ headless: true });
+  });
 
-  it('returns selector-not-found when element is absent in default inspector', async () => {
+  it("returns selector-not-found when element is absent in default inspector", async () => {
     createPlaywrightSession([
-      {
-        elements: {},
-        title: 'App',
-        url: 'http://localhost:3000',
-      },
-    ])
+      { elements: {}, title: "App", url: "http://localhost:3000" },
+    ]);
 
     const result = await resolveSelector(selectorDescriptor, {
-      url: 'http://localhost:3000',
-    })
+      url: "http://localhost:3000",
+    });
 
-    expect(result.status).toBe('unresolved')
-    if (result.status === 'unresolved') {
-      expect(result.outcome).toBe('selector-not-found')
+    expect(result.status).toBe("unresolved");
+    if (result.status === "unresolved") {
+      expect(result.outcome).toBe("selector-not-found");
     }
-  })
+  });
 
-  it('returns inspection-failed when browser launch throws in default inspector', async () => {
-    chromiumLaunchMock.mockRejectedValueOnce(new Error('browser unavailable'))
+  it("returns inspection-failed when browser launch throws in default inspector", async () => {
+    chromiumLaunchMock.mockRejectedValueOnce(new Error("browser unavailable"));
 
     const result = await resolveSelector(selectorDescriptor, {
-      url: 'http://localhost:3000',
-    })
+      url: "http://localhost:3000",
+    });
 
-    expect(result.status).toBe('unresolved')
-    if (result.status === 'unresolved') {
-      expect(result.outcome).toBe('inspection-failed')
+    expect(result.status).toBe("unresolved");
+    if (result.status === "unresolved") {
+      expect(result.outcome).toBe("inspection-failed");
     }
-  })
-})
+  });
+});
 
-describe('createPageInspector - error catch path', () => {
-  it('returns inspection-failed when page.locator itself throws synchronously', async () => {
+describe("createPageInspector - error catch path", () => {
+  it("returns inspection-failed when page.locator itself throws synchronously", async () => {
     // To reach the catch block in createPageInspector, something must throw
     // that is not caught by readOptionalElementInfo. We make page.locator throw
     // synchronously so the error propagates out of readOptionalElementInfo's try block.
@@ -4630,27 +4594,29 @@ describe('createPageInspector - error catch path', () => {
       {},
       {
         get(_, prop) {
-          if (prop === 'locator') {
-            throw new Error('page is destroyed')
+          if (prop === "locator") {
+            throw new Error("page is destroyed");
           }
-          return undefined
+          return undefined;
         },
       }
-    )
+    );
 
-    const inspector = createPageInspector(page as unknown as Page)
-    const result = await inspector('http://localhost:3000', '#broken')
+    const inspector = createPageInspector(page as unknown as Page);
+    const result = await inspector("http://localhost:3000", "#broken");
     // readOptionalElementInfo catches the error and returns null, so we get selector-not-found
     // not inspection-failed. Lines 2356-2360 require something to throw that readOptionalElementInfo
     // does NOT catch — only possible if something else throws after the element check.
     // The catch still runs, but to reach the catch block specifically we need the throw
     // to not be caught inside readOptionalElementInfo.
-    expect(['selector-not-found', 'inspection-failed']).toContain(result.status)
-  })
-})
+    expect(["selector-not-found", "inspection-failed"]).toContain(
+      result.status
+    );
+  });
+});
 
-describe('captureVisualState - heartbeat logging during auth recovery', () => {
-  it('logs heartbeat message when 30s have passed during auth recovery wait', async () => {
+describe("captureVisualState - heartbeat logging during auth recovery", () => {
+  it("logs heartbeat message when 30s have passed during auth recovery wait", async () => {
     // Simulate the heartbeat branch (lines 1386-1391) by mocking Date.now() so that
     // the first loop iteration in attemptAuthRecovery sees a 31-second jump from lastHeartbeatAt.
     //
@@ -4663,282 +4629,270 @@ describe('captureVisualState - heartbeat logging during auth recovery', () => {
     // 5. attemptAuthRecovery: while (Date.now() <= deadline) — iteration 1 check
     // 6. attemptAuthRecovery: const now = Date.now() → T+31000 → heartbeat fires
     // 7. attemptAuthRecovery: while (Date.now() <= deadline) — iteration 2 check → past deadline → exit
-    const T = 1_000_000
-    const dateNowSpy = vi.spyOn(Date, 'now')
-      .mockReturnValueOnce(T)           // [1] waitForStartingPoint deadline
-      .mockReturnValueOnce(T)           // [2] waitForStartingPoint while check
-      .mockReturnValueOnce(T)           // [3] attemptAuthRecovery deadline = T + 1000
-      .mockReturnValueOnce(T)           // [4] lastHeartbeatAt = T
-      .mockReturnValueOnce(T)           // [5] while (T <= T+1000) → enter loop
-      .mockReturnValueOnce(T + 31_000)  // [6] const now = T+31000 → heartbeat fires!
-      .mockReturnValue(T + 2_000_000)   // [7+] all remaining → past deadline → exit while
+    const T = 1_000_000;
+    const dateNowSpy = vi
+      .spyOn(Date, "now")
+      .mockReturnValueOnce(T) // [1] waitForStartingPoint deadline
+      .mockReturnValueOnce(T) // [2] waitForStartingPoint while check
+      .mockReturnValueOnce(T) // [3] attemptAuthRecovery deadline = T + 1000
+      .mockReturnValueOnce(T) // [4] lastHeartbeatAt = T
+      .mockReturnValueOnce(T) // [5] while (T <= T+1000) → enter loop
+      .mockReturnValueOnce(T + 31_000) // [6] const now = T+31000 → heartbeat fires!
+      .mockReturnValue(T + 2_000_000); // [7+] all remaining → past deadline → exit while
 
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
 
     createPlaywrightSession([
       {
         dialog: null,
-        elements: { '#save': null },
+        elements: { "#save": null },
         matchedLandmarks: [],
-        title: 'Login',
-        url: 'http://localhost:3000/login',
+        title: "Login",
+        url: "http://localhost:3000/login",
       },
-    ])
+    ]);
 
-    await captureVisualState('http://localhost:3000/dashboard', {
-      authRecovery: {
-        enabled: true,
-        timeoutMs: 1000,
-      },
-      expected: {
-        title: 'Dashboard',
-        url: 'http://localhost:3000/dashboard',
-      },
-      reason: 'dialog-detected',
-      screenshotDir: '/tmp/taro-visual',
-      selector: '#save',
-    })
+    await captureVisualState("http://localhost:3000/dashboard", {
+      authRecovery: { enabled: true, timeoutMs: 1000 },
+      expected: { title: "Dashboard", url: "http://localhost:3000/dashboard" },
+      reason: "dialog-detected",
+      screenshotDir: "/tmp/taro-visual",
+      selector: "#save",
+    });
 
     // Verify the heartbeat message was logged (lines 1386-1391)
     expect(logSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Still waiting for authentication')
-    )
+      expect.stringContaining("Still waiting for authentication")
+    );
 
-    dateNowSpy.mockRestore()
-    logSpy.mockRestore()
-  })
-})
+    dateNowSpy.mockRestore();
+    logSpy.mockRestore();
+  });
+});
 
-describe('captureVisualState - DOM auth checkpoint analysis', () => {
-  it('derives auth signals and landmark matches from the evaluated body DOM', async () => {
+describe("captureVisualState - DOM auth checkpoint analysis", () => {
+  it("derives auth signals and landmark matches from the evaluated body DOM", async () => {
     const fakeBody = {
-      innerText: 'Continue with SSO to access the sales panel and verification checkpoint',
+      innerText:
+        "Continue with SSO to access the sales panel and verification checkpoint",
       querySelector: (selector: string) => {
-        if (selector === 'input[type="password"], input[autocomplete="current-password"]') {
-          return {}
+        if (
+          selector ===
+          'input[type="password"], input[autocomplete="current-password"]'
+        ) {
+          return {};
         }
 
         if (
           selector ===
           'input[autocomplete="one-time-code"], input[name*="otp" i], input[name*="verification" i]'
         ) {
-          return {}
+          return {};
         }
 
         if (
           selector ===
           'form[action*="login" i], form[action*="auth" i], form[action*="sso" i]'
         ) {
-          return {}
+          return {};
         }
 
-        return null
+        return null;
       },
       querySelectorAll: (selector: string) => {
         if (selector === 'button, [role="button"], a') {
-          return [{ innerText: 'Continue with SSO' }]
+          return [{ innerText: "Continue with SSO" }];
         }
 
         if (selector === 'h1, h2, h3, [role="heading"]') {
-          return [{ innerText: 'Verification checkpoint' }]
+          return [{ innerText: "Verification checkpoint" }];
         }
 
-        return []
+        return [];
       },
-    }
+    };
 
     const page = {
       evaluate: vi.fn(async (fn: () => unknown) =>
-        withPatchedDomGlobals(
-          {
-            document: {
-              querySelector: () => null,
-            },
-          },
-          () => fn()
+        withPatchedDomGlobals({ document: { querySelector: () => null } }, () =>
+          fn()
         )
       ),
       goto: vi.fn(async () => undefined),
       locator: vi.fn((selector: string) => ({
         first: () => ({
-          evaluate: vi.fn(async (fn: (...args: unknown[]) => unknown, arg?: unknown) => {
-            if (selector === 'body') {
-              return fn(fakeBody as unknown as Element, arg)
-            }
+          evaluate: vi.fn(
+            async (fn: (...args: unknown[]) => unknown, arg?: unknown) => {
+              if (selector === "body") {
+                return fn(fakeBody as unknown as Element, arg);
+              }
 
-            throw new Error(`unexpected selector: ${selector}`)
-          }),
+              throw new Error(`unexpected selector: ${selector}`);
+            }
+          ),
         }),
       })),
       screenshot: vi.fn(async () => undefined),
-      title: vi.fn(async () => '   '),
-      url: vi.fn(() => 'redirect-login'),
+      title: vi.fn(async () => "   "),
+      url: vi.fn(() => "redirect-login"),
       waitForTimeout: vi.fn(async () => undefined),
-    }
+    };
 
     const context = {
       newPage: vi.fn(async () => page),
       storageState: vi.fn(async () => undefined),
-    }
+    };
 
     const browser = {
       close: vi.fn(async () => undefined),
       newContext: vi.fn(async () => context),
-    }
+    };
 
-    chromiumLaunchMock.mockResolvedValueOnce(browser)
+    chromiumLaunchMock.mockResolvedValueOnce(browser);
 
-    const result = await captureVisualState('initial-dashboard', {
+    const result = await captureVisualState("initial-dashboard", {
       expected: {
-        landmarks: ['sales panel'],
-        title: '   ',
-        url: 'expected-dashboard',
+        landmarks: ["sales panel"],
+        title: "   ",
+        url: "expected-dashboard",
       },
-      reason: 'auth-checkpoint-dom',
+      reason: "auth-checkpoint-dom",
       timeoutMs: 25,
-    })
+    });
 
-    expect(result?.status).toBe('auth-interrupted')
-    expect(result?.matchedLandmarks).toEqual(['sales panel'])
+    expect(result?.status).toBe("auth-interrupted");
+    expect(result?.matchedLandmarks).toEqual(["sales panel"]);
     expect(result?.interrupt).toEqual(
       expect.objectContaining({
-        actualTitle: '   ',
-        expectedUrl: 'expected-dashboard',
-        reachedUrl: 'redirect-login',
+        actualTitle: "   ",
+        expectedUrl: "expected-dashboard",
+        reachedUrl: "redirect-login",
         signals: expect.arrayContaining([
-          'password-input',
-          'verification-input',
-          'auth-form',
-          'auth-copy',
-          'route-mismatch',
+          "password-input",
+          "verification-input",
+          "auth-form",
+          "auth-copy",
+          "route-mismatch",
         ]),
       })
-    )
+    );
     expect(result?.warnings).toEqual([
-      'Authentication required before visual capture could reach expected-dashboard.',
-    ])
-    expect(page.goto).toHaveBeenCalledWith('initial-dashboard', {
+      "Authentication required before visual capture could reach expected-dashboard.",
+    ]);
+    expect(page.goto).toHaveBeenCalledWith("initial-dashboard", {
       timeout: 25,
-      waitUntil: 'domcontentloaded',
-    })
-  })
+      waitUntil: "domcontentloaded",
+    });
+  });
 
-  it('tolerates body-analysis failures and exits when the starting-point wait window is exhausted', async () => {
-    const dateNowSpy = vi.spyOn(Date, 'now')
-    const T = 50_000
+  it("tolerates body-analysis failures and exits when the starting-point wait window is exhausted", async () => {
+    const dateNowSpy = vi.spyOn(Date, "now");
+    const T = 50_000;
     dateNowSpy
       .mockReturnValueOnce(T)
       .mockReturnValueOnce(T)
-      .mockReturnValueOnce(T + 50)
+      .mockReturnValueOnce(T + 50);
 
     const page = {
       evaluate: vi.fn(async (fn: () => unknown) =>
-        withPatchedDomGlobals(
-          {
-            document: {
-              querySelector: () => null,
-            },
-          },
-          () => fn()
+        withPatchedDomGlobals({ document: { querySelector: () => null } }, () =>
+          fn()
         )
       ),
       goto: vi.fn(async () => undefined),
       locator: vi.fn((selector: string) => ({
         first: () => ({
           evaluate: vi.fn(async () => {
-            if (selector === 'body') {
-              throw new Error('body detached')
+            if (selector === "body") {
+              throw new Error("body detached");
             }
 
-            throw new Error(`unexpected selector: ${selector}`)
+            throw new Error(`unexpected selector: ${selector}`);
           }),
         }),
       })),
       screenshot: vi.fn(async () => undefined),
-      title: vi.fn(async () => 'Workspace'),
-      url: vi.fn(() => 'app/workspace'),
+      title: vi.fn(async () => "Workspace"),
+      url: vi.fn(() => "app/workspace"),
       waitForTimeout: vi.fn(async () => undefined),
-    }
+    };
 
     const context = {
       newPage: vi.fn(async () => page),
       storageState: vi.fn(async () => undefined),
-    }
+    };
 
     const browser = {
       close: vi.fn(async () => undefined),
       newContext: vi.fn(async () => context),
-    }
+    };
 
-    chromiumLaunchMock.mockResolvedValueOnce(browser)
+    chromiumLaunchMock.mockResolvedValueOnce(browser);
 
-    const result = await captureVisualState('app/workspace', {
-      expected: {
-        title: 'Dashboard',
-        url: 'app/dashboard',
-      },
-      reason: 'starting-point-timeout-window',
+    const result = await captureVisualState("app/workspace", {
+      expected: { title: "Dashboard", url: "app/dashboard" },
+      reason: "starting-point-timeout-window",
       timeoutMs: 10,
-    })
+    });
 
-    expect(result?.status).toBe('captured')
-    expect(result?.startingPointConfirmed).toBe(false)
+    expect(result?.status).toBe("captured");
+    expect(result?.startingPointConfirmed).toBe(false);
     expect(result?.warnings).toEqual([
-      'Playwright did not reach the recorded URL before visual capture finished. Expected app/dashboard, reached app/workspace.',
-      'Playwright did not confirm the recorded page title before visual capture finished. Expected Dashboard, reached Workspace.',
-    ])
-    expect(page.waitForTimeout).not.toHaveBeenCalled()
+      "Playwright did not reach the recorded URL before visual capture finished. Expected app/dashboard, reached app/workspace.",
+      "Playwright did not confirm the recorded page title before visual capture finished. Expected Dashboard, reached Workspace.",
+    ]);
+    expect(page.waitForTimeout).not.toHaveBeenCalled();
 
-    dateNowSpy.mockRestore()
-  })
-})
+    dateNowSpy.mockRestore();
+  });
+});
 
-describe('resolveSemanticMarkerAssertion - query scope fallback coverage', () => {
-  it('returns icon-only-target for field-label proofs that contain only symbols', () => {
+describe("resolveSemanticMarkerAssertion - query scope fallback coverage", () => {
+  it("returns icon-only-target for field-label proofs that contain only symbols", () => {
     const result = resolveSemanticMarkerAssertion(
       createSemanticMarkerStep({
-        id: 'js-step-icon-field',
-        target: '!!',
-        proofSubject: 'field-label',
-        method: 'getByText',
+        id: "js-step-icon-field",
+        target: "!!",
+        proofSubject: "field-label",
+        method: "getByText",
       })
-    )
+    );
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        reason: 'icon-only-target',
+        status: "unresolved",
+        reason: "icon-only-target",
       })
-    )
-  })
-})
+    );
+  });
+});
 
-describe('openCapturePage - non-Error failures', () => {
-  it('treats non-Error navigation failures as unknown errors and does not retry them', async () => {
+describe("openCapturePage - non-Error failures", () => {
+  it("treats non-Error navigation failures as unknown errors and does not retry them", async () => {
     const session = createPlaywrightSession([
       {
         dialog: null,
         elements: {},
-        title: 'App',
-        url: 'http://localhost:3000/',
+        title: "App",
+        url: "http://localhost:3000/",
       },
-    ])
+    ]);
 
-    session.page.goto.mockRejectedValueOnce('socket closed')
+    session.page.goto.mockRejectedValueOnce("socket closed");
 
     await expect(
       openCapturePage({
         headless: true,
         timeoutMs: 5000,
-        url: 'http://localhost:3000/',
+        url: "http://localhost:3000/",
       })
-    ).rejects.toBe('socket closed')
-    expect(session.page.goto).toHaveBeenCalledTimes(1)
-  })
-})
+    ).rejects.toBe("socket closed");
+    expect(session.page.goto).toHaveBeenCalledTimes(1);
+  });
+});
 
-describe('createPageInspector - nullish DOM fallbacks', () => {
-  it('normalizes missing innerText values to an empty string', async () => {
+describe("createPageInspector - nullish DOM fallbacks", () => {
+  it("normalizes missing innerText values to an empty string", async () => {
     class FakeHTMLElement {
       constructor(
         public tagName: string,
@@ -4947,21 +4901,18 @@ describe('createPageInspector - nullish DOM fallbacks', () => {
       ) {}
 
       getAttribute(name: string) {
-        return this.attributes[name] ?? null
+        return this.attributes[name] ?? null;
       }
     }
 
     class FakeHTMLButtonElement extends FakeHTMLElement {
-      labels = null
+      labels = null;
       constructor() {
         super(
-          'BUTTON',
-          {
-            'aria-label': 'Open drawer',
-            role: 'button',
-          },
+          "BUTTON",
+          { "aria-label": "Open drawer", role: "button" },
           undefined
-        )
+        );
       }
     }
 
@@ -4973,7 +4924,7 @@ describe('createPageInspector - nullish DOM fallbacks', () => {
           ),
         }),
       })),
-    }
+    };
 
     const result = await withPatchedDomGlobals(
       {
@@ -4984,44 +4935,46 @@ describe('createPageInspector - nullish DOM fallbacks', () => {
         HTMLProgressElement: class {},
         HTMLSelectElement: class {},
         HTMLTextAreaElement: class {},
-        document: {
-          getElementById: () => null,
-        },
+        document: { getElementById: () => null },
       },
-      () => createPageInspector(page as unknown as Page)('http://localhost:3000', '#toggle')
-    )
+      () =>
+        createPageInspector(page as unknown as Page)(
+          "http://localhost:3000",
+          "#toggle"
+        )
+    );
 
     expect(result).toEqual({
-      status: 'found',
+      status: "found",
       element: expect.objectContaining({
-        ariaLabel: 'Open drawer',
-        innerText: '',
-        tagName: 'button',
+        ariaLabel: "Open drawer",
+        innerText: "",
+        tagName: "button",
       }),
-    })
-  })
-})
+    });
+  });
+});
 
-describe('extractDialogState - nullish metadata fallbacks', () => {
-  it('returns null role, title, and description when the dialog DOM lacks that metadata', async () => {
+describe("extractDialogState - nullish metadata fallbacks", () => {
+  it("returns null role, title, and description when the dialog DOM lacks that metadata", async () => {
     const dialog = {
       getAttribute: () => null,
       querySelector: (selector: string) => {
-        if (selector === 'h1, h2, h3, [aria-labelledby]') {
-          return { textContent: undefined }
+        if (selector === "h1, h2, h3, [aria-labelledby]") {
+          return { textContent: undefined };
         }
 
-        if (selector === '[aria-describedby], p') {
-          return { textContent: undefined }
+        if (selector === "[aria-describedby], p") {
+          return { textContent: undefined };
         }
 
-        return null
+        return null;
       },
       querySelectorAll: (selector: string) =>
         selector === 'button, [role="button"]'
-          ? [{ innerText: '   ' }, { innerText: 'Dismiss' }]
+          ? [{ innerText: "   " }, { innerText: "Dismiss" }]
           : [],
-    }
+    };
 
     const page = {
       evaluate: vi.fn(async (fn: () => unknown) =>
@@ -5029,460 +4982,456 @@ describe('extractDialogState - nullish metadata fallbacks', () => {
           {
             document: {
               querySelector: (selector: string) =>
-                selector === '[role="dialog"], [role="alertdialog"]' ? dialog : null,
+                selector === '[role="dialog"], [role="alertdialog"]'
+                  ? dialog
+                  : null,
             },
           },
           () => fn()
         )
       ),
-    }
+    };
 
     await expect(extractDialogState(page as any)).resolves.toEqual({
       role: null,
       title: null,
       description: null,
-      actions: ['Dismiss'],
+      actions: ["Dismiss"],
       isOpen: true,
-    })
-  })
-})
+    });
+  });
+});
 
-describe('resolveSelector - non-Error inspection failures', () => {
-  it('reports unknown inspection errors with the default inspect source', async () => {
-    const inspect = vi.fn().mockRejectedValue('page crashed')
+describe("resolveSelector - non-Error inspection failures", () => {
+  it("reports unknown inspection errors with the default inspect source", async () => {
+    const inspect = vi.fn().mockRejectedValue("page crashed");
 
     const result = await resolveSelector(selectorDescriptor, {
-      url: 'http://localhost:3000',
+      url: "http://localhost:3000",
       inspect,
-    })
+    });
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        outcome: 'inspection-failed',
-        inspectionError: 'Unknown error',
+        status: "unresolved",
+        outcome: "inspection-failed",
+        inspectionError: "Unknown error",
         debug: expect.objectContaining({
-          inspectSource: 'persistent-page',
-          inspectionError: 'Unknown error',
+          inspectSource: "persistent-page",
+          inspectionError: "Unknown error",
         }),
       })
-    )
-  })
-})
+    );
+  });
+});
 
-describe('resolveSemanticMarkerAssertion - fallback field selection', () => {
-  it('uses the candidate step id and the step target when the candidate omits them', () => {
+describe("resolveSemanticMarkerAssertion - fallback field selection", () => {
+  it("uses the candidate step id and the step target when the candidate omits them", () => {
     const query: QueryDescriptor = {
-      stepId: 'candidate-step',
-      method: 'getByText',
-      queryRoot: 'screen',
-      target: 'Saved successfully',
+      stepId: "candidate-step",
+      method: "getByText",
+      queryRoot: "screen",
+      target: "Saved successfully",
       raw: "screen.getByText('Saved successfully')",
-    }
+    };
 
     const step = {
-      action: 'click',
-      target: 'Saved successfully',
-      originalType: 'click',
-      source: 'js',
+      action: "click",
+      target: "Saved successfully",
+      originalType: "click",
+      source: "js",
       semanticMarkerLink: {
-        markerStepId: 'candidate-step',
-        anchorStepId: 'js-step-1',
-        relation: 'follows',
-        proofSubject: 'visible-message',
-        target: 'Saved successfully',
-        proofText: 'Saved successfully',
-        sourceContext: { line: 12, originalType: 'click' },
+        markerStepId: "candidate-step",
+        anchorStepId: "js-step-1",
+        relation: "follows",
+        proofSubject: "visible-message",
+        target: "Saved successfully",
+        proofText: "Saved successfully",
+        sourceContext: { line: 12, originalType: "click" },
         query,
       },
       semanticMarkerCandidate: {
-        stepId: 'candidate-step',
-        status: 'qualified',
-        originalGesture: 'click',
-        proofSubject: 'visible-message',
+        stepId: "candidate-step",
+        status: "qualified",
+        originalGesture: "click",
+        proofSubject: "visible-message",
         target: undefined,
-        proofText: 'Saved successfully',
-        sourceContext: { line: 12, originalType: 'click' },
-        anchor: { anchorStepId: 'js-step-1', relation: 'follows' },
+        proofText: "Saved successfully",
+        sourceContext: { line: 12, originalType: "click" },
+        anchor: { anchorStepId: "js-step-1", relation: "follows" },
         query,
       },
-    } as unknown as NormalizedStep
+    } as unknown as NormalizedStep;
 
-    const result = resolveSemanticMarkerAssertion(step)
+    const result = resolveSemanticMarkerAssertion(step);
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'resolved',
-        markerStepId: 'candidate-step',
+        status: "resolved",
+        markerStepId: "candidate-step",
         assertion: expect.objectContaining({
-          markerStepId: 'candidate-step',
-          target: 'Saved successfully',
+          markerStepId: "candidate-step",
+          target: "Saved successfully",
         }),
       })
-    )
-  })
+    );
+  });
 
-  it('uses the source marker step id when an unresolved assertion has no step id', () => {
+  it("uses the source marker step id when an unresolved assertion has no step id", () => {
     const step = {
-      action: 'click',
-      target: 'Review Order',
-      originalType: 'click',
-      source: 'js',
+      action: "click",
+      target: "Review Order",
+      originalType: "click",
+      source: "js",
       semanticMarkerCandidate: {
-        stepId: 'candidate-unresolved',
-        status: 'qualified',
-        originalGesture: 'click',
-        proofSubject: 'heading',
-        target: 'Review Order',
-        proofText: 'Review Order',
-        sourceContext: { line: 12, originalType: 'click' },
-        anchor: { anchorStepId: 'js-step-1', relation: 'follows' },
+        stepId: "candidate-unresolved",
+        status: "qualified",
+        originalGesture: "click",
+        proofSubject: "heading",
+        target: "Review Order",
+        proofText: "Review Order",
+        sourceContext: { line: 12, originalType: "click" },
+        anchor: { anchorStepId: "js-step-1", relation: "follows" },
       },
-    } as unknown as NormalizedStep
+    } as unknown as NormalizedStep;
 
-    const result = resolveSemanticMarkerAssertion(step)
+    const result = resolveSemanticMarkerAssertion(step);
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        markerStepId: 'candidate-unresolved',
-        reason: 'missing-query',
+        status: "unresolved",
+        markerStepId: "candidate-unresolved",
+        reason: "missing-query",
       })
-    )
-  })
+    );
+  });
 
-  it('falls back to unknown-step when neither the step nor source exposes a marker id', () => {
+  it("falls back to unknown-step when neither the step nor source exposes a marker id", () => {
     const step = {
-      action: 'click',
-      target: 'Review Order',
-      originalType: 'click',
-      source: 'js',
+      action: "click",
+      target: "Review Order",
+      originalType: "click",
+      source: "js",
       unresolvedSemanticMarker: {
-        reason: 'missing-anchor',
-        proofSubject: 'field-label',
-        sourceContext: { line: 12, originalType: 'click' },
-        target: 'Review Order',
+        reason: "missing-anchor",
+        proofSubject: "field-label",
+        sourceContext: { line: 12, originalType: "click" },
+        target: "Review Order",
       },
-    } as unknown as NormalizedStep
+    } as unknown as NormalizedStep;
 
-    const result = resolveSemanticMarkerAssertion(step)
+    const result = resolveSemanticMarkerAssertion(step);
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'unresolved',
-        markerStepId: 'unknown-step',
-        reason: 'missing-marker-candidate',
+        status: "unresolved",
+        markerStepId: "unknown-step",
+        reason: "missing-marker-candidate",
       })
-    )
-  })
+    );
+  });
 
-  it('uses candidate.target as proof text fallback for concrete values and field labels', () => {
+  it("uses candidate.target as proof text fallback for concrete values and field labels", () => {
     const valueStep = {
-      id: 'js-step-value-target-fallback',
-      action: 'click',
-      target: 'Legacy value',
-      originalType: 'click',
-      source: 'js',
+      id: "js-step-value-target-fallback",
+      action: "click",
+      target: "Legacy value",
+      originalType: "click",
+      source: "js",
       semanticMarkerLink: {
-        markerStepId: 'js-step-value-target-fallback',
-        anchorStepId: 'js-step-1',
-        relation: 'follows',
-        proofSubject: 'concrete-value',
-        target: 'KES 4,800.00',
+        markerStepId: "js-step-value-target-fallback",
+        anchorStepId: "js-step-1",
+        relation: "follows",
+        proofSubject: "concrete-value",
+        target: "KES 4,800.00",
         proofText: undefined,
-        sourceContext: { line: 12, originalType: 'click' },
+        sourceContext: { line: 12, originalType: "click" },
         query: {
-          stepId: 'js-step-value-target-fallback',
-          method: 'getByText',
-          queryRoot: 'screen',
+          stepId: "js-step-value-target-fallback",
+          method: "getByText",
+          queryRoot: "screen",
           target: undefined,
           raw: "screen.getByText('legacy')",
         },
       },
       semanticMarkerCandidate: {
-        stepId: 'js-step-value-target-fallback',
-        status: 'qualified',
-        originalGesture: 'click',
-        proofSubject: 'concrete-value',
-        target: 'KES 4,800.00',
+        stepId: "js-step-value-target-fallback",
+        status: "qualified",
+        originalGesture: "click",
+        proofSubject: "concrete-value",
+        target: "KES 4,800.00",
         proofText: undefined,
-        sourceContext: { line: 12, originalType: 'click' },
-        anchor: { anchorStepId: 'js-step-1', relation: 'follows' },
+        sourceContext: { line: 12, originalType: "click" },
+        anchor: { anchorStepId: "js-step-1", relation: "follows" },
         query: {
-          stepId: 'js-step-value-target-fallback',
-          method: 'getByText',
-          queryRoot: 'screen',
+          stepId: "js-step-value-target-fallback",
+          method: "getByText",
+          queryRoot: "screen",
           target: undefined,
           raw: "screen.getByText('legacy')",
         },
       },
-    } as unknown as NormalizedStep
+    } as unknown as NormalizedStep;
 
     const fieldStep = {
-      id: 'js-step-field-target-fallback',
-      action: 'click',
-      target: 'Legacy label',
-      originalType: 'click',
-      source: 'js',
+      id: "js-step-field-target-fallback",
+      action: "click",
+      target: "Legacy label",
+      originalType: "click",
+      source: "js",
       semanticMarkerLink: {
-        markerStepId: 'js-step-field-target-fallback',
-        anchorStepId: 'js-step-1',
-        relation: 'follows',
-        proofSubject: 'field-label',
-        target: 'Customer Number',
+        markerStepId: "js-step-field-target-fallback",
+        anchorStepId: "js-step-1",
+        relation: "follows",
+        proofSubject: "field-label",
+        target: "Customer Number",
         proofText: undefined,
-        sourceContext: { line: 12, originalType: 'click' },
+        sourceContext: { line: 12, originalType: "click" },
         query: {
-          stepId: 'js-step-field-target-fallback',
-          method: 'getByLabelText',
-          queryRoot: 'screen',
+          stepId: "js-step-field-target-fallback",
+          method: "getByLabelText",
+          queryRoot: "screen",
           target: undefined,
           raw: "screen.getByLabelText('legacy')",
         },
       },
       semanticMarkerCandidate: {
-        stepId: 'js-step-field-target-fallback',
-        status: 'qualified',
-        originalGesture: 'click',
-        proofSubject: 'field-label',
-        target: 'Customer Number',
+        stepId: "js-step-field-target-fallback",
+        status: "qualified",
+        originalGesture: "click",
+        proofSubject: "field-label",
+        target: "Customer Number",
         proofText: undefined,
-        sourceContext: { line: 12, originalType: 'click' },
-        anchor: { anchorStepId: 'js-step-1', relation: 'follows' },
+        sourceContext: { line: 12, originalType: "click" },
+        anchor: { anchorStepId: "js-step-1", relation: "follows" },
         query: {
-          stepId: 'js-step-field-target-fallback',
-          method: 'getByLabelText',
-          queryRoot: 'screen',
+          stepId: "js-step-field-target-fallback",
+          method: "getByLabelText",
+          queryRoot: "screen",
           target: undefined,
           raw: "screen.getByLabelText('legacy')",
         },
       },
-    } as unknown as NormalizedStep
+    } as unknown as NormalizedStep;
 
     expect(resolveSemanticMarkerAssertion(valueStep)).toEqual(
       expect.objectContaining({
-        status: 'resolved',
+        status: "resolved",
         assertion: expect.objectContaining({
-          proofKind: 'visible-value',
+          proofKind: "visible-value",
           query: expect.objectContaining({
             raw: "screen.findByText('KES 4,800.00')",
-            target: 'KES 4,800.00',
+            target: "KES 4,800.00",
           }),
         }),
       })
-    )
+    );
 
     expect(resolveSemanticMarkerAssertion(fieldStep)).toEqual(
       expect.objectContaining({
-        status: 'resolved',
+        status: "resolved",
         assertion: expect.objectContaining({
-          proofKind: 'label-text',
+          proofKind: "label-text",
           query: expect.objectContaining({
             raw: "screen.findByLabelText('Customer Number')",
-            target: 'Customer Number',
+            target: "Customer Number",
           }),
         }),
       })
-    )
-  })
+    );
+  });
 
-  it('preserves the original query target when upgrading a role-and-name proof', () => {
+  it("preserves the original query target when upgrading a role-and-name proof", () => {
     const step = {
-      id: 'js-step-role-target-fallback',
-      action: 'click',
-      target: 'ignored-step-target',
-      originalType: 'click',
-      source: 'js',
+      id: "js-step-role-target-fallback",
+      action: "click",
+      target: "ignored-step-target",
+      originalType: "click",
+      source: "js",
       semanticMarkerLink: {
-        markerStepId: 'js-step-role-target-fallback',
-        anchorStepId: 'js-step-1',
-        relation: 'follows',
-        proofSubject: 'heading',
-        target: 'Recorder heading target',
-        proofText: 'Checkout',
-        sourceContext: { line: 12, originalType: 'click' },
+        markerStepId: "js-step-role-target-fallback",
+        anchorStepId: "js-step-1",
+        relation: "follows",
+        proofSubject: "heading",
+        target: "Recorder heading target",
+        proofText: "Checkout",
+        sourceContext: { line: 12, originalType: "click" },
         query: {
-          stepId: 'js-step-role-target-fallback',
-          method: 'getByRole',
-          queryRoot: 'screen',
-          role: 'heading',
-          name: 'Checkout',
-          target: 'Recorder heading target',
+          stepId: "js-step-role-target-fallback",
+          method: "getByRole",
+          queryRoot: "screen",
+          role: "heading",
+          name: "Checkout",
+          target: "Recorder heading target",
           raw: "screen.getByRole('heading', { name: 'Checkout' })",
         },
       },
       semanticMarkerCandidate: {
-        stepId: 'js-step-role-target-fallback',
-        status: 'qualified',
-        originalGesture: 'click',
-        proofSubject: 'heading',
-        target: 'Recorder heading target',
-        proofText: 'Checkout',
-        sourceContext: { line: 12, originalType: 'click' },
-        anchor: { anchorStepId: 'js-step-1', relation: 'follows' },
+        stepId: "js-step-role-target-fallback",
+        status: "qualified",
+        originalGesture: "click",
+        proofSubject: "heading",
+        target: "Recorder heading target",
+        proofText: "Checkout",
+        sourceContext: { line: 12, originalType: "click" },
+        anchor: { anchorStepId: "js-step-1", relation: "follows" },
         query: {
-          stepId: 'js-step-role-target-fallback',
-          method: 'getByRole',
-          queryRoot: 'screen',
-          role: 'heading',
-          name: 'Checkout',
-          target: 'Recorder heading target',
+          stepId: "js-step-role-target-fallback",
+          method: "getByRole",
+          queryRoot: "screen",
+          role: "heading",
+          name: "Checkout",
+          target: "Recorder heading target",
           raw: "screen.getByRole('heading', { name: 'Checkout' })",
         },
       },
-    } as unknown as NormalizedStep
+    } as unknown as NormalizedStep;
 
-    const result = resolveSemanticMarkerAssertion(step)
+    const result = resolveSemanticMarkerAssertion(step);
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'resolved',
+        status: "resolved",
         assertion: expect.objectContaining({
           query: expect.objectContaining({
-            method: 'findByRole',
-            target: 'Checkout',
+            method: "findByRole",
+            target: "Checkout",
           }),
-          target: 'Recorder heading target',
+          target: "Recorder heading target",
         }),
       })
-    )
-  })
-})
+    );
+  });
+});
 
-describe('captureVisualState - fallback warnings and auth interrupt variants', () => {
-  it('uses capture.png and the empty-title warning when the recorded page never stabilizes', async () => {
+describe("captureVisualState - fallback warnings and auth interrupt variants", () => {
+  it("uses capture.png and the empty-title warning when the recorded page never stabilizes", async () => {
     createPlaywrightSession([
       {
         dialog: null,
         elements: {},
         matchedLandmarks: [],
-        title: '',
-        url: 'http://localhost:3000/wrong-page',
+        title: "",
+        url: "http://localhost:3000/wrong-page",
       },
-    ])
+    ]);
 
-    const result = await captureVisualState('http://localhost:3000/target', {
-      expected: {
-        title: 'Target Page',
-        url: 'http://localhost:3000/target',
-      },
-      reason: '!!!',
-      screenshotDir: '/tmp/taro-visual',
+    const result = await captureVisualState("http://localhost:3000/target", {
+      expected: { title: "Target Page", url: "http://localhost:3000/target" },
+      reason: "!!!",
+      screenshotDir: "/tmp/taro-visual",
       timeoutMs: 10,
-    })
+    });
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'captured',
-        screenshotPath: '/tmp/taro-visual/capture.png',
+        status: "captured",
+        screenshotPath: "/tmp/taro-visual/capture.png",
         startingPointConfirmed: false,
         warnings: expect.arrayContaining([
-          'Playwright did not reach the recorded URL before visual capture finished. Expected http://localhost:3000/target, reached http://localhost:3000/wrong-page.',
+          "Playwright did not reach the recorded URL before visual capture finished. Expected http://localhost:3000/target, reached http://localhost:3000/wrong-page.",
         ]),
       })
-    )
-  })
+    );
+  });
 
-  it('swallows browser.close failures during capture cleanup', async () => {
+  it("swallows browser.close failures during capture cleanup", async () => {
     const session = createPlaywrightSession([
       {
         dialog: null,
         elements: {},
         matchedLandmarks: [],
-        title: 'Dashboard',
-        url: 'http://localhost:3000/dashboard',
+        title: "Dashboard",
+        url: "http://localhost:3000/dashboard",
       },
-    ])
-    session.browser.close.mockRejectedValueOnce(new Error('close failed'))
+    ]);
+    session.browser.close.mockRejectedValueOnce(new Error("close failed"));
 
-    const result = await captureVisualState('http://localhost:3000/dashboard', {
-      reason: 'cleanup-close-failure',
-    })
+    const result = await captureVisualState("http://localhost:3000/dashboard", {
+      reason: "cleanup-close-failure",
+    });
 
     expect(result).toEqual(
-      expect.objectContaining({
-        status: 'captured',
-        pageTitle: 'Dashboard',
-      })
-    )
-    expect(session.browser.close).toHaveBeenCalledTimes(1)
-  })
+      expect.objectContaining({ status: "captured", pageTitle: "Dashboard" })
+    );
+    expect(session.browser.close).toHaveBeenCalledTimes(1);
+  });
 
-  it('allows auth signals plus a title mismatch to trigger auth recovery with a default 0s timeout message', async () => {
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+  it("allows auth signals plus a title mismatch to trigger auth recovery with a default 0s timeout message", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
 
     createPlaywrightSession([
       {
-        authSignals: ['auth-copy'],
+        authSignals: ["auth-copy"],
         dialog: null,
         elements: {},
         matchedLandmarks: [],
-        title: 'Sign In',
-        url: 'http://localhost:3000/dashboard',
+        title: "Sign In",
+        url: "http://localhost:3000/dashboard",
       },
-    ])
+    ]);
 
-    const result = await captureVisualState('http://localhost:3000/dashboard', {
-      authRecovery: {
-        enabled: true,
-      },
-      expected: {
-        title: 'Dashboard',
-        url: 'http://localhost:3000/dashboard',
-      },
-      reason: 'auth-title-only',
-      screenshotDir: '/tmp/taro-visual',
-    })
+    const result = await captureVisualState("http://localhost:3000/dashboard", {
+      authRecovery: { enabled: true },
+      expected: { title: "Dashboard", url: "http://localhost:3000/dashboard" },
+      reason: "auth-title-only",
+      screenshotDir: "/tmp/taro-visual",
+    });
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'auth-recovery-timed-out',
+        status: "auth-recovery-timed-out",
         interrupt: expect.objectContaining({
-          signals: expect.arrayContaining(['auth-copy', 'title-mismatch']),
+          signals: expect.arrayContaining(["auth-copy", "title-mismatch"]),
         }),
       })
-    )
-    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Waiting up to 0s.'))
+    );
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Waiting up to 0s.")
+    );
 
-    logSpy.mockRestore()
-  })
+    logSpy.mockRestore();
+  });
 
-  it('treats missing expected landmarks as sufficient auth evidence even when URL and title match', async () => {
+  it("treats missing expected landmarks as sufficient auth evidence even when URL and title match", async () => {
     createPlaywrightSession([
       {
-        authSignals: ['auth-copy'],
+        authSignals: ["auth-copy"],
         dialog: null,
         elements: {},
         matchedLandmarks: [],
-        title: 'Dashboard',
-        url: 'http://localhost:3000/dashboard',
+        title: "Dashboard",
+        url: "http://localhost:3000/dashboard",
       },
-    ])
+    ]);
 
-    const result = await captureVisualState('http://localhost:3000/dashboard', {
+    const result = await captureVisualState("http://localhost:3000/dashboard", {
       expected: {
-        landmarks: ['Sales panel'],
-        title: 'Dashboard',
-        url: 'http://localhost:3000/dashboard',
+        landmarks: ["Sales panel"],
+        title: "Dashboard",
+        url: "http://localhost:3000/dashboard",
       },
-      reason: 'auth-landmark-only',
-    })
+      reason: "auth-landmark-only",
+    });
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'auth-interrupted',
+        status: "auth-interrupted",
         interrupt: expect.objectContaining({
-          signals: expect.arrayContaining(['auth-copy', 'expected-landmarks-missing']),
+          signals: expect.arrayContaining([
+            "auth-copy",
+            "expected-landmarks-missing",
+          ]),
         }),
       })
-    )
-  })
-})
+    );
+  });
+});
 
-describe('replayStep - fill and error fallbacks', () => {
-  it('uses an empty placeholder target when the fill step has no target text', async () => {
-    const placeholderClickMock = vi.fn().mockResolvedValue(undefined)
-    const placeholderFillMock = vi.fn().mockResolvedValue(undefined)
+describe("replayStep - fill and error fallbacks", () => {
+  it("uses an empty placeholder target when the fill step has no target text", async () => {
+    const placeholderClickMock = vi.fn().mockResolvedValue(undefined);
+    const placeholderFillMock = vi.fn().mockResolvedValue(undefined);
     const page = {
       getByPlaceholder: vi.fn(() => ({
         count: vi.fn().mockResolvedValue(1),
@@ -5494,85 +5443,76 @@ describe('replayStep - fill and error fallbacks', () => {
         click: vi.fn().mockResolvedValue(undefined),
         fill: vi.fn().mockResolvedValue(undefined),
       })),
-      title: vi.fn().mockResolvedValue('Workspace'),
-      url: vi.fn().mockReturnValue('http://localhost:3000/workspace'),
-    }
+      title: vi.fn().mockResolvedValue("Workspace"),
+      url: vi.fn().mockReturnValue("http://localhost:3000/workspace"),
+    };
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'fill',
-        id: 'js-step-fill-no-target',
-        originalType: 'fill',
-        source: 'js',
-        value: 'Acme Corp',
-        metadata: {
-          query: {
-            method: 'getByText',
-            target: 'Customer Name',
-          },
-        },
+        action: "fill",
+        id: "js-step-fill-no-target",
+        originalType: "fill",
+        source: "js",
+        value: "Acme Corp",
+        metadata: { query: { method: "getByText", target: "Customer Name" } },
       } as unknown as NormalizedStep,
-      {
-        collectDebug: true,
-      }
-    )
+      { collectDebug: true }
+    );
 
-    expect(page.getByPlaceholder).toHaveBeenCalledWith('')
+    expect(page.getByPlaceholder).toHaveBeenCalledWith("");
     expect(result).toEqual(
       expect.objectContaining({
         replayed: true,
         debug: expect.objectContaining({
-          locatorSource: 'fill.placeholder',
-          locatorValue: '',
+          locatorSource: "fill.placeholder",
+          locatorValue: "",
           playwrightAction: "page.getByPlaceholder('').fill('Acme Corp')",
         }),
       })
-    )
-  })
+    );
+  });
 
-  it('reports unknown errors when a replay action throws a non-Error value', async () => {
+  it("reports unknown errors when a replay action throws a non-Error value", async () => {
     const page = {
       locator: vi.fn(() => ({
         first: () => ({
-          click: vi.fn().mockRejectedValue('click blew up'),
+          click: vi.fn().mockRejectedValue("click blew up"),
           waitFor: vi.fn().mockResolvedValue(undefined),
           evaluateAll: vi.fn().mockResolvedValue(null),
         }),
       })),
-      title: vi.fn().mockResolvedValue('Workspace'),
-      url: vi.fn().mockReturnValue('http://localhost:3000/workspace'),
-    }
+      title: vi.fn().mockResolvedValue("Workspace"),
+      url: vi.fn().mockReturnValue("http://localhost:3000/workspace"),
+    };
 
     const result = await replayStep(
       page as unknown as Page,
       {
-        action: 'click',
-        id: 'js-step-click-string-error',
-        originalType: 'click',
-        source: 'js',
-        target: '#save',
+        action: "click",
+        id: "js-step-click-string-error",
+        originalType: "click",
+        source: "js",
+        target: "#save",
       } as unknown as NormalizedStep,
-      {
-        collectDebug: true,
-      }
-    )
+      { collectDebug: true }
+    );
 
     expect(result).toEqual(
       expect.objectContaining({
         replayed: false,
-        warning: 'click on #save failed: Unknown error',
+        warning: "click on #save failed: Unknown error",
         debug: expect.objectContaining({
-          error: 'Unknown error',
-          locatorSource: 'step.target',
+          error: "Unknown error",
+          locatorSource: "step.target",
         }),
       })
-    )
-  })
+    );
+  });
 
-  it('omits fallbackLocators when the resolved locator has no debug value', async () => {
-    const placeholderClickMock = vi.fn().mockResolvedValue(undefined)
-    const placeholderFillMock = vi.fn().mockResolvedValue(undefined)
+  it("omits fallbackLocators when the resolved locator has no debug value", async () => {
+    const placeholderClickMock = vi.fn().mockResolvedValue(undefined);
+    const placeholderFillMock = vi.fn().mockResolvedValue(undefined);
     const page = {
       getByPlaceholder: vi.fn(() => ({
         count: vi.fn().mockResolvedValue(1),
@@ -5587,65 +5527,65 @@ describe('replayStep - fill and error fallbacks', () => {
           waitFor: vi.fn().mockResolvedValue(undefined),
         }),
       })),
-      title: vi.fn().mockResolvedValue('Workspace'),
-      url: vi.fn().mockReturnValue('http://localhost:3000/workspace'),
-    }
+      title: vi.fn().mockResolvedValue("Workspace"),
+      url: vi.fn().mockReturnValue("http://localhost:3000/workspace"),
+    };
 
-    let targetReadCount = 0
+    let targetReadCount = 0;
     const step = {
-      action: 'fill',
-      id: 'js-step-fill-missing-fallback-label',
-      originalType: 'fill',
-      source: 'js',
-      value: 'Acme Corp',
+      action: "fill",
+      id: "js-step-fill-missing-fallback-label",
+      originalType: "fill",
+      source: "js",
+      value: "Acme Corp",
       get target() {
-        targetReadCount += 1
+        targetReadCount += 1;
         if (targetReadCount <= 3) {
-          return '#customer'
+          return "#customer";
         }
 
-        return undefined
+        return undefined;
       },
-    } as unknown as NormalizedStep
+    } as unknown as NormalizedStep;
 
     const result = await replayStep(page as unknown as Page, step, {
       collectDebug: true,
-    })
+    });
 
     expect(result).toEqual(
       expect.objectContaining({
         replayed: true,
         debug: expect.objectContaining({
           fallbackLocators: undefined,
-          locatorSource: 'fill.placeholder',
-          locatorValue: '',
+          locatorSource: "fill.placeholder",
+          locatorValue: "",
         }),
       })
-    )
-  })
-})
+    );
+  });
+});
 
-describe('resolveSelector - cleanup fallbacks', () => {
-  it('swallows browser.close failures after default selector inspection', async () => {
+describe("resolveSelector - cleanup fallbacks", () => {
+  it("swallows browser.close failures after default selector inspection", async () => {
     const session = createPlaywrightSession([
       {
-        elements: { '#save': accessibleButton },
-        title: 'App',
-        url: 'http://localhost:3000',
+        elements: { "#save": accessibleButton },
+        title: "App",
+        url: "http://localhost:3000",
       },
-    ])
-    session.browser.close.mockRejectedValueOnce(new Error('close failed'))
+    ]);
+    session.browser.close.mockRejectedValueOnce(new Error("close failed"));
 
     const result = await resolveSelector(selectorDescriptor, {
-      url: 'http://localhost:3000',
-    })
+      url: "http://localhost:3000",
+    });
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: 'resolved',
-        outcome: 'accessible-query',
+        status: "resolved",
+        outcome: "accessible-query",
       })
-    )
-    expect(session.browser.close).toHaveBeenCalled()
-  })
-})
+    );
+    expect(session.browser.close).toHaveBeenCalled();
+  });
+});

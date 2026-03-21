@@ -1,8 +1,8 @@
 // src/cli/commands/generate.machine.ts
-import pc from 'picocolors'
-import { assign, enqueueActions, fromPromise, setup } from 'xstate'
+import pc from "picocolors";
+import { assign, enqueueActions, fromPromise, setup } from "xstate";
 
-import type { GenerateMachineContext } from '#cli/commands/generate.utils.ts'
+import type { GenerateMachineContext } from "#cli/commands/generate.utils.ts";
 import {
   emitLowConfidenceBanner,
   emitMarkerCoverageSection,
@@ -24,90 +24,97 @@ import {
   summarizeSelectorWarnings,
   summarizeSuiteContracts,
   summarizeVisualState,
-} from '#cli/commands/generate.utils.ts'
+} from "#cli/commands/generate.utils.ts";
 
 function log(msg: string): void {
-  process.stderr.write(msg + '\n')
+  process.stderr.write(msg + "\n");
 }
 
-type CtxArg = { context: GenerateMachineContext }
+type CtxArg = { context: GenerateMachineContext };
 
 export type GenerateMachineActors = {
-  validateFileActor: ReturnType<typeof fromPromise>
-  parseRecordingActor: ReturnType<typeof fromPromise>
-  loadStateActor: ReturnType<typeof fromPromise>
-  captureVisualActor: ReturnType<typeof fromPromise>
-  searchContextActor: ReturnType<typeof fromPromise>
-  refineProfileActor: ReturnType<typeof fromPromise>
-  refreshProfileActor: ReturnType<typeof fromPromise>
-  analyzeRecordingActor: ReturnType<typeof fromPromise>
-  analyzeMocksActor: ReturnType<typeof fromPromise>
-  planGenerationActor: ReturnType<typeof fromPromise>
-  resolveSelectorsActor: ReturnType<typeof fromPromise>
-  generateCodeActor: ReturnType<typeof fromPromise>
-  assessOutputActor: ReturnType<typeof fromPromise>
-  writeOutputActor: ReturnType<typeof fromPromise>
-  finalizeActor: ReturnType<typeof fromPromise>
-  runHealthCommandsActor: ReturnType<typeof fromPromise>
-}
+  validateFileActor: ReturnType<typeof fromPromise>;
+  parseRecordingActor: ReturnType<typeof fromPromise>;
+  loadStateActor: ReturnType<typeof fromPromise>;
+  captureVisualActor: ReturnType<typeof fromPromise>;
+  searchContextActor: ReturnType<typeof fromPromise>;
+  refineProfileActor: ReturnType<typeof fromPromise>;
+  refreshProfileActor: ReturnType<typeof fromPromise>;
+  analyzeRecordingActor: ReturnType<typeof fromPromise>;
+  analyzeMocksActor: ReturnType<typeof fromPromise>;
+  planGenerationActor: ReturnType<typeof fromPromise>;
+  resolveSelectorsActor: ReturnType<typeof fromPromise>;
+  generateCodeActor: ReturnType<typeof fromPromise>;
+  assessOutputActor: ReturnType<typeof fromPromise>;
+  writeOutputActor: ReturnType<typeof fromPromise>;
+  finalizeActor: ReturnType<typeof fromPromise>;
+  runHealthCommandsActor: ReturnType<typeof fromPromise>;
+};
 
 export function createGenerateMachine(actors: GenerateMachineActors) {
   return setup({
-    types: { context: {} as GenerateMachineContext, input: {} as GenerateMachineContext },
+    types: {
+      context: {} as GenerateMachineContext,
+      input: {} as GenerateMachineContext,
+    },
     actors,
     guards: generateMachineGuards,
   }).createMachine({
-    id: 'generate',
-    initial: 'idle',
+    id: "generate",
+    initial: "idle",
     context: ({ input }) => input,
     states: {
       idle: {
         entry: enqueueActions(({ enqueue, self }) => {
-          enqueue.sendTo(self, { type: 'PROCEED' })
+          enqueue.sendTo(self, { type: "PROCEED" });
         }),
-        on: {
-          PROCEED: { target: 'validating' },
-        },
+        on: { PROCEED: { target: "validating" } },
       },
       validating: {
         invoke: {
-          src: 'validateFileActor',
+          src: "validateFileActor",
           input: ({ context }: CtxArg) => ({ filePath: context.filePath }),
-          onDone: { target: 'parsing' },
-          onError: { target: 'failed', actions: assign({ error: ({ event }) => event.error as Error }) },
+          onDone: { target: "parsing" },
+          onError: {
+            target: "failed",
+            actions: assign({ error: ({ event }) => event.error as Error }),
+          },
         },
       },
       parsing: {
         invoke: {
-          src: 'parseRecordingActor',
+          src: "parseRecordingActor",
           input: ({ context }: CtxArg) => ({ filePath: context.filePath }),
           onDone: {
-            target: 'loadingState',
-             
+            target: "loadingState",
+
             actions: assign(({ event }) => {
-              const out = (event as any).output
+              const out = (event as any).output;
               return {
                 normalizedRecording: out?.normalizedRecording,
                 defaultOutputPath: out?.defaultOutputPath,
-              }
+              };
             }),
           },
-          onError: { target: 'failed', actions: assign({ error: ({ event }) => event.error as Error }) },
+          onError: {
+            target: "failed",
+            actions: assign({ error: ({ event }) => event.error as Error }),
+          },
         },
       },
       loadingState: {
         invoke: {
-          src: 'loadStateActor',
+          src: "loadStateActor",
           input: ({ context }: CtxArg) => ({
             filePath: context.filePath,
             projectRoot: context.projectRoot,
             commandOptions: context.commandOptions,
           }),
           onDone: {
-            target: 'capturingVisual',
-             
+            target: "capturingVisual",
+
             actions: assign(({ event }) => {
-              const out = (event as any).output
+              const out = (event as any).output;
               return {
                 hadState: out?.hadState,
                 bootstrappedState: out?.bootstrappedState,
@@ -117,20 +124,26 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
                 explicitAuthPath: out?.explicitAuthPath,
                 explicitInstructionsPath: out?.explicitInstructionsPath,
                 visualAuth: out?.visualAuth,
-              }
+              };
             }),
           },
-          onError: { target: 'failed', actions: assign({ error: ({ event }) => event.error as Error }) },
+          onError: {
+            target: "failed",
+            actions: assign({ error: ({ event }) => event.error as Error }),
+          },
         },
       },
       capturingVisual: {
         entry: ({ context }: CtxArg) => {
           if (context.commandOptions.screenshots === false) {
-            log(pc.dim('[taro]') + ' Screenshot artifacts skipped (--no-screenshots); Playwright page confirmation still ran.')
+            log(
+              pc.dim("[taro]") +
+                " Screenshot artifacts skipped (--no-screenshots); Playwright page confirmation still ran."
+            );
           }
         },
         invoke: {
-          src: 'captureVisualActor',
+          src: "captureVisualActor",
           input: ({ context }: CtxArg) => ({
             normalizedRecording: context.normalizedRecording,
             visualAuth: context.visualAuth,
@@ -138,28 +151,35 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             commandOptions: context.commandOptions,
           }),
           onDone: {
-            target: 'searchingContext',
-             
+            target: "searchingContext",
+
             actions: assign(({ event }) => {
-              const out = (event as any).output
+              const out = (event as any).output;
               return {
                 earlyAnalyzedRecording: out?.earlyAnalyzedRecording,
                 recordingUrl: out?.recordingUrl,
                 visualState: out?.visualState,
-              }
+              };
             }),
           },
-          onError: { target: 'failed', actions: assign({ error: ({ event }) => event.error as Error }) },
+          onError: {
+            target: "failed",
+            actions: assign({ error: ({ event }) => event.error as Error }),
+          },
         },
       },
       searchingContext: {
         entry: ({ context }: CtxArg) => {
-          summarizeAuthPreflight({ auth: context.visualAuth ?? null, url: context.recordingUrl, visualState: context.visualState ?? null })
-          summarizeVisualState(context.visualState ?? null)
-          summarizePageConfirmedContext(context.visualState ?? null)
+          summarizeAuthPreflight({
+            auth: context.visualAuth ?? null,
+            url: context.recordingUrl,
+            visualState: context.visualState ?? null,
+          });
+          summarizeVisualState(context.visualState ?? null);
+          summarizePageConfirmedContext(context.visualState ?? null);
         },
         invoke: {
-          src: 'searchContextActor',
+          src: "searchContextActor",
           input: ({ context }: CtxArg) => ({
             normalizedRecording: context.normalizedRecording,
             visualState: context.visualState,
@@ -168,22 +188,25 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             filePath: context.filePath,
           }),
           onDone: {
-            target: 'refiningProfile',
-             
+            target: "refiningProfile",
+
             actions: assign(({ event }) => {
-              const out = (event as any).output
+              const out = (event as any).output;
               return {
                 normalizedRecording: out?.normalizedRecording,
                 contextMatches: out?.contextMatches,
-              }
+              };
             }),
           },
-          onError: { target: 'failed', actions: assign({ error: ({ event }) => event.error as Error }) },
+          onError: {
+            target: "failed",
+            actions: assign({ error: ({ event }) => event.error as Error }),
+          },
         },
       },
       refiningProfile: {
         invoke: {
-          src: 'refineProfileActor',
+          src: "refineProfileActor",
           input: ({ context }: CtxArg) => ({
             bootstrappedState: context.bootstrappedState,
             packageProfile: context.packageProfile,
@@ -193,91 +216,116 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
           }),
           onDone: [
             {
-              guard: 'isProfileStale',
-              target: 'refreshingProfile',
-               
+              guard: "isProfileStale",
+              target: "refreshingProfile",
+
               actions: assign(({ event }) => {
-                const out = (event as any).output
+                const out = (event as any).output;
                 return {
                   packageProfile: out?.packageProfile,
                   contextProfileReason: out?.contextProfileReason,
                   staleness: out?.staleness,
-                }
+                };
               }),
             },
             {
-              target: 'analyzingRecording',
-               
+              target: "analyzingRecording",
+
               actions: assign(({ event }) => {
-                const out = (event as any).output
+                const out = (event as any).output;
                 return {
                   packageProfile: out?.packageProfile,
                   contextProfileReason: out?.contextProfileReason,
                   staleness: out?.staleness,
-                }
+                };
               }),
             },
           ],
-          onError: { target: 'failed', actions: assign({ error: ({ event }) => event.error as Error }) },
+          onError: {
+            target: "failed",
+            actions: assign({ error: ({ event }) => event.error as Error }),
+          },
         },
       },
       refreshingProfile: {
         entry: ({ context }: CtxArg) => {
-          const profilePath = context.packageProfile?.packagePath ?? '.'
-          log(pc.dim('[taro]') + ` Detected stale package profile ${profilePath}; refreshing before generation.`)
+          const profilePath = context.packageProfile?.packagePath ?? ".";
+          log(
+            pc.dim("[taro]") +
+              ` Detected stale package profile ${profilePath}; refreshing before generation.`
+          );
           if (context.staleness?.reason) {
-            console.warn(pc.yellow(context.staleness.reason))
+            console.warn(pc.yellow(context.staleness.reason));
           }
         },
         invoke: {
-          src: 'refreshProfileActor',
+          src: "refreshProfileActor",
           input: ({ context }: CtxArg) => ({
             projectRoot: context.projectRoot,
             contextMatches: context.contextMatches,
             overrides: context.overrides,
           }),
           onDone: {
-            target: 'analyzingRecording',
-             
+            target: "analyzingRecording",
+
             actions: assign(({ event }) => {
-              const out = (event as any).output
+              const out = (event as any).output;
               return {
                 bootstrappedState: out?.bootstrappedState,
                 overrides: out?.overrides,
                 packageProfile: out?.packageProfile,
                 contextProfileReason: out?.contextProfileReason,
                 staleness: out?.staleness,
-              }
+              };
             }),
           },
-          onError: { target: 'failed', actions: assign({ error: ({ event }) => event.error as Error }) },
+          onError: {
+            target: "failed",
+            actions: assign({ error: ({ event }) => event.error as Error }),
+          },
         },
       },
       analyzingRecording: {
         entry: ({ context }: CtxArg) => {
           if (context.bootstrappedState?.summary.warnings.length) {
             for (const w of context.bootstrappedState.summary.warnings) {
-              console.warn(pc.yellow(w))
+              console.warn(pc.yellow(w));
             }
           }
-          if (context.hadState === false) log(pc.dim('[taro]') + ' Bootstrapped .taro/state.json from current repo tests.')
+          if (context.hadState === false)
+            log(
+              pc.dim("[taro]") +
+                " Bootstrapped .taro/state.json from current repo tests."
+            );
           if (context.contextMatches?.length) {
-            log(pc.dim('[taro]') + ` Context matches:\n${formatContextMatchesSummary(context.contextMatches)}`)
+            log(
+              pc.dim("[taro]") +
+                ` Context matches:\n${formatContextMatchesSummary(context.contextMatches)}`
+            );
           }
           if (context.contextProfileReason && context.packageProfile) {
-            log(pc.dim('[taro]') + ` Context-selected package profile ${context.packageProfile.packagePath}: ${context.contextProfileReason}.`)
+            log(
+              pc.dim("[taro]") +
+                ` Context-selected package profile ${context.packageProfile.packagePath}: ${context.contextProfileReason}.`
+            );
           }
-          summarizeResolvedPackageProfile(context.packageProfile ?? null)
+          summarizeResolvedPackageProfile(context.packageProfile ?? null);
           if (context.packageProfile?.appliedOverrides?.length) {
-            log(pc.dim('[taro]') + ` Applied overrides for ${context.packageProfile.packagePath}: ${context.packageProfile.appliedOverrides.join(', ')}`)
+            log(
+              pc.dim("[taro]") +
+                ` Applied overrides for ${context.packageProfile.packagePath}: ${context.packageProfile.appliedOverrides.join(", ")}`
+            );
           }
-          summarizePlaywrightAuth(context.packageProfile ?? null)
+          summarizePlaywrightAuth(context.packageProfile ?? null);
           if (context.normalizedRecording) {
-            log(pc.green('Parsed:') + ` ${pc.bold(context.normalizedRecording.title)} — ${context.normalizedRecording.steps.length} steps`)
+            log(
+              pc.green("Parsed:") +
+                ` ${pc.bold(context.normalizedRecording.title)} — ${context.normalizedRecording.steps.length} steps`
+            );
           }
         },
         invoke: {
-          src: 'analyzeRecordingActor',
+          src: "analyzeRecordingActor",
           input: ({ context }: CtxArg) => ({
             normalizedRecording: context.normalizedRecording,
             packageProfile: context.packageProfile,
@@ -288,48 +336,55 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             explicitInstructionsPath: context.explicitInstructionsPath,
           }),
           onDone: {
-            target: 'analyzingMocks',
-             
+            target: "analyzingMocks",
+
             actions: assign(({ event }) => {
-              const out = (event as any).output
+              const out = (event as any).output;
               return {
                 analyzedRecording: out?.analyzedRecording,
                 markerAwareRecording: out?.markerAwareRecording,
                 recoveredVisualAuth: out?.recoveredVisualAuth,
                 visualAuth: out?.visualAuth,
-              }
+              };
             }),
           },
-          onError: { target: 'failed', actions: assign({ error: ({ event }) => event.error as Error }) },
+          onError: {
+            target: "failed",
+            actions: assign({ error: ({ event }) => event.error as Error }),
+          },
         },
       },
       analyzingMocks: {
         entry: ({ context }: CtxArg) => {
-          if (context.analyzedRecording) summarizeCleanup(context.analyzedRecording)
+          if (context.analyzedRecording)
+            summarizeCleanup(context.analyzedRecording);
         },
         invoke: {
-          src: 'analyzeMocksActor',
+          src: "analyzeMocksActor",
           input: ({ context }: CtxArg) => ({
             projectRoot: context.projectRoot,
             packageProfile: context.packageProfile,
           }),
           onDone: {
-            target: 'planning',
-             
+            target: "planning",
+
             actions: assign(({ event }) => {
-              const out = (event as any).output
-              return { mockAnalysis: out?.mockAnalysis }
+              const out = (event as any).output;
+              return { mockAnalysis: out?.mockAnalysis };
             }),
           },
-          onError: { target: 'failed', actions: assign({ error: ({ event }) => event.error as Error }) },
+          onError: {
+            target: "failed",
+            actions: assign({ error: ({ event }) => event.error as Error }),
+          },
         },
       },
       planning: {
         entry: ({ context }: CtxArg) => {
-          summarizeMockAnalysis(context.mockAnalysis ?? null)
+          summarizeMockAnalysis(context.mockAnalysis ?? null);
         },
         invoke: {
-          src: 'planGenerationActor',
+          src: "planGenerationActor",
           input: ({ context }: CtxArg) => ({
             markerAwareRecording: context.markerAwareRecording,
             analyzedRecording: context.analyzedRecording,
@@ -342,10 +397,10 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             visualState: context.visualState,
           }),
           onDone: {
-            target: 'resolvingSelectors',
-             
+            target: "resolvingSelectors",
+
             actions: assign(({ event }) => {
-              const out = (event as any).output
+              const out = (event as any).output;
               return {
                 jsSuitePlan: out?.jsSuitePlan,
                 outputPath: out?.outputPath,
@@ -354,24 +409,28 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
                 generationRenderTarget: out?.generationRenderTarget,
                 componentScoreContext: out?.componentScoreContext,
                 generationRenderHelper: out?.generationRenderHelper,
-              }
+              };
             }),
           },
-          onError: { target: 'failed', actions: assign({ error: ({ event }) => event.error as Error }) },
+          onError: {
+            target: "failed",
+            actions: assign({ error: ({ event }) => event.error as Error }),
+          },
         },
       },
       resolvingSelectors: {
         entry: ({ context }: CtxArg) => {
           if (context.boundarySupportPlan?.warnings.length) {
-            for (const w of context.boundarySupportPlan.warnings) console.warn(pc.yellow(w))
+            for (const w of context.boundarySupportPlan.warnings)
+              console.warn(pc.yellow(w));
           }
           if (context.jsSuitePlan) {
-            summarizeBoundaryWarnings(context.jsSuitePlan.warnings)
-            summarizeSuiteContracts(context.jsSuitePlan)
+            summarizeBoundaryWarnings(context.jsSuitePlan.warnings);
+            summarizeSuiteContracts(context.jsSuitePlan);
           }
         },
         invoke: {
-          src: 'resolveSelectorsActor',
+          src: "resolveSelectorsActor",
           input: ({ context }: CtxArg) => ({
             markerAwareRecording: context.markerAwareRecording,
             jsSuitePlan: context.jsSuitePlan,
@@ -382,22 +441,27 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             debugReporter: context.debugReporter,
           }),
           onDone: {
-            target: 'generating',
-             
+            target: "generating",
+
             actions: assign(({ event }) => {
-              const out = (event as any).output
-              return { resolvedJsGeneration: out?.resolvedJsGeneration }
+              const out = (event as any).output;
+              return { resolvedJsGeneration: out?.resolvedJsGeneration };
             }),
           },
-          onError: { target: 'failed', actions: assign({ error: ({ event }) => event.error as Error }) },
+          onError: {
+            target: "failed",
+            actions: assign({ error: ({ event }) => event.error as Error }),
+          },
         },
       },
       generating: {
         entry: ({ context }: CtxArg) => {
-          summarizeSelectorWarnings(context.resolvedJsGeneration?.warnings ?? [])
+          summarizeSelectorWarnings(
+            context.resolvedJsGeneration?.warnings ?? []
+          );
         },
         invoke: {
-          src: 'generateCodeActor',
+          src: "generateCodeActor",
           input: ({ context }: CtxArg) => ({
             normalizedRecording: context.normalizedRecording,
             resolvedJsGeneration: context.resolvedJsGeneration,
@@ -411,25 +475,28 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             analyzedRecording: context.analyzedRecording,
           }),
           onDone: {
-            target: 'assessingOutput',
-             
+            target: "assessingOutput",
+
             actions: assign(({ event }) => {
-              const out = (event as any).output
+              const out = (event as any).output;
               return {
                 generatedCode: out?.generatedCode,
                 hydratedSuitePlan: out?.hydratedSuitePlan,
                 scoreResult: out?.scoreResult,
                 boundaryPolicyWarnings: out?.boundaryPolicyWarnings,
                 candidateAssessment: out?.candidateAssessment,
-              }
+              };
             }),
           },
-          onError: { target: 'failed', actions: assign({ error: ({ event }) => event.error as Error }) },
+          onError: {
+            target: "failed",
+            actions: assign({ error: ({ event }) => event.error as Error }),
+          },
         },
       },
       assessingOutput: {
         invoke: {
-          src: 'assessOutputActor',
+          src: "assessOutputActor",
           input: ({ context }: CtxArg) => ({
             outputPath: context.outputPath,
             generatedCode: context.generatedCode,
@@ -439,89 +506,114 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
           }),
           onDone: [
             {
-              guard: 'shouldWrite',
-              target: 'writing',
-               
+              guard: "shouldWrite",
+              target: "writing",
+
               actions: assign(({ context, event }) => {
-                const out = (event as any).output
+                const out = (event as any).output;
                 return {
                   existingCode: out?.existingCode,
                   existingAssessment: out?.existingAssessment,
                   outputResolution: out?.outputResolution,
-                  generatedCode: out?.outputResolution?.outputCode ?? context.generatedCode,
-                  scoreResult: out?.outputResolution?.outputAssessment?.scoreResult ?? context.scoreResult,
+                  generatedCode:
+                    out?.outputResolution?.outputCode ?? context.generatedCode,
+                  scoreResult:
+                    out?.outputResolution?.outputAssessment?.scoreResult ??
+                    context.scoreResult,
                   shouldOverwrite: out?.existingCode != null,
-                }
+                };
               }),
             },
             {
-              guard: 'shouldKeepExisting',
-              target: 'done',
-               
+              guard: "shouldKeepExisting",
+              target: "done",
+
               actions: ({ context, event }: any) => {
-                if (event.output?.existingCode && event.output?.existingAssessment) {
+                if (
+                  event.output?.existingCode &&
+                  event.output?.existingAssessment
+                ) {
                   logExistingOutputDecision({
                     outputPath: context.outputPath!,
                     candidate: context.candidateAssessment!,
                     existing: event.output.existingAssessment,
                     overwrite: false,
                     resolution: event.output?.outputResolution ?? null,
-                  })
+                  });
                 }
               },
             },
           ],
           // intentional: preserve existing on assessment error
           onError: {
-            target: 'done',
+            target: "done",
             actions: () => {
-              console.warn(pc.yellow('Existing output could not be assessed cleanly, so Taro will preserve it instead of overwriting blindly.'))
+              console.warn(
+                pc.yellow(
+                  "Existing output could not be assessed cleanly, so Taro will preserve it instead of overwriting blindly."
+                )
+              );
             },
           },
         },
       },
       writing: {
         entry: ({ context }: CtxArg) => {
-          if (context.existingCode && context.existingAssessment && context.candidateAssessment && context.outputPath) {
+          if (
+            context.existingCode &&
+            context.existingAssessment &&
+            context.candidateAssessment &&
+            context.outputPath
+          ) {
             logExistingOutputDecision({
               outputPath: context.outputPath,
               candidate: context.candidateAssessment,
               existing: context.existingAssessment,
               overwrite: true,
               resolution: context.outputResolution ?? null,
-            })
+            });
           }
           if (context.scoreResult) {
-            logScore(context.scoreResult)
-            emitMarkerCoverageSection(context.scoreResult)
-            emitLowConfidenceBanner(context.scoreResult)
-            emitScoreHints(context.scoreResult, context.resolvedJsGeneration?.queryResults ?? [])
+            logScore(context.scoreResult);
+            emitMarkerCoverageSection(context.scoreResult);
+            emitLowConfidenceBanner(context.scoreResult);
+            emitScoreHints(
+              context.scoreResult,
+              context.resolvedJsGeneration?.queryResults ?? []
+            );
           }
-          emitRecoveredMarkerDiagnostics(context.hydratedSuitePlan ?? null)
-          emitMarkerPlacementCorrections(context.hydratedSuitePlan ?? null)
-          emitUnresolvedMarkerWarnings(context.hydratedSuitePlan ?? null)
+          emitRecoveredMarkerDiagnostics(context.hydratedSuitePlan ?? null);
+          emitMarkerPlacementCorrections(context.hydratedSuitePlan ?? null);
+          emitUnresolvedMarkerWarnings(context.hydratedSuitePlan ?? null);
           for (const w of context.boundaryPolicyWarnings ?? []) {
-            console.warn(pc.yellow(`Boundary policy: ${w}`))
+            console.warn(pc.yellow(`Boundary policy: ${w}`));
           }
           if (context.boundarySupportPlan?.requiresReview) {
-            console.warn(pc.yellow('Boundary support requires manual review because one or more collaborators were scaffolded with generic defaults.'))
+            console.warn(
+              pc.yellow(
+                "Boundary support requires manual review because one or more collaborators were scaffolded as placeholder seams."
+              )
+            );
           }
         },
         invoke: {
-          src: 'writeOutputActor',
+          src: "writeOutputActor",
           input: ({ context }: CtxArg) => ({
             generatedCode: context.generatedCode,
             outputPath: context.outputPath,
             shouldOverwrite: context.shouldOverwrite,
             boundarySupportPlan: context.boundarySupportPlan,
           }),
-          onDone: { target: 'finalizing' },
-          onError: { target: 'failed', actions: assign({ error: ({ event }) => event.error as Error }) },
+          onDone: { target: "finalizing" },
+          onError: {
+            target: "failed",
+            actions: assign({ error: ({ event }) => event.error as Error }),
+          },
         },
       },
       finalizing: {
         invoke: {
-          src: 'finalizeActor',
+          src: "finalizeActor",
           input: ({ context }: CtxArg) => ({
             generatedCode: context.generatedCode,
             outputPath: context.outputPath,
@@ -531,33 +623,34 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
             packageProfile: context.packageProfile,
           }),
           onDone: {
-            target: 'runningHealthChecks',
+            target: "runningHealthChecks",
             actions: ({ context }: CtxArg) => {
-              const action = context.shouldOverwrite ? pc.yellow('Updated') : pc.green('Created')
-              log(`${action}: ${pc.bold(context.outputPath!)}`)
-              log(pc.green('[taro] ✓ post-write verified'))
+              const action = context.shouldOverwrite
+                ? pc.yellow("Updated")
+                : pc.green("Created");
+              log(`${action}: ${pc.bold(context.outputPath!)}`);
+              log(pc.green("[taro] ✓ post-write verified"));
             },
           },
-          onError: { target: 'failed', actions: assign({ error: ({ event }) => event.error as Error }) },
+          onError: {
+            target: "failed",
+            actions: assign({ error: ({ event }) => event.error as Error }),
+          },
         },
       },
       runningHealthChecks: {
         invoke: {
-          src: 'runHealthCommandsActor',
+          src: "runHealthCommandsActor",
           input: ({ context }: CtxArg) => ({
             overrides: context.overrides,
             projectRoot: context.projectRoot,
           }),
-          onDone: { target: 'done' },
-          onError: { target: 'done' },
+          onDone: { target: "done" },
+          onError: { target: "done" },
         },
       },
-      done: {
-        type: 'final',
-      },
-      failed: {
-        type: 'final',
-      },
+      done: { type: "final" },
+      failed: { type: "final" },
     },
-  })
+  });
 }

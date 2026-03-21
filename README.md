@@ -1,8 +1,8 @@
 # Taro
 
-Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex, run the runtime-native `init` entrypoint as the recommended first step, then generate React Testing Library tests from Testing Library Recorder JS exports.
+Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex, run the runtime-native `init` entrypoint as the recommended first step, then generate, grade, and regrade React Testing Library tests.
 
-Taro ships as an installer-first package. The package entrypoint bootstraps runtime-native commands or skills into your agent environment, and those runtime entrypoints run Taro's internal JS-only init, refresh, and generation flows.
+Taro ships as an installer-first package. The package entrypoint bootstraps runtime-native commands or skills into your agent environment, and those runtime entrypoints cover init, refresh, generation, and AI-driven grading workflows.
 
 For the current strict-order runtime generation path, see [docs/PIPELINE.md](./docs/PIPELINE.md).
 
@@ -33,8 +33,7 @@ Use the runtime-native help entrypoint when you want routing guidance:
 - OpenCode: `/@taro-test/rtl-help`
 - Codex: `$@taro-test/rtl-help`
 
-> [!NOTE]
-> Codex installation uses skills under `skills/@taro-test/rtl-*/SKILL.md`, not prompt files.
+> [!NOTE] Codex installation uses skills under `skills/@taro-test/rtl-*/SKILL.md`, not prompt files.
 
 ## Staying Updated
 
@@ -156,15 +155,23 @@ After installation and a first `init` run, use the runtime-native installed gene
 
 - Claude Code: `/@taro-test/rtl:generate`
 - Claude Code: `/@taro-test/rtl:generate-i`
+- Claude Code: `/@taro-test/rtl:grade`
+- Claude Code: `/@taro-test/rtl:regrade`
 - Claude Code: `/@taro-test/rtl:target`
 - Gemini CLI: `/@taro-test/rtl:generate`
 - Gemini CLI: `/@taro-test/rtl:generate-i`
+- Gemini CLI: `/@taro-test/rtl:grade`
+- Gemini CLI: `/@taro-test/rtl:regrade`
 - Gemini CLI: `/@taro-test/rtl:target`
 - OpenCode: `/@taro-test/rtl-generate`
 - OpenCode: `/@taro-test/rtl-generate-i`
+- OpenCode: `/@taro-test/rtl-grade`
+- OpenCode: `/@taro-test/rtl-regrade`
 - OpenCode: `/@taro-test/rtl-target`
 - Codex: `$@taro-test/rtl-generate`
 - Codex: `$@taro-test/rtl-generate-i`
+- Codex: `$@taro-test/rtl-grade`
+- Codex: `$@taro-test/rtl-regrade`
 - Codex: `$@taro-test/rtl-target`
 
 ### Prerequisites
@@ -200,6 +207,27 @@ On subsequent runs in the same project, Taro reads `.taro/state.json` package pr
 
 For the exact module execution order behind `__generate`, see [docs/PIPELINE.md](./docs/PIPELINE.md).
 
+## Grade Existing Tests
+
+Use the runtime-native grading entrypoints when you want an AI-facing review of an existing test file without rerunning generation:
+
+- Claude Code: `/@taro-test/rtl:grade path/to/test-file`
+- Claude Code: `/@taro-test/rtl:regrade path/to/test-file`
+- Gemini CLI: `/@taro-test/rtl:grade path/to/test-file`
+- Gemini CLI: `/@taro-test/rtl:regrade path/to/test-file`
+- OpenCode: `/@taro-test/rtl-grade path/to/test-file`
+- OpenCode: `/@taro-test/rtl-regrade path/to/test-file`
+- Codex: `$@taro-test/rtl-grade`
+- Codex: `$@taro-test/rtl-regrade`
+
+`grade` scores the current file using the published Taro scoring shape and worked examples, then appends a new `generatedTests` snapshot into `.taro/state.json`.
+
+`regrade` re-scores the current file, compares it to the latest stored `generatedTests` snapshot for the same `testFile` when one exists, and appends a new snapshot into `.taro/state.json`.
+
+For both commands, Taro keeps only the latest 5 stored snapshots per `generatedTests[].testFile` so score movement stays visible over time without unbounded per-test history growth.
+
+Stored `generatedTests` grades now bias future package learning during `init`, `refresh`, and stale-state bootstrap. Higher-scored stored tests count more strongly when Taro relearns conventions, helpers, exemplars, and boundary patterns; unscored tests remain neutral.
+
 ### Draft-quality output is explicit
 
 When Taro cannot prove the final render/query boundary yet, it keeps the output writable but marks it as draft-quality instead of pretending the gaps are solved.
@@ -220,17 +248,23 @@ That draft banner is advisory. Taro does not block writes, but it does tell you 
 Here is a typical Testing Library Recorder export capturing a login flow.
 
 ```js
-import { screen } from '@testing-library/dom'
-import userEvent from '@testing-library/user-event'
+import { screen } from "@testing-library/dom";
+import userEvent from "@testing-library/user-event";
 
-test('login flow', async () => {
-  await userEvent.click(screen.getByRole('textbox', { name: 'Email address' }))
-  await userEvent.type(screen.getByRole('textbox', { name: 'Email address' }), 'user@example.com')
-  await userEvent.click(screen.getByRole('textbox', { name: 'Password' }))
-  await userEvent.type(screen.getByRole('textbox', { name: 'Password' }), 'secret123')
-  await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
-  await userEvent.click(screen.getByText('Welcome back'))
-})
+test("login flow", async () => {
+  await userEvent.click(screen.getByRole("textbox", { name: "Email address" }));
+  await userEvent.type(
+    screen.getByRole("textbox", { name: "Email address" }),
+    "user@example.com"
+  );
+  await userEvent.click(screen.getByRole("textbox", { name: "Password" }));
+  await userEvent.type(
+    screen.getByRole("textbox", { name: "Password" }),
+    "secret123"
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+  await userEvent.click(screen.getByText("Welcome back"));
+});
 ```
 
 ### Runtime command
@@ -283,7 +317,7 @@ describe('login flow', () => {
 
 ## Agent Usage
 
-After installation, each runtime gets a namespaced help entrypoint plus `init`, `refresh`, `generate`, and `target` entrypoints. Use `init` first, `refresh` for maintenance, `generate` for Recorder-to-RTL output, and `target` when you want to force a specific component path.
+After installation, each runtime gets a namespaced help entrypoint plus `init`, `refresh`, `generate`, `grade`, `regrade`, and `target` entrypoints. Use `init` first, `refresh` for maintenance, `generate` for Recorder-to-RTL output, `grade` for existing-test evaluation with a stored snapshot, `regrade` when you want a delta-focused re-evaluation plus a new stored snapshot after edits, and `target` when you want to force a specific component path.
 
 ### Tips
 

@@ -1,4 +1,11 @@
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
@@ -145,11 +152,7 @@ function createDefaultTaroState(packages: Record<string, unknown> = {}) {
         taroVersion: "test",
       },
       packages: packages as Record<string, never>,
-      mockStore: {
-        rootDir: null,
-        importHint: null,
-        resources: [],
-      },
+      mockStore: { rootDir: null, importHint: null, resources: [] },
       generatedTests: [],
     },
     summary: {
@@ -169,7 +172,7 @@ function createDefaultTaroState(packages: Record<string, unknown> = {}) {
 
 function createPackageResolver(
   packages: Record<string, typeof defaultProfile>,
-  fallbackProfile = defaultProfile,
+  fallbackProfile = defaultProfile
 ) {
   return (_state: unknown, _projectRoot: string, targetPath: string) => {
     const normalizedTarget = targetPath.replace(/\\/g, "/");
@@ -201,17 +204,13 @@ vi.mock("#core/state.ts", async (importOriginal) => {
   };
 });
 
-const { planJsSuiteMock } = vi.hoisted(() => ({
-  planJsSuiteMock: vi.fn(),
-}));
+const { planJsSuiteMock } = vi.hoisted(() => ({ planJsSuiteMock: vi.fn() }));
 
 vi.mock("#core/suite-planner.ts", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("#core/suite-planner.ts")>();
+  const actual =
+    await importOriginal<typeof import("#core/suite-planner.ts")>();
   planJsSuiteMock.mockImplementation(actual.planJsSuite);
-  return {
-    ...actual,
-    planJsSuite: planJsSuiteMock,
-  };
+  return { ...actual, planJsSuite: planJsSuiteMock };
 });
 
 const sandboxes: string[] = [];
@@ -243,7 +242,7 @@ async function createProjectInlineJsFixture(label: string, source: string) {
 function resolvedSelector(
   selector: SelectorDescriptor,
   query: QueryDescriptor,
-  source: "baseline" | "live-dom" = "live-dom",
+  source: "baseline" | "live-dom" = "live-dom"
 ): SelectorResolutionResult {
   return {
     status: "resolved",
@@ -268,7 +267,7 @@ function unresolvedSelector(
     debug?: SelectorResolutionResult["debug"];
     url?: string;
     inspectionError?: string;
-  } = {},
+  } = {}
 ): SelectorResolutionResult {
   return {
     debug: extras.debug,
@@ -297,10 +296,7 @@ function makeLiveDomQuery(selector: SelectorDescriptor): QueryDescriptor {
 
 function defaultResolveSelector(
   selector: SelectorDescriptor,
-  options: {
-    url?: string;
-    preservedQuery?: QueryDescriptor;
-  } = {},
+  options: { url?: string; preservedQuery?: QueryDescriptor } = {}
 ): SelectorResolutionResult {
   if (options.preservedQuery) {
     return resolvedSelector(selector, options.preservedQuery, "baseline");
@@ -310,7 +306,7 @@ function defaultResolveSelector(
     return unresolvedSelector(
       selector,
       "no-url",
-      `No recorded URL is available to inspect selector ${selector.selector}.`,
+      `No recorded URL is available to inspect selector ${selector.selector}.`
     );
   }
 
@@ -323,7 +319,7 @@ function defaultResolveSelector(
       selector,
       "selector-inaccessible",
       `Selector ${selector.selector} did not expose trustworthy accessible query evidence.`,
-      { url: options.url },
+      { url: options.url }
     );
   }
 
@@ -332,10 +328,7 @@ function defaultResolveSelector(
       selector,
       "inspection-failed",
       `Playwright inspection failed for selector ${selector.selector}.`,
-      {
-        url: options.url,
-        inspectionError: "browser blocked",
-      },
+      { url: options.url, inspectionError: "browser blocked" }
     );
   }
 
@@ -343,7 +336,7 @@ function defaultResolveSelector(
     selector,
     "selector-not-found",
     `Selector ${selector.selector} was not found at ${options.url}.`,
-    { url: options.url },
+    { url: options.url }
   );
 }
 
@@ -356,7 +349,7 @@ async function createSandbox(label: string) {
 
 async function createRecordingFixture(
   label: string,
-  mutate?: (source: string) => string,
+  mutate?: (source: string) => string
 ) {
   const sandbox = await createSandbox(label);
   const source = sampleRestRecordingJs;
@@ -379,7 +372,7 @@ class ProcessExitSignal {
 async function runGenerate(
   args: string[],
   cwdPath: string,
-  context?: Parameters<typeof createGenerateCommand>[0],
+  context?: Parameters<typeof createGenerateCommand>[0]
 ) {
   const command = createGenerateCommand(context);
   const stderrChunks: string[] = [];
@@ -463,7 +456,7 @@ beforeEach(() => {
     latestEvidencePath: null,
   });
   resolveTaroPackageProfileMock.mockImplementation(() =>
-    structuredClone(defaultProfile),
+    structuredClone(defaultProfile)
   );
   appendGeneratedTestRecordMock.mockResolvedValue(undefined);
   persistPlaywrightAuthProfileMock.mockResolvedValue(true);
@@ -471,9 +464,7 @@ beforeEach(() => {
   refreshTaroStateMock.mockResolvedValue(createDefaultTaroState());
   planJsSuiteMock.mockClear();
   replayStepMock.mockReset();
-  replayStepMock.mockResolvedValue({
-    replayed: true,
-  });
+  replayStepMock.mockResolvedValue({ replayed: true });
   resolveSelectorMock.mockReset();
   resolveSelectorMock.mockImplementation(defaultResolveSelector);
 });
@@ -482,7 +473,7 @@ afterEach(async () => {
   await Promise.all(
     sandboxes
       .splice(0)
-      .map((root) => rm(root, { recursive: true, force: true })),
+      .map((root) => rm(root, { recursive: true, force: true }))
   );
   process.exitCode = undefined;
 });
@@ -493,7 +484,7 @@ describe("createGenerateCommand", () => {
     const outputPath = join(
       fixture.outputDir,
       "sample",
-      "FeatureFlow.test.tsx",
+      "FeatureFlow.test.tsx"
     );
 
     resolveTaroPackageProfileMock.mockImplementation(() => ({
@@ -515,14 +506,14 @@ describe("createGenerateCommand", () => {
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
     const written = await readFile(outputPath, "utf-8");
 
     expect(result.thrown).toBeUndefined();
     expect(result.errors).toBe("");
     expect(result.logs).toContain(
-      "Parsed: Recording-Add-Sale-KE-06/03/2026 at 08:25:15",
+      "Parsed: Recording-Add-Sale-KE-06/03/2026 at 08:25:15"
     );
     expect(result.logs).toContain("State profile: package=.");
     expect(result.logs).toContain("[taro] ✓ post-write verified");
@@ -535,13 +526,13 @@ describe("createGenerateCommand", () => {
     expect(written).toContain("await planSupportsContinue(user)");
     expect(written).toContain("within(screen.getByRole(");
     expect(written).toContain(
-      "screen.getByRole('button', {name: '+ Add Item to Cart'})",
+      "screen.getByRole('button', {name: '+ Add Item to Cart'})"
     );
     expect(written).toContain(
-      "screen.getByRole('combobox', { name: 'Item selector' })",
+      "screen.getByRole('combobox', { name: 'Item selector' })"
     );
     expect(written).toContain(
-      "// taro-query-checkpoint: click step requires manual RTL query recovery",
+      "// taro-query-checkpoint: click step requires manual RTL query recovery"
     );
     expect(written).toContain(`// selector: ${inaccessibleSelector}`);
     expect(written).not.toContain(`// selector: ${inspectionFailureSelector}`);
@@ -549,13 +540,13 @@ describe("createGenerateCommand", () => {
     expect(result.warnings).toContain("Manual review required");
     expect(result.warnings).toContain("Top blockers:");
     expect(result.warnings).toContain(
-      `unresolved selector ${inaccessibleSelector}`,
+      `unresolved selector ${inaccessibleSelector}`
     );
     expect(result.warnings).toContain(
-      `Playwright inspection failed for selector ${inspectionFailureSelector}.`,
+      `Playwright inspection failed for selector ${inspectionFailureSelector}.`
     );
     expect(result.warnings).not.toContain(
-      "Taro could not resolve the exact render target",
+      "Taro could not resolve the exact render target"
     );
     expect(analyzeBoundaryIsolation(written)).toEqual([]);
   });
@@ -576,7 +567,7 @@ test('Reveal flow', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Add Party' }))
   await userEvent.click(document.querySelector('#party-type'))
   await userEvent.click(screen.getByRole('radio', { name: 'Business' }))
-})`,
+})`
     );
 
     const deferredSelector = "#party-type";
@@ -619,32 +610,35 @@ test('Reveal flow', async () => {
           selector,
           "selector-not-found",
           `Selector ${selector.selector} was not found at ${options.url}.`,
-          { url: options.url },
+          { url: options.url }
         );
       }
 
       return resolvedSelector(selector, deferredQuery);
     });
 
-    const result = await runGenerate([fixture.recordingPath], fixture.outputDir);
+    const result = await runGenerate(
+      [fixture.recordingPath],
+      fixture.outputDir
+    );
     const written = await readFile(
       deriveOutputPath(fixture.recordingPath),
-      "utf-8",
+      "utf-8"
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.errors).toBe("");
     expect(result.logs).toContain(
-      "Resolving 1 selector(s) via Playwright with step replay...",
+      "Resolving 1 selector(s) via Playwright with step replay..."
     );
     expect(result.warnings).toContain(
-      "Step replay: No locator for click on #party-type",
+      "Step replay: No locator for click on #party-type"
     );
     expect(result.warnings).not.toContain(
-      `unresolved selector ${deferredSelector}`,
+      `unresolved selector ${deferredSelector}`
     );
     expect(written).toContain(
-      "screen.getByRole('combobox', { name: 'Party Type' })",
+      "screen.getByRole('combobox', { name: 'Party Type' })"
     );
     expect(written).not.toContain(`// selector: ${deferredSelector}`);
     expect(resolveSelectorMock).toHaveBeenCalledTimes(2);
@@ -688,13 +682,18 @@ test('Reveal flow', async () => {
             reason: `Playwright inspection failed for selector ${selector.selector}.`,
             result: "unresolved",
           },
-        },
-      ),
+        }
+      )
     );
 
     const result = await runGenerate(
-      ["--debug-selectors", "--debug-selectors-json", debugPath, fixture.recordingPath],
-      fixture.outputDir,
+      [
+        "--debug-selectors",
+        "--debug-selectors-json",
+        debugPath,
+        fixture.recordingPath,
+      ],
+      fixture.outputDir
     );
     const debugOutput = await readFile(debugPath, "utf-8");
 
@@ -714,27 +713,28 @@ test('Reveal flow', async () => {
 
     openCapturePageMock.mockResolvedValue({
       browser: { close: vi.fn(async () => undefined) },
-      page: {
-        url: vi.fn(() => redirectedUrl),
-      },
+      page: { url: vi.fn(() => redirectedUrl) },
     });
 
-    const result = await runGenerate([fixture.recordingPath], fixture.outputDir);
+    const result = await runGenerate(
+      [fixture.recordingPath],
+      fixture.outputDir
+    );
     const written = await readFile(
       deriveOutputPath(fixture.recordingPath),
-      "utf-8",
+      "utf-8"
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).toContain(
-      "Step replay skipped: replay page did not reach the recorded URL. Expected http://localhost:3001/dashboard/orgs/organisation_01J19WTB4J3DZYD730T2K58KRF/apps/business_01JCK47QRT925ZFTVZGJAVPQE7?tab=sales, reached http://localhost:3001/?redirect_url=http%3A%2F%2Flocalhost%3A3001%2Fdashboard%2Forgs%2Forganisation_01J19WTB4J3DZYD730T2K58KRF%2Fapps%2Fbusiness_01JCK47QRT925ZFTVZGJAVPQE7%3Ftab%3Dsales.",
+      "Step replay skipped: replay page did not reach the recorded URL. Expected http://localhost:3001/dashboard/orgs/organisation_01J19WTB4J3DZYD730T2K58KRF/apps/business_01JCK47QRT925ZFTVZGJAVPQE7?tab=sales, reached http://localhost:3001/?redirect_url=http%3A%2F%2Flocalhost%3A3001%2Fdashboard%2Forgs%2Forganisation_01J19WTB4J3DZYD730T2K58KRF%2Fapps%2Fbusiness_01JCK47QRT925ZFTVZGJAVPQE7%3Ftab%3Dsales."
     );
     expect(result.warnings).toContain(
-      "QRY-03 [js-step-13] unresolved selector div.css-19bb58m: Playwright replay page did not reach the recorded URL. Expected http://localhost:3001/dashboard/orgs/organisation_01J19WTB4J3DZYD730T2K58KRF/apps/business_01JCK47QRT925ZFTVZGJAVPQE7?tab=sales, reached http://localhost:3001/?redirect_url=http%3A%2F%2Flocalhost%3A3001%2Fdashboard%2Forgs%2Forganisation_01J19WTB4J3DZYD730T2K58KRF%2Fapps%2Fbusiness_01JCK47QRT925ZFTVZGJAVPQE7%3Ftab%3Dsales.",
+      "QRY-03 [js-step-13] unresolved selector div.css-19bb58m: Playwright replay page did not reach the recorded URL. Expected http://localhost:3001/dashboard/orgs/organisation_01J19WTB4J3DZYD730T2K58KRF/apps/business_01JCK47QRT925ZFTVZGJAVPQE7?tab=sales, reached http://localhost:3001/?redirect_url=http%3A%2F%2Flocalhost%3A3001%2Fdashboard%2Forgs%2Forganisation_01J19WTB4J3DZYD730T2K58KRF%2Fapps%2Fbusiness_01JCK47QRT925ZFTVZGJAVPQE7%3Ftab%3Dsales."
     );
     expect(replayStepMock).not.toHaveBeenCalled();
     expect(written).toContain(
-      "Playwright replay page did not reach the recorded URL.",
+      "Playwright replay page did not reach the recorded URL."
     );
   });
 
@@ -744,14 +744,14 @@ test('Reveal flow', async () => {
 
     const result = await runGenerate(
       ["--debug-selectors", fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.logs).toContain("[taro][replay-browser]");
     expect(result.logs).toContain('error="browser blocked"');
     expect(result.warnings).toContain(
-      "Step replay browser failed: browser blocked. Selectors will remain unresolved.",
+      "Step replay browser failed: browser blocked. Selectors will remain unresolved."
     );
   });
 
@@ -771,7 +771,7 @@ test('Example flow', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Open Example Flow' }))
   await userEvent.dblClick(screen.getByRole('heading', { name: 'Review Example Flow' }))
   await userEvent.click(screen.getByRole('heading', { name: 'Review Example Flow' }))
-})`,
+})`
     );
     const featureFlowPath = join(
       fixture.outputDir,
@@ -779,7 +779,7 @@ test('Example flow', async () => {
       "example-app",
       "src",
       "features",
-      "FeatureFlow.tsx",
+      "FeatureFlow.tsx"
     );
     const outputPath = join(dirname(featureFlowPath), "FeatureFlow.test.tsx");
     await mkdir(dirname(featureFlowPath), { recursive: true });
@@ -795,7 +795,7 @@ test('Example flow', async () => {
           )
         }
       `,
-      "utf-8",
+      "utf-8"
     );
 
     const exampleProfile = {
@@ -836,15 +836,15 @@ test('Example flow', async () => {
       "packages/example-app": exampleProfile,
     };
     loadOrBootstrapTaroStateMock.mockResolvedValue(
-      createDefaultTaroState(packages),
+      createDefaultTaroState(packages)
     );
     resolveTaroPackageProfileMock.mockImplementation(
-      createPackageResolver(packages as Record<string, typeof defaultProfile>),
+      createPackageResolver(packages as Record<string, typeof defaultProfile>)
     );
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
     const written = await readFile(outputPath, "utf-8");
 
@@ -852,17 +852,17 @@ test('Example flow', async () => {
     expect(result.errors).toBe("");
     expect(result.logs).toContain("Context matches:");
     expect(result.logs).toContain(
-      "packages/example-app/src/features/FeatureFlow.tsx",
+      "packages/example-app/src/features/FeatureFlow.tsx"
     );
     expect(result.logs).toContain(
-      "Context-selected package profile packages/example-app: packages/example-app/src/features/FeatureFlow.tsx matched recording text evidence.",
+      "Context-selected package profile packages/example-app: packages/example-app/src/features/FeatureFlow.tsx matched recording text evidence."
     );
     expect(result.logs).toContain(
-      "State profile: package=packages/example-app",
+      "State profile: package=packages/example-app"
     );
     expect(result.logs).toContain("Created:");
     expect(result.logs).toContain(
-      "packages/example-app/src/features/FeatureFlow.test.tsx",
+      "packages/example-app/src/features/FeatureFlow.test.tsx"
     );
     expect(written).toContain("import FeatureFlow from './FeatureFlow'");
     expect(written).toContain("render(<FeatureFlow />)");
@@ -884,7 +884,7 @@ test('Example flow', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Open Example Flow' }))
   await userEvent.click(screen.getByText('General feature details'))
   await userEvent.click(screen.getByText('Primary identifier'))
-})`,
+})`
     );
     const featureFlowPath = join(
       fixture.outputDir,
@@ -892,13 +892,13 @@ test('Example flow', async () => {
       "example-app",
       "src",
       "features",
-      "FeatureFlow.tsx",
+      "FeatureFlow.tsx"
     );
     const alternateFeaturePath = join(
       fixture.outputDir,
       "src",
       "alternate-feature",
-      "AlternateFeature.tsx",
+      "AlternateFeature.tsx"
     );
     const outputPath = join(dirname(featureFlowPath), "FeatureFlow.test.tsx");
     await mkdir(dirname(featureFlowPath), { recursive: true });
@@ -915,7 +915,7 @@ test('Example flow', async () => {
           )
         }
       `,
-      "utf-8",
+      "utf-8"
     );
     await writeFile(
       alternateFeaturePath,
@@ -929,7 +929,7 @@ test('Example flow', async () => {
           )
         }
       `,
-      "utf-8",
+      "utf-8"
     );
     captureVisualStateMock.mockResolvedValue({
       capturedAt: new Date().toISOString(),
@@ -957,31 +957,31 @@ test('Example flow', async () => {
       "packages/example-app": exampleProfile,
     };
     loadOrBootstrapTaroStateMock.mockResolvedValue(
-      createDefaultTaroState(packages),
+      createDefaultTaroState(packages)
     );
     resolveTaroPackageProfileMock.mockImplementation(
-      createPackageResolver(packages as Record<string, typeof defaultProfile>),
+      createPackageResolver(packages as Record<string, typeof defaultProfile>)
     );
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
     const createdPath = result.logs.match(/Created: (.+\.test\.tsx)/)?.[1];
 
     expect(result.thrown).toBeUndefined();
     expect(result.logs).toContain("Page-confirmed context: Open Example Flow");
     expect(result.logs).toContain(
-      "packages/example-app/src/features/FeatureFlow.tsx",
+      "packages/example-app/src/features/FeatureFlow.tsx"
     );
     expect(result.logs).toContain(
-      "Context-selected package profile packages/example-app: packages/example-app/src/features/FeatureFlow.tsx matched recording text evidence.",
+      "Context-selected package profile packages/example-app: packages/example-app/src/features/FeatureFlow.tsx matched recording text evidence."
     );
     expect(createdPath?.replace(/^\/private(?=\/var\/)/, "")).toBe(
-      outputPath.replace(/^\/private(?=\/var\/)/, ""),
+      outputPath.replace(/^\/private(?=\/var\/)/, "")
     );
     expect(captureVisualStateMock.mock.invocationCallOrder[0]).toBeLessThan(
-      planJsSuiteMock.mock.invocationCallOrder[0],
+      planJsSuiteMock.mock.invocationCallOrder[0]
     );
     const written = await readFile(createdPath!, "utf-8");
     expect(written).toContain("import FeatureFlow from './FeatureFlow'");
@@ -1002,7 +1002,7 @@ test('Example flow', async () => {
   expect(location.href).toBe('http://localhost:3001/example')
   await userEvent.click(screen.getByRole('button', { name: 'Open Example Flow' }))
   await userEvent.click(screen.getByRole('heading', { name: 'Review Example Flow' }))
-})`,
+})`
     );
     const featureFlowPath = join(
       fixture.outputDir,
@@ -1010,7 +1010,7 @@ test('Example flow', async () => {
       "example-app",
       "src",
       "features",
-      "FeatureFlow.tsx",
+      "FeatureFlow.tsx"
     );
     const outputPath = join(dirname(featureFlowPath), "FeatureFlow.test.tsx");
     await mkdir(dirname(featureFlowPath), { recursive: true });
@@ -1031,7 +1031,7 @@ test('Example flow', async () => {
           )
         }
       `,
-      "utf-8",
+      "utf-8"
     );
 
     const exampleProfile = {
@@ -1071,27 +1071,27 @@ test('Example flow', async () => {
       "packages/example-app": exampleProfile,
     };
     loadOrBootstrapTaroStateMock.mockResolvedValue(
-      createDefaultTaroState(packages),
+      createDefaultTaroState(packages)
     );
     resolveTaroPackageProfileMock.mockImplementation(
-      createPackageResolver(packages as Record<string, typeof defaultProfile>),
+      createPackageResolver(packages as Record<string, typeof defaultProfile>)
     );
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
     const written = await readFile(outputPath, "utf-8");
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).not.toContain(
-      "Scaffolded central boundary support",
+      "Scaffolded central boundary support"
     );
     expect(written).toContain(
-      "import { createOrdersApiMock, resetOrdersApiMock } from '@/tests/mocks/orders-api'",
+      "import { createOrdersApiMock, resetOrdersApiMock } from '@/tests/mocks/orders-api'"
     );
     expect(written).toContain(
-      "vi.mock('@/features/orders/api', async (importOriginal) => {",
+      "vi.mock('@/features/orders/api', async (importOriginal) => {"
     );
     expect(written).toContain("return { ...actual, ...createOrdersApiMock() }");
     expect(written).toContain("beforeEach(() => {");
@@ -1114,7 +1114,7 @@ test('Example flow', async () => {
   expect(location.href).toBe('http://localhost:3001/example')
   await userEvent.click(screen.getByRole('button', { name: 'Open Example Flow' }))
   await userEvent.click(screen.getByRole('heading', { name: 'Review Example Flow' }))
-})`,
+})`
     );
     const featureFlowPath = join(
       fixture.outputDir,
@@ -1122,7 +1122,7 @@ test('Example flow', async () => {
       "example-app",
       "src",
       "features",
-      "FeatureFlow.tsx",
+      "FeatureFlow.tsx"
     );
     const outputPath = join(dirname(featureFlowPath), "FeatureFlow.test.tsx");
     await mkdir(dirname(featureFlowPath), { recursive: true });
@@ -1146,7 +1146,7 @@ test('Example flow', async () => {
           )
         }
       `,
-      "utf-8",
+      "utf-8"
     );
 
     const exampleProfile = {
@@ -1209,29 +1209,29 @@ test('Example flow', async () => {
       "packages/example-app": exampleProfile,
     };
     loadOrBootstrapTaroStateMock.mockResolvedValue(
-      createDefaultTaroState(packages),
+      createDefaultTaroState(packages)
     );
     resolveTaroPackageProfileMock.mockImplementation(
-      createPackageResolver(packages as Record<string, typeof defaultProfile>),
+      createPackageResolver(packages as Record<string, typeof defaultProfile>)
     );
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
     const written = await readFile(outputPath, "utf-8");
 
     expect(result.thrown).toBeUndefined();
     expect(written).toContain(
-      "vi.mock('@/features/orders/api', async (importOriginal) => {",
+      "vi.mock('@/features/orders/api', async (importOriginal) => {"
     );
     expect(written).not.toContain("vi.mock('@/components/library/Modal'");
     expect(written).not.toContain("createModalMock");
     expect(written).toContain(
-      "Keeping @/components/library/Modal real at test time because it is a repo-owned-ui-wrapper",
+      "Keeping @/components/library/Modal real at test time because it is a repo-owned-ui-wrapper"
     );
     expect(result.warnings).toContain(
-      "Keeping @/components/library/Modal real at test time because it is a repo-owned-ui-wrapper",
+      "Keeping @/components/library/Modal real at test time because it is a repo-owned-ui-wrapper"
     );
     expect(result.warnings).toContain("Manual review required");
   });
@@ -1251,7 +1251,7 @@ test('Example flow', async () => {
   expect(location.href).toBe('http://localhost:3001/example')
   await userEvent.click(screen.getByRole('button', { name: 'Open Example Flow' }))
   await userEvent.click(screen.getByRole('heading', { name: 'Review Example Flow' }))
-})`,
+})`
     );
     const featureFlowPath = join(
       fixture.outputDir,
@@ -1259,7 +1259,7 @@ test('Example flow', async () => {
       "example-app",
       "src",
       "features",
-      "FeatureFlow.tsx",
+      "FeatureFlow.tsx"
     );
     const outputPath = join(dirname(featureFlowPath), "FeatureFlow.test.tsx");
     const supportPath = join(
@@ -1269,7 +1269,7 @@ test('Example flow', async () => {
       "src",
       "tests",
       "mocks",
-      "features-orders-api.mock.ts",
+      "features-orders-api.mock.ts"
     );
     await mkdir(dirname(featureFlowPath), { recursive: true });
     await writeFile(
@@ -1289,7 +1289,7 @@ test('Example flow', async () => {
           )
         }
       `,
-      "utf-8",
+      "utf-8"
     );
 
     const exampleProfile = {
@@ -1311,45 +1311,45 @@ test('Example flow', async () => {
       "packages/example-app": exampleProfile,
     };
     loadOrBootstrapTaroStateMock.mockResolvedValue(
-      createDefaultTaroState(packages),
+      createDefaultTaroState(packages)
     );
     resolveTaroPackageProfileMock.mockImplementation(
-      createPackageResolver(packages as Record<string, typeof defaultProfile>),
+      createPackageResolver(packages as Record<string, typeof defaultProfile>)
     );
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
     const written = await readFile(outputPath, "utf-8");
     const scaffold = await readFile(supportPath, "utf-8");
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).toContain(
-      "Scaffolded central boundary support for @/features/orders/api",
+      "Scaffolded central boundary support for @/features/orders/api"
     );
     expect(result.warnings).toContain("Manual review required");
     expect(written).toContain(
-      "import { createFeaturesOrdersApiMock, resetFeaturesOrdersApiMock } from '../tests/mocks/features-orders-api.mock'",
+      "import { createFeaturesOrdersApiMock, resetFeaturesOrdersApiMock } from '../tests/mocks/features-orders-api.mock'"
     );
     expect(written).toContain(
-      "vi.mock('@/features/orders/api', async (importOriginal) => {",
+      "vi.mock('@/features/orders/api', async (importOriginal) => {"
     );
     expect(written).toContain(
-      "return { ...actual, ...createFeaturesOrdersApiMock() }",
+      "return { ...actual, ...createFeaturesOrdersApiMock() }"
     );
     expect(written).not.toContain("useOrdersQuery:");
     expect(scaffold).toContain(
-      "export const useCreateOrderMutationMock = vi.fn",
+      "export const useCreateOrderMutationMock = vi.fn"
     );
     expect(scaffold).toContain("export const useOrdersQueryMock = vi.fn");
     expect(scaffold).not.toContain("vi.fn(defaultUseCreateOrderMutationImpl)");
     expect(scaffold).not.toContain("vi.fn(defaultUseOrdersQueryImpl)");
+    expect(scaffold).not.toContain("mockImplementation(");
+    expect(scaffold).toContain("useCreateOrderMutationMock.mockReset()");
+    expect(scaffold).toContain("useOrdersQueryMock.mockReset()");
     expect(scaffold).toContain(
-      "useCreateOrderMutationMock.mockImplementation(defaultUseCreateOrderMutationImpl)",
-    );
-    expect(scaffold).toContain(
-      "useOrdersQueryMock.mockImplementation(defaultUseOrdersQueryImpl)",
+      "Keep this module shape-only until repo-local support examples are available."
     );
     expect(scaffold).toContain("export function createFeaturesOrdersApiMock()");
     expect(scaffold).toContain("export function resetFeaturesOrdersApiMock()");
@@ -1361,14 +1361,14 @@ test('Example flow', async () => {
         .replace(new RegExp(`^ \\* ${environmentOptionsMarker} .*$`, "m"), "")
         .replace(
           /^ {2}expect\(location\.href\)\.toBe\('http:\/\/localhost:3001[^']*'\)\n/m,
-          "",
-        ),
+          ""
+        )
     );
     const outputPath = deriveOutputPath(fixture.recordingPath);
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
     const written = await readFile(outputPath, "utf-8");
 
@@ -1377,10 +1377,10 @@ test('Example flow', async () => {
     expect(result.logs).toContain(`Created: ${outputPath}`);
     expect(written).toContain(`// selector: ${accessibleSelector}`);
     expect(written).toContain(
-      `// reason: No recorded URL is available to inspect selector ${accessibleSelector}.`,
+      `// reason: No recorded URL is available to inspect selector ${accessibleSelector}.`
     );
     expect(result.warnings).toContain(
-      `No recorded URL is available to inspect selector ${accessibleSelector}.`,
+      `No recorded URL is available to inspect selector ${accessibleSelector}.`
     );
     expect(written).not.toContain("screen.getByTestId(");
   });
@@ -1402,49 +1402,49 @@ test('Semantic marker flow', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Save' }))
   await userEvent.dblClick(screen.getByRole('heading', { name: 'Review Example' }))
   await userEvent.click(screen.getByRole('heading', { name: 'Review Example' }))
-})`,
+})`
     );
     const outputPath = deriveOutputPath(fixture.recordingPath);
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
     const written = await readFile(outputPath, "utf-8");
 
     expect(result.thrown).toBeUndefined();
     expect(result.errors).toBe("");
     expect(result.logs).toContain(
-      "Recording cleanup: 1 redundant click(s), 1 preserved semantic marker(s), 1 unresolved semantic marker(s)",
+      "Recording cleanup: 1 redundant click(s), 1 preserved semantic marker(s), 1 unresolved semantic marker(s)"
     );
     expect(result.logs).toContain(
-      "markers: detected=2, emitted=1, unresolved=1",
+      "markers: detected=2, emitted=1, unresolved=1"
     );
     expect(result.logs).toContain("[taro] Marker coverage:");
     expect(result.logs).toContain(
-      "QUAL-02 gate: WARN (markers-partially-converted)",
+      "QUAL-02 gate: WARN (markers-partially-converted)"
     );
     expect(result.warnings).toContain(
-      "Manual review required — this generated test is still a draft",
+      "Manual review required — this generated test is still a draft"
     );
     expect(countOccurrences(result.warnings, "MKR-03 unresolved-marker")).toBe(
-      1,
+      1
     );
     expect(result.warnings).toMatch(
-      /MKR-03 unresolved-marker marker=js-step-\d+ line: \d+ reason=[a-z-]+ detail="[^"]+" hint="[^"]+"/,
+      /MKR-03 unresolved-marker marker=js-step-\d+ line: \d+ reason=[a-z-]+ detail="[^"]+" hint="[^"]+"/
     );
     expect(result.logs).toContain(`Created: ${outputPath}`);
     expect(written).toContain(
-      "await user.click(screen.getByRole('button', { name: 'Save' }))",
+      "await user.click(screen.getByRole('button', { name: 'Save' }))"
     );
     expect(written).toContain(
-      "expect(await screen.findByRole('heading', { name: 'Review Example' })).toBeVisible()",
+      "expect(await screen.findByRole('heading', { name: 'Review Example' })).toBeVisible()"
     );
     expect(written).not.toContain(
-      "await user.click(screen.getByRole('heading', { name: 'Review Example' }))",
+      "await user.click(screen.getByRole('heading', { name: 'Review Example' }))"
     );
     expect(written).not.toContain(
-      "await user.click(screen.getByRole('heading', { name: 'Starting state' }))",
+      "await user.click(screen.getByRole('heading', { name: 'Starting state' }))"
     );
     expect(written).not.toContain("dblClick");
   });
@@ -1455,13 +1455,13 @@ test('Semantic marker flow', async () => {
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
     const written = await readFile(outputPath, "utf-8");
 
     expect(result.thrown).toBeUndefined();
     expect(written).toContain(
-      "// taro-boundary-warning: Taro could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.",
+      "// taro-boundary-warning: Taro could not resolve the exact render target from repo context; generated output should be treated as a boundary draft."
     );
     expect(written).toContain("render(<App />)");
     expect(written).not.toContain("import FeatureFlow from './FeatureFlow'");
@@ -1474,7 +1474,7 @@ test('Semantic marker flow', async () => {
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
     const written = await readFile(outputPath, "utf-8");
 
@@ -1501,7 +1501,7 @@ test('Example flow', async () => {
   expect(location.href).toBe('http://localhost:3001/example')
   await userEvent.click(screen.getByRole('button', { name: 'Open Example Flow' }))
   await userEvent.click(screen.getByRole('heading', { name: 'Review Example Flow' }))
-})`,
+})`
     );
     const featureFlowPath = join(
       fixture.outputDir,
@@ -1509,7 +1509,7 @@ test('Example flow', async () => {
       "example-app",
       "src",
       "features",
-      "FeatureFlow.tsx",
+      "FeatureFlow.tsx"
     );
     const outputPath = join(dirname(featureFlowPath), "FeatureFlow.test.tsx");
     await mkdir(dirname(featureFlowPath), { recursive: true });
@@ -1530,7 +1530,7 @@ test('Example flow', async () => {
           )
         }
       `,
-      "utf-8",
+      "utf-8"
     );
 
     const exampleProfile = {
@@ -1571,25 +1571,25 @@ test('Example flow', async () => {
       "packages/example-app": exampleProfile,
     };
     loadOrBootstrapTaroStateMock.mockResolvedValue(
-      createDefaultTaroState(packages),
+      createDefaultTaroState(packages)
     );
     resolveTaroPackageProfileMock.mockImplementation(
-      createPackageResolver(packages as Record<string, typeof defaultProfile>),
+      createPackageResolver(packages as Record<string, typeof defaultProfile>)
     );
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
     const written = await readFile(outputPath, "utf-8");
 
     expect(result.thrown).toBeUndefined();
     expect(result.errors).toBe("");
     expect(written).toContain(
-      `// taro-boundary-warning: Generated test mocks forbidden boundary target "@/features/orders/api".`,
+      `// taro-boundary-warning: Generated test mocks forbidden boundary target "@/features/orders/api".`
     );
     expect(result.warnings).toContain(
-      `Boundary policy: Generated test mocks forbidden boundary target "@/features/orders/api".`,
+      `Boundary policy: Generated test mocks forbidden boundary target "@/features/orders/api".`
     );
   });
 
@@ -1604,15 +1604,15 @@ test('Example flow', async () => {
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.logs).toContain(
-      "Detected stale package profile .; refreshing before generation.",
+      "Detected stale package profile .; refreshing before generation."
     );
     expect(result.warnings).toContain(
-      "packages/example-app/src/feature-flow.test.tsx changed after the package profile was scanned.",
+      "packages/example-app/src/feature-flow.test.tsx changed after the package profile was scanned."
     );
   });
 
@@ -1621,18 +1621,16 @@ test('Example flow', async () => {
 
     const result = await runGenerate(
       ["--no-screenshots", fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.logs).toContain(
-      "Screenshot artifacts skipped (--no-screenshots); Playwright page confirmation still ran.",
+      "Screenshot artifacts skipped (--no-screenshots); Playwright page confirmation still ran."
     );
     expect(captureVisualStateMock).toHaveBeenCalledWith(
       expect.any(String),
-      expect.objectContaining({
-        screenshotDir: undefined,
-      }),
+      expect.objectContaining({ screenshotDir: undefined })
     );
   });
 
@@ -1655,12 +1653,12 @@ test('Example flow', async () => {
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).toContain(
-      "Playwright visual capture failed. browser executable is missing.",
+      "Playwright visual capture failed. browser executable is missing."
     );
     expect(result.exitCode).toBe(0);
   });
@@ -1674,16 +1672,16 @@ test('Example flow', async () => {
 
     const result = await runGenerate(
       ["--auth", authPath, fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
     const stateModule = await import("#core/state.ts");
 
     expect(result.thrown).toBeUndefined();
     expect(result.logs).toContain(
-      "Persisted visual auth for package .: storageState=playwright/.auth/user.json",
+      "Persisted visual auth for package .: storageState=playwright/.auth/user.json"
     );
     expect(
-      vi.mocked(stateModule.persistPlaywrightAuthProfile),
+      vi.mocked(stateModule.persistPlaywrightAuthProfile)
     ).toHaveBeenCalledWith(
       expect.stringMatching(/persist-visual-auth-.*\/project$/),
       ".",
@@ -1692,7 +1690,7 @@ test('Example flow', async () => {
         path: "playwright/.auth/user.json",
         source: "manual",
         strategy: "storageState",
-      }),
+      })
     );
     expect(captureVisualStateMock).toHaveBeenCalledWith(
       expect.any(String),
@@ -1701,7 +1699,7 @@ test('Example flow', async () => {
           path: expect.stringMatching(/playwright\/\.auth\/user\.json$/),
           strategy: "storageState",
         },
-      }),
+      })
     );
   });
 
@@ -1744,21 +1742,21 @@ test('Example flow', async () => {
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.logs).toContain(
-      "Visual auth: storageState=playwright/.auth/user.json (detected)",
+      "Visual auth: storageState=playwright/.auth/user.json (detected)"
     );
     expect(result.logs).toContain(
-      "Auth checkpoint screenshot: /tmp/taro-login.png",
+      "Auth checkpoint screenshot: /tmp/taro-login.png"
     );
     expect(result.warnings).toContain(
-      "Visual context unavailable: authentication required before reaching the target UI.",
+      "Visual context unavailable: authentication required before reaching the target UI."
     );
     expect(result.warnings).toContain(
-      "Reuse or replace the saved storage state with --auth /tmp/playwright/.auth/user.json.",
+      "Reuse or replace the saved storage state with --auth /tmp/playwright/.auth/user.json."
     );
     expect(result.errors).toBe("");
     expect(result.exitCode).toBe(0);
@@ -1805,29 +1803,26 @@ test('Example flow', async () => {
     const result = await runGenerate(
       [fixture.recordingPath],
       fixture.outputDir,
-      {
-        input: { isTTY: true },
-        output: { isTTY: true },
-      },
+      { input: { isTTY: true }, output: { isTTY: true } }
     );
     const stateModule = await import("#core/state.ts");
 
     expect(result.thrown).toBeUndefined();
     expect(result.errors).toBe("");
     expect(result.logs).toContain(
-      "Visual auth recovered via Playwright runtime.",
+      "Visual auth recovered via Playwright runtime."
     );
     expect(result.logs).toContain(
-      "Retried recorded URL once after auth recovery: http://localhost:3001/dashboard",
+      "Retried recorded URL once after auth recovery: http://localhost:3001/dashboard"
     );
     expect(result.logs).toContain(
-      "Saved Playwright storageState: .taro/playwright/.auth/user.json",
+      "Saved Playwright storageState: .taro/playwright/.auth/user.json"
     );
     expect(result.logs).toContain(
-      "Persisted visual auth for package .: storageState=.taro/playwright/.auth/user.json",
+      "Persisted visual auth for package .: storageState=.taro/playwright/.auth/user.json"
     );
     expect(
-      vi.mocked(stateModule.persistPlaywrightAuthProfile),
+      vi.mocked(stateModule.persistPlaywrightAuthProfile)
     ).toHaveBeenCalledWith(
       expect.any(String),
       ".",
@@ -1836,7 +1831,7 @@ test('Example flow', async () => {
         path: ".taro/playwright/.auth/user.json",
         detectedAt: "generate",
         source: "manual",
-      }),
+      })
     );
   });
 
@@ -1880,23 +1875,23 @@ test('Example flow', async () => {
 
     const result = await runGenerate(
       ["--interactive-auth", fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
     const stateModule = await import("#core/state.ts");
 
     expect(result.thrown).toBeUndefined();
     expect(result.errors).toBe("");
     expect(result.logs).toContain(
-      "Visual auth recovered via Playwright runtime.",
+      "Visual auth recovered via Playwright runtime."
     );
     expect(result.logs).toContain(
-      "Retried recorded URL once after auth recovery: http://localhost:3001/dashboard",
+      "Retried recorded URL once after auth recovery: http://localhost:3001/dashboard"
     );
     expect(result.logs).toContain(
-      "Saved Playwright storageState: .taro/playwright/.auth/user.json",
+      "Saved Playwright storageState: .taro/playwright/.auth/user.json"
     );
     expect(
-      vi.mocked(stateModule.persistPlaywrightAuthProfile),
+      vi.mocked(stateModule.persistPlaywrightAuthProfile)
     ).toHaveBeenCalledWith(
       expect.any(String),
       ".",
@@ -1905,15 +1900,13 @@ test('Example flow', async () => {
         path: ".taro/playwright/.auth/user.json",
         detectedAt: "generate",
         source: "manual",
-      }),
+      })
     );
     expect(captureVisualStateMock).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
-        authRecovery: expect.objectContaining({
-          enabled: true,
-        }),
-      }),
+        authRecovery: expect.objectContaining({ enabled: true }),
+      })
     );
   });
 
@@ -1960,25 +1953,22 @@ test('Example flow', async () => {
     const result = await runGenerate(
       [fixture.recordingPath],
       fixture.outputDir,
-      {
-        input: { isTTY: true },
-        output: { isTTY: true },
-      },
+      { input: { isTTY: true }, output: { isTTY: true } }
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).toContain("Playwright authentication timed out.");
     expect(result.warnings).toContain(
-      "Visual auth instructions: instructions/auth.md",
+      "Visual auth instructions: instructions/auth.md"
     );
     expect(result.warnings).toContain(
-      "Retried recorded URL once after auth recovery: http://localhost:3001/dashboard (page.goto: Timeout 3000ms exceeded.)",
+      "Retried recorded URL once after auth recovery: http://localhost:3001/dashboard (page.goto: Timeout 3000ms exceeded.)"
     );
     expect(result.warnings).toContain(
-      "Saved Playwright storageState: .taro/playwright/.auth/user.json",
+      "Saved Playwright storageState: .taro/playwright/.auth/user.json"
     );
     expect(result.warnings).toContain(
-      "Timed out waiting 300s for manual authentication.",
+      "Timed out waiting 300s for manual authentication."
     );
     expect(result.errors).toBe("");
     expect(result.exitCode).toBe(0);
@@ -2025,10 +2015,7 @@ test('Example flow', async () => {
     const result = await runGenerate(
       [fixture.recordingPath],
       fixture.outputDir,
-      {
-        input: { isTTY: true },
-        output: { isTTY: true },
-      },
+      { input: { isTTY: true }, output: { isTTY: true } }
     );
     const stateModule = await import("#core/state.ts");
 
@@ -2036,20 +2023,22 @@ test('Example flow', async () => {
     expect(openCapturePageMock).toHaveBeenCalledWith(
       expect.objectContaining({
         auth: {
-          path: expect.stringMatching(/\.taro\/playwright\/\.auth\/user\.json$/),
+          path: expect.stringMatching(
+            /\.taro\/playwright\/\.auth\/user\.json$/
+          ),
           strategy: "storageState",
         },
-      }),
+      })
     );
     expect(
-      vi.mocked(stateModule.persistPlaywrightAuthProfile),
+      vi.mocked(stateModule.persistPlaywrightAuthProfile)
     ).toHaveBeenCalledWith(
       expect.any(String),
       ".",
       expect.objectContaining({
         path: ".taro/playwright/.auth/user.json",
         strategy: "storageState",
-      }),
+      })
     );
   });
 
@@ -2068,13 +2057,13 @@ test('Marker gate fail in write mode', async () => {
   expect(location.href).toBe('http://localhost:3001/example')
   await userEvent.dblClick(screen.getByRole('heading', { name: 'Starting state' }))
   await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-})`,
+})`
     );
     const outputPath = deriveOutputPath(fixture.recordingPath);
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
     const written = await readFile(outputPath, "utf-8");
 
@@ -2082,13 +2071,13 @@ test('Marker gate fail in write mode', async () => {
     expect(result.logs).toContain("[taro] ✓ post-write verified");
     expect(result.logs).toContain(`Created: ${outputPath}`);
     expect(result.logs).toContain(
-      "QUAL-02 gate: WARN (zero-marker-conversion)",
+      "QUAL-02 gate: WARN (zero-marker-conversion)"
     );
     expect(result.warnings).toContain(
-      "QUAL-02 WARN: Semantic markers were detected, but no marker-derived assertions were emitted.",
+      "QUAL-02 WARN: Semantic markers were detected, but no marker-derived assertions were emitted."
     );
     expect(result.warnings).toContain(
-      "Manual review required — this generated test is still a draft",
+      "Manual review required — this generated test is still a draft"
     );
     expect(result.exitCode).toBe(0);
     expect(written).toContain("it(");
@@ -2111,7 +2100,7 @@ test('Example flow', async () => {
   await userEvent.type(screen.getByRole('textbox', { name: 'Customer Reference' }), 'ABC-123')
   await userEvent.click(screen.getByRole('button', { name: 'Save' }))
   await userEvent.dblClick(screen.getByRole('heading', { name: 'Review Example' }))
-})`,
+})`
     );
     const outputPath = deriveOutputPath(fixture.recordingPath);
     const existingTest = `
@@ -2129,7 +2118,7 @@ describe('Example flow', () => {
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
     const written = await readFile(outputPath, "utf-8");
 
@@ -2137,9 +2126,11 @@ describe('Example flow', () => {
     expect(result.errors).toBe("");
     expect(result.logs).toContain("Existing output detected:");
     expect(result.logs).toContain(
-      "Existing output will be updated because Taro kept the preferred suite.",
+      "Existing output will be updated because Taro kept the preferred suite."
     );
-    expect(result.logs).not.toContain("Preserved 1 distinct test block from the alternate suite.");
+    expect(result.logs).not.toContain(
+      "Preserved 1 distinct test block from the alternate suite."
+    );
     expect(result.logs).toContain(`Updated: ${outputPath}`);
     expect(result.logs).not.toContain(`Created: ${outputPath}`);
     expect(written).not.toContain("it('covers the full example flow'");
@@ -2165,7 +2156,7 @@ test('Example flow', async () => {
   await userEvent.type(screen.getByRole('textbox', { name: 'Customer Reference' }), 'ABC-123')
   await userEvent.click(screen.getByRole('button', { name: 'Save' }))
   await userEvent.dblClick(screen.getByRole('heading', { name: 'Review Example' }))
-})`,
+})`
     );
     const outputPath = deriveOutputPath(fixture.recordingPath);
     await writeFile(
@@ -2178,21 +2169,23 @@ describe('Example flow', () => {
   })
 })
 `,
-      "utf-8",
+      "utf-8"
     );
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
     const written = await readFile(outputPath, "utf-8");
 
     expect(result.thrown).toBeUndefined();
     expect(result.errors).toBe("");
     expect(result.logs).toContain(
-      "Existing output will be updated because Taro kept the preferred suite.",
+      "Existing output will be updated because Taro kept the preferred suite."
     );
-    expect(result.logs).not.toContain("Preserved 1 distinct test block from the alternate suite.");
+    expect(result.logs).not.toContain(
+      "Preserved 1 distinct test block from the alternate suite."
+    );
     expect(result.logs).toContain(`Updated: ${outputPath}`);
     expect(written).not.toContain("it('is stale'");
     expect(written).toContain("Open Example Flow");
@@ -2204,7 +2197,7 @@ describe('Example flow', () => {
     const sandbox = await createSandbox("missing-file");
     const result = await runGenerate(
       [join(sandbox.outputDir, "nonexistent.js")],
-      sandbox.outputDir,
+      sandbox.outputDir
     );
 
     expect(result.exitCode).toBe(2);
@@ -2214,9 +2207,14 @@ describe('Example flow', () => {
   it("exits with code 2 when the recording file cannot be parsed", async () => {
     const sandbox = await createSandbox("bad-parse");
     const badPath = join(sandbox.outputDir, "bad.js");
-    await writeFile(badPath, "this is not valid recorder output !!!###$$$", "utf-8");
+    await writeFile(
+      badPath,
+      "this is not valid recorder output !!!###$$$",
+      "utf-8"
+    );
 
-    const { loadInput: loadInputModule } = await import("#core/input-loader.ts");
+    const { loadInput: loadInputModule } =
+      await import("#core/input-loader.ts");
     const loadInputMock = vi.mocked(loadInputModule);
 
     vi.mock("#core/input-loader.ts", () => ({
@@ -2235,11 +2233,14 @@ describe('Example flow', () => {
   it("logs bootstrapped state message when .taro/state.json does not exist yet", async () => {
     const fixture = await createRecordingFixture("bootstrap-state");
 
-    const result = await runGenerate([fixture.recordingPath], fixture.outputDir);
+    const result = await runGenerate(
+      [fixture.recordingPath],
+      fixture.outputDir
+    );
 
     expect(result.thrown).toBeUndefined();
     expect(result.logs).toContain(
-      "Bootstrapped .taro/state.json from current repo tests.",
+      "Bootstrapped .taro/state.json from current repo tests."
     );
   });
 
@@ -2253,11 +2254,14 @@ describe('Example flow', () => {
       },
     });
 
-    const result = await runGenerate([fixture.recordingPath], fixture.outputDir);
+    const result = await runGenerate(
+      [fixture.recordingPath],
+      fixture.outputDir
+    );
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).toContain(
-      "Legacy state migrated; re-run scan to refresh.",
+      "Legacy state migrated; re-run scan to refresh."
     );
   });
 
@@ -2268,11 +2272,14 @@ describe('Example flow', () => {
       appliedOverrides: ["effectiveRunner=vitest", "mockPattern=vi.mock"],
     }));
 
-    const result = await runGenerate([fixture.recordingPath], fixture.outputDir);
+    const result = await runGenerate(
+      [fixture.recordingPath],
+      fixture.outputDir
+    );
 
     expect(result.thrown).toBeUndefined();
     expect(result.logs).toContain(
-      "Applied overrides for .: effectiveRunner=vitest, mockPattern=vi.mock",
+      "Applied overrides for .: effectiveRunner=vitest, mockPattern=vi.mock"
     );
   });
 
@@ -2280,11 +2287,14 @@ describe('Example flow', () => {
     const fixture = await createRecordingFixture("null-profile");
     resolveTaroPackageProfileMock.mockReturnValue(null);
 
-    const result = await runGenerate([fixture.recordingPath], fixture.outputDir);
+    const result = await runGenerate(
+      [fixture.recordingPath],
+      fixture.outputDir
+    );
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).toContain(
-      "State profile: no matching package profile found; using generic defaults.",
+      "State profile: no matching package profile found; using generic defaults."
     );
   });
 
@@ -2324,12 +2334,12 @@ describe('Example flow', () => {
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).toContain(
-      "Review the saved auth instructions at /tmp/auth-instructions.md, or provide --auth for automatic session injection.",
+      "Review the saved auth instructions at /tmp/auth-instructions.md, or provide --auth for automatic session injection."
     );
     expect(result.exitCode).toBe(0);
   });
@@ -2369,12 +2379,12 @@ describe('Example flow', () => {
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).toContain(
-      "Options: --auth <storageState.json>, --instructions <auth.md>, or --no-screenshots.",
+      "Options: --auth <storageState.json>, --instructions <auth.md>, or --no-screenshots."
     );
     expect(result.exitCode).toBe(0);
   });
@@ -2421,17 +2431,19 @@ describe('Example flow', () => {
     const result = await runGenerate(
       [fixture.recordingPath],
       fixture.outputDir,
-      { input: { isTTY: true }, output: { isTTY: true } },
+      { input: { isTTY: true }, output: { isTTY: true } }
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.logs).toContain(
-      "Starting point screenshot: /tmp/taro-dashboard-recovered.png",
+      "Starting point screenshot: /tmp/taro-dashboard-recovered.png"
     );
     expect(result.logs).toContain(
-      "Starting point confirmed: http://localhost:3001/dashboard",
+      "Starting point confirmed: http://localhost:3001/dashboard"
     );
-    expect(result.logs).toContain("Retried recorded URL once after auth recovery:");
+    expect(result.logs).toContain(
+      "Retried recorded URL once after auth recovery:"
+    );
   });
 
   it("warns when auth-recovery-failed visual state occurs", async () => {
@@ -2470,18 +2482,18 @@ describe('Example flow', () => {
     const result = await runGenerate(
       [fixture.recordingPath],
       fixture.outputDir,
-      { input: { isTTY: true }, output: { isTTY: true } },
+      { input: { isTTY: true }, output: { isTTY: true } }
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).toContain(
-      "Playwright authentication could not be completed.",
+      "Playwright authentication could not be completed."
     );
     expect(result.warnings).toContain(
-      "Playwright authentication failed: credentials rejected.",
+      "Playwright authentication failed: credentials rejected."
     );
     expect(result.logs).toContain(
-      "Auth checkpoint screenshot: /tmp/taro-login-failed.png",
+      "Auth checkpoint screenshot: /tmp/taro-login-failed.png"
     );
     expect(result.exitCode).toBe(0);
   });
@@ -2502,10 +2514,15 @@ describe('Example flow', () => {
       warnings: [],
     });
 
-    const result = await runGenerate([fixture.recordingPath], fixture.outputDir);
+    const result = await runGenerate(
+      [fixture.recordingPath],
+      fixture.outputDir
+    );
 
     expect(result.thrown).toBeUndefined();
-    expect(result.logs).toContain("Visual state: dialog-state, dialog=Confirm Submission");
+    expect(result.logs).toContain(
+      "Visual state: dialog-state, dialog=Confirm Submission"
+    );
     expect(result.logs).toContain("screenshot=/tmp/dialog-screenshot.png");
   });
 
@@ -2526,11 +2543,18 @@ describe('Example flow', () => {
       matchedLandmarks: [],
     });
 
-    const result = await runGenerate([fixture.recordingPath], fixture.outputDir);
+    const result = await runGenerate(
+      [fixture.recordingPath],
+      fixture.outputDir
+    );
 
     expect(result.thrown).toBeUndefined();
-    expect(result.logs).toContain("Starting point screenshot: /tmp/confirmed-screenshot.png");
-    expect(result.logs).toContain("Visual state: landmark-confirmation, page=http://localhost:3001/dashboard");
+    expect(result.logs).toContain(
+      "Starting point screenshot: /tmp/confirmed-screenshot.png"
+    );
+    expect(result.logs).toContain(
+      "Visual state: landmark-confirmation, page=http://localhost:3001/dashboard"
+    );
   });
 
   it("reports auth status as not_required when captured without auth", async () => {
@@ -2549,7 +2573,10 @@ describe('Example flow', () => {
       matchedLandmarks: [],
     });
 
-    const result = await runGenerate([fixture.recordingPath], fixture.outputDir);
+    const result = await runGenerate(
+      [fixture.recordingPath],
+      fixture.outputDir
+    );
 
     expect(result.thrown).toBeUndefined();
     expect(result.logs).toContain("Auth status: not_required");
@@ -2577,7 +2604,7 @@ describe('Example flow', () => {
 
     const result = await runGenerate(
       ["--auth", authPath, fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
 
     expect(result.thrown).toBeUndefined();
@@ -2589,13 +2616,11 @@ describe('Example flow', () => {
 
     const result = await runGenerate(
       ["--instructions", "/nonexistent/auth.md", fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
 
     expect(result.thrown).toBeUndefined();
-    expect(result.warnings).toContain(
-      "Visual auth: file not found",
-    );
+    expect(result.warnings).toContain("Visual auth: file not found");
   });
 
   it("warns when both --auth and --instructions are provided and uses --auth", async () => {
@@ -2609,12 +2634,12 @@ describe('Example flow', () => {
 
     const result = await runGenerate(
       ["--auth", authPath, "--instructions", instrPath, fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).toContain(
-      "Visual auth: both --auth and --instructions were provided; preferring --auth for this run.",
+      "Visual auth: both --auth and --instructions were provided; preferring --auth for this run."
     );
   });
 
@@ -2628,12 +2653,12 @@ describe('Example flow', () => {
 
     const result = await runGenerate(
       ["--auth", authPath, fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).toContain(
-      "Visual auth: resolved the auth path for this run but could not persist it in state.",
+      "Visual auth: resolved the auth path for this run but could not persist it in state."
     );
   });
 
@@ -2647,12 +2672,12 @@ describe('Example flow', () => {
 
     const result = await runGenerate(
       ["--auth", authPath, fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).toContain(
-      "Visual auth: using the explicit auth path for this run, but no package profile was available to persist it.",
+      "Visual auth: using the explicit auth path for this run, but no package profile was available to persist it."
     );
   });
 
@@ -2697,17 +2722,19 @@ describe('Example flow', () => {
     const result = await runGenerate(
       [fixture.recordingPath],
       fixture.outputDir,
-      { input: { isTTY: true }, output: { isTTY: true } },
+      { input: { isTTY: true }, output: { isTTY: true } }
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).toContain(
-      "Visual auth: storageState was saved, but no package profile was available to persist it in state.",
+      "Visual auth: storageState was saved, but no package profile was available to persist it in state."
     );
   });
 
   it("warns when recovered visual auth persistence returns false", async () => {
-    const fixture = await createRecordingFixture("recovered-auth-persist-false");
+    const fixture = await createRecordingFixture(
+      "recovered-auth-persist-false"
+    );
     persistPlaywrightAuthProfileMock.mockResolvedValue(false);
     captureVisualStateMock.mockResolvedValue({
       authRecovery: {
@@ -2747,20 +2774,20 @@ describe('Example flow', () => {
     const result = await runGenerate(
       [fixture.recordingPath],
       fixture.outputDir,
-      { input: { isTTY: true }, output: { isTTY: true } },
+      { input: { isTTY: true }, output: { isTTY: true } }
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).toContain(
-      "Visual auth: storageState was saved, but Taro could not persist it in state.",
+      "Visual auth: storageState was saved, but Taro could not persist it in state."
     );
   });
 
   it("warns when recovered visual auth persistence throws", async () => {
-    const fixture = await createRecordingFixture("recovered-auth-persist-throws");
-    persistPlaywrightAuthProfileMock.mockRejectedValue(
-      new Error("disk full"),
+    const fixture = await createRecordingFixture(
+      "recovered-auth-persist-throws"
     );
+    persistPlaywrightAuthProfileMock.mockRejectedValue(new Error("disk full"));
     captureVisualStateMock.mockResolvedValue({
       authRecovery: {
         completedAt: new Date().toISOString(),
@@ -2799,26 +2826,29 @@ describe('Example flow', () => {
     const result = await runGenerate(
       [fixture.recordingPath],
       fixture.outputDir,
-      { input: { isTTY: true }, output: { isTTY: true } },
+      { input: { isTTY: true }, output: { isTTY: true } }
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).toContain(
-      "Visual auth: storageState was saved, but persisting it in .taro/state.json failed.",
+      "Visual auth: storageState was saved, but persisting it in .taro/state.json failed."
     );
   });
 
   it("summarizes mock analysis with repeated targets and recommendations", async () => {
     const fixture = await createRecordingFixture("mock-analysis-summary");
-    const { analyzeMocks: analyzeMocksModule } = await import(
-      "#core/mock-intelligence.ts"
-    );
+    const { analyzeMocks: analyzeMocksModule } =
+      await import("#core/mock-intelligence.ts");
     vi.mocked(analyzeMocksModule).mockResolvedValueOnce({
       source: "package-profile",
       packagePath: "packages/example-app",
       repeatedTargets: [{ target: "@/api/orders", count: 5, files: [] }],
       mutationLifecycles: [
-        { file: "src/orders.test.tsx", stages: ["success", "error"], evidence: [] },
+        {
+          file: "src/orders.test.tsx",
+          stages: ["success", "error"],
+          evidence: [],
+        },
       ],
       interactionContracts: [
         {
@@ -2872,7 +2902,10 @@ describe('Example flow', () => {
       enabledContractFamilies: ["mutation-form"],
     } as never);
 
-    const result = await runGenerate([fixture.recordingPath], fixture.outputDir);
+    const result = await runGenerate(
+      [fixture.recordingPath],
+      fixture.outputDir
+    );
 
     expect(result.thrown).toBeUndefined();
     expect(result.logs).toContain("Mock analysis:");
@@ -2883,18 +2916,22 @@ describe('Example flow', () => {
     expect(result.logs).toContain("1 boundary profile(s)");
     expect(result.logs).toContain("Mock hint: shared-factory @/api/orders");
     expect(result.logs).toContain(
-      "Shared mock preference: @/api/orders -> @/tests/mocks/orders-api",
+      "Shared mock preference: @/api/orders -> @/tests/mocks/orders-api"
     );
-    expect(result.logs).toContain("Mutation lifecycle: success -> error in src/orders.test.tsx");
-    expect(result.logs).toContain("Interaction contract: mutation-form (failed-completion) in src/orders.test.tsx");
-    expect(result.warnings).toContain(
-      "Mock policy: forbidden targets @/ui/components",
+    expect(result.logs).toContain(
+      "Mutation lifecycle: success -> error in src/orders.test.tsx"
     );
-    expect(result.warnings).toContain(
-      "Boundary policy: forbidden targets @/legacy/api",
+    expect(result.logs).toContain(
+      "Interaction contract: mutation-form (failed-completion) in src/orders.test.tsx"
     );
     expect(result.warnings).toContain(
-      "Mock stability: over-specified mock (src/orders.test.tsx)",
+      "Mock policy: forbidden targets @/ui/components"
+    );
+    expect(result.warnings).toContain(
+      "Boundary policy: forbidden targets @/legacy/api"
+    );
+    expect(result.warnings).toContain(
+      "Mock stability: over-specified mock (src/orders.test.tsx)"
     );
   });
 
@@ -2912,7 +2949,7 @@ require('@testing-library/jest-dom')
 test('Example flow', async () => {
   expect(location.href).toBe('http://localhost:3001/example')
   await userEvent.click(screen.getByRole('button', { name: 'Open Example Flow' }))
-})`,
+})`
     );
     const outputPath = deriveOutputPath(fixture.recordingPath);
     // Create a directory at the output path so readFile() throws EISDIR
@@ -2920,12 +2957,12 @@ test('Example flow', async () => {
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).toContain(
-      "Existing output could not be assessed cleanly, so Taro will preserve it instead of overwriting blindly.",
+      "Existing output could not be assessed cleanly, so Taro will preserve it instead of overwriting blindly."
     );
     expect(result.exitCode).toBe(0);
   });
@@ -2968,7 +3005,7 @@ test('Example flow', async () => {
   expect(location.href).toBe('http://localhost:3001/example')
   await userEvent.click(screen.getByRole('button', { name: 'Open Example Flow' }))
   await userEvent.click(screen.getByRole('heading', { name: 'Review Example Flow' }))
-})`,
+})`
     );
     const outputPath = deriveOutputPath(fixture.recordingPath);
     // Create a directory at the output path so readFile() throws EISDIR (existing output can't be read)
@@ -2976,12 +3013,12 @@ test('Example flow', async () => {
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).toContain(
-      "Existing output could not be assessed cleanly, so Taro will preserve it instead of overwriting blindly.",
+      "Existing output could not be assessed cleanly, so Taro will preserve it instead of overwriting blindly."
     );
     // Output directory (which was created as a dir) should still be a directory - generation was skipped
     expect(result.exitCode).toBe(0);
@@ -3004,7 +3041,7 @@ test('Marker placement correction flow', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Save' }))
   await userEvent.dblClick(screen.getByRole('heading', { name: 'Review state' }))
   await userEvent.click(screen.getByRole('heading', { name: 'Review state' }))
-})`,
+})`
     );
 
     // Use getMockImplementation to get the real planJsSuite delegate without recursion
@@ -3032,7 +3069,7 @@ test('Marker placement correction flow', async () => {
                       },
                     },
                   }
-                : assertion,
+                : assertion
           ),
         })),
       };
@@ -3040,12 +3077,12 @@ test('Marker placement correction flow', async () => {
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).toMatch(
-      /MKR-02 placement-correction marker=.+ from="original" to="corrected"/,
+      /MKR-02 placement-correction marker=.+ from="original" to="corrected"/
     );
   });
 
@@ -3066,7 +3103,7 @@ test('Canonical recovery marker flow', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Save' }))
   await userEvent.dblClick(screen.getByRole('heading', { name: 'Review state' }))
   await userEvent.click(screen.getByRole('heading', { name: 'Review state' }))
-})`,
+})`
     );
 
     // Use getMockImplementation to get the real planJsSuite delegate without recursion
@@ -3095,7 +3132,7 @@ test('Canonical recovery marker flow', async () => {
                       },
                     },
                   }
-                : assertion,
+                : assertion
           ),
         })),
       };
@@ -3103,12 +3140,12 @@ test('Canonical recovery marker flow', async () => {
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.logs).toMatch(
-      /MKR-01 canonical-copy marker=.+ file=src\/review-flow\.test\.tsx from="Starting state" to="Review state"/,
+      /MKR-01 canonical-copy marker=.+ file=src\/review-flow\.test\.tsx from="Starting state" to="Review state"/
     );
   });
 
@@ -3127,7 +3164,7 @@ test('Example flow', async () => {
   expect(location.href).toBe('http://localhost:3001/example')
   await userEvent.click(screen.getByRole('button', { name: 'Open Example Flow' }))
   await userEvent.click(screen.getByRole('heading', { name: 'Review Example Flow' }))
-})`,
+})`
     );
     const featureFlowPath = join(
       fixture.outputDir,
@@ -3135,13 +3172,13 @@ test('Example flow', async () => {
       "example-app",
       "src",
       "features",
-      "FeatureFlow.tsx",
+      "FeatureFlow.tsx"
     );
     await mkdir(dirname(featureFlowPath), { recursive: true });
     await writeFile(
       featureFlowPath,
       `export default function FeatureFlow() { return <div>FeatureFlow</div> }`,
-      "utf-8",
+      "utf-8"
     );
 
     const exampleProfile = {
@@ -3156,10 +3193,10 @@ test('Example flow', async () => {
       "packages/example-app": exampleProfile,
     };
     loadOrBootstrapTaroStateMock.mockResolvedValue(
-      createDefaultTaroState(packages),
+      createDefaultTaroState(packages)
     );
     resolveTaroPackageProfileMock.mockImplementation(
-      createPackageResolver(packages as Record<string, typeof defaultProfile>),
+      createPackageResolver(packages as Record<string, typeof defaultProfile>)
     );
 
     const realPlanJsSuite2 = planJsSuiteMock.getMockImplementation();
@@ -3178,12 +3215,12 @@ test('Example flow', async () => {
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).toContain(
-      "Boundary: Taro could not resolve the exact render target from repo context; generated output should be treated as a boundary draft.",
+      "Boundary: Taro could not resolve the exact render target from repo context; generated output should be treated as a boundary draft."
     );
   });
 
@@ -3206,7 +3243,7 @@ test('Example flow', async () => {
 
     const result = await runGenerate(
       ["--debug-selectors", fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
 
     expect(result.thrown).toBeUndefined();
@@ -3218,27 +3255,28 @@ test('Example flow', async () => {
     const instrDir = join(fixture.outputDir, "auth-instructions");
     const instrPath = join(instrDir, "auth.md");
     await mkdir(instrDir, { recursive: true });
-    await writeFile(instrPath, "# Auth Instructions\nGo to login page...", "utf-8");
+    await writeFile(
+      instrPath,
+      "# Auth Instructions\nGo to login page...",
+      "utf-8"
+    );
 
     const result = await runGenerate(
       ["--instructions", instrPath, fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
     const stateModule = await import("#core/state.ts");
 
     expect(result.thrown).toBeUndefined();
     expect(result.logs).toMatch(
-      /Persisted visual auth for package \.: instructions=.*auth-instructions\/auth\.md/,
+      /Persisted visual auth for package \.: instructions=.*auth-instructions\/auth\.md/
     );
     expect(
-      vi.mocked(stateModule.persistPlaywrightAuthProfile),
+      vi.mocked(stateModule.persistPlaywrightAuthProfile)
     ).toHaveBeenCalledWith(
       expect.any(String),
       ".",
-      expect.objectContaining({
-        strategy: "instructions",
-        source: "manual",
-      }),
+      expect.objectContaining({ strategy: "instructions", source: "manual" })
     );
   });
 
@@ -3251,10 +3289,13 @@ require('@testing-library/jest-dom')
 
 test('Simple flow without URL', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Submit' }))
-})`,
+})`
     );
 
-    const result = await runGenerate([fixture.recordingPath], fixture.outputDir);
+    const result = await runGenerate(
+      [fixture.recordingPath],
+      fixture.outputDir
+    );
 
     expect(result.thrown).toBeUndefined();
     expect(result.errors).toBe("");
@@ -3276,7 +3317,7 @@ test('Example flow', async () => {
   expect(location.href).toBe('http://localhost:3001/example')
   await userEvent.click(screen.getByRole('button', { name: 'Open Example Flow' }))
   await userEvent.click(screen.getByRole('heading', { name: 'Review Example Flow' }))
-})`,
+})`
     );
     const featureFlowPath = join(
       fixture.outputDir,
@@ -3284,14 +3325,14 @@ test('Example flow', async () => {
       "example-app",
       "src",
       "features",
-      "FeatureFlow.tsx",
+      "FeatureFlow.tsx"
     );
     await mkdir(dirname(featureFlowPath), { recursive: true });
     await writeFile(
       featureFlowPath,
       `import { useOrders } from '@/api/orders'
 export default function FeatureFlow() { useOrders(); return <div>Flow</div> }`,
-      "utf-8",
+      "utf-8"
     );
 
     const featureFlowRelPath =
@@ -3340,22 +3381,22 @@ export default function FeatureFlow() { useOrders(); return <div>Flow</div> }`,
       "packages/example-app": exampleProfile,
     };
     loadOrBootstrapTaroStateMock.mockResolvedValue(
-      createDefaultTaroState(packages),
+      createDefaultTaroState(packages)
     );
     // Return exampleProfile for all paths so planBoundarySupport receives
     // the profile with boundaryProfiles and renderTargets.
     resolveTaroPackageProfileMock.mockImplementation(() =>
-      structuredClone(exampleProfile),
+      structuredClone(exampleProfile)
     );
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
 
     expect(result.thrown).toBeUndefined();
     expect(result.warnings).toContain(
-      "Boundary support requires manual review because one or more collaborators were scaffolded with generic defaults.",
+      "Boundary support requires manual review because one or more collaborators were scaffolded as placeholder seams."
     );
   });
 
@@ -3374,31 +3415,31 @@ test('Example flow', async () => {
   expect(location.href).toBe('http://localhost:3001/example')
   await userEvent.click(screen.getByRole('button', { name: 'Open Example Flow' }))
   await userEvent.click(screen.getByRole('heading', { name: 'Review Example Flow' }))
-})`,
+})`
     );
     const featureFlowPath = join(
       fixture.outputDir,
       "src",
       "features",
-      "FeatureFlow.tsx",
+      "FeatureFlow.tsx"
     );
     const testFilePath = join(
       fixture.outputDir,
       "src",
       "features",
-      "FeatureFlow.test.tsx",
+      "FeatureFlow.test.tsx"
     );
     await mkdir(dirname(featureFlowPath), { recursive: true });
     await writeFile(
       featureFlowPath,
       `export default function FeatureFlow() { return <button>Open Example Flow</button> }`,
-      "utf-8",
+      "utf-8"
     );
     await writeFile(
       testFilePath,
       `import FeatureFlow from './FeatureFlow'
 test('baseline', () => { render(<FeatureFlow />) })`,
-      "utf-8",
+      "utf-8"
     );
 
     resolveTaroPackageProfileMock.mockImplementation(() => ({
@@ -3416,7 +3457,7 @@ test('baseline', () => { render(<FeatureFlow />) })`,
 
     const result = await runGenerate(
       [fixture.recordingPath],
-      fixture.outputDir,
+      fixture.outputDir
     );
     const written = await readFile(testFilePath, "utf-8");
 

@@ -1,11 +1,11 @@
 # Conventions Schema
 
 Stored in:
+
 - `.taro/state.json`
 - optional `.taro/overrides.json`
 
-Purpose:
-Describe how Taro learns package-scoped test conventions and boundary strategy in v1.
+Purpose: Describe how Taro learns package-scoped test conventions and boundary strategy in v1.
 
 ## Source of Truth
 
@@ -32,17 +32,17 @@ Each package profile stores:
     "importStyle": "esm",
     "mockPattern": "vi.mock",
     "folderPattern": "colocated",
-    "fileExtension": "ts"
+    "fileExtension": "ts",
   },
   "importStyle": {
     "value": "esm",
     "confidence": "high",
-    "evidence": ["packages/dashboard/src/foo.test.tsx"]
+    "evidence": ["packages/dashboard/src/foo.test.tsx"],
   },
   "runner": {
     "value": "vitest",
     "confidence": "high",
-    "evidence": ["packages/dashboard: vitest.config.* present"]
+    "evidence": ["packages/dashboard: vitest.config.* present"],
   },
   "renderHelpers": [
     {
@@ -51,8 +51,8 @@ Each package profile stores:
       "importKind": "named",
       "sourceTestFile": "packages/dashboard/src/foo.test.tsx",
       "usageCount": 8,
-      "usesWithin": true
-    }
+      "usesWithin": true,
+    },
   ],
   "providerWrappers": [],
   "renderTargets": [],
@@ -63,7 +63,7 @@ Each package profile stores:
   "inlineSafeMockTargets": [],
   "fixtureRoots": [],
   "exemplars": [],
-  "warnings": []
+  "warnings": [],
 }
 ```
 
@@ -85,22 +85,20 @@ Overrides support:
       "runner": "vitest",
       "renderHelper": {
         "name": "renderDashboard",
-        "importPath": "@/tests/renderDashboard"
+        "importPath": "@/tests/renderDashboard",
       },
       "forbidMocks": ["@/components/ui-kit"],
       "preferredSharedMocks": {
-        "@/features/orders/api": "@/tests/mocks/orders-api"
+        "@/features/orders/api": "@/tests/mocks/orders-api",
       },
-      "boundaryPolicies": {
-        "@/features/orders/api": "shared-module-factory"
-      },
+      "boundaryPolicies": { "@/features/orders/api": "shared-module-factory" },
       "preferredBoundaryImplementations": {
-        "@/features/orders/api": "@/tests/mocks/orders-api"
+        "@/features/orders/api": "@/tests/mocks/orders-api",
       },
       "forbidBoundaryTargets": ["@/components/ui-kit"],
-      "queryHookPolicy": "avoid"
-    }
-  }
+      "queryHookPolicy": "avoid",
+    },
+  },
 }
 ```
 
@@ -118,6 +116,7 @@ Beyond runner and file placement, Taro now learns:
 - `init` performs the first bounded repo scan and writes `.taro/state.json`.
 - `refresh` rescans package profiles and rewrites state from fresh evidence.
 - `generate` bootstraps state when missing, derives from learned boundary exemplars, writes `.taro/summary.md`, and refreshes state again after a successful write.
+- When stored `generatedTests` history exists, `init`, `refresh`, and stale-state bootstrap weight higher-scored files more strongly while relearning package conventions and exemplars.
 
 ## Practical Interpretation
 

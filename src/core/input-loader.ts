@@ -1,65 +1,71 @@
-import { readFile } from 'node:fs/promises'
-import { extname } from 'node:path'
+import { readFile } from "node:fs/promises";
+import { extname } from "node:path";
 
-import { type JsParseResult, parseJsRecording } from '#core/js-parser.ts'
+import { type JsParseResult, parseJsRecording } from "#core/js-parser.ts";
 import {
   createStepId,
   type NormalizedRecording,
   type NormalizedStep,
   type ParsedJsInput,
   type RecordingSource,
-} from '#types/recording.ts'
+} from "#types/recording.ts";
 
-const JSON_EXTENSIONS = new Set(['.json'])
-const JS_EXTENSIONS = new Set(['.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx'])
+const JSON_EXTENSIONS = new Set([".json"]);
+const JS_EXTENSIONS = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"]);
 const JSON_REMOVAL_GUIDANCE =
-  'Chrome Recorder JSON exports are no longer supported. Export a Testing Library Recorder JS file instead.'
+  "Chrome Recorder JSON exports are no longer supported. Export a Testing Library Recorder JS file instead.";
 
 function looksLikeJson(rawContent: string): boolean {
-  const trimmed = rawContent.trimStart()
-  return trimmed.startsWith('{') || trimmed.startsWith('[')
+  const trimmed = rawContent.trimStart();
+  return trimmed.startsWith("{") || trimmed.startsWith("[");
 }
 
 function looksLikeRecorderJs(rawContent: string): boolean {
   return [
-    '@jest-environment-options',
-    'userEvent.',
-    'screen.getBy',
-    'document.querySelector',
-    'page.goto(',
-  ].some((snippet) => rawContent.includes(snippet))
+    "@jest-environment-options",
+    "userEvent.",
+    "screen.getBy",
+    "document.querySelector",
+    "page.goto(",
+  ].some((snippet) => rawContent.includes(snippet));
 }
 
-export function detectInputSource(filePath: string, rawContent: string): RecordingSource {
-  const extension = extname(filePath).toLowerCase()
+export function detectInputSource(
+  filePath: string,
+  rawContent: string
+): RecordingSource {
+  const extension = extname(filePath).toLowerCase();
 
   if (JS_EXTENSIONS.has(extension)) {
-    return 'js'
+    return "js";
   }
 
   if (JSON_EXTENSIONS.has(extension) || looksLikeJson(rawContent)) {
-    throw new Error(`${JSON_REMOVAL_GUIDANCE} Received: ${filePath}`)
+    throw new Error(`${JSON_REMOVAL_GUIDANCE} Received: ${filePath}`);
   }
 
   if (looksLikeRecorderJs(rawContent)) {
-    return 'js'
+    return "js";
   }
 
   throw new Error(
     `Unsupported recording input: ${filePath}\nTayo requires a Testing Library Recorder JS export.`
-  )
+  );
 }
 
-function attachStepIds(source: RecordingSource, steps: NormalizedStep[]): NormalizedStep[] {
+function attachStepIds(
+  source: RecordingSource,
+  steps: NormalizedStep[]
+): NormalizedStep[] {
   return steps.map((step, index) => ({
     ...step,
     id: step.id ?? createStepId(source, index),
     source,
-  }))
+  }));
 }
 
 function toJsRecording(jsResult: JsParseResult): NormalizedRecording {
-  const steps = attachStepIds('js', jsResult.steps)
+  const steps = attachStepIds("js", jsResult.steps);
   return {
     title: jsResult.title,
     steps,
@@ -73,18 +79,14 @@ function toJsRecording(jsResult: JsParseResult): NormalizedRecording {
       itGroups: jsResult.itGroups,
       semanticMarkerCandidates: jsResult.semanticMarkerCandidates,
     },
-  }
+  };
 }
 
 export async function loadInput(filePath: string): Promise<ParsedJsInput> {
-  const rawContent = await readFile(filePath, 'utf-8')
-  detectInputSource(filePath, rawContent)
-  const jsResult = await parseJsRecording(rawContent)
-  const recording = toJsRecording(jsResult)
+  const rawContent = await readFile(filePath, "utf-8");
+  detectInputSource(filePath, rawContent);
+  const jsResult = await parseJsRecording(rawContent);
+  const recording = toJsRecording(jsResult);
 
-  return {
-    source: 'js',
-    recording,
-    baseline: recording.baseline!,
-  }
+  return { source: "js", recording, baseline: recording.baseline! };
 }
