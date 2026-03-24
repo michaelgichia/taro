@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createActor, fromPromise } from "xstate";
 
 import { createGenerateMachine } from "#cli/commands/generate.machine.ts";
-import type { GenerateMachineContext } from "#cli/commands/generate.utils.ts";
+import type { GenerateMachineContext } from "#cli/commands/generate-runtime-types.ts";
 
 const noop = fromPromise(async () => {});
 const noopReturn = <T>(value: T) => fromPromise(async () => value);

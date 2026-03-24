@@ -31,15 +31,13 @@ import {
 } from "#cli/commands/generate.actors.ts";
 import type { GenerateMachineActors } from "#cli/commands/generate.machine.ts";
 import { createGenerateMachine } from "#cli/commands/generate.machine.ts";
-import type { GenerateMachineContext } from "#cli/commands/generate.utils.ts";
+import { flushFindings } from "#cli/commands/generate-findings.ts";
+import type { GenerateMachineContext } from "#cli/commands/generate-runtime-types.ts";
 import {
-  flushFindings,
   type SelectorDebugReporter,
-} from "#cli/commands/generate.utils.ts";
+} from "#cli/commands/generate-runtime-types.ts";
 import type { ReplayStepDebugTrace } from "#core/resolver.ts";
 import type { SelectorResolutionResult } from "#types/recording.ts";
-
-export { generateCommandInternals } from "#cli/commands/generate.utils.ts";
 
 const generateMachineActors = {
   validateFileActor,

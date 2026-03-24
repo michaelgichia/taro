@@ -7,25 +7,34 @@ import pc from "picocolors";
 
 import {
   applyRepoRenderTarget,
+  collectRepoContextSearchTerms,
+} from "#cli/commands/context-selection.ts";
+import { flushFindings } from "#cli/commands/generate-findings.ts";
+import {
+  getPrimarySelector,
+} from "#cli/commands/generate-recording.ts";
+import {
+  finalizeGeneratedOutput,
+  maybeAnalyzeMocks,
+} from "#cli/commands/generate-postprocess.ts";
+import {
   assessOutputAgainstRecording,
-  auditBoundaryPolicy,
   buildFlowCoverageSummary,
   deriveOutputPath,
-  finalizeGeneratedOutput,
-  flushFindings,
-  getPrimarySelector,
-  hasInteractiveVisualAuthCapability,
   logExistingOutputDecision,
   mapParsedQueriesToResults,
-  maybeAnalyzeMocks,
-  maybeCaptureVisualState,
   rebaseRenderHelperImportPath,
   reconcileExistingOutput,
-  resolveJsGeneration,
+} from "#cli/commands/output-reconciliation.ts";
+import { resolveJsGeneration } from "#cli/commands/selector-resolution.ts";
+import {
+  hasInteractiveVisualAuthCapability,
+  maybeCaptureVisualState,
   resolveOptionalFilePath,
   resolveVisualAuthStorageStatePath,
-  toImportPath,
-} from "#cli/commands/generate.utils.ts";
+} from "#cli/commands/visual-auth.ts";
+import { toImportPath } from "#cli/commands/generate-paths.ts";
+import { auditBoundaryPolicy } from "#cli/commands/boundary-policy.ts";
 import { normalizeJsBaseline } from "#core/baseline-normalizer.ts";
 import {
   applyBoundarySupport,
