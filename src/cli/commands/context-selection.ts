@@ -3,7 +3,11 @@ import { basename, dirname, extname, join, relative, resolve } from "node:path";
 
 import pc from "picocolors";
 
+import { toImportPath } from "#cli/commands/generate-paths.ts";
+import type { RepoContextMatch } from "#cli/commands/generate-runtime-types.ts";
+import type { MockAnalysis } from "#core/mock-intelligence.ts";
 import { readTaroOverrides, resolveTaroPackageProfile } from "#core/state.ts";
+import { loadOrBootstrapTaroState } from "#core/state.ts";
 import type { JsSuitePlan } from "#core/suite-planner.ts";
 import type {
   AnalyzedRecording,
@@ -14,10 +18,6 @@ import type {
   RepoRenderTargetCandidate,
   ResolvedTaroPackageProfile,
 } from "#types/state.ts";
-import type { MockAnalysis } from "#core/mock-intelligence.ts";
-import type { RepoContextMatch } from "#cli/commands/generate-runtime-types.ts";
-import { loadOrBootstrapTaroState } from "#core/state.ts";
-import { toImportPath } from "#cli/commands/generate-paths.ts";
 
 function log(msg: string): void {
   process.stderr.write(msg + "\n");

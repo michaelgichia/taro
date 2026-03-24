@@ -2,6 +2,14 @@ import { resolve } from "node:path";
 
 import pc from "picocolors";
 
+import {
+  resolveOptionalFilePath,
+  resolveVisualAuthStorageStatePath,
+} from "#cli/commands/generate-paths.ts";
+import {
+  collectExpectedLandmarks,
+  findExpectedPageTitle,
+} from "#cli/commands/generate-recording.ts";
 import { findVisualCaptureCandidates } from "#core/recording-intelligence.ts";
 import { captureVisualState } from "#core/resolver.ts";
 import { persistPlaywrightAuthProfile } from "#core/state.ts";
@@ -12,16 +20,6 @@ import type {
 } from "#types/recording.ts";
 import type { TaroPlaywrightAuthProfile } from "#types/state.ts";
 import type { ResolvedTaroPackageProfile } from "#types/state.ts";
-import {
-  collectExpectedLandmarks,
-  findExpectedPageTitle,
-  getPrimarySelector,
-} from "#cli/commands/generate-recording.ts";
-import {
-  resolveOptionalFilePath,
-  resolveVisualAuthStorageStatePath,
-  toProjectRelativePath,
-} from "#cli/commands/generate-paths.ts";
 
 export const MANUAL_VISUAL_AUTH_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -196,7 +194,9 @@ function summarizeRecoveredVisualState(visualState: VisualState): void {
   summarizeStartingPointScreenshot(visualState);
 }
 
-function summarizeFailedAuthRecoveryVisualState(visualState: VisualState): void {
+function summarizeFailedAuthRecoveryVisualState(
+  visualState: VisualState
+): void {
   const label =
     visualState.status === "auth-recovery-timed-out"
       ? "Playwright authentication timed out."
@@ -410,7 +410,4 @@ export async function persistRecoveredVisualAuth(params: {
   return persistedAuth;
 }
 
-export {
-  resolveOptionalFilePath,
-  resolveVisualAuthStorageStatePath,
-};
+export { resolveOptionalFilePath, resolveVisualAuthStorageStatePath };

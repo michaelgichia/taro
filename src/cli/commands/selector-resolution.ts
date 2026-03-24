@@ -1,7 +1,14 @@
 import pc from "picocolors";
 
-import { createPageInspector, openCapturePage, replayStep, resolveSelector, urlsMateriallyDiffer } from "#core/resolver.ts";
+import type { SelectorDebugReporter } from "#cli/commands/generate-runtime-types.ts";
 import type { CaptureVisualStateAuthOptions } from "#core/resolver.ts";
+import {
+  createPageInspector,
+  openCapturePage,
+  replayStep,
+  resolveSelector,
+  urlsMateriallyDiffer,
+} from "#core/resolver.ts";
 import type {
   ItGroup,
   NormalizedRecording,
@@ -14,15 +21,12 @@ import type {
   StepId,
   UnresolvedSelectorResolutionResult,
 } from "#types/recording.ts";
-import type { SelectorDebugReporter } from "#cli/commands/generate-runtime-types.ts";
 
 function log(msg: string): void {
   process.stderr.write(msg + "\n");
 }
 
-function queryDescriptorToResult(
-  descriptor: QueryDescriptor
-): QueryResult {
+function queryDescriptorToResult(descriptor: QueryDescriptor): QueryResult {
   return {
     query: descriptor.raw ?? descriptor.target ?? descriptor.method,
     quality: descriptor.quality ?? "fragile",
@@ -61,10 +65,9 @@ function groupSelectorsByStepId(
   return grouped;
 }
 
-export function mergeSelectorResolutionWarnings<T extends SelectorResolutionResult>(
-  resolution: T,
-  warnings: string[]
-): T {
+export function mergeSelectorResolutionWarnings<
+  T extends SelectorResolutionResult,
+>(resolution: T, warnings: string[]): T {
   const mergedWarnings = Array.from(
     new Set([...resolution.warnings, ...warnings])
   );

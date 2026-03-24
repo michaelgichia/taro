@@ -1,16 +1,18 @@
 import pc from "picocolors";
 
-import { analyzeBoundaryIsolation } from "#core/boundary-intelligence.ts";
-import { isTestIdQueryMethod } from "#core/query-policy.ts";
-import type { MockAnalysis } from "#core/mock-intelligence.ts";
-import type { JsSuitePlan } from "#core/suite-planner.ts";
-import type { QueryResult, SemanticMarkerAssertionUnresolvedReason } from "#types/recording.ts";
-import type { ScoreResult } from "#types/score.ts";
-import type { ResolvedTaroPackageProfile } from "#types/state.ts";
 import {
-  buildMarkerReviewDiagnostics,
   collectUnresolvedMarkerAssertions,
 } from "#cli/commands/generate-recording.ts";
+import { analyzeBoundaryIsolation } from "#core/boundary-intelligence.ts";
+import type { MockAnalysis } from "#core/mock-intelligence.ts";
+import { isTestIdQueryMethod } from "#core/query-policy.ts";
+import type { JsSuitePlan } from "#core/suite-planner.ts";
+import type {
+  QueryResult,
+  SemanticMarkerAssertionUnresolvedReason,
+} from "#types/recording.ts";
+import type { ScoreResult } from "#types/score.ts";
+import type { ResolvedTaroPackageProfile } from "#types/state.ts";
 
 function log(msg: string): void {
   process.stderr.write(msg + "\n");
@@ -217,8 +219,9 @@ export function emitLowConfidenceBanner(scoreResult: ScoreResult): void {
 export function emitScoreHints(
   scoreResult: ScoreResult,
   queryResults: QueryResult[] = [],
-  boundaryIssues: ReturnType<typeof analyzeBoundaryIsolation> =
-    analyzeBoundaryIsolation("")
+  boundaryIssues: ReturnType<
+    typeof analyzeBoundaryIsolation
+  > = analyzeBoundaryIsolation("")
 ): void {
   const reasons = scoreResult.reasons ?? [];
 

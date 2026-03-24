@@ -2,6 +2,16 @@ import * as babelParser from "@babel/parser";
 import * as t from "@babel/types";
 import pc from "picocolors";
 
+import {
+  deriveOutputPath,
+  rebaseRenderHelperImportPath,
+  resolveRenderTargetFile,
+} from "#cli/commands/generate-paths.ts";
+import type {
+  ExistingOutputResolution,
+  FlowCoverageSummary,
+  OutputAssessment,
+} from "#cli/commands/generate-runtime-types.ts";
 import { type JsParseResult, parseJsRecording } from "#core/js-parser.ts";
 import { scoreGeneratedTest } from "#core/scorer.ts";
 import type {
@@ -10,17 +20,6 @@ import type {
   QueryResult,
 } from "#types/recording.ts";
 import type { ComponentScoreContext } from "#types/score.ts";
-import type {
-  ExistingOutputResolution,
-  FlowCoverageSummary,
-  OutputAssessment,
-} from "#cli/commands/generate-runtime-types.ts";
-import {
-  deriveOutputPath,
-  rebaseRenderHelperImportPath,
-  resolveImportedFilePath,
-  resolveRenderTargetFile,
-} from "#cli/commands/generate-paths.ts";
 
 function log(msg: string): void {
   process.stderr.write(msg + "\n");
@@ -404,7 +403,9 @@ function parseTestModule(code: string): ParsedTestModule | null {
   }
 }
 
-function getDescribeBodyStatements(statement: t.Statement): t.Statement[] | null {
+function getDescribeBodyStatements(
+  statement: t.Statement
+): t.Statement[] | null {
   if (
     !t.isExpressionStatement(statement) ||
     !t.isCallExpression(statement.expression)

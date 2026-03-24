@@ -1,7 +1,10 @@
 import type { Finding } from "#core/findings-reporter.ts";
 import type { MockAnalysis } from "#core/mock-intelligence.ts";
 import type { ReplayStepDebugTrace } from "#core/resolver.ts";
-import type { loadOrBootstrapTaroState, readTaroOverrides } from "#core/state.ts";
+import type {
+  loadOrBootstrapTaroState,
+  readTaroOverrides,
+} from "#core/state.ts";
 import type { JsSuitePlan } from "#core/suite-planner.ts";
 import type {
   AnalyzedRecording,
@@ -11,10 +14,7 @@ import type {
   SelectorResolutionResult,
   VisualState,
 } from "#types/recording.ts";
-import type {
-  ComponentScoreContext,
-  ScoreResult,
-} from "#types/score.ts";
+import type { ComponentScoreContext, ScoreResult } from "#types/score.ts";
 import type {
   RepoRenderTargetCandidate,
   ResolvedTaroPackageProfile,

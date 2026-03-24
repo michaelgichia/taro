@@ -1,9 +1,9 @@
 import pc from "picocolors";
 
+import type { MockAnalysis } from "#core/mock-intelligence.ts";
 import { analyzeMocks } from "#core/mock-intelligence.ts";
 import { appendGeneratedTestRecord } from "#core/state.ts";
 import { verifySyntax } from "#core/verifier.ts";
-import type { MockAnalysis } from "#core/mock-intelligence.ts";
 import type { ScoreResult } from "#types/score.ts";
 import type { ResolvedTaroPackageProfile } from "#types/state.ts";
 

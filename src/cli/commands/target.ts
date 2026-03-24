@@ -5,18 +5,17 @@ import { cwd, stdin, stdout } from "node:process";
 import { Command } from "commander";
 import pc from "picocolors";
 
+import { auditBoundaryPolicy } from "#cli/commands/boundary-policy.ts";
 import {
   applyRepoRenderTarget,
-  collectRepoContextSearchTerms,
 } from "#cli/commands/context-selection.ts";
 import { flushFindings } from "#cli/commands/generate-findings.ts";
-import {
-  getPrimarySelector,
-} from "#cli/commands/generate-recording.ts";
+import { toImportPath } from "#cli/commands/generate-paths.ts";
 import {
   finalizeGeneratedOutput,
   maybeAnalyzeMocks,
 } from "#cli/commands/generate-postprocess.ts";
+import { getPrimarySelector } from "#cli/commands/generate-recording.ts";
 import {
   assessOutputAgainstRecording,
   buildFlowCoverageSummary,
@@ -33,8 +32,6 @@ import {
   resolveOptionalFilePath,
   resolveVisualAuthStorageStatePath,
 } from "#cli/commands/visual-auth.ts";
-import { toImportPath } from "#cli/commands/generate-paths.ts";
-import { auditBoundaryPolicy } from "#cli/commands/boundary-policy.ts";
 import { normalizeJsBaseline } from "#core/baseline-normalizer.ts";
 import {
   applyBoundarySupport,

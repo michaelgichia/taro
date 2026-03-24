@@ -1,3 +1,4 @@
+import type { JsSuitePlan } from "#core/suite-planner.ts";
 import type {
   AnalyzedRecording,
   ItGroup,
@@ -10,9 +11,7 @@ import type {
 import type {
   MarkerCoverageTotals,
   MarkerReviewDiagnostics,
-  ScoreResult,
 } from "#types/score.ts";
-import type { JsSuitePlan } from "#core/suite-planner.ts";
 
 const EMPTY_MARKER_DIAGNOSTICS: MarkerReviewDiagnostics = {
   canonicalRecoveries: 0,

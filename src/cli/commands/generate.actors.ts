@@ -6,6 +6,31 @@ import { dirname, join, resolve } from "node:path";
 import pc from "picocolors";
 import { fromPromise } from "xstate";
 
+import { auditBoundaryPolicy } from "#cli/commands/boundary-policy.ts";
+import {
+  applyRepoRenderTarget,
+  collectRepoContextSearchTerms,
+  deriveContextRenderTargets,
+  findRecordingUrl,
+  findRepoContextMatches,
+  resolvePackageProfileFromContextMatches,
+  resolveRepoRenderTarget,
+} from "#cli/commands/context-selection.ts";
+import { toImportPath } from "#cli/commands/generate-paths.ts";
+import {
+  finalizeGeneratedOutput,
+} from "#cli/commands/generate-postprocess.ts";
+import {
+  buildMarkerCoverageSummary,
+  buildMarkerReviewDiagnostics,
+  getPrimarySelector,
+  mergeAnalyzedStepState,
+  rehydrateSuitePlan,
+  stripSemanticMarkerStepsFromHelpers,
+  stripSemanticMarkerStepsFromItGroups,
+  stripSemanticMarkerStepsFromScenarios,
+  toItGroups,
+} from "#cli/commands/generate-recording.ts";
 import type {
   AnalyzeMocksActorInput,
   AnalyzeRecordingActorInput,
@@ -30,26 +55,6 @@ import type {
   WriteOutputActorInput,
 } from "#cli/commands/generate-runtime-types.ts";
 import {
-  applyRepoRenderTarget,
-  collectRepoContextSearchTerms,
-  deriveContextRenderTargets,
-  findRecordingUrl,
-  findRepoContextMatches,
-  resolvePackageProfileFromContextMatches,
-  resolveRepoRenderTarget,
-} from "#cli/commands/context-selection.ts";
-import {
-  buildMarkerCoverageSummary,
-  buildMarkerReviewDiagnostics,
-  getPrimarySelector,
-  mergeAnalyzedStepState,
-  rehydrateSuitePlan,
-  stripSemanticMarkerStepsFromHelpers,
-  stripSemanticMarkerStepsFromItGroups,
-  stripSemanticMarkerStepsFromScenarios,
-  toItGroups,
-} from "#cli/commands/generate-recording.ts";
-import {
   assessOutputAgainstRecording,
   buildFlowCoverageSummary,
   deriveOutputPath,
@@ -58,7 +63,6 @@ import {
   reconcileExistingOutput,
   resolveRenderTargetFile,
 } from "#cli/commands/output-reconciliation.ts";
-import { maybeAnalyzeMocks, finalizeGeneratedOutput } from "#cli/commands/generate-postprocess.ts";
 import { resolveJsGeneration } from "#cli/commands/selector-resolution.ts";
 import {
   hasInteractiveVisualAuthCapability,
@@ -68,8 +72,6 @@ import {
   resolveOptionalFilePath,
   resolveVisualAuthStorageStatePath,
 } from "#cli/commands/visual-auth.ts";
-import { toImportPath } from "#cli/commands/generate-paths.ts";
-import { auditBoundaryPolicy } from "#cli/commands/boundary-policy.ts";
 import { normalizeJsBaseline } from "#core/baseline-normalizer.ts";
 import {
   applyBoundarySupport,

@@ -15,6 +15,16 @@ import {
 } from "#cli/commands/context-selection.ts";
 import { flushFindings } from "#cli/commands/generate-findings.ts";
 import {
+  deriveOutputPath,
+  rebaseRenderHelperImportPath,
+  resolveImportedFilePath,
+  toProjectRelativePath,
+} from "#cli/commands/generate-paths.ts";
+import {
+  finalizeGeneratedOutput,
+  maybeAnalyzeMocks,
+} from "#cli/commands/generate-postprocess.ts";
+import {
   buildMarkerCoverageSummary,
   buildMarkerReviewDiagnostics,
   collectExpectedLandmarks,
@@ -32,17 +42,6 @@ import {
   summarizeMockAnalysis,
 } from "#cli/commands/generate-reporting.ts";
 import {
-  finalizeGeneratedOutput,
-  maybeAnalyzeMocks,
-} from "#cli/commands/generate-postprocess.ts";
-import {
-  deriveOutputPath,
-  rebaseRenderHelperImportPath,
-  resolveImportedFilePath,
-  toProjectRelativePath,
-} from "#cli/commands/generate-paths.ts";
-import {
-  assessOutputAgainstRecording,
   collectComparableTokens,
   collectStepCoverageTokens,
   compareOutputAssessments,

@@ -33,9 +33,7 @@ import type { GenerateMachineActors } from "#cli/commands/generate.machine.ts";
 import { createGenerateMachine } from "#cli/commands/generate.machine.ts";
 import { flushFindings } from "#cli/commands/generate-findings.ts";
 import type { GenerateMachineContext } from "#cli/commands/generate-runtime-types.ts";
-import {
-  type SelectorDebugReporter,
-} from "#cli/commands/generate-runtime-types.ts";
+import { type SelectorDebugReporter } from "#cli/commands/generate-runtime-types.ts";
 import type { ReplayStepDebugTrace } from "#core/resolver.ts";
 import type { SelectorResolutionResult } from "#types/recording.ts";
 

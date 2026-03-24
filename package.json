@@ -35,7 +35,6 @@
     "start": "node bin/install.js",
     "dev": "tsc -p tsconfig.build.json && node dist/index.js",
     "pack:check": "pnpm pack --json --dry-run",
-    "typecheck": "tsc -p tsconfig.json",
     "type-check": "pnpm run typecheck",
     "knip": "knip",
     "test": "node scripts/run-tests.cjs",

@@ -2,7 +2,11 @@
 import pc from "picocolors";
 import { assign, enqueueActions, fromPromise, setup } from "xstate";
 
-import { formatContextMatchesSummary, summarizePageConfirmedContext } from "#cli/commands/context-selection.ts";
+import {
+  formatContextMatchesSummary,
+  summarizePageConfirmedContext,
+} from "#cli/commands/context-selection.ts";
+import { summarizeCleanup } from "#cli/commands/generate-recording.ts";
 import {
   emitLowConfidenceBanner,
   emitMarkerCoverageSection,
@@ -16,11 +20,8 @@ import {
   summarizeResolvedPackageProfile,
   summarizeSuiteContracts,
 } from "#cli/commands/generate-reporting.ts";
-import { summarizeCleanup } from "#cli/commands/generate-recording.ts";
 import type { GenerateMachineContext } from "#cli/commands/generate-runtime-types.ts";
-import {
-  logExistingOutputDecision,
-} from "#cli/commands/output-reconciliation.ts";
+import { logExistingOutputDecision } from "#cli/commands/output-reconciliation.ts";
 import { summarizeSelectorWarnings } from "#cli/commands/selector-resolution.ts";
 import {
   summarizeAuthPreflight,
@@ -52,7 +53,7 @@ const generateMachineGuards = {
   }) => {
     return Boolean(
       event.output?.outputResolution?.shouldWrite ??
-        context.outputResolution?.shouldWrite
+      context.outputResolution?.shouldWrite
     );
   },
 
