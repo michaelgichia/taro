@@ -25,7 +25,7 @@ type BoundaryIssueKind =
   | "protected-ui-boundary-mock"
   | "positional-control-selection";
 
-export interface BoundaryIssue {
+interface BoundaryIssue {
   kind: BoundaryIssueKind;
   severity: "warning";
   message: string;

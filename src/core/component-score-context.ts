@@ -523,7 +523,7 @@ function collectExportedUtilityNames(
   return [...names].sort();
 }
 
-export function analyzeComponentScoreContextFromAst(params: {
+function analyzeComponentScoreContextFromAst(params: {
   ast: t.File;
   fallbackDisplayName: string;
 }): ComponentScoreContext | null {
@@ -551,7 +551,7 @@ export function analyzeComponentScoreContextFromAst(params: {
   };
 }
 
-export function analyzeComponentScoreContextFromSource(params: {
+function analyzeComponentScoreContextFromSource(params: {
   source: string;
   fallbackDisplayName: string;
 }): ComponentScoreContext | null {

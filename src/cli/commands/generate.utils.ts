@@ -105,7 +105,7 @@ export interface RepoContextMatch {
   score: number;
 }
 
-export interface FlowCoverageSummary {
+interface FlowCoverageSummary {
   totalSteps: number;
   coveredSteps: number;
   coveredStepIds: string[];
@@ -113,7 +113,7 @@ export interface FlowCoverageSummary {
 }
 
 export interface OutputAssessment {
-  flowCoverage: FlowCoverageSummary;
+  flowCoverage: ReturnType<typeof buildFlowCoverageSummary>;
   scoreResult: ScoreResult;
 }
 
@@ -126,7 +126,7 @@ export interface ExistingOutputResolution {
   shouldWrite: boolean;
 }
 
-export type AuthPreflightStatus =
+type AuthPreflightStatus =
   | "not_required"
   | "unknown_recipe"
   | "authenticated"
@@ -155,7 +155,7 @@ const EMPTY_MARKER_DIAGNOSTICS: MarkerReviewDiagnostics = {
   placementCorrections: 0,
 };
 export const MANUAL_VISUAL_AUTH_TIMEOUT_MS = 5 * 60 * 1000;
-export const DEFAULT_VISUAL_AUTH_STORAGE_STATE_PATH =
+const DEFAULT_VISUAL_AUTH_STORAGE_STATE_PATH =
   ".taro/playwright/.auth/user.json";
 const PAGE_CONFIRMED_CONTEXT_TERM_BONUS = 50;
 
@@ -235,21 +235,21 @@ export function deriveOutputPath(
 /**
  * Checks whether a path already points at a test or spec file.
  */
-export function isTestFilePath(filePath: string): boolean {
+function isTestFilePath(filePath: string): boolean {
   return /\.(test|spec)\.[cm]?[jt]sx?$/u.test(filePath);
 }
 
 /**
  * Checks whether an import specifier is relative to its source file.
  */
-export function isRelativeImportPath(importPath: string): boolean {
+function isRelativeImportPath(importPath: string): boolean {
   return importPath.startsWith("./") || importPath.startsWith("../");
 }
 
 /**
  * Checks whether a filesystem path is accessible to the current process.
  */
-export async function pathExists(filePath: string): Promise<boolean> {
+async function pathExists(filePath: string): Promise<boolean> {
   try {
     await access(filePath);
     return true;
@@ -261,7 +261,7 @@ export async function pathExists(filePath: string): Promise<boolean> {
 /**
  * Resolves a relative import from a source file to the most likely on-disk module path.
  */
-export async function resolveImportedFilePath(params: {
+async function resolveImportedFilePath(params: {
   projectRoot: string;
   sourceFile: string;
   importPath: string;
@@ -348,7 +348,7 @@ export function rebaseRenderHelperImportPath(params: {
 /**
  * Checks whether a string looks like CSS selector syntax rather than user-facing text.
  */
-export function looksLikeSelectorLikeString(value: string): boolean {
+function looksLikeSelectorLikeString(value: string): boolean {
   return (
     /^[#.[]/.test(value) ||
     /^[a-z][a-z0-9-]*(?:[.#[:>])/i.test(value) ||
@@ -359,7 +359,7 @@ export function looksLikeSelectorLikeString(value: string): boolean {
 /**
  * Normalizes repo-context text and filters out terms that are too generic to search reliably.
  */
-export function normalizeContextTerm(value?: string): string | null {
+function normalizeContextTerm(value?: string): string | null {
   const normalized = value?.replace(/\s+/g, " ").trim();
   if (
     !normalized ||
@@ -380,7 +380,7 @@ export function normalizeContextTerm(value?: string): string | null {
 /**
  * Normalizes text for case-insensitive substring comparison.
  */
-export function normalizeComparableText(value?: string | null): string | null {
+function normalizeComparableText(value?: string | null): string | null {
   const normalized = value?.replace(/\s+/g, " ").trim().toLowerCase();
   return normalized ? normalized : null;
 }
@@ -388,7 +388,7 @@ export function normalizeComparableText(value?: string | null): string | null {
 /**
  * Checks whether a coverage token is too generic to count as meaningful evidence.
  */
-export function isGenericCoverageToken(token: string): boolean {
+function isGenericCoverageToken(token: string): boolean {
   return (
     GENERIC_CONTEXT_TERMS.has(token) ||
     [
@@ -421,7 +421,7 @@ export function isGenericCoverageToken(token: string): boolean {
 /**
  * Extracts normalized comparison tokens from user-facing text or quoted code fragments.
  */
-export function collectComparableTokens(value?: string | null): string[] {
+function collectComparableTokens(value?: string | null): string[] {
   if (!value) {
     return [];
   }
@@ -457,7 +457,7 @@ export function collectComparableTokens(value?: string | null): string[] {
 /**
  * Collects the primary and secondary coverage tokens that represent a recorder step.
  */
-export function collectStepCoverageTokens(step: NormalizedStep): {
+function collectStepCoverageTokens(step: NormalizedStep): {
   measurable: boolean;
   primary: string[];
   secondary: string[];
@@ -519,7 +519,7 @@ export function collectStepCoverageTokens(step: NormalizedStep): {
 /**
  * Checks whether normalized generated code contains a specific coverage token.
  */
-export function codeIncludesCoverageToken(
+function codeIncludesCoverageToken(
   normalizedCode: string,
   token: string
 ): boolean {
@@ -626,7 +626,7 @@ export async function assessOutputAgainstRecording(params: {
 /**
  * Compares two output assessments to decide which generated file is stronger.
  */
-export function compareOutputAssessments(
+function compareOutputAssessments(
   candidate: OutputAssessment,
   existing: OutputAssessment
 ): number {
@@ -1412,7 +1412,7 @@ export async function reconcileExistingOutput(params: {
 /**
  * Scores a repo-context term by how specific it is likely to be.
  */
-export function scoreContextTerm(term: string): number {
+function scoreContextTerm(term: string): number {
   let score = term.length;
   if (/\s/.test(term)) {
     score += 10;
@@ -1430,7 +1430,7 @@ export function scoreContextTerm(term: string): number {
 /**
  * Extracts the best user-facing context term from the focused visual element.
  */
-export function collectVisualElementContextTerm(
+function collectVisualElementContextTerm(
   visualState: VisualState
 ): string | null {
   const candidates = [
@@ -1454,7 +1454,7 @@ export function collectVisualElementContextTerm(
 /**
  * Collects repo-grounding terms that Playwright confirmed on the page.
  */
-export function collectPageConfirmedContextTerms(
+function collectPageConfirmedContextTerms(
   visualState: VisualState | null
 ): string[] {
   if (!visualState) {
@@ -1681,7 +1681,7 @@ export function formatContextMatchesSummary(
 /**
  * Normalizes a path for equality comparisons across macOS `/private/var` aliases.
  */
-export function normalizeComparablePath(value: string): string {
+function normalizeComparablePath(value: string): string {
   return value.replace(/^\/private(?=\/var\/)/u, "");
 }
 
@@ -1782,7 +1782,7 @@ export function toImportPath(
 /**
  * Checks whether a filename stem looks like a component or module symbol suitable as a render target.
  */
-export function isLikelyRenderTargetSymbol(symbol: string): boolean {
+function isLikelyRenderTargetSymbol(symbol: string): boolean {
   return /^[A-Z][A-Za-z0-9_]*$/u.test(symbol);
 }
 
@@ -1878,7 +1878,7 @@ export function emitMarkerCoverageSection(scoreResult: ScoreResult): void {
 /**
  * Collects every planned marker assertion across all suite scenarios.
  */
-export function collectPlannedMarkerAssertions(
+function collectPlannedMarkerAssertions(
   suitePlan: JsSuitePlan
 ): PlannedMarkerAssertion[] {
   return suitePlan.scenarios.flatMap(
@@ -1974,7 +1974,7 @@ export function emitMarkerPlacementCorrections(
 /**
  * Normalizes the most helpful hint text for an unresolved marker assertion.
  */
-export function normalizeUnresolvedMarkerHint(
+function normalizeUnresolvedMarkerHint(
   marker: UnresolvedSemanticMarkerAssertionResolution
 ): string {
   const hint =
@@ -1989,7 +1989,7 @@ export function normalizeUnresolvedMarkerHint(
 /**
  * Resolves the most specific source line available for an unresolved marker assertion.
  */
-export function formatUnresolvedMarkerLine(
+function formatUnresolvedMarkerLine(
   marker: UnresolvedSemanticMarkerAssertionResolution
 ): string {
   const line = marker.line ?? marker.sourceContext.line;
@@ -1999,7 +1999,7 @@ export function formatUnresolvedMarkerLine(
 /**
  * Formats an unresolved semantic-marker warning for stderr output.
  */
-export function formatUnresolvedMarkerWarning(
+function formatUnresolvedMarkerWarning(
   marker: UnresolvedSemanticMarkerAssertionResolution
 ): string {
   const line = formatUnresolvedMarkerLine(marker);
@@ -2016,7 +2016,7 @@ export function formatUnresolvedMarkerWarning(
 /**
  * Collects unique unresolved semantic-marker assertions across all scenarios.
  */
-export function collectUnresolvedMarkerAssertions(
+function collectUnresolvedMarkerAssertions(
   suitePlan: JsSuitePlan
 ): UnresolvedSemanticMarkerAssertionResolution[] {
   const seenMarkerStepIds = new Set<string>();
@@ -2081,7 +2081,8 @@ export function emitLowConfidenceBanner(scoreResult: ScoreResult): void {
 export function emitScoreHints(
   scoreResult: ScoreResult,
   queryResults: QueryResult[] = [],
-  boundaryIssues = analyzeBoundaryIsolation("")
+  boundaryIssues: ReturnType<typeof analyzeBoundaryIsolation> =
+    analyzeBoundaryIsolation("")
 ): void {
   const reasons = scoreResult.reasons ?? [];
 
@@ -2203,7 +2204,7 @@ export function summarizeCleanup(analyzedRecording: AnalyzedRecording): void {
 /**
  * Counts emitted and unresolved marker assertions across planned scenarios.
  */
-export function countPlannedScenarioMarkers(
+function countPlannedScenarioMarkers(
   scenarios: JsSuitePlan["scenarios"]
 ): Pick<MarkerCoverageTotals, "emitted" | "unresolved"> {
   return scenarios.reduce(
@@ -2310,7 +2311,7 @@ export function toItGroups(
 /**
  * Converts a query descriptor into a scorer-friendly query result.
  */
-export function queryDescriptorToResult(
+function queryDescriptorToResult(
   descriptor: QueryDescriptor
 ): QueryResult {
   return {
@@ -2324,7 +2325,7 @@ export function queryDescriptorToResult(
 /**
  * Checks whether an unknown metadata value is a query descriptor.
  */
-export function isQueryDescriptor(value: unknown): value is QueryDescriptor {
+function isQueryDescriptor(value: unknown): value is QueryDescriptor {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -2336,7 +2337,7 @@ export function isQueryDescriptor(value: unknown): value is QueryDescriptor {
 /**
  * Returns the preserved query descriptor attached to a normalized step, if present.
  */
-export function getStepQueryDescriptor(
+function getStepQueryDescriptor(
   step: NormalizedStep
 ): QueryDescriptor | undefined {
   const query = step.metadata?.query;
@@ -2346,7 +2347,7 @@ export function getStepQueryDescriptor(
 /**
  * Groups baseline selector descriptors by the step they belong to.
  */
-export function groupSelectorsByStepId(
+function groupSelectorsByStepId(
   selectors: SelectorDescriptor[]
 ): Map<StepId, SelectorDescriptor[]> {
   const grouped = new Map<StepId, SelectorDescriptor[]>();
@@ -2363,7 +2364,7 @@ export function groupSelectorsByStepId(
 /**
  * Merges new selector-resolution warnings into an existing resolution without duplicating entries.
  */
-export function mergeSelectorResolutionWarnings<
+function mergeSelectorResolutionWarnings<
   T extends SelectorResolutionResult,
 >(resolution: T, warnings: string[]): T {
   const mergedWarnings = Array.from(
@@ -2379,7 +2380,7 @@ export function mergeSelectorResolutionWarnings<
 /**
  * Applies a selector-resolution result to a normalized step's metadata.
  */
-export function applySelectorResolution(
+function applySelectorResolution(
   step: NormalizedStep,
   resolution: SelectorResolutionResult
 ): NormalizedStep {
@@ -2426,7 +2427,7 @@ function toUnexpectedPageSelectorResolution(params: {
 /**
  * Checks whether replaying a step can reveal more DOM state for later selector resolution.
  */
-export function canSuccessfulReplayRevealAdditionalState(
+function canSuccessfulReplayRevealAdditionalState(
   step: NormalizedStep
 ): boolean {
   return (
@@ -2441,7 +2442,7 @@ export function canSuccessfulReplayRevealAdditionalState(
 /**
  * Rebinds grouped steps to the latest step objects by step ID.
  */
-export function rehydrateItGroups(
+function rehydrateItGroups(
   itGroups: ItGroup[],
   steps: NormalizedStep[]
 ): ItGroup[] {
@@ -2484,7 +2485,7 @@ export function rehydrateSuitePlan(
 /**
  * Checks whether a step exists only to carry semantic-marker metadata.
  */
-export function isSemanticMarkerStep(step: NormalizedStep): boolean {
+function isSemanticMarkerStep(step: NormalizedStep): boolean {
   return Boolean(step.semanticMarkerLink || step.unresolvedSemanticMarker);
 }
 
@@ -2544,7 +2545,7 @@ export function stripSemanticMarkerStepsFromScenarios(
 /**
  * Deduplicates query results by method, query text, and line number.
  */
-export function dedupeQueryResults(queryResults: QueryResult[]): QueryResult[] {
+function dedupeQueryResults(queryResults: QueryResult[]): QueryResult[] {
   const seen = new Set<string>();
 
   return queryResults.filter((queryResult) => {
@@ -2570,7 +2571,7 @@ export function getPrimarySelector(
 /**
  * Normalizes visible text candidates for page-landmark matching and filters out implementation-like values.
  */
-export function normalizeLandmarkCandidate(value?: string): string | null {
+function normalizeLandmarkCandidate(value?: string): string | null {
   const normalized = value?.replace(/\s+/g, " ").trim();
   if (!normalized) {
     return null;
@@ -2591,7 +2592,7 @@ export function normalizeLandmarkCandidate(value?: string): string | null {
 /**
  * Returns the asserted document title from a recording, if the flow captured one.
  */
-export function findExpectedPageTitle(
+function findExpectedPageTitle(
   recording: NormalizedRecording
 ): string | undefined {
   const titleAssertion = recording.steps.find(
@@ -2608,7 +2609,7 @@ export function findExpectedPageTitle(
 /**
  * Collects up to five visible-text landmarks that should confirm the captured page.
  */
-export function collectExpectedLandmarks(
+function collectExpectedLandmarks(
   recording: NormalizedRecording
 ): string[] {
   const values = new Set<string>();
@@ -2645,7 +2646,7 @@ export function collectExpectedLandmarks(
 /**
  * Converts an absolute path into the most useful project-relative path for state and log output.
  */
-export function toProjectRelativePath(
+function toProjectRelativePath(
   projectRoot: string,
   filePath: string
 ): string {
@@ -2735,14 +2736,14 @@ export function resolveVisualAuthStorageStatePath(
 /**
  * Resolves the directory where visual-capture screenshots should be stored.
  */
-export function resolveVisualCaptureScreenshotDir(projectRoot: string): string {
+function resolveVisualCaptureScreenshotDir(projectRoot: string): string {
   return resolve(projectRoot, ".taro", "playwright", "screenshots");
 }
 
 /**
  * Maps a visual-capture result into a concise auth preflight status for logging.
  */
-export function resolveAuthPreflightStatus(params: {
+function resolveAuthPreflightStatus(params: {
   auth: TaroPlaywrightAuthProfile | null;
   url?: string;
   visualState: VisualState | null;
@@ -2802,7 +2803,7 @@ export function summarizePlaywrightAuth(
 /**
  * Logs each visual-state warning on its own warning line.
  */
-export function summarizeVisualStateWarnings(visualState: VisualState): void {
+function summarizeVisualStateWarnings(visualState: VisualState): void {
   for (const warning of visualState.warnings) {
     console.warn(pc.yellow(`[taro] ${warning}`));
   }
@@ -2811,7 +2812,7 @@ export function summarizeVisualStateWarnings(visualState: VisualState): void {
 /**
  * Logs the screenshot path for an auth checkpoint when one was captured.
  */
-export function summarizeAuthCheckpointScreenshot(
+function summarizeAuthCheckpointScreenshot(
   visualState: VisualState
 ): void {
   if (visualState.screenshotPath) {
@@ -2825,7 +2826,7 @@ export function summarizeAuthCheckpointScreenshot(
 /**
  * Logs the screenshot path for a confirmed starting point when one was captured.
  */
-export function summarizeStartingPointScreenshot(
+function summarizeStartingPointScreenshot(
   visualState: VisualState
 ): void {
   if (visualState.screenshotPath) {
@@ -2839,7 +2840,7 @@ export function summarizeStartingPointScreenshot(
 /**
  * Logs the auth interruption details that explain why visual capture could not reach the target UI.
  */
-export function summarizeAuthInterruptedVisualState(
+function summarizeAuthInterruptedVisualState(
   visualState: VisualState
 ): void {
   const interrupt = visualState.interrupt;
@@ -2889,7 +2890,7 @@ export function summarizeAuthInterruptedVisualState(
 /**
  * Logs the details for a visual state recovered through Playwright authentication.
  */
-export function summarizeRecoveredVisualState(visualState: VisualState): void {
+function summarizeRecoveredVisualState(visualState: VisualState): void {
   log(pc.dim("[taro]") + " Visual auth recovered via Playwright runtime.");
   if (visualState.authRecovery?.retryToExpectedUrl?.attempted) {
     const retryAttemptCount =
@@ -2919,7 +2920,7 @@ export function summarizeRecoveredVisualState(visualState: VisualState): void {
 /**
  * Logs the details for a failed or timed-out Playwright auth recovery attempt.
  */
-export function summarizeFailedAuthRecoveryVisualState(
+function summarizeFailedAuthRecoveryVisualState(
   visualState: VisualState
 ): void {
   const label =
@@ -2959,7 +2960,7 @@ export function summarizeFailedAuthRecoveryVisualState(
 /**
  * Logs the generic captured visual state summary for non-auth-special cases.
  */
-export function summarizeCapturedVisualState(visualState: VisualState): void {
+function summarizeCapturedVisualState(visualState: VisualState): void {
   const parts = [visualState.reason];
   if (visualState.dialog?.title) {
     parts.push(`dialog=${visualState.dialog.title}`);
@@ -3294,7 +3295,7 @@ export async function auditBoundaryPolicy(
 /**
  * Tokenizes free-form suite hints into lowercase alphanumeric search tokens.
  */
-export function tokenizeSuiteHint(value: string): string[] {
+function tokenizeSuiteHint(value: string): string[] {
   return value
     .toLowerCase()
     .split(/[^a-z0-9]+/)
@@ -3304,7 +3305,7 @@ export function tokenizeSuiteHint(value: string): string[] {
 /**
  * Scores how well a repo render-target candidate matches the current recording and suite plan.
  */
-export function scoreRenderTargetCandidate(
+function scoreRenderTargetCandidate(
   candidate: RepoRenderTargetCandidate,
   recording: NormalizedRecording,
   mockAnalysis: MockAnalysis | null,
@@ -4083,6 +4084,19 @@ export type LoadStateActorInput = Pick<
   GenerateMachineContext,
   "filePath" | "projectRoot" | "commandOptions"
 >;
+export interface LoadStateActorOutput {
+  hadState: boolean;
+  bootstrappedState: Awaited<ReturnType<typeof loadOrBootstrapTaroState>>;
+  overrides: Awaited<ReturnType<typeof readTaroOverrides>>;
+  packageProfile: ResolvedTaroPackageProfile | null;
+  defaultOutputPath: string;
+  explicitAuthPath: { absolutePath: string; relativePath: string } | null;
+  explicitInstructionsPath: {
+    absolutePath: string;
+    relativePath: string;
+  } | null;
+  visualAuth: TaroPlaywrightAuthProfile | null;
+}
 export type CaptureVisualActorInput = Pick<
   GenerateMachineContext,
   | "normalizedRecording"
@@ -4107,10 +4121,30 @@ export type RefineProfileActorInput = Pick<
   | "overrides"
   | "contextMatches"
 >;
+export interface RefineProfileActorOutput {
+  packageProfile: ResolvedTaroPackageProfile | null;
+  contextProfileReason: string | null;
+  staleness: {
+    stale: boolean;
+    reason: string | null;
+    latestEvidencePath: string | null;
+  } | null;
+}
 export type RefreshProfileActorInput = Pick<
   GenerateMachineContext,
   "projectRoot" | "contextMatches" | "overrides"
 >;
+export interface RefreshProfileActorOutput {
+  bootstrappedState: Awaited<ReturnType<typeof loadOrBootstrapTaroState>>;
+  overrides: Awaited<ReturnType<typeof readTaroOverrides>>;
+  packageProfile: ResolvedTaroPackageProfile | null;
+  contextProfileReason: string | null;
+  staleness: {
+    stale: boolean;
+    reason: string | null;
+    latestEvidencePath: string | null;
+  } | null;
+}
 export type AnalyzeRecordingActorInput = Pick<
   GenerateMachineContext,
   | "normalizedRecording"
@@ -4137,6 +4171,15 @@ export type PlanGenerationActorInput = Pick<
   | "contextMatches"
   | "visualState"
 >;
+export interface PlanGenerationActorOutput {
+  jsSuitePlan: JsSuitePlan | null;
+  outputPath: string;
+  resolvedRenderTargetFile: string | null;
+  boundarySupportPlan: Awaited<ReturnType<typeof planBoundarySupport>>;
+  generationRenderTarget: RepoRenderTargetCandidate | null;
+  componentScoreContext: ComponentScoreContext | null;
+  generationRenderHelper: ResolvedTaroPackageProfile["effectiveRenderHelper"];
+}
 export type ResolveSelectorsActorInput = Pick<
   GenerateMachineContext,
   | "markerAwareRecording"
@@ -4160,6 +4203,13 @@ export type GenerateCodeActorInput = Pick<
   | "generationRenderHelper"
   | "analyzedRecording"
 >;
+export interface GenerateCodeActorOutput {
+  generatedCode: string;
+  hydratedSuitePlan: JsSuitePlan | null;
+  scoreResult: ScoreResult;
+  boundaryPolicyWarnings: string[];
+  candidateAssessment: OutputAssessment;
+}
 export type AssessOutputActorInput = Pick<
   GenerateMachineContext,
   | "outputPath"

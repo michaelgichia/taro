@@ -83,7 +83,7 @@ interface ComponentSurface {
   boundaryImports: string[];
 }
 
-export interface ComponentDefinition {
+interface ComponentDefinition {
   importKind: ComponentImportKind;
   name: string;
   props: string[];
@@ -94,7 +94,7 @@ export interface ComponentDefinition {
     | t.ArrowFunctionExpression;
 }
 
-export interface ComponentTargetPlan {
+interface ComponentTargetPlan {
   additionalImports?: string[];
   analyzedRecording: AnalyzedRecording;
   enableSetupOverrides?: boolean;

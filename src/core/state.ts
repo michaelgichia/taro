@@ -538,7 +538,7 @@ interface ScanStateOptions {
   existingState?: TaroState | null;
 }
 
-export interface ScanStateResult {
+interface ScanStateResult {
   state: TaroState;
   summary: TaroStateSummary;
 }
@@ -553,7 +553,7 @@ interface ReadOverridesDiagnostics {
   warnings: string[];
 }
 
-export interface TaroPackageProfileStaleness {
+interface TaroPackageProfileStaleness {
   stale: boolean;
   reason: string | null;
   latestEvidencePath: string | null;

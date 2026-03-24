@@ -13,11 +13,16 @@ import type {
   CaptureVisualActorInput,
   FinalizeActorInput,
   GenerateCodeActorInput,
+  GenerateCodeActorOutput,
   LoadStateActorInput,
+  LoadStateActorOutput,
   ParseRecordingActorInput,
   PlanGenerationActorInput,
+  PlanGenerationActorOutput,
   RefineProfileActorInput,
+  RefineProfileActorOutput,
   RefreshProfileActorInput,
+  RefreshProfileActorOutput,
   ResolveSelectorsActorInput,
   RunHealthCommandsActorInput,
   SearchContextActorInput,
@@ -105,7 +110,11 @@ export const parseRecordingActor = fromPromise(
 );
 
 export const loadStateActor = fromPromise(
-  async ({ input }: { input: LoadStateActorInput }) => {
+  async ({
+    input,
+  }: {
+    input: LoadStateActorInput;
+  }): Promise<LoadStateActorOutput> => {
     const { projectRoot, commandOptions } = input;
     const hadState = await access(join(projectRoot, ".taro", "state.json"))
       .then(() => true)
@@ -236,7 +245,11 @@ export const searchContextActor = fromPromise(
 );
 
 export const refineProfileActor = fromPromise(
-  async ({ input }: { input: RefineProfileActorInput }) => {
+  async ({
+    input,
+  }: {
+    input: RefineProfileActorInput;
+  }): Promise<RefineProfileActorOutput> => {
     const {
       bootstrappedState,
       packageProfile,
@@ -263,7 +276,11 @@ export const refineProfileActor = fromPromise(
 );
 
 export const refreshProfileActor = fromPromise(
-  async ({ input }: { input: RefreshProfileActorInput }) => {
+  async ({
+    input,
+  }: {
+    input: RefreshProfileActorInput;
+  }): Promise<RefreshProfileActorOutput> => {
     const { projectRoot, contextMatches } = input;
     const bootstrappedState = await refreshTaroState(projectRoot);
     const freshOverrides = await readTaroOverrides(projectRoot);
@@ -381,7 +398,11 @@ export const analyzeMocksActor = fromPromise(
 );
 
 export const planGenerationActor = fromPromise(
-  async ({ input }: { input: PlanGenerationActorInput }) => {
+  async ({
+    input,
+  }: {
+    input: PlanGenerationActorInput;
+  }): Promise<PlanGenerationActorOutput> => {
     const {
       markerAwareRecording,
       analyzedRecording,
@@ -495,7 +516,11 @@ export const resolveSelectorsActor = fromPromise(
 );
 
 export const generateCodeActor = fromPromise(
-  async ({ input }: { input: GenerateCodeActorInput }) => {
+  async ({
+    input,
+  }: {
+    input: GenerateCodeActorInput;
+  }): Promise<GenerateCodeActorOutput> => {
     const {
       normalizedRecording,
       resolvedJsGeneration,
