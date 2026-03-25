@@ -48,11 +48,11 @@ import {
   buildSummaryFromPackages,
   buildSummaryPackages,
   calculateGeneratedTestQualityWeight,
-  collectExemplars,
   collectFixtureRootsFromImports,
   collectProviderWrappers,
   collectRenderHelpers,
   collectSharedMockFactories,
+  collectStateSourceInsights,
   createInitialLoadOrBootstrapStateMachineContext,
   createInitialScanStateMachineContext,
   createPlaywrightAuthProfile,
@@ -659,20 +659,17 @@ async function buildPackageProfile(
     folderPattern: folderPattern.value,
     fileExtension: fileExtension.value,
   });
+  const sourceInsights = collectStateSourceInsights(projectRoot, files, qualityIndex);
   const repeatedMockTargets = scanMockTargetsInFiles(
     projectRoot,
     files,
     qualityIndex
   );
   const mockRecommendations = deriveMockRecommendations(repeatedMockTargets);
-  const renderHelpers = collectRenderHelpers(projectRoot, files, qualityIndex);
-  const providerWrappers = collectProviderWrappers(
-    projectRoot,
-    files,
-    qualityIndex
-  );
+  const renderHelpers = sourceInsights.renderHelpers;
+  const providerWrappers = sourceInsights.providerWrappers;
   const fixtureRoots = [
-    ...collectFixtureRootsFromImports(files),
+    ...sourceInsights.fixtureRoots,
     ...(await collectFixtureDirs(descriptor.root)).map((root) => ({
       ...root,
       path:
@@ -775,11 +772,7 @@ async function buildPackageProfile(
     repeatedMockTargets: repeatedMockTargets.filter(
       (target) => target.count > 1
     ),
-    sharedMockFactories: collectSharedMockFactories(
-      projectRoot,
-      files,
-      qualityIndex
-    ),
+    sharedMockFactories: sourceInsights.sharedMockFactories,
     boundaryProfiles: boundaryLearning.profiles,
     boundaryExemplars: boundaryLearning.exemplars,
     teaching: buildBoundaryTeachingProfile(boundaryLearning.profiles),
@@ -792,12 +785,7 @@ async function buildPackageProfile(
     instabilityWarnings,
     mockRecommendations,
     fixtureRoots,
-    exemplars: collectExemplars(
-      projectRoot,
-      files,
-      renderHelpers,
-      qualityIndex
-    ),
+    exemplars: sourceInsights.exemplars,
     playwrightAuth,
     warnings: [
       ...warnings,
@@ -1309,11 +1297,13 @@ export const __stateTestUtils = {
   buildGeneratedTestQualityIndex,
   calculateGeneratedTestQualityWeight,
   collectMockStoreResources,
+  collectFixtureRootsFromImports,
   collectFixtureDirs,
   collectProviderWrappers,
   collectRenderHelpers,
   collectSharedMockFactories,
   deriveInteractionContracts,
+  analyzeMutationLifecycleInFiles,
   detectMockInstabilityInFiles,
   findPackageDescriptors,
   getLatestPackageEvidence,
@@ -1321,6 +1311,11 @@ export const __stateTestUtils = {
     fileCount >= MAX_EVIDENCE,
   hasConfigFile,
   inferFileExtension,
+  inferWeightedFileExtension,
+  inferWeightedFolderPattern,
+  inferWeightedImportStyle,
+  inferWeightedMockPattern,
+  scanMockTargetsInFiles,
   scanProjectState,
   shouldRefreshStateFromGeneratedHistory,
   summarizePackageScoreLearning,
