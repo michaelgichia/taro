@@ -1,3 +1,4 @@
+import { clamp, groupBy, orderBy, sumBy, uniq } from "#core/lodash.ts";
 import {
   GENERATED_TEST_HISTORY_LIMIT_PER_TEST,
   MAX_EVIDENCE,
@@ -7,8 +8,6 @@ import {
   SCORE_WEIGHT_MAX,
   SCORE_WEIGHT_MIN,
 } from "#core/state.constants.ts";
-import { clamp, groupBy, orderBy, sumBy, uniq } from "#core/lodash.ts";
-import { normalizeGeneratedTestHistoryPath, normalizeRepoRelativePath, toProjectRelativeFilePath } from "#core/state-paths.ts";
 import type {
   AtomicFileExtension,
   AtomicFolderPattern,
@@ -17,7 +16,17 @@ import type {
   PackageScoreLearningSummary,
   WeightedValueBucket,
 } from "#core/state.types.ts";
-import type { ConventionFile, ConventionsSchema, ImportStyle, MockPattern } from "#types/conventions.ts";
+import {
+  normalizeGeneratedTestHistoryPath,
+  normalizeRepoRelativePath,
+  toProjectRelativeFilePath,
+} from "#core/state-paths.ts";
+import type {
+  ConventionFile,
+  ConventionsSchema,
+  ImportStyle,
+  MockPattern,
+} from "#types/conventions.ts";
 import type {
   TaroFileExtension,
   TaroFolderPattern,
@@ -206,7 +215,9 @@ export function summarizePackageScoreLearning(
   profile: Pick<TaroPackageProfile, "conventions">,
   qualityIndex: GeneratedTestQualityIndex
 ): PackageScoreLearningSummary {
-  const uniqueFiles = uniq(profile.conventions.testFiles.map((file) => file.path));
+  const uniqueFiles = uniq(
+    profile.conventions.testFiles.map((file) => file.path)
+  );
   const scoredTestFileCount = uniqueFiles.filter((file) =>
     qualityIndex.has(file)
   ).length;
@@ -238,7 +249,9 @@ function getLatestPackageScanTimestamp(state: TaroState): number {
   }, 0);
 }
 
-export function shouldRefreshStateFromGeneratedHistory(state: TaroState): boolean {
+export function shouldRefreshStateFromGeneratedHistory(
+  state: TaroState
+): boolean {
   return (
     getLatestGeneratedTestRecordTimestamp(state) >
     getLatestPackageScanTimestamp(state)
@@ -267,7 +280,10 @@ export function classifyFileExtensionBucket(
   return /\.(?:ts|tsx)$/u.test(filePath) ? "ts" : "js";
 }
 
-function inferWeightedSignal<TBucket extends string, TValue extends string>(options: {
+function inferWeightedSignal<
+  TBucket extends string,
+  TValue extends string,
+>(options: {
   projectRoot: string;
   files: ConventionFile[];
   qualityIndex: GeneratedTestQualityIndex;
@@ -297,12 +313,8 @@ function inferWeightedSignal<TBucket extends string, TValue extends string>(opti
   const totalWeight = sumBy(buckets, (bucket) => bucket.weight) || 1;
   const winnerShare = winner ? winner.weight / totalWeight : 0;
   const value =
-    options.resolveValue?.({
-      buckets,
-      entries,
-      winner,
-      winnerShare,
-    }) ?? ((winner?.value ?? options.defaultValue) as unknown as TValue);
+    options.resolveValue?.({ buckets, entries, winner, winnerShare }) ??
+    ((winner?.value ?? options.defaultValue) as unknown as TValue);
 
   return {
     value,
@@ -466,7 +478,10 @@ export function buildSummaryPackages(
   packages: Record<string, TaroPackageProfile>,
   generatedTests: TaroState["generatedTests"]
 ): TaroStateSummaryPackage[] {
-  const qualityIndex = buildGeneratedTestQualityIndex(projectRoot, generatedTests);
+  const qualityIndex = buildGeneratedTestQualityIndex(
+    projectRoot,
+    generatedTests
+  );
 
   return orderBy(
     Object.values(packages).map((profile) => ({
@@ -503,7 +518,10 @@ export function buildSummaryFromPackages(
       summaryPackages,
       (item) => item.repeatedMockTargetCount
     ),
-    boundaryProfileCount: sumBy(summaryPackages, (item) => item.boundaryProfileCount),
+    boundaryProfileCount: sumBy(
+      summaryPackages,
+      (item) => item.boundaryProfileCount
+    ),
     lowConfidenceBoundaryCount: sumBy(
       summaryPackages,
       (item) => item.lowConfidenceBoundaryCount

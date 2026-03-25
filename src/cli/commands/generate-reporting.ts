@@ -1,8 +1,6 @@
 import pc from "picocolors";
 
-import {
-  collectUnresolvedMarkerAssertions,
-} from "#cli/commands/generate-recording.ts";
+import { collectUnresolvedMarkerAssertions } from "#cli/commands/generate-recording.ts";
 import { analyzeBoundaryIsolation } from "#core/boundary-intelligence.ts";
 import type { MockAnalysis } from "#core/mock-intelligence.ts";
 import { isTestIdQueryMethod } from "#core/query-policy.ts";

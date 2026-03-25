@@ -1,4 +1,14 @@
 export {
+  analyzeMutationLifecycleInFiles,
+  countMatches,
+  deriveInteractionContracts,
+  deriveMockRecommendations,
+  detectMockInstabilityInFiles,
+  extractMockTargets,
+  findStages,
+  scanMockTargetsInFiles,
+} from "#core/state-mock-analysis.ts";
+export {
   createPlaywrightAuthProfile,
   findBestPackageProfile,
   findNearestPackageDescriptor,
@@ -12,38 +22,6 @@ export {
   toPosixPath,
   toStateRelativePath,
 } from "#core/state-paths.ts";
-
-export {
-  analyzeMutationLifecycleInFiles,
-  countMatches,
-  deriveInteractionContracts,
-  deriveMockRecommendations,
-  detectMockInstabilityInFiles,
-  extractMockTargets,
-  findStages,
-  scanMockTargetsInFiles,
-} from "#core/state-mock-analysis.ts";
-
-export {
-  collectExemplars,
-  collectFixtureRootsFromImports,
-  collectProviderWrappers,
-  collectRenderHelpers,
-  collectSharedMockFactories,
-  collectStateSourceInsights,
-  createExemplarTags,
-  extractFixtureRootFromImport,
-} from "#core/state-source-analysis.ts";
-
-export {
-  buildExistingStateResult,
-  buildStateSummaryMarkdown,
-  summarizeBoundaryTeaching,
-  summarizeCanonicalBoundarySupport,
-  summarizeCollaboratorKinds,
-  summarizeRenderBoundaryPreference,
-} from "#core/state-summary.ts";
-
 export {
   createInitialLoadOrBootstrapStateMachineContext,
   createInitialScanStateMachineContext,
@@ -56,7 +34,24 @@ export {
   normalizeConventionPaths,
   waitForMachineCompletion,
 } from "#core/state-runtime-utils.ts";
-
+export {
+  collectExemplars,
+  collectFixtureRootsFromImports,
+  collectProviderWrappers,
+  collectRenderHelpers,
+  collectSharedMockFactories,
+  collectStateSourceInsights,
+  createExemplarTags,
+  extractFixtureRootFromImport,
+} from "#core/state-source-analysis.ts";
+export {
+  buildExistingStateResult,
+  buildStateSummaryMarkdown,
+  summarizeBoundaryTeaching,
+  summarizeCanonicalBoundarySupport,
+  summarizeCollaboratorKinds,
+  summarizeRenderBoundaryPreference,
+} from "#core/state-summary.ts";
 export {
   buildGeneratedTestQualityIndex,
   buildSummaryFromPackages,

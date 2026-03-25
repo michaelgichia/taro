@@ -65,7 +65,9 @@ export function normalizeRepoRelativePath(
   projectRoot: string,
   filePath: string
 ): string | null {
-  const relativePath = toPosixPath(relative(resolve(projectRoot), resolve(filePath)));
+  const relativePath = toPosixPath(
+    relative(resolve(projectRoot), resolve(filePath))
+  );
 
   if (
     relativePath.length === 0 ||
@@ -98,7 +100,10 @@ export function getTestConfigRoots(
   return uniq([resolve(packageRoot), resolve(projectRoot)]);
 }
 
-export function resolveConfiguredPath(baseDir: string, rawPath: string): string {
+export function resolveConfiguredPath(
+  baseDir: string,
+  rawPath: string
+): string {
   const trimmed = rawPath.trim();
   if (trimmed.startsWith("<rootDir>/")) {
     return resolve(baseDir, trimmed.slice("<rootDir>/".length));
@@ -160,10 +165,7 @@ export function findRepoFallbackPackageProfile(state: TaroState) {
   })[0]!;
 }
 
-export function findBestPackageProfile(
-  state: TaroState,
-  targetPath: string
-) {
+export function findBestPackageProfile(state: TaroState, targetPath: string) {
   const normalizedTarget = toPosixPath(targetPath);
   const profiles = Object.values(state.packages).sort(
     (left, right) => right.packagePath.length - left.packagePath.length

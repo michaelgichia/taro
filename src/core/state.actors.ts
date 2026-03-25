@@ -76,7 +76,9 @@ export interface StateActorDependencies {
     filePath: string
   ): PackageDescriptor;
   loadLegacyState(projectRoot: string): Promise<LoadedLegacyStateResult>;
-  readRepoInventory(projectRoot: string): Promise<{
+  readRepoInventory(
+    projectRoot: string
+  ): Promise<{
     packageDescriptors: PackageDescriptor[];
     testFiles: TestFileContent[];
   }>;
@@ -240,11 +242,7 @@ export function createStateActors(deps: StateActorDependencies) {
   );
 
   const loadLegacyStateActor = fromPromise(
-    async ({
-      input,
-    }: {
-      input: LoadLegacyStateActorInput;
-    }) => {
+    async ({ input }: { input: LoadLegacyStateActorInput }) => {
       return { loadedLegacy: await deps.loadLegacyState(input.projectRoot) };
     }
   );

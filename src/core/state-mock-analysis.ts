@@ -1,3 +1,4 @@
+import { orderBy } from "#core/lodash.ts";
 import {
   MAX_EVIDENCE,
   MOCK_CONFIGURATION_REGEX,
@@ -8,10 +9,9 @@ import {
   TEST_BLOCK_REGEX,
   TEST_SCOPED_MOCK_REGEX,
 } from "#core/state.constants.ts";
-import { orderBy } from "#core/lodash.ts";
+import type { GeneratedTestQualityIndex } from "#core/state.types.ts";
 import { toPosixPath, toProjectRelativeFilePath } from "#core/state-paths.ts";
 import { getRelativeFileQualityWeight } from "#core/state-weighting.ts";
-import type { GeneratedTestQualityIndex } from "#core/state.types.ts";
 import type {
   MockInstabilityWarning,
   MockRecommendation,
@@ -32,7 +32,8 @@ export interface StateFileContentLike {
 }
 
 export function countMatches(content: string, pattern: RegExp): number {
-  return [...content.matchAll(new RegExp(pattern.source, pattern.flags))].length;
+  return [...content.matchAll(new RegExp(pattern.source, pattern.flags))]
+    .length;
 }
 
 export function extractMockTargets(content: string): string[] {
@@ -40,7 +41,9 @@ export function extractMockTargets(content: string): string[] {
 }
 
 export function findStages(content: string): MutationLifecycleStage[] {
-  return (Object.entries(STAGE_PATTERNS) as [MutationLifecycleStage, RegExp[]][])
+  return (
+    Object.entries(STAGE_PATTERNS) as [MutationLifecycleStage, RegExp[]][]
+  )
     .filter(([, patterns]) => patterns.some((pattern) => pattern.test(content)))
     .map(([stage]) => stage);
 }
@@ -105,11 +108,7 @@ export function scanMockTargetsInFiles(
       (entry) => entry.target,
     ],
     ["desc", "desc", "asc"]
-  ).map(({ target, files, count }) => ({
-    target,
-    files,
-    count,
-  }));
+  ).map(({ target, files, count }) => ({ target, files, count }));
 }
 
 export function analyzeMutationLifecycleInFiles(
@@ -153,9 +152,7 @@ export function deriveInteractionContracts(params: {
           lifecycle.stages.includes("loading") ? "in-flight" : null,
           lifecycle.stages.includes("error") ? "failed-completion" : null,
         ].filter(
-          (
-            state
-          ): state is TaroInteractionContractProfile["states"][number] =>
+          (state): state is TaroInteractionContractProfile["states"][number] =>
             state !== null
         );
 
@@ -169,7 +166,8 @@ export function deriveInteractionContracts(params: {
         const confidence: TaroStateConfidence =
           overrideStyle === "stable-handles" && supportTargets.length > 0
             ? "high"
-            : overrideStyle === "inline-reconfigure" || supportTargets.length > 0
+            : overrideStyle === "inline-reconfigure" ||
+                supportTargets.length > 0
               ? "medium"
               : "low";
 
@@ -188,7 +186,9 @@ export function deriveInteractionContracts(params: {
           ],
         };
       })
-      .filter((entry): entry is TaroInteractionContractProfile => entry !== null),
+      .filter(
+        (entry): entry is TaroInteractionContractProfile => entry !== null
+      ),
     [(entry) => entry.file],
     ["asc"]
   );

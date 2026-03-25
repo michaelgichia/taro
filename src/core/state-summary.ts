@@ -1,13 +1,20 @@
 import { summarizeBoundaryProfiles } from "#core/boundary-learning.ts";
 import { orderBy, uniq } from "#core/lodash.ts";
+import type {
+  ReadOverridesDiagnostics,
+  ScanStateResult,
+} from "#core/state-runtime-types.ts";
 import {
   buildGeneratedTestQualityIndex,
   buildSummaryFromPackages,
   buildSummaryPackages,
   summarizePackageScoreLearning,
 } from "#core/state-weighting.ts";
-import type { ReadOverridesDiagnostics, ScanStateResult } from "#core/state-runtime-types.ts";
-import type { TaroBoundaryKind, TaroPackageProfile, TaroState } from "#types/state.ts";
+import type {
+  TaroBoundaryKind,
+  TaroPackageProfile,
+  TaroState,
+} from "#types/state.ts";
 
 export function summarizeRenderBoundaryPreference(
   profile: TaroPackageProfile
@@ -40,7 +47,9 @@ export function summarizeRenderBoundaryPreference(
   return moduleCount > componentCount ? "module" : "component";
 }
 
-export function summarizeCollaboratorKinds(profile: TaroPackageProfile): string {
+export function summarizeCollaboratorKinds(
+  profile: TaroPackageProfile
+): string {
   if (profile.boundaryProfiles.length === 0) {
     return "none";
   }
@@ -53,11 +62,7 @@ export function summarizeCollaboratorKinds(profile: TaroPackageProfile): string 
     );
   }
 
-  return orderBy(
-    [...counts.entries()],
-    [(entry) => entry[0]],
-    ["asc"]
-  )
+  return orderBy([...counts.entries()], [(entry) => entry[0]], ["asc"])
     .map(([kind, count]) => `${kind}=${count}`)
     .join(", ");
 }
@@ -116,7 +121,10 @@ export function buildStateSummaryMarkdown(
   }
 
   for (const profile of profiles) {
-    const learningSummary = summarizePackageScoreLearning(profile, qualityIndex);
+    const learningSummary = summarizePackageScoreLearning(
+      profile,
+      qualityIndex
+    );
     lines.push(`## ${profile.packagePath}`);
     lines.push("");
     lines.push(`- Runner: \`${profile.runner.value}\``);

@@ -17,9 +17,7 @@ import {
   resolveRepoRenderTarget,
 } from "#cli/commands/context-selection.ts";
 import { toImportPath } from "#cli/commands/generate-paths.ts";
-import {
-  finalizeGeneratedOutput,
-} from "#cli/commands/generate-postprocess.ts";
+import { finalizeGeneratedOutput } from "#cli/commands/generate-postprocess.ts";
 import {
   buildMarkerCoverageSummary,
   buildMarkerReviewDiagnostics,

@@ -6,9 +6,7 @@ import { Command } from "commander";
 import pc from "picocolors";
 
 import { auditBoundaryPolicy } from "#cli/commands/boundary-policy.ts";
-import {
-  applyRepoRenderTarget,
-} from "#cli/commands/context-selection.ts";
+import { applyRepoRenderTarget } from "#cli/commands/context-selection.ts";
 import { flushFindings } from "#cli/commands/generate-findings.ts";
 import { toImportPath } from "#cli/commands/generate-paths.ts";
 import {

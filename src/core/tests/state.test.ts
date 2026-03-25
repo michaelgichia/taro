@@ -2975,20 +2975,10 @@ describe("state scanning - additional coverage", () => {
       },
     ];
 
-    expect(
-      __stateTestUtils.collectFixtureRootsFromImports(testFiles)
-    ).toEqual(
+    expect(__stateTestUtils.collectFixtureRootsFromImports(testFiles)).toEqual(
       expect.arrayContaining([
-        {
-          path: "@/tests/factories",
-          kind: "factories",
-          source: "import",
-        },
-        {
-          path: "@/tests/fixtures",
-          kind: "fixtures",
-          source: "import",
-        },
+        { path: "@/tests/factories", kind: "factories", source: "import" },
+        { path: "@/tests/fixtures", kind: "fixtures", source: "import" },
       ])
     );
     expect(

@@ -1,17 +1,11 @@
 import * as t from "@babel/types";
-import { P, match } from "ts-pattern";
+import { match, P } from "ts-pattern";
 
 import type { InferredPropValue } from "#core/component-targeting.types.ts";
 
 export function normalizeText(value?: string | null): string | null {
   const normalized = value?.replace(/\s+/g, " ").trim();
   return normalized ? normalized : null;
-}
-
-function isEmptyTemplateLiteral(
-  expression: t.TemplateLiteral
-): expression is t.TemplateLiteral & { expressions: [] } {
-  return expression.expressions.length === 0;
 }
 
 function getTemplateLiteralText(expression: t.TemplateLiteral): string | null {

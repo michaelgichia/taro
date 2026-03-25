@@ -1,15 +1,14 @@
-import { MAX_EVIDENCE, MAX_EXEMPLARS } from "#core/state.constants.ts";
+import { Node, Project, SyntaxKind, ts } from "ts-morph";
+
 import { orderBy, uniqBy } from "#core/lodash.ts";
+import { MAX_EVIDENCE, MAX_EXEMPLARS } from "#core/state.constants.ts";
+import type { GeneratedTestQualityIndex } from "#core/state.types.ts";
 import { extractMockTargets, findStages } from "#core/state-mock-analysis.ts";
-import {
-  toPosixPath,
-  toProjectRelativeFilePath,
-} from "#core/state-paths.ts";
+import { toPosixPath, toProjectRelativeFilePath } from "#core/state-paths.ts";
 import {
   getFileQualityWeight,
   getRelativeFileQualityWeight,
 } from "#core/state-weighting.ts";
-import type { GeneratedTestQualityIndex } from "#core/state.types.ts";
 import type {
   TaroExemplarProfile,
   TaroFixtureRootKind,
@@ -18,7 +17,6 @@ import type {
   TaroRenderHelperProfile,
   TaroSharedMockFactoryProfile,
 } from "#types/state.ts";
-import { Node, Project, SyntaxKind, ts } from "ts-morph";
 
 export interface StateSourceFileInput {
   content: string;
@@ -151,7 +149,9 @@ function parseStateSourceFile(
   };
 }
 
-function isRenderHelperBinding(binding: Pick<StateImportBinding, "importPath" | "local">): boolean {
+function isRenderHelperBinding(
+  binding: Pick<StateImportBinding, "importPath" | "local">
+): boolean {
   if (binding.importPath === "@testing-library/react") {
     return false;
   }
@@ -196,7 +196,8 @@ function collectRenderHelpersFromParsedFiles(
         if (
           file.fileWeight > existing.bestSourceWeight ||
           (file.fileWeight === existing.bestSourceWeight &&
-            file.relativePath.localeCompare(existing.profile.sourceTestFile) < 0)
+            file.relativePath.localeCompare(existing.profile.sourceTestFile) <
+              0)
         ) {
           existing.profile.sourceTestFile = file.relativePath;
           existing.bestSourceWeight = file.fileWeight;
@@ -261,7 +262,8 @@ function collectProviderWrappersFromParsedFiles(
         if (
           file.fileWeight > existing.bestSourceWeight ||
           (file.fileWeight === existing.bestSourceWeight &&
-            file.relativePath.localeCompare(existing.profile.sourceTestFile) < 0)
+            file.relativePath.localeCompare(existing.profile.sourceTestFile) <
+              0)
         ) {
           existing.profile.sourceTestFile = file.relativePath;
           existing.bestSourceWeight = file.fileWeight;
@@ -301,10 +303,7 @@ export function extractFixtureRootFromImport(
     return null;
   }
 
-  return {
-    path: match[1]!,
-    kind: match[2] as TaroFixtureRootKind,
-  };
+  return { path: match[1]!, kind: match[2] as TaroFixtureRootKind };
 }
 
 function collectFixtureRootsFromParsedFiles(
@@ -393,7 +392,10 @@ export function createExemplarTags(
 ): string[] {
   const tags = new Set<string>();
 
-  if (file.calledIdentifiers.has("within") || file.content.includes("within(")) {
+  if (
+    file.calledIdentifiers.has("within") ||
+    file.content.includes("within(")
+  ) {
     tags.add("dialog-scope");
   }
   if (helperNames.some((name) => file.calledIdentifiers.has(name))) {
@@ -489,10 +491,7 @@ export function collectFixtureRootsFromImports(
   );
 
   return collectFixtureRootsFromParsedFiles(
-    parsedFiles.map((file) => ({
-      ...file,
-      relativePath: file.path,
-    }))
+    parsedFiles.map((file) => ({ ...file, relativePath: file.path }))
   );
 }
 

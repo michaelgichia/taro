@@ -29,8 +29,8 @@ const stateMachineGuards = {
   }) =>
     Boolean(
       event.output?.existingStateDiagnostics?.state &&
-        (event.output?.shouldRefreshExistingState ??
-          context.shouldRefreshExistingState)
+      (event.output?.shouldRefreshExistingState ??
+        context.shouldRefreshExistingState)
     ),
 
   hasExistingState: ({
@@ -42,7 +42,7 @@ const stateMachineGuards = {
   }) =>
     Boolean(
       event.output?.existingStateDiagnostics?.state ??
-        context.existingStateDiagnostics?.state
+      context.existingStateDiagnostics?.state
     ),
 
   hasLegacyState: ({
@@ -51,7 +51,8 @@ const stateMachineGuards = {
   }: {
     context: LoadOrBootstrapStateMachineContext;
     event: any;
-  }) => Boolean(event.output?.loadedLegacy?.state ?? context.loadedLegacy?.state),
+  }) =>
+    Boolean(event.output?.loadedLegacy?.state ?? context.loadedLegacy?.state),
 };
 
 export type ScanStateMachineActors = {
@@ -111,7 +112,9 @@ export function createScanStateMachine(actors: ScanStateMachineActors) {
         invoke: {
           src: "readRepoInventoryActor",
           input: ({ context }: CtxArg<ScanStateMachineContext>) =>
-            ({ projectRoot: context.projectRoot }) satisfies ReadRepoInventoryActorInput,
+            ({
+              projectRoot: context.projectRoot,
+            }) satisfies ReadRepoInventoryActorInput,
           onDone: {
             target: "buildingPackages",
             actions: assign(({ event }) => {
@@ -204,7 +207,9 @@ export function createLoadOrBootstrapStateMachine(
         invoke: {
           src: "readBootstrapDiagnosticsActor",
           input: ({ context }: CtxArg<LoadOrBootstrapStateMachineContext>) =>
-            ({ projectRoot: context.projectRoot }) satisfies ReadBootstrapDiagnosticsActorInput,
+            ({
+              projectRoot: context.projectRoot,
+            }) satisfies ReadBootstrapDiagnosticsActorInput,
           onDone: [
             {
               guard: "hasExistingStateAndNeedsRefresh",
@@ -252,14 +257,14 @@ export function createLoadOrBootstrapStateMachine(
           },
         },
       },
-      summarizingExistingState: {
-        always: { target: "done" },
-      },
+      summarizingExistingState: { always: { target: "done" } },
       loadingLegacyState: {
         invoke: {
           src: "loadLegacyStateActor",
           input: ({ context }: CtxArg<LoadOrBootstrapStateMachineContext>) =>
-            ({ projectRoot: context.projectRoot }) satisfies LoadLegacyStateActorInput,
+            ({
+              projectRoot: context.projectRoot,
+            }) satisfies LoadLegacyStateActorInput,
           onDone: [
             {
               guard: "hasLegacyState",

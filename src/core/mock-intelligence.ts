@@ -1,4 +1,3 @@
-import type { TestFileContent } from "#core/scanner.ts";
 import { readConventions, readTestFiles } from "#core/scanner.ts";
 import {
   analyzeMutationLifecycleInFiles,
@@ -16,8 +15,8 @@ import type {
   MutationLifecyclePattern,
 } from "#types/conventions.ts";
 import type {
-  TaroBoundaryProfile,
   ResolvedTaroPackageProfile,
+  TaroBoundaryProfile,
   TaroInteractionContractProfile,
   TaroQueryHookPolicy,
   TaroSharedMockFactoryProfile,

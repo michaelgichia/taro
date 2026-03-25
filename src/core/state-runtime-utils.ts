@@ -1,15 +1,19 @@
-import { SETUP_FILE_CONFIG_REGEX, STATE_VERSION, MAX_EXEMPLARS } from "#core/state.constants.ts";
 import { get, uniq } from "#core/lodash.ts";
-import type {
-  LoadOrBootstrapStateMachineContext,
-  ScanStateMachineContext,
-  ScanStateOptions,
-} from "#core/state-runtime-types.ts";
+import {
+  MAX_EXEMPLARS,
+  SETUP_FILE_CONFIG_REGEX,
+  STATE_VERSION,
+} from "#core/state.constants.ts";
 import {
   normalizeGeneratedTestHistoryPath,
   resolveConfiguredPath,
   toProjectRelativePath,
 } from "#core/state-paths.ts";
+import type {
+  LoadOrBootstrapStateMachineContext,
+  ScanStateMachineContext,
+  ScanStateOptions,
+} from "#core/state-runtime-types.ts";
 import {
   inferFileExtension,
   inferFolderPattern,
@@ -162,7 +166,10 @@ export function migrateLegacyHistory(
           createdAt: entry.timestamp ?? new Date().toISOString(),
           packagePath: ".",
           recordingFile: entry.recordingFile!,
-          testFile: entry.recordingFile!.replace(/\.[cm]?[jt]sx?$/, ".test.tsx"),
+          testFile: entry.recordingFile!.replace(
+            /\.[cm]?[jt]sx?$/,
+            ".test.tsx"
+          ),
           quality: {
             overall: entry.score ?? 0,
             grade,
@@ -238,9 +245,10 @@ export function createInitialLoadOrBootstrapStateMachineContext(
   };
 }
 
-export async function waitForMachineCompletion<TContext>(
-  actor: { start(): void; subscribe(listener: (state: any) => void): unknown }
-): Promise<{ context: TContext; value: string }> {
+export async function waitForMachineCompletion<TContext>(actor: {
+  start(): void;
+  subscribe(listener: (state: any) => void): unknown;
+}): Promise<{ context: TContext; value: string }> {
   return await new Promise<{ context: TContext; value: string }>(
     (resolvePromise) => {
       actor.subscribe((state: any) => {

@@ -5,7 +5,7 @@ import * as babelParser from "@babel/parser";
 import type { NodePath } from "@babel/traverse";
 import _traverse from "@babel/traverse";
 import * as t from "@babel/types";
-import { P, match } from "ts-pattern";
+import { match, P } from "ts-pattern";
 
 import type {
   BoundaryImportReference,

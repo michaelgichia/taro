@@ -3,7 +3,7 @@ import { basename, relative } from "node:path";
 
 import * as babelParser from "@babel/parser";
 import * as t from "@babel/types";
-import { P, match } from "ts-pattern";
+import { match, P } from "ts-pattern";
 
 import { classifyBoundaryKind } from "#core/boundary-learning.ts";
 import {
@@ -15,7 +15,6 @@ import {
   getStringAttributeValue,
   normalizeText,
 } from "#core/component-targeting.matchers.ts";
-import type { Finding } from "#core/findings-reporter.ts";
 import type {
   AccessibleControlKind,
   AnalyzedRecording,
@@ -24,14 +23,13 @@ import type {
   CollectedControl,
   CollectedField,
   CollectedText,
-  CollectedVariantScenario,
   ComponentDefinition,
   ComponentImportKind,
   ComponentSurface,
   ComponentTargetPlan,
-  ItGroup,
   ImportedBinding,
   InferredPropValue,
+  ItGroup,
   JsScenarioPlan,
   NormalizedRecording,
   NormalizedStep,
@@ -41,6 +39,7 @@ import type {
   SurfaceElementDetails,
   SurfaceVisitContext,
 } from "#core/component-targeting.types.ts";
+import type { Finding } from "#core/findings-reporter.ts";
 
 const AST_PLUGINS: babelParser.ParserPlugin[] = [
   "jsx",

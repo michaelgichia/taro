@@ -99,7 +99,9 @@ interface StateMachineContext {
 
   parsedInput: Awaited<ReturnType<typeof loadInput>> | null;
   normalizedRecording: NormalizedRecording | null;
-  bootstrappedState: Awaited<ReturnType<typeof loadOrBootstrapTaroState>> | null;
+  bootstrappedState: Awaited<
+    ReturnType<typeof loadOrBootstrapTaroState>
+  > | null;
   packageProfile: ResolvedTaroPackageProfile | null;
   error: Error | null;
 }

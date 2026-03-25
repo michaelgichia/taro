@@ -659,7 +659,11 @@ async function buildPackageProfile(
     folderPattern: folderPattern.value,
     fileExtension: fileExtension.value,
   });
-  const sourceInsights = collectStateSourceInsights(projectRoot, files, qualityIndex);
+  const sourceInsights = collectStateSourceInsights(
+    projectRoot,
+    files,
+    qualityIndex
+  );
   const repeatedMockTargets = scanMockTargetsInFiles(
     projectRoot,
     files,
@@ -1130,7 +1134,9 @@ async function finalizeScanResult(
   };
 }
 
-async function readRepoInventory(projectRoot: string): Promise<{
+async function readRepoInventory(
+  projectRoot: string
+): Promise<{
   packageDescriptors: PackageDescriptor[];
   testFiles: TestFileContent[];
 }> {
