@@ -891,7 +891,10 @@ function analyzeMockCompleteness(params: {
       continue;
     }
 
-    if (reference.kind === "helper" && isRepoOwnedImportPath(reference.target)) {
+    if (
+      reference.kind === "helper" &&
+      isRepoOwnedImportPath(reference.target)
+    ) {
       missingMockCount += 1;
       penalty += 8;
       reasons.push(

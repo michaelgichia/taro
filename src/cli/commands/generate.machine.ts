@@ -6,7 +6,6 @@ import {
   formatContextMatchesSummary,
   summarizePageConfirmedContext,
 } from "#cli/commands/context-selection.ts";
-import { logToStderr as log } from "#cli/commands/log.ts";
 import { summarizeCleanup } from "#cli/commands/generate-recording.ts";
 import {
   emitLowConfidenceBanner,
@@ -22,6 +21,7 @@ import {
   summarizeSuiteContracts,
 } from "#cli/commands/generate-reporting.ts";
 import type { GenerateMachineContext } from "#cli/commands/generate-runtime-types.ts";
+import { logToStderr as log } from "#cli/commands/log.ts";
 import { logExistingOutputDecision } from "#cli/commands/output-reconciliation.ts";
 import { summarizeSelectorWarnings } from "#cli/commands/selector-resolution.ts";
 import {

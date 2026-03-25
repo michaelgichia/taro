@@ -3,12 +3,12 @@ import { basename, dirname, extname, join, relative, resolve } from "node:path";
 
 import pc from "picocolors";
 
-import { logToStderr as log } from "#cli/commands/log.ts";
 import {
   normalizeComparablePath,
   toImportPath,
 } from "#cli/commands/generate-paths.ts";
 import type { RepoContextMatch } from "#cli/commands/generate-runtime-types.ts";
+import { logToStderr as log } from "#cli/commands/log.ts";
 import { looksLikeSelectorLikeString } from "#cli/commands/selector-string-utils.ts";
 import type { MockAnalysis } from "#core/mock-intelligence.ts";
 import { readTaroOverrides, resolveTaroPackageProfile } from "#core/state.ts";

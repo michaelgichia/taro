@@ -6,10 +6,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import {
-  runInstallOrExit,
-  shouldRunAsMain,
-} from "./script-runtime-utils.js";
+import { runInstallOrExit, shouldRunAsMain } from "./script-runtime-utils.js";
 
 export { runInstallOrExit, shouldRunAsMain };
 

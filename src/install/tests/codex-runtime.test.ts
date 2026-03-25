@@ -17,9 +17,7 @@ import {
   createSingleRuntimeSelection,
   materializeOperations,
 } from "#install/tests/test-utils.ts";
-import type {
-  InstallLocation,
-} from "#install/types.ts";
+import type { InstallLocation } from "#install/types.ts";
 
 const EXPECTED_SKILLS = [
   "@taro-test/rtl-conventions",
@@ -76,10 +74,7 @@ async function createSandbox(label: string) {
 function resolveTarget(location: InstallLocation, cwd: string, home: string) {
   const [target] = resolveInstallTargets(
     createSingleRuntimeSelection("codex", location),
-    {
-      cwd,
-      home,
-    }
+    { cwd, home }
   );
 
   expect(target).toBeDefined();

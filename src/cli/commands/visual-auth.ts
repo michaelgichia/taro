@@ -2,7 +2,6 @@ import { resolve } from "node:path";
 
 import pc from "picocolors";
 
-import { logToStderr as log } from "#cli/commands/log.ts";
 import {
   resolveOptionalFilePath,
   resolveVisualAuthStorageStatePath,
@@ -11,6 +10,7 @@ import {
   collectExpectedLandmarks,
   findExpectedPageTitle,
 } from "#cli/commands/generate-recording.ts";
+import { logToStderr as log } from "#cli/commands/log.ts";
 import { findVisualCaptureCandidates } from "#core/recording-intelligence.ts";
 import { captureVisualState } from "#core/resolver.ts";
 import { persistPlaywrightAuthProfile } from "#core/state.ts";

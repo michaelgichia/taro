@@ -9,12 +9,12 @@ import { auditBoundaryPolicy } from "#cli/commands/boundary-policy.ts";
 import { applyRepoRenderTarget } from "#cli/commands/context-selection.ts";
 import { flushFindings } from "#cli/commands/generate-findings.ts";
 import { toImportPath } from "#cli/commands/generate-paths.ts";
-import { logToStderr as log } from "#cli/commands/log.ts";
 import {
   finalizeGeneratedOutput,
   maybeAnalyzeMocks,
 } from "#cli/commands/generate-postprocess.ts";
 import { getPrimarySelector } from "#cli/commands/generate-recording.ts";
+import { logToStderr as log } from "#cli/commands/log.ts";
 import {
   assessOutputAgainstRecording,
   buildFlowCoverageSummary,

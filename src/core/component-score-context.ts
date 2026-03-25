@@ -7,12 +7,12 @@ import {
   getStringLiteralValue,
   walkBabelAst as walk,
 } from "#core/babel-utils.ts";
-import { isRepoOwnedImportPath as isRepoOwnedImport } from "#core/import-path-utils.ts";
 import {
   classifyBoundaryKind,
   getBoundaryGuardrailReason,
 } from "#core/boundary-learning.ts";
 import { resolveComponentDefinitionFromAst } from "#core/component-targeting.ts";
+import { isRepoOwnedImportPath as isRepoOwnedImport } from "#core/import-path-utils.ts";
 import type {
   ComponentScoreContext,
   HighSignalBranchHint,

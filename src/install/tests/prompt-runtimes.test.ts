@@ -1,12 +1,4 @@
-import {
-  access,
-  copyFile,
-  mkdtemp,
-  readdir,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { access, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -23,10 +15,7 @@ import {
   createSingleRuntimeSelection as createSelection,
   materializeOperations,
 } from "#install/tests/test-utils.ts";
-import type {
-  InstallLocation,
-  RuntimeTarget,
-} from "#install/types.ts";
+import type { InstallLocation, RuntimeTarget } from "#install/types.ts";
 
 const tempRoots: string[] = [];
 

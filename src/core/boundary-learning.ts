@@ -11,7 +11,6 @@ import {
   getObjectPropertyNames as getReturnedObjectPropertyNames,
   getStringLiteralValue as getStringLiteral,
 } from "#core/babel-utils.ts";
-import { isRepoOwnedImportPath as isRepoOwnedBoundaryTarget } from "#core/import-path-utils.ts";
 import type {
   BoundaryImportReference,
   BoundaryLearningResult,
@@ -22,6 +21,7 @@ import type {
   SupportImportReference,
   SupportModuleMockDescriptor,
 } from "#core/boundary-learning.types.ts";
+import { isRepoOwnedImportPath as isRepoOwnedBoundaryTarget } from "#core/import-path-utils.ts";
 import type { MutationLifecyclePattern } from "#types/conventions.ts";
 import type {
   RepoRenderTargetCandidate,

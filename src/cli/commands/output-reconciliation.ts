@@ -2,8 +2,6 @@ import * as babelParser from "@babel/parser";
 import * as t from "@babel/types";
 import pc from "picocolors";
 
-import { logToStderr as log } from "#cli/commands/log.ts";
-import { looksLikeSelectorLikeString } from "#cli/commands/selector-string-utils.ts";
 import {
   deriveOutputPath,
   rebaseRenderHelperImportPath,
@@ -14,6 +12,8 @@ import type {
   FlowCoverageSummary,
   OutputAssessment,
 } from "#cli/commands/generate-runtime-types.ts";
+import { logToStderr as log } from "#cli/commands/log.ts";
+import { looksLikeSelectorLikeString } from "#cli/commands/selector-string-utils.ts";
 import { type JsParseResult, parseJsRecording } from "#core/js-parser.ts";
 import { scoreGeneratedTest } from "#core/scorer.ts";
 import type {
