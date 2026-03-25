@@ -4,6 +4,7 @@ import {
   isRoleQueryMethod,
   isSupportedTestingLibraryQueryMethod,
 } from "#core/query-policy.ts";
+import { escapeSingleQuote } from "#core/string-utils.ts";
 import {
   markerAssertionTemplate,
   markerAssertionTemplateSync,
@@ -108,10 +109,6 @@ export function selectorToQuery(selector: string | undefined): string {
 
 function isQueryExpression(target: string): boolean {
   return /^(screen|document)\./.test(target);
-}
-
-function escapeSingleQuote(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
 function looksLikeCssSelector(target: string): boolean {

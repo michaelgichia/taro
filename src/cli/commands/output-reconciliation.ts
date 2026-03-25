@@ -2,6 +2,8 @@ import * as babelParser from "@babel/parser";
 import * as t from "@babel/types";
 import pc from "picocolors";
 
+import { logToStderr as log } from "#cli/commands/log.ts";
+import { looksLikeSelectorLikeString } from "#cli/commands/selector-string-utils.ts";
 import {
   deriveOutputPath,
   rebaseRenderHelperImportPath,
@@ -20,18 +22,6 @@ import type {
   QueryResult,
 } from "#types/recording.ts";
 import type { ComponentScoreContext } from "#types/score.ts";
-
-function log(msg: string): void {
-  process.stderr.write(msg + "\n");
-}
-
-function looksLikeSelectorLikeString(value: string): boolean {
-  return (
-    /^[#.[]/.test(value) ||
-    /^[a-z][a-z0-9-]*(?:[.#[:>])/i.test(value) ||
-    /^(button|input|select|textarea|a|img|h[1-6])$/i.test(value)
-  );
-}
 
 function normalizeComparableText(value?: string | null): string | null {
   const normalized = value?.replace(/\s+/g, " ").trim().toLowerCase();

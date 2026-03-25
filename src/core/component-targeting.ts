@@ -5,6 +5,7 @@ import * as babelParser from "@babel/parser";
 import * as t from "@babel/types";
 import { match, P } from "ts-pattern";
 
+import { getJsxName } from "#core/babel-utils.ts";
 import { classifyBoundaryKind } from "#core/boundary-learning.ts";
 import {
   collectLiteralText,
@@ -40,6 +41,7 @@ import type {
   SurfaceVisitContext,
 } from "#core/component-targeting.types.ts";
 import type { Finding } from "#core/findings-reporter.ts";
+import { escapeSingleQuote } from "#core/string-utils.ts";
 
 const AST_PLUGINS: babelParser.ParserPlugin[] = [
   "jsx",
@@ -71,22 +73,8 @@ function buildTextAssertion(name: string): CollectedAssertion {
   };
 }
 
-function getJsxName(
-  name: t.JSXIdentifier | t.JSXMemberExpression | t.JSXNamespacedName
-): string | null {
-  if (t.isJSXIdentifier(name)) {
-    return name.name;
-  }
-
-  return null;
-}
-
 function isComponentLikeName(name: string): boolean {
   return /^[A-Z][A-Za-z0-9]*$/u.test(name);
-}
-
-function escapeSingleQuote(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
 function collectPropNames(

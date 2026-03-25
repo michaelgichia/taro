@@ -9,6 +9,7 @@ import { auditBoundaryPolicy } from "#cli/commands/boundary-policy.ts";
 import { applyRepoRenderTarget } from "#cli/commands/context-selection.ts";
 import { flushFindings } from "#cli/commands/generate-findings.ts";
 import { toImportPath } from "#cli/commands/generate-paths.ts";
+import { logToStderr as log } from "#cli/commands/log.ts";
 import {
   finalizeGeneratedOutput,
   maybeAnalyzeMocks,
@@ -71,10 +72,6 @@ interface CommandOptions {
   instructions?: string;
   recording?: string;
   screenshots?: boolean;
-}
-
-function log(message: string): void {
-  process.stderr.write(message + "\n");
 }
 
 function isSupportedSourceFile(filePath: string): boolean {

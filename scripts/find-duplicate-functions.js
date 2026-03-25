@@ -3,9 +3,11 @@
 import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, join, relative, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 import { Node, Project, SyntaxKind, ts } from "ts-morph";
+
+import { shouldRunAsMain } from "./script-runtime-utils.js";
 
 const DEFAULT_LIMIT = 20;
 const DEFAULT_MIN_BODY_LENGTH = 24;
@@ -34,13 +36,6 @@ const PRINTER = ts.createPrinter({
 
 export function getDuplicateIndexPath(rootDir) {
   return join(rootDir, ".taro", "function-dupes.json");
-}
-
-export function shouldRunAsMain(
-  argv1 = process.argv[1],
-  moduleUrl = import.meta.url
-) {
-  return Boolean(argv1 && moduleUrl === pathToFileURL(argv1).href);
 }
 
 export function parseArgs(argv) {
@@ -647,7 +642,7 @@ export async function main(argv = process.argv.slice(2), io = {}) {
   }
 }
 
-if (shouldRunAsMain()) {
+if (shouldRunAsMain(process.argv[1], import.meta.url)) {
   const exitCode = await main();
   if (exitCode !== 0) {
     process.exit(exitCode);

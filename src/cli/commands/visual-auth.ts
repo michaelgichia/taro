@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 
 import pc from "picocolors";
 
+import { logToStderr as log } from "#cli/commands/log.ts";
 import {
   resolveOptionalFilePath,
   resolveVisualAuthStorageStatePath,
@@ -28,10 +29,6 @@ type AuthPreflightStatus =
   | "unknown_recipe"
   | "authenticated"
   | "failed";
-
-function log(msg: string): void {
-  process.stderr.write(msg + "\n");
-}
 
 function resolveVisualCaptureScreenshotDir(projectRoot: string): string {
   return resolve(projectRoot, ".taro", "playwright", "screenshots");

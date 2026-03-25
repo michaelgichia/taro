@@ -4,6 +4,11 @@ import * as babelParser from "@babel/parser";
 import * as t from "@babel/types";
 
 import {
+  getStringLiteralValue,
+  walkBabelAst as walk,
+} from "#core/babel-utils.ts";
+import { isRepoOwnedImportPath as isRepoOwnedImport } from "#core/import-path-utils.ts";
+import {
   classifyBoundaryKind,
   getBoundaryGuardrailReason,
 } from "#core/boundary-learning.ts";
@@ -22,37 +27,6 @@ const AST_PLUGINS: babelParser.ParserPlugin[] = [
   "classPrivateMethods",
   "topLevelAwait",
 ];
-
-function walk(
-  node: t.Node | null | undefined,
-  visit: (node: t.Node) => void
-): void {
-  if (!node) {
-    return;
-  }
-
-  visit(node);
-
-  for (const key of t.VISITOR_KEYS[node.type] ?? []) {
-    const value = (node as unknown as Record<string, unknown>)[key];
-    if (Array.isArray(value)) {
-      for (const entry of value) {
-        if (entry && typeof entry === "object" && "type" in entry) {
-          walk(entry as t.Node, visit);
-        }
-      }
-      continue;
-    }
-
-    if (value && typeof value === "object" && "type" in value) {
-      walk(value as t.Node, visit);
-    }
-  }
-}
-
-function isRepoOwnedImport(importPath: string): boolean {
-  return /^(?:\.{1,2}\/|@\/|~\/)/u.test(importPath);
-}
 
 function isComponentLikeName(name: string): boolean {
   if (!/^[A-Z][A-Za-z0-9]*$/u.test(name)) {
@@ -169,19 +143,6 @@ function getStaticPropertyName(
   }
   if (t.isPrivateName(node) && t.isIdentifier(node.id)) {
     return node.id.name;
-  }
-  return null;
-}
-
-function getStringLiteralValue(node: t.Node | null | undefined): string | null {
-  if (!node) {
-    return null;
-  }
-  if (t.isStringLiteral(node)) {
-    return node.value;
-  }
-  if (t.isTemplateLiteral(node) && node.expressions.length === 0) {
-    return node.quasis[0]?.value.cooked ?? null;
   }
   return null;
 }

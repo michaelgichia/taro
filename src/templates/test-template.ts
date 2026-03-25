@@ -3,6 +3,7 @@
  * Functions return string fragments for composing test files.
  */
 
+import { escapeSingleQuote, normalizeProofText } from "#core/string-utils.ts";
 import type { NormalizedAction } from "#types/recording.ts";
 import type { TaroTestRunner } from "#types/state.ts";
 
@@ -140,10 +141,6 @@ export function importBlock(
   return lines.join("\n");
 }
 
-function escapeSingleQuote(s: string): string {
-  return s.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
-
 function indentLines(text: string, spaces: number): string {
   const pad = " ".repeat(spaces);
   return text
@@ -158,10 +155,6 @@ interface StepTemplateOptions {
   value?: string;
   matcher?: string; // context-aware matcher, e.g. '.toHaveValue()', '.toBeChecked()'
   checkpoint?: { reason: string; selector: string };
-}
-
-function sanitizeCommentText(value: string): string {
-  return value.replace(/\s+/g, " ").trim();
 }
 
 function normalizeAssertionMatcher(matcher: string): string {
@@ -183,8 +176,8 @@ export function stepTemplate(opts: StepTemplateOptions): string {
   if (opts.checkpoint) {
     return [
       `// taro-query-checkpoint: ${action} step requires manual RTL query recovery`,
-      `// selector: ${sanitizeCommentText(opts.checkpoint.selector)}`,
-      `// reason: ${sanitizeCommentText(opts.checkpoint.reason)}`,
+      `// selector: ${normalizeProofText(opts.checkpoint.selector) ?? ""}`,
+      `// reason: ${normalizeProofText(opts.checkpoint.reason) ?? ""}`,
       "// TODO: replace this checkpoint with a trustworthy RTL query before keeping the generated test",
     ].join("\n");
   }

@@ -3,8 +3,13 @@ import { basename, dirname, extname, join, relative, resolve } from "node:path";
 
 import pc from "picocolors";
 
-import { toImportPath } from "#cli/commands/generate-paths.ts";
+import { logToStderr as log } from "#cli/commands/log.ts";
+import {
+  normalizeComparablePath,
+  toImportPath,
+} from "#cli/commands/generate-paths.ts";
 import type { RepoContextMatch } from "#cli/commands/generate-runtime-types.ts";
+import { looksLikeSelectorLikeString } from "#cli/commands/selector-string-utils.ts";
 import type { MockAnalysis } from "#core/mock-intelligence.ts";
 import { readTaroOverrides, resolveTaroPackageProfile } from "#core/state.ts";
 import { loadOrBootstrapTaroState } from "#core/state.ts";
@@ -18,10 +23,6 @@ import type {
   RepoRenderTargetCandidate,
   ResolvedTaroPackageProfile,
 } from "#types/state.ts";
-
-function log(msg: string): void {
-  process.stderr.write(msg + "\n");
-}
 
 const PAGE_CONFIRMED_CONTEXT_TERM_BONUS = 50;
 const CONTEXT_SEARCH_SKIP_DIRS = new Set([
@@ -46,14 +47,6 @@ const GENERIC_CONTEXT_TERMS = new Set([
   "save",
   "submit",
 ]);
-
-function looksLikeSelectorLikeString(value: string): boolean {
-  return (
-    /^[#.[]/.test(value) ||
-    /^[a-z][a-z0-9-]*(?:[.#[:>])/i.test(value) ||
-    /^(button|input|select|textarea|a|img|h[1-6])$/i.test(value)
-  );
-}
 
 function normalizeContextTerm(value?: string): string | null {
   const normalized = value?.replace(/\s+/g, " ").trim();
@@ -193,10 +186,6 @@ export function collectRepoContextSearchTerms(
     )
     .map(([term]) => term)
     .slice(0, 8);
-}
-
-function normalizeComparablePath(value: string): string {
-  return value.replace(/^\/private(?=\/var\/)/u, "");
 }
 
 export async function findRepoContextMatches(params: {

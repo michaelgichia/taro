@@ -1,15 +1,12 @@
 import pc from "picocolors";
 
+import { logToStderr as log } from "#cli/commands/log.ts";
 import type { MockAnalysis } from "#core/mock-intelligence.ts";
 import { analyzeMocks } from "#core/mock-intelligence.ts";
 import { appendGeneratedTestRecord } from "#core/state.ts";
 import { verifySyntax } from "#core/verifier.ts";
 import type { ScoreResult } from "#types/score.ts";
 import type { ResolvedTaroPackageProfile } from "#types/state.ts";
-
-function log(msg: string): void {
-  process.stderr.write(msg + "\n");
-}
 
 export async function maybeAnalyzeMocks(
   projectRoot: string,

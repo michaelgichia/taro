@@ -1,6 +1,8 @@
 import pc from "picocolors";
 
 import type { SelectorDebugReporter } from "#cli/commands/generate-runtime-types.ts";
+import { logToStderr as log } from "#cli/commands/log.ts";
+import { rehydrateItGroups } from "#core/it-group-utils.ts";
 import type { CaptureVisualStateAuthOptions } from "#core/resolver.ts";
 import {
   createPageInspector,
@@ -21,10 +23,6 @@ import type {
   StepId,
   UnresolvedSelectorResolutionResult,
 } from "#types/recording.ts";
-
-function log(msg: string): void {
-  process.stderr.write(msg + "\n");
-}
 
 function queryDescriptorToResult(descriptor: QueryDescriptor): QueryResult {
   return {
@@ -132,20 +130,6 @@ function canSuccessfulReplayRevealAdditionalState(
     step.action === "navigate" ||
     step.action === "keyDown"
   );
-}
-
-function rehydrateItGroups(
-  itGroups: ItGroup[],
-  steps: NormalizedStep[]
-): ItGroup[] {
-  const stepMap = new Map(steps.map((step) => [step.id, step]));
-
-  return itGroups.map((group) => ({
-    ...group,
-    steps: group.steps.map((step) =>
-      step.id ? (stepMap.get(step.id) ?? step) : step
-    ),
-  }));
 }
 
 export function dedupeQueryResults(queryResults: QueryResult[]): QueryResult[] {

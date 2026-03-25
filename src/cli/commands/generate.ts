@@ -34,6 +34,7 @@ import { createGenerateMachine } from "#cli/commands/generate.machine.ts";
 import { flushFindings } from "#cli/commands/generate-findings.ts";
 import type { GenerateMachineContext } from "#cli/commands/generate-runtime-types.ts";
 import { type SelectorDebugReporter } from "#cli/commands/generate-runtime-types.ts";
+import { logToStderr as log } from "#cli/commands/log.ts";
 import type { ReplayStepDebugTrace } from "#core/resolver.ts";
 import type { SelectorResolutionResult } from "#types/recording.ts";
 
@@ -104,18 +105,6 @@ type DebugTraceRecord =
       error: string;
       url: string;
     };
-
-/**
- * Writes an operational log line to stderr.
- *
- * Stdout is reserved for the findings envelope, so callers must use this helper
- * for routine status output from the generation pipeline.
- *
- * @param {string} msg - Supplies the already-formatted message to emit as a single stderr line.
- */
-function log(msg: string): void {
-  process.stderr.write(msg + "\n");
-}
 
 /**
  * Builds a selector replay reporter that mirrors debug traces to stderr and optionally persists them as JSONL.

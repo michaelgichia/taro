@@ -2,11 +2,8 @@ import * as t from "@babel/types";
 import { match, P } from "ts-pattern";
 
 import type { InferredPropValue } from "#core/component-targeting.types.ts";
-
-export function normalizeText(value?: string | null): string | null {
-  const normalized = value?.replace(/\s+/g, " ").trim();
-  return normalized ? normalized : null;
-}
+export { normalizeNullableText as normalizeText } from "#core/string-utils.ts";
+import { normalizeNullableText as normalizeText } from "#core/string-utils.ts";
 
 function getTemplateLiteralText(expression: t.TemplateLiteral): string | null {
   return normalizeText(

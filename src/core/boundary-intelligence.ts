@@ -4,7 +4,12 @@ import _traverse from "@babel/traverse";
 import * as t from "@babel/types";
 import { match, P } from "ts-pattern";
 
+import {
+  getCalleeName,
+  getObjectPropertyNames as getReturnedPropertyNames,
+} from "#core/babel-utils.ts";
 import { getBoundaryGuardrailReason } from "#core/boundary-learning.ts";
+import { clampScore } from "#core/score-utils.ts";
 
 const traverse = (_traverse as any).default ?? _traverse;
 
@@ -31,30 +36,6 @@ interface BoundaryIssue {
   severity: "warning";
   message: string;
   suggestion: string;
-}
-
-function clampScore(score: number): number {
-  return Math.min(100, Math.max(0, Math.round(score)));
-}
-
-function getCalleeName(node?: t.Node | null): string | undefined {
-  if (!node) {
-    return undefined;
-  }
-
-  if (t.isIdentifier(node)) {
-    return node.name;
-  }
-
-  if (
-    t.isMemberExpression(node) &&
-    !node.computed &&
-    t.isIdentifier(node.property)
-  ) {
-    return node.property.name;
-  }
-
-  return undefined;
 }
 
 function isFrameworkCallback(path: NodePath<t.Function>): boolean {
@@ -126,32 +107,6 @@ function getReturnedObjectExpression(
       findReturnedObjectExpression(functionExpression.body.body)
     )
     .otherwise(() => undefined);
-}
-
-function getReturnedPropertyNames(
-  node: t.ObjectExpression | undefined
-): string[] {
-  if (!node) {
-    return [];
-  }
-
-  const names = new Set<string>();
-  for (const property of node.properties) {
-    if (t.isObjectProperty(property)) {
-      if (t.isIdentifier(property.key)) {
-        names.add(property.key.name);
-      } else if (t.isStringLiteral(property.key)) {
-        names.add(property.key.value);
-      }
-      continue;
-    }
-
-    if (t.isObjectMethod(property) && t.isIdentifier(property.key)) {
-      names.add(property.key.name);
-    }
-  }
-
-  return [...names].sort();
 }
 
 function collectRenderedComponentNames(

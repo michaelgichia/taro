@@ -2,14 +2,22 @@ import * as babelParser from "@babel/parser";
 import * as t from "@babel/types";
 
 import {
+  getCalleeName,
+  getJsxName,
+  getStringLiteralValue,
+  walkBabelAst as walk,
+} from "#core/babel-utils.ts";
+import {
   analyzeBoundaryIsolation,
   calculateBoundaryIsolationScore,
 } from "#core/boundary-intelligence.ts";
+import { isRepoOwnedImportPath } from "#core/import-path-utils.ts";
 import {
   getSupportedTestingLibraryQueryFamily,
   isTestIdQueryMethod,
 } from "#core/query-policy.ts";
 import { detectRepoContractIssues } from "#core/repo-contracts.ts";
+import { clampScore } from "#core/score-utils.ts";
 import type { QueryResult } from "#types/recording.ts";
 import type {
   HighSignalBranchHint,
@@ -191,10 +199,6 @@ const REPO_CONTRACT_REASON_CONFIG: Record<
   },
 };
 
-function clampScore(score: number): number {
-  return Math.min(100, Math.max(0, Math.round(score)));
-}
-
 function countMatches(input: string, pattern: RegExp): number {
   return input.match(pattern)?.length ?? 0;
 }
@@ -205,33 +209,6 @@ function normalizeCount(value: unknown): number {
   }
 
   return Math.max(0, Math.round(value));
-}
-
-function walk(
-  node: t.Node | null | undefined,
-  visit: (node: t.Node) => void
-): void {
-  if (!node) {
-    return;
-  }
-
-  visit(node);
-
-  for (const key of t.VISITOR_KEYS[node.type] ?? []) {
-    const value = (node as unknown as Record<string, unknown>)[key];
-    if (Array.isArray(value)) {
-      for (const entry of value) {
-        if (entry && typeof entry === "object" && "type" in entry) {
-          walk(entry as t.Node, visit);
-        }
-      }
-      continue;
-    }
-
-    if (value && typeof value === "object" && "type" in value) {
-      walk(value as t.Node, visit);
-    }
-  }
 }
 
 function parseCode(code: string): t.File | null {
@@ -250,44 +227,6 @@ function parseCode(code: string): t.File | null {
   } catch {
     return null;
   }
-}
-
-function getCalleeName(node?: t.Node | null): string | undefined {
-  if (!node) {
-    return undefined;
-  }
-
-  if (t.isIdentifier(node)) {
-    return node.name;
-  }
-
-  if (
-    t.isMemberExpression(node) &&
-    !node.computed &&
-    t.isIdentifier(node.property)
-  ) {
-    return node.property.name;
-  }
-
-  return undefined;
-}
-
-function getStringLiteralValue(
-  node?: t.Node | t.PrivateName | null
-): string | null {
-  if (!node) {
-    return null;
-  }
-
-  if (t.isStringLiteral(node)) {
-    return node.value;
-  }
-
-  if (t.isTemplateLiteral(node) && node.expressions.length === 0) {
-    return node.quasis[0]?.value.cooked ?? null;
-  }
-
-  return null;
 }
 
 function extractMatcherName(node: t.CallExpression): string | null {
@@ -363,16 +302,6 @@ function getCallbackFunction(
     (t.isFunctionExpression(callback) || t.isArrowFunctionExpression(callback))
     ? callback
     : null;
-}
-
-function getJsxName(
-  name: t.JSXIdentifier | t.JSXMemberExpression | t.JSXNamespacedName
-): string | null {
-  if (t.isJSXIdentifier(name)) {
-    return name.name;
-  }
-
-  return null;
 }
 
 function hasPartialTypeAnnotation(
@@ -880,10 +809,6 @@ function analyzeMockCompleteness(params: {
   let penalty = 0;
   let missingMockCount = 0;
 
-  const isRepoOwnedTarget = (target: string): boolean => {
-    return /^(?:\.{1,2}\/|@\/|~\/)/u.test(target);
-  };
-
   for (const reference of params.componentImportReferences) {
     if (reference.guardrailReason || params.mockTargets.has(reference.target)) {
       continue;
@@ -950,7 +875,7 @@ function analyzeMockCompleteness(params: {
       continue;
     }
 
-    if (reference.kind === "hook" && isRepoOwnedTarget(reference.target)) {
+    if (reference.kind === "hook" && isRepoOwnedImportPath(reference.target)) {
       missingMockCount += 1;
       penalty += 10;
       reasons.push(
@@ -966,7 +891,7 @@ function analyzeMockCompleteness(params: {
       continue;
     }
 
-    if (reference.kind === "helper" && isRepoOwnedTarget(reference.target)) {
+    if (reference.kind === "helper" && isRepoOwnedImportPath(reference.target)) {
       missingMockCount += 1;
       penalty += 8;
       reasons.push(

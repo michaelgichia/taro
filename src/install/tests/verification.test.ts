@@ -8,11 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { executeInstallPlan } from "#install/executor.ts";
 import { buildInstallPlan } from "#install/planner.ts";
-import type {
-  InstallSelection,
-  RuntimeLocationSelections,
-  RuntimeTarget,
-} from "#install/types.ts";
+import { createMultiRuntimeSelection as createSelection } from "#install/tests/test-utils.ts";
 import { verifyInstalledRuntime } from "#install/verification.ts";
 
 const execFileAsync = promisify(execFile);
@@ -42,20 +38,6 @@ async function createSandbox(label: string) {
   );
 
   return { root, cwd, home, packageRoot };
-}
-
-function createSelection(
-  runtimes: RuntimeTarget[],
-  location: "global" | "local"
-): InstallSelection {
-  return {
-    mode: "non-interactive",
-    runtimes,
-    locations: Object.fromEntries(
-      runtimes.map((runtime) => [runtime, location])
-    ) as RuntimeLocationSelections,
-    source: "flags",
-  };
 }
 
 describe("verifyInstalledRuntime", () => {

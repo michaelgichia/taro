@@ -98,7 +98,7 @@ export async function resolveRenderTargetFile(params: {
   });
 }
 
-function normalizeComparablePath(value: string): string {
+export function normalizeComparablePath(value: string): string {
   return value.replace(/^\/private(?=\/var\/)/u, "");
 }
 

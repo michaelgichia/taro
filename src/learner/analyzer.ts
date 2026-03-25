@@ -6,6 +6,7 @@ import { parse } from "@typescript-eslint/typescript-estree";
 import * as fs from "fs";
 import * as path from "path";
 
+import { getEstreeCalleeName as getCalleeName } from "#estree-utils.ts";
 import {
   createEmptyConvention,
   ImportConventions,
@@ -435,23 +436,6 @@ function extractStructurePatterns(
     helpersInDescribe: hasHelpersInDescribe,
     setupLocation,
   };
-}
-
-/**
- * Get the name of a callee
- */
-function getCalleeName(callee: ASTNode): string {
-  if (callee.type === "Identifier") {
-    return (callee.name as string) || "";
-  }
-  if (callee.type === "MemberExpression" && callee.property) {
-    const prop = callee.property as ASTNode;
-    return typeof prop.name === "string" ? prop.name : "";
-  }
-  if (callee.type === "CallExpression" && callee.callee) {
-    return getCalleeName(callee.callee);
-  }
-  return "";
 }
 
 /**

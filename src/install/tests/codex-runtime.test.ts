@@ -1,25 +1,24 @@
 import {
   access,
-  copyFile,
   mkdir,
   mkdtemp,
   readdir,
   readFile,
   rm,
-  writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
 import { resolveInstallTargets } from "#install/resolver.ts";
 import { buildCodexOperations } from "#install/runtimes/codex.ts";
+import {
+  createSingleRuntimeSelection,
+  materializeOperations,
+} from "#install/tests/test-utils.ts";
 import type {
-  InstallFileOperation,
   InstallLocation,
-  InstallSelection,
-  RuntimeLocationSelections,
 } from "#install/types.ts";
 
 const EXPECTED_SKILLS = [
@@ -61,15 +60,6 @@ afterEach(async () => {
   );
 });
 
-function createSelection(location: InstallLocation): InstallSelection {
-  return {
-    mode: "non-interactive",
-    runtimes: ["codex"],
-    locations: { codex: location } as RuntimeLocationSelections,
-    source: "flags",
-  };
-}
-
 async function createSandbox(label: string) {
   const rootPath = await mkdtemp(join(tmpdir(), `taro-${label}-`));
   sandboxRoots.push(rootPath);
@@ -83,24 +73,14 @@ async function createSandbox(label: string) {
   return { rootPath, homePath, projectPath };
 }
 
-async function materializeOperations(
-  operations: InstallFileOperation[]
-): Promise<void> {
-  for (const operation of operations) {
-    await mkdir(dirname(operation.targetPath), { recursive: true });
-    if (operation.renderedContent != null) {
-      await writeFile(operation.targetPath, operation.renderedContent);
-    } else {
-      await copyFile(operation.sourcePath, operation.targetPath);
-    }
-  }
-}
-
 function resolveTarget(location: InstallLocation, cwd: string, home: string) {
-  const [target] = resolveInstallTargets(createSelection(location), {
-    cwd,
-    home,
-  });
+  const [target] = resolveInstallTargets(
+    createSingleRuntimeSelection("codex", location),
+    {
+      cwd,
+      home,
+    }
+  );
 
   expect(target).toBeDefined();
   return target!;

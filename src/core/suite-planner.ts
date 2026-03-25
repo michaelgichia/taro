@@ -1,6 +1,12 @@
 import { inferBoundaryPattern } from "#core/boundary-learning.ts";
+import { toItGroups } from "#core/it-group-utils.ts";
 import type { MockAnalysis } from "#core/mock-intelligence.ts";
 import { resolveSemanticMarkerAssertion } from "#core/resolver.ts";
+import {
+  getSemanticMarkerCandidate,
+  getSemanticMarkerLink,
+  getUnresolvedSemanticMarker,
+} from "#core/semantic-marker-utils.ts";
 import type {
   AnalyzedRecording,
   ItGroup,
@@ -13,9 +19,7 @@ import type {
   NormalizedStep,
   PlannedMarkerAssertion,
   PlannedMarkerAssertionDiagnostics,
-  SemanticMarkerCandidate,
   StepId,
-  UnresolvedSemanticMarker,
   UnresolvedSemanticMarkerAssertionResolution,
 } from "#types/recording.ts";
 
@@ -101,68 +105,6 @@ function enrichGroupSteps(
       enrichSemanticMarkerContext(step, stepsById)
     ),
   }));
-}
-
-function buildFallbackGroups(
-  analyzedRecording: AnalyzedRecording,
-  fallbackTitle: string
-): ItGroup[] {
-  if (analyzedRecording.intentGroups.length > 0) {
-    return analyzedRecording.intentGroups;
-  }
-
-  return [
-    { name: fallbackTitle || "recorded flow", steps: analyzedRecording.steps },
-  ];
-}
-
-function getSemanticMarkerCandidate(
-  step: NormalizedStep
-): SemanticMarkerCandidate | undefined {
-  const metadataCandidate = step.metadata?.semanticMarkerCandidate;
-
-  if (
-    metadataCandidate &&
-    typeof metadataCandidate === "object" &&
-    "stepId" in metadataCandidate &&
-    typeof metadataCandidate.stepId === "string"
-  ) {
-    return metadataCandidate as SemanticMarkerCandidate;
-  }
-
-  return step.semanticMarkerCandidate;
-}
-
-function getSemanticMarkerLink(step: NormalizedStep) {
-  const metadataLink = step.metadata?.semanticMarkerLink;
-
-  if (
-    metadataLink &&
-    typeof metadataLink === "object" &&
-    "markerStepId" in metadataLink &&
-    typeof metadataLink.markerStepId === "string"
-  ) {
-    return metadataLink;
-  }
-
-  return step.semanticMarkerLink;
-}
-
-function getUnresolvedSemanticMarker(
-  step: NormalizedStep
-): UnresolvedSemanticMarker | undefined {
-  const metadataMarker = step.metadata?.unresolvedSemanticMarker;
-
-  if (
-    metadataMarker &&
-    typeof metadataMarker === "object" &&
-    "stepId" in metadataMarker &&
-    typeof metadataMarker.stepId === "string"
-  ) {
-    return metadataMarker as UnresolvedSemanticMarker;
-  }
-
-  return step.unresolvedSemanticMarker;
 }
 
 function isManagedSemanticMarkerStep(step: NormalizedStep): boolean {
@@ -704,7 +646,7 @@ export function planJsSuite(params: {
   warnings.push(...collectBoundaryPatternHints(mockAnalysis));
 
   const baseGroups = enrichGroupSteps(
-    buildFallbackGroups(analyzedRecording, fallbackTitle),
+    toItGroups(analyzedRecording, fallbackTitle),
     stepsById
   );
 

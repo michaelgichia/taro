@@ -1,6 +1,7 @@
 import * as babelParser from "@babel/parser";
 import * as t from "@babel/types";
 
+import { walkBabelAst as walk } from "#core/babel-utils.ts";
 import { analyzeBoundaryIsolation } from "#core/boundary-intelligence.ts";
 
 type RepoContractIssueCode =
@@ -112,33 +113,6 @@ function parseCode(code: string): t.File | null {
     });
   } catch {
     return null;
-  }
-}
-
-function walk(
-  node: t.Node | null | undefined,
-  visit: (node: t.Node) => void
-): void {
-  if (!node) {
-    return;
-  }
-
-  visit(node);
-
-  for (const key of t.VISITOR_KEYS[node.type] ?? []) {
-    const value = (node as unknown as Record<string, unknown>)[key];
-    if (Array.isArray(value)) {
-      for (const entry of value) {
-        if (entry && typeof entry === "object" && "type" in entry) {
-          walk(entry as t.Node, visit);
-        }
-      }
-      continue;
-    }
-
-    if (value && typeof value === "object" && "type" in value) {
-      walk(value as t.Node, visit);
-    }
   }
 }
 

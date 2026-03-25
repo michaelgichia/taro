@@ -1,6 +1,7 @@
 import pc from "picocolors";
 
 import { collectUnresolvedMarkerAssertions } from "#cli/commands/generate-recording.ts";
+import { logToStderr as log } from "#cli/commands/log.ts";
 import { analyzeBoundaryIsolation } from "#core/boundary-intelligence.ts";
 import type { MockAnalysis } from "#core/mock-intelligence.ts";
 import { isTestIdQueryMethod } from "#core/query-policy.ts";
@@ -11,10 +12,6 @@ import type {
 } from "#types/recording.ts";
 import type { ScoreResult } from "#types/score.ts";
 import type { ResolvedTaroPackageProfile } from "#types/state.ts";
-
-function log(msg: string): void {
-  process.stderr.write(msg + "\n");
-}
 
 const UNRESOLVED_MARKER_REASON_GUIDANCE: Record<
   SemanticMarkerAssertionUnresolvedReason,

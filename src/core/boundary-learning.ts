@@ -7,6 +7,11 @@ import _traverse from "@babel/traverse";
 import * as t from "@babel/types";
 import { match, P } from "ts-pattern";
 
+import {
+  getObjectPropertyNames as getReturnedObjectPropertyNames,
+  getStringLiteralValue as getStringLiteral,
+} from "#core/babel-utils.ts";
+import { isRepoOwnedImportPath as isRepoOwnedBoundaryTarget } from "#core/import-path-utils.ts";
 import type {
   BoundaryImportReference,
   BoundaryLearningResult,
@@ -96,10 +101,6 @@ function strategyPriority(strategy: TaroBoundaryStrategy): number {
 
 function normalizeTarget(target: string): string {
   return target.replace(/\\/g, "/");
-}
-
-function isRepoOwnedBoundaryTarget(target: string): boolean {
-  return /^(?:\.{1,2}\/|@\/|~\/)/u.test(target);
 }
 
 function isComponentLikeExportName(name: string): boolean {
@@ -239,19 +240,6 @@ function createEmptySupportExports(): TaroBoundaryProfile["supportExports"] {
     spyExports: [],
     fixtureExports: [],
   };
-}
-
-function getStringLiteral(node: t.Node | null | undefined): string | null {
-  if (!node) {
-    return null;
-  }
-  if (t.isStringLiteral(node)) {
-    return node.value;
-  }
-  if (t.isTemplateLiteral(node) && node.expressions.length === 0) {
-    return node.quasis[0]?.value.cooked ?? null;
-  }
-  return null;
 }
 
 function getMockTarget(path: NodePath<t.CallExpression>): string | null {
@@ -920,32 +908,6 @@ function getReturnedObjectExpression(
       findReturnedObjectExpression(functionNode.body.body)
     )
     .otherwise(() => null);
-}
-
-function getReturnedObjectPropertyNames(
-  node: t.ObjectExpression | null
-): string[] {
-  if (!node) {
-    return [];
-  }
-
-  const names = new Set<string>();
-  for (const property of node.properties) {
-    if (t.isObjectProperty(property)) {
-      if (t.isIdentifier(property.key)) {
-        names.add(property.key.name);
-      } else if (t.isStringLiteral(property.key)) {
-        names.add(property.key.value);
-      }
-      continue;
-    }
-
-    if (t.isObjectMethod(property) && t.isIdentifier(property.key)) {
-      names.add(property.key.name);
-    }
-  }
-
-  return [...names].sort();
 }
 
 function inferRenderBoundary(

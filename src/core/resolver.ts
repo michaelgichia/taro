@@ -18,6 +18,12 @@ import {
   isTextQueryMethod,
   toSingularAsyncQueryMethod,
 } from "#core/query-policy.ts";
+import {
+  getSemanticMarkerCandidate,
+  getSemanticMarkerLink,
+  getUnresolvedSemanticMarker,
+} from "#core/semantic-marker-utils.ts";
+import { isIconOnlyText, normalizeProofText } from "#core/string-utils.ts";
 import type {
   DialogState,
   ElementInfo,
@@ -36,7 +42,6 @@ import type {
   SemanticMarkerAssertionResolution,
   SemanticMarkerAssertionUnresolvedReason,
   SemanticMarkerCandidate,
-  SemanticMarkerLink,
   StepId,
   UnresolvedSemanticMarker,
   VisualState,
@@ -355,71 +360,6 @@ function buildSelectorResolutionDebugInfo(
     reason: options.reason,
     result: options.result,
   };
-}
-
-function getSemanticMarkerCandidate(
-  step: NormalizedStep
-): SemanticMarkerCandidate | undefined {
-  const metadataCandidate = step.metadata?.semanticMarkerCandidate;
-
-  if (
-    metadataCandidate &&
-    typeof metadataCandidate === "object" &&
-    "stepId" in metadataCandidate &&
-    typeof metadataCandidate.stepId === "string"
-  ) {
-    return metadataCandidate as SemanticMarkerCandidate;
-  }
-
-  return step.semanticMarkerCandidate;
-}
-
-function getSemanticMarkerLink(
-  step: NormalizedStep
-): SemanticMarkerLink | undefined {
-  const metadataLink = step.metadata?.semanticMarkerLink;
-
-  if (
-    metadataLink &&
-    typeof metadataLink === "object" &&
-    "markerStepId" in metadataLink &&
-    typeof metadataLink.markerStepId === "string"
-  ) {
-    return metadataLink as SemanticMarkerLink;
-  }
-
-  return step.semanticMarkerLink;
-}
-
-function getUnresolvedSemanticMarker(
-  step: NormalizedStep
-): UnresolvedSemanticMarker | undefined {
-  const metadataMarker = step.metadata?.unresolvedSemanticMarker;
-
-  if (
-    metadataMarker &&
-    typeof metadataMarker === "object" &&
-    "stepId" in metadataMarker &&
-    typeof metadataMarker.stepId === "string"
-  ) {
-    return metadataMarker as UnresolvedSemanticMarker;
-  }
-
-  return step.unresolvedSemanticMarker;
-}
-
-function normalizeProofText(value?: string): string | undefined {
-  const normalized = value?.replace(/\s+/g, " ").trim();
-  return normalized ? normalized : undefined;
-}
-
-function isIconOnlyText(value?: string): boolean {
-  const normalized = normalizeProofText(value);
-  if (!normalized) {
-    return false;
-  }
-
-  return normalized.length <= 2 && !/[a-z0-9]/i.test(normalized);
 }
 
 function getQueryScope(query: QueryDescriptor): string {

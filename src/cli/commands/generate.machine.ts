@@ -6,6 +6,7 @@ import {
   formatContextMatchesSummary,
   summarizePageConfirmedContext,
 } from "#cli/commands/context-selection.ts";
+import { logToStderr as log } from "#cli/commands/log.ts";
 import { summarizeCleanup } from "#cli/commands/generate-recording.ts";
 import {
   emitLowConfidenceBanner,
@@ -28,10 +29,6 @@ import {
   summarizePlaywrightAuth,
   summarizeVisualState,
 } from "#cli/commands/visual-auth.ts";
-
-function log(msg: string): void {
-  process.stderr.write(msg + "\n");
-}
 
 type CtxArg = { context: GenerateMachineContext };
 

@@ -8,6 +8,10 @@ import {
   isTestIdQueryMethod,
   isTextQueryMethod,
 } from "#core/query-policy.ts";
+import {
+  escapeSingleQuote,
+  normalizeProofText as normalizeText,
+} from "#core/string-utils.ts";
 import type {
   JsBaselineMetadata,
   NormalizedRecording,
@@ -34,15 +38,6 @@ const STRING_LITERAL_REGEX =
   /(?<quote>['"`])(?<value>(?:\\.|(?!\k<quote>)[^\\\r\n]){4,})\k<quote>/g;
 const HIDDEN_EVIDENCE_PATTERN =
   /data-testid|data-test-id|getBy(?:TestId|Role|Text|LabelText|PlaceholderText)|findBy(?:TestId|Role|Text|LabelText|PlaceholderText)|querySelector|nth-(?:of-type|child)|\.css-[\w-]+|#radix-[\w-]+|^\.\w|^#\w|^\//i;
-
-function normalizeText(value?: string): string | undefined {
-  const normalized = value?.replace(/\s+/g, " ").trim();
-  return normalized ? normalized : undefined;
-}
-
-function escapeSingleQuote(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
 
 function looksLikeHiddenEvidence(value: string): boolean {
   return HIDDEN_EVIDENCE_PATTERN.test(value);

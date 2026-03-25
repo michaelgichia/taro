@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createGenerateCommand } from "#cli/commands/generate.ts";
 import { analyzeBoundaryIsolation } from "#core/boundary-intelligence.ts";
 import { sampleRestRecordingJs } from "#tests/fixtures/sample-fixtures.ts";
+import { countOccurrences } from "#tests/string-test-utils.ts";
 import type {
   QueryDescriptor,
   SelectorDescriptor,
@@ -221,10 +222,6 @@ const inaccessibleSelector =
   "#radix-_r_8s_-content-otherDetails > div:nth-of-type(1) > div:nth-of-type(1) div.css-19bb58m";
 const environmentUrlMarker = "@jest-environment" + " url";
 const environmentOptionsMarker = "@jest-environment" + "-options";
-
-function countOccurrences(haystack: string, needle: string): number {
-  return haystack.split(needle).length - 1;
-}
 
 function deriveOutputPath(recordingPath: string): string {
   return recordingPath.replace(/\.js$/, ".test.tsx");

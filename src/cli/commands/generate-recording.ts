@@ -1,3 +1,6 @@
+import { logToStderr as log } from "#cli/commands/log.ts";
+import { rehydrateItGroups } from "#core/it-group-utils.ts";
+import { hasLinkedSemanticMarker } from "#core/semantic-marker-utils.ts";
 import type { JsSuitePlan } from "#core/suite-planner.ts";
 import type {
   AnalyzedRecording,
@@ -18,10 +21,6 @@ const EMPTY_MARKER_DIAGNOSTICS: MarkerReviewDiagnostics = {
   placementConflicts: 0,
   placementCorrections: 0,
 };
-
-function log(msg: string): void {
-  process.stderr.write(msg + "\n");
-}
 
 export function summarizeCleanup(analyzedRecording: AnalyzedRecording): void {
   const { diagnostics } = analyzedRecording;
@@ -200,32 +199,7 @@ export function mergeAnalyzedStepState(
   };
 }
 
-export function toItGroups(
-  analyzedRecording: AnalyzedRecording,
-  fallbackTitle: string
-): ItGroup[] {
-  if (analyzedRecording.intentGroups.length > 0) {
-    return analyzedRecording.intentGroups;
-  }
-
-  return [
-    { name: fallbackTitle || "recorded flow", steps: analyzedRecording.steps },
-  ];
-}
-
-function rehydrateItGroups(
-  itGroups: ItGroup[],
-  steps: NormalizedStep[]
-): ItGroup[] {
-  const stepMap = new Map(steps.map((step) => [step.id, step]));
-
-  return itGroups.map((group) => ({
-    ...group,
-    steps: group.steps.map((step) =>
-      step.id ? (stepMap.get(step.id) ?? step) : step
-    ),
-  }));
-}
+export { toItGroups } from "#core/it-group-utils.ts";
 
 export function rehydrateSuitePlan(
   plan: JsSuitePlan,
@@ -250,17 +224,13 @@ export function rehydrateSuitePlan(
   };
 }
 
-function isSemanticMarkerStep(step: NormalizedStep): boolean {
-  return Boolean(step.semanticMarkerLink || step.unresolvedSemanticMarker);
-}
-
 export function stripSemanticMarkerStepsFromItGroups(
   itGroups: ItGroup[]
 ): ItGroup[] {
   return itGroups
     .map((group) => ({
       ...group,
-      steps: group.steps.filter((step) => !isSemanticMarkerStep(step)),
+      steps: group.steps.filter((step) => !hasLinkedSemanticMarker(step)),
     }))
     .filter((group) => group.steps.length > 0);
 }
@@ -271,7 +241,7 @@ export function stripSemanticMarkerStepsFromHelpers(
   return helpers
     .map((helper) => ({
       ...helper,
-      steps: helper.steps.filter((step) => !isSemanticMarkerStep(step)),
+      steps: helper.steps.filter((step) => !hasLinkedSemanticMarker(step)),
     }))
     .filter((helper) => helper.steps.length > 0);
 }
@@ -285,7 +255,7 @@ export function stripSemanticMarkerStepsFromScenarios(
   return scenarios
     .map((scenario) => ({
       ...scenario,
-      steps: scenario.steps.filter((step) => !isSemanticMarkerStep(step)),
+      steps: scenario.steps.filter((step) => !hasLinkedSemanticMarker(step)),
       helperRefs: scenario.helperRefs.filter((helperRef) =>
         helperNames.has(helperRef)
       ),
