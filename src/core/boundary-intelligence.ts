@@ -2,6 +2,7 @@ import * as babelParser from "@babel/parser";
 import type { NodePath } from "@babel/traverse";
 import _traverse from "@babel/traverse";
 import * as t from "@babel/types";
+import { P, match } from "ts-pattern";
 
 import { getBoundaryGuardrailReason } from "#core/boundary-learning.ts";
 
@@ -94,45 +95,37 @@ function functionContainsExpect(path: NodePath<t.Function>): boolean {
 function getReturnedObjectExpression(
   node?: t.Expression | t.SpreadElement | t.ArgumentPlaceholder | null
 ): t.ObjectExpression | undefined {
-  if (!node || !t.isExpression(node)) {
-    return undefined;
-  }
+  const findReturnedObjectExpression = (
+    statements: t.Statement[]
+  ): t.ObjectExpression | undefined =>
+    statements.find(
+      (
+        statement
+      ): statement is t.ReturnStatement & { argument: t.ObjectExpression } =>
+        t.isReturnStatement(statement) &&
+        t.isObjectExpression(statement.argument)
+    )?.argument;
 
-  if (t.isObjectExpression(node)) {
-    return node;
-  }
-
-  if (t.isArrowFunctionExpression(node)) {
-    if (t.isObjectExpression(node.body)) {
-      return node.body;
-    }
-
-    if (t.isBlockStatement(node.body)) {
-      const returnStatement = node.body.body.find((statement) =>
-        t.isReturnStatement(statement)
-      );
-      if (
-        returnStatement?.argument &&
-        t.isObjectExpression(returnStatement.argument)
-      ) {
-        return returnStatement.argument;
-      }
-    }
-  }
-
-  if (t.isFunctionExpression(node)) {
-    const returnStatement = node.body.body.find((statement) =>
-      t.isReturnStatement(statement)
-    );
-    if (
-      returnStatement?.argument &&
-      t.isObjectExpression(returnStatement.argument)
-    ) {
-      return returnStatement.argument;
-    }
-  }
-
-  return undefined;
+  return match(node)
+    .with(P.nullish, () => undefined)
+    .with({ type: "SpreadElement" }, () => undefined)
+    .with({ type: "ArgumentPlaceholder" }, () => undefined)
+    .with({ type: "ObjectExpression" }, (objectExpression) => objectExpression)
+    .with(
+      { type: "ArrowFunctionExpression", body: { type: "ObjectExpression" } },
+      (arrowFunction) => arrowFunction.body
+    )
+    .with({ type: "ArrowFunctionExpression" }, (arrowFunction) =>
+      match(arrowFunction.body)
+        .with({ type: "BlockStatement" }, (body) =>
+          findReturnedObjectExpression(body.body)
+        )
+        .otherwise(() => undefined)
+    )
+    .with({ type: "FunctionExpression" }, (functionExpression) =>
+      findReturnedObjectExpression(functionExpression.body.body)
+    )
+    .otherwise(() => undefined);
 }
 
 function getReturnedPropertyNames(

@@ -3,108 +3,44 @@ import { basename, relative } from "node:path";
 
 import * as babelParser from "@babel/parser";
 import * as t from "@babel/types";
+import { P, match } from "ts-pattern";
 
 import { classifyBoundaryKind } from "#core/boundary-learning.ts";
+import {
+  collectLiteralText,
+  collectReturnedJsxRoots,
+  evaluateAttributeValue,
+  extractDisplayText,
+  getComponentExpression,
+  getStringAttributeValue,
+  normalizeText,
+} from "#core/component-targeting.matchers.ts";
 import type { Finding } from "#core/findings-reporter.ts";
 import type {
+  AccessibleControlKind,
   AnalyzedRecording,
+  BuiltQuery,
+  CollectedAssertion,
+  CollectedControl,
+  CollectedField,
+  CollectedText,
+  CollectedVariantScenario,
+  ComponentDefinition,
+  ComponentImportKind,
+  ComponentSurface,
+  ComponentTargetPlan,
   ItGroup,
+  ImportedBinding,
+  InferredPropValue,
   JsScenarioPlan,
   NormalizedRecording,
   NormalizedStep,
   QueryDescriptor,
   QueryResult,
-} from "#types/recording.ts";
-import type { RepoRenderTargetCandidate } from "#types/state.ts";
-
-type AccessibleControlKind =
-  | "button"
-  | "checkbox"
-  | "combobox"
-  | "radio"
-  | "textbox";
-type ComponentImportKind = NonNullable<RepoRenderTargetCandidate["importKind"]>;
-type QueryBuilder =
-  | ReturnType<typeof buildRoleQuery>
-  | ReturnType<typeof buildTextQuery>;
-
-interface CollectedText {
-  kind: "heading" | "text";
-  name: string;
-  level?: number;
-}
-
-interface CollectedControl {
-  kind: AccessibleControlKind | "link";
-  name: string;
-  preferredMethod: QueryDescriptor["method"];
-}
-
-interface CollectedField {
-  kind: "checkbox" | "combobox" | "radio" | "textbox";
-  label?: string;
-  placeholder?: string;
-}
-
-interface ImportedBinding {
-  importPath: string;
-  imported: string;
-  kind: "default" | "named";
-  local: string;
-}
-
-interface InferredPropValue {
-  expression: string;
-  literalValue?: boolean | number | string;
-}
-
-interface CollectedAssertion {
-  name?: string;
-  label: string;
-  matcher?: string;
-  query: QueryBuilder;
-}
-
-interface CollectedVariantScenario {
-  assertions: CollectedAssertion[];
-  name: string;
-  renderOverrides: string;
-}
-
-interface ComponentSurface {
-  headings: CollectedText[];
-  texts: CollectedText[];
-  controls: CollectedControl[];
-  fields: CollectedField[];
-  importBindingsUsed: string[];
-  supplementalAssertions: CollectedAssertion[];
-  variantScenarios: CollectedVariantScenario[];
-  hasOpaqueJsx: boolean;
-  boundaryImports: string[];
-}
-
-interface ComponentDefinition {
-  importKind: ComponentImportKind;
-  name: string;
-  props: string[];
-  roots: Array<t.JSXElement | t.JSXFragment>;
-  node:
-    | t.FunctionDeclaration
-    | t.FunctionExpression
-    | t.ArrowFunctionExpression;
-}
-
-interface ComponentTargetPlan {
-  additionalImports?: string[];
-  analyzedRecording: AnalyzedRecording;
-  enableSetupOverrides?: boolean;
-  findings: Finding[];
-  moduleStatements?: string[];
-  queryResults: QueryResult[];
-  renderTarget: RepoRenderTargetCandidate;
-  renderExpression?: string | null;
-  scenarios?: JsScenarioPlan[];
-}
+  SurfaceCollectorState,
+  SurfaceElementDetails,
+  SurfaceVisitContext,
+} from "#core/component-targeting.types.ts";
 
 const AST_PLUGINS: babelParser.ParserPlugin[] = [
   "jsx",
@@ -136,200 +72,11 @@ function buildTextAssertion(name: string): CollectedAssertion {
   };
 }
 
-function normalizeText(value?: string | null): string | null {
-  const normalized = value?.replace(/\s+/g, " ").trim();
-  return normalized ? normalized : null;
-}
-
 function getJsxName(
   name: t.JSXIdentifier | t.JSXMemberExpression | t.JSXNamespacedName
 ): string | null {
   if (t.isJSXIdentifier(name)) {
     return name.name;
-  }
-
-  return null;
-}
-
-function getStringAttributeValue(
-  attribute?: t.JSXAttribute["value"] | null
-): string | null {
-  if (!attribute) {
-    return null;
-  }
-
-  if (t.isStringLiteral(attribute)) {
-    return normalizeText(attribute.value);
-  }
-
-  if (t.isJSXExpressionContainer(attribute)) {
-    const expression = attribute.expression;
-    if (t.isStringLiteral(expression)) {
-      return normalizeText(expression.value);
-    }
-    if (
-      t.isTemplateLiteral(expression) &&
-      expression.expressions.length === 0
-    ) {
-      return normalizeText(
-        expression.quasis.map((quasi) => quasi.value.cooked ?? "").join("")
-      );
-    }
-  }
-
-  return null;
-}
-
-function collectLiteralText(node: t.Node | null | undefined): string {
-  if (!node) {
-    return "";
-  }
-
-  if (t.isJSXText(node)) {
-    return node.value;
-  }
-
-  if (t.isStringLiteral(node)) {
-    return node.value;
-  }
-
-  if (t.isTemplateLiteral(node) && node.expressions.length === 0) {
-    return node.quasis.map((quasi) => quasi.value.cooked ?? "").join("");
-  }
-
-  if (t.isJSXExpressionContainer(node)) {
-    return collectLiteralText(node.expression);
-  }
-
-  if (t.isJSXElement(node)) {
-    return node.children.map((child) => collectLiteralText(child)).join(" ");
-  }
-
-  if (t.isJSXFragment(node)) {
-    return node.children.map((child) => collectLiteralText(child)).join(" ");
-  }
-
-  return "";
-}
-
-function collectReturnedJsxRoots(
-  node: t.FunctionDeclaration | t.FunctionExpression | t.ArrowFunctionExpression
-): Array<t.JSXElement | t.JSXFragment> {
-  const roots: Array<t.JSXElement | t.JSXFragment> = [];
-
-  const visitExpression = (
-    expression: t.Expression | t.PrivateName | null | undefined
-  ) => {
-    if (!expression || t.isPrivateName(expression)) {
-      return;
-    }
-
-    if (t.isJSXElement(expression) || t.isJSXFragment(expression)) {
-      roots.push(expression);
-      return;
-    }
-
-    if (t.isConditionalExpression(expression)) {
-      visitExpression(expression.consequent);
-      visitExpression(expression.alternate);
-      return;
-    }
-
-    if (t.isLogicalExpression(expression)) {
-      visitExpression(expression.right);
-      return;
-    }
-
-    if (t.isSequenceExpression(expression)) {
-      expression.expressions.forEach((part) => visitExpression(part));
-      return;
-    }
-
-    if (t.isArrayExpression(expression)) {
-      expression.elements.forEach((part) => {
-        if (part && t.isExpression(part)) {
-          visitExpression(part);
-        }
-      });
-    }
-  };
-
-  if (t.isArrowFunctionExpression(node) && t.isExpression(node.body)) {
-    visitExpression(node.body);
-    return roots;
-  }
-
-  const body = node.body;
-  if (!t.isBlockStatement(body)) {
-    return roots;
-  }
-
-  const visitStatement = (statement: t.Statement) => {
-    if (
-      t.isReturnStatement(statement) &&
-      statement.argument &&
-      t.isExpression(statement.argument)
-    ) {
-      visitExpression(statement.argument);
-      return;
-    }
-
-    if (t.isBlockStatement(statement)) {
-      statement.body.forEach(visitStatement);
-      return;
-    }
-
-    if (t.isIfStatement(statement)) {
-      visitStatement(statement.consequent);
-      if (statement.alternate) {
-        if (t.isStatement(statement.alternate)) {
-          visitStatement(statement.alternate);
-        } else if (t.isExpression(statement.alternate)) {
-          visitExpression(statement.alternate);
-        }
-      }
-      return;
-    }
-
-    if (t.isSwitchStatement(statement)) {
-      for (const switchCase of statement.cases) {
-        switchCase.consequent.forEach(visitStatement);
-      }
-    }
-  };
-
-  body.body.forEach(visitStatement);
-
-  return roots;
-}
-
-function getComponentExpression(
-  expression: t.Expression | null | undefined
-): t.FunctionExpression | t.ArrowFunctionExpression | null {
-  if (!expression) {
-    return null;
-  }
-
-  if (
-    t.isArrowFunctionExpression(expression) ||
-    t.isFunctionExpression(expression)
-  ) {
-    return expression;
-  }
-
-  if (
-    t.isCallExpression(expression) &&
-    t.isIdentifier(expression.callee) &&
-    ["memo", "forwardRef"].includes(expression.callee.name)
-  ) {
-    const firstArg = expression.arguments[0];
-    if (
-      firstArg &&
-      (t.isArrowFunctionExpression(firstArg) ||
-        t.isFunctionExpression(firstArg))
-    ) {
-      return firstArg;
-    }
   }
 
   return null;
@@ -341,17 +88,6 @@ function isComponentLikeName(name: string): boolean {
 
 function escapeSingleQuote(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
-
-function toExpressionSource(
-  source: string,
-  node?: t.Node | null
-): string | null {
-  if (!node || typeof node.start !== "number" || typeof node.end !== "number") {
-    return null;
-  }
-
-  return source.slice(node.start, node.end).trim();
 }
 
 function collectPropNames(
@@ -389,6 +125,46 @@ function collectPropNames(
   }
 
   return [...names].sort();
+}
+
+function registerVariableComponents(
+  functions: Map<
+    string,
+    t.FunctionDeclaration | t.FunctionExpression | t.ArrowFunctionExpression
+  >,
+  declaration: t.VariableDeclaration,
+  exportedNamed?: Set<string>
+): void {
+  for (const declarator of declaration.declarations) {
+    if (
+      !t.isIdentifier(declarator.id) ||
+      !isComponentLikeName(declarator.id.name)
+    ) {
+      continue;
+    }
+
+    const componentExpression =
+      declarator.init && t.isExpression(declarator.init)
+        ? getComponentExpression(declarator.init)
+        : null;
+    if (!componentExpression) {
+      continue;
+    }
+
+    functions.set(declarator.id.name, componentExpression);
+    exportedNamed?.add(declarator.id.name);
+  }
+}
+
+function registerExportSpecifiers(
+  exportedNamed: Set<string>,
+  specifiers: t.ExportNamedDeclaration["specifiers"]
+): void {
+  for (const specifier of specifiers) {
+    if (t.isExportSpecifier(specifier) && t.isIdentifier(specifier.local)) {
+      exportedNamed.add(specifier.local.name);
+    }
+  }
 }
 
 function buildImportBindings(ast: t.File): Map<string, ImportedBinding> {
@@ -488,105 +264,75 @@ export function resolveComponentDefinitionFromAst(
     null;
 
   for (const node of ast.program.body) {
-    if (
-      t.isFunctionDeclaration(node) &&
-      node.id?.name &&
-      isComponentLikeName(node.id.name)
-    ) {
-      functions.set(node.id.name, node);
-      continue;
-    }
-
-    if (t.isVariableDeclaration(node)) {
-      for (const declarator of node.declarations) {
-        if (
-          !t.isIdentifier(declarator.id) ||
-          !isComponentLikeName(declarator.id.name)
-        ) {
-          continue;
+    match(node)
+      .with({ type: "FunctionDeclaration" }, (declaration) => {
+        if (declaration.id?.name && isComponentLikeName(declaration.id.name)) {
+          functions.set(declaration.id.name, declaration);
         }
+      })
+      .with({ type: "VariableDeclaration" }, (declaration) => {
+        registerVariableComponents(functions, declaration);
+      })
+      .with({ type: "ExportNamedDeclaration" }, (declaration) => {
+        match(declaration.declaration)
+          .with({ type: "FunctionDeclaration" }, (exportedFunction) => {
+            const name = exportedFunction.id?.name;
+            if (!name || !isComponentLikeName(name)) {
+              return;
+            }
 
-        const componentExpression =
-          declarator.init && t.isExpression(declarator.init)
-            ? getComponentExpression(declarator.init)
-            : null;
-        if (componentExpression) {
-          functions.set(declarator.id.name, componentExpression);
-        }
-      }
-      continue;
-    }
+            functions.set(name, exportedFunction);
+            exportedNamed.add(name);
+          })
+          .with({ type: "VariableDeclaration" }, (exportedVariables) => {
+            registerVariableComponents(
+              functions,
+              exportedVariables,
+              exportedNamed
+            );
+          })
+          .otherwise(() => undefined);
 
-    if (t.isExportNamedDeclaration(node)) {
-      if (
-        t.isFunctionDeclaration(node.declaration) &&
-        node.declaration.id?.name
-      ) {
-        const name = node.declaration.id.name;
-        if (isComponentLikeName(name)) {
-          functions.set(name, node.declaration);
-          exportedNamed.add(name);
-        }
-      }
-
-      if (t.isVariableDeclaration(node.declaration)) {
-        for (const declarator of node.declaration.declarations) {
-          if (
-            !t.isIdentifier(declarator.id) ||
-            !isComponentLikeName(declarator.id.name)
-          ) {
-            continue;
-          }
-
-          const componentExpression =
-            declarator.init && t.isExpression(declarator.init)
-              ? getComponentExpression(declarator.init)
+        registerExportSpecifiers(exportedNamed, declaration.specifiers);
+      })
+      .with({ type: "ExportDefaultDeclaration" }, (declaration) => {
+        match(declaration.declaration)
+          .with({ type: "FunctionDeclaration" }, (exportedFunction) => {
+            const exportName = exportedFunction.id?.name ?? defaultNameFallback;
+            functions.set(exportName, exportedFunction);
+            defaultExport = { name: exportName, importKind: "default" };
+          })
+          .with({ type: "Identifier" }, (identifier) => {
+            defaultExport = { name: identifier.name, importKind: "default" };
+          })
+          .otherwise((exportedExpression) => {
+            const componentExpression = t.isExpression(exportedExpression)
+              ? getComponentExpression(exportedExpression)
               : null;
-          if (componentExpression) {
-            functions.set(declarator.id.name, componentExpression);
-            exportedNamed.add(declarator.id.name);
-          }
-        }
-      }
+            if (!componentExpression) {
+              return;
+            }
 
-      for (const specifier of node.specifiers) {
-        if (t.isExportSpecifier(specifier) && t.isIdentifier(specifier.local)) {
-          exportedNamed.add(specifier.local.name);
-        }
-      }
-
-      continue;
-    }
-
-    if (t.isExportDefaultDeclaration(node)) {
-      if (t.isFunctionDeclaration(node.declaration)) {
-        const exportName = node.declaration.id?.name ?? defaultNameFallback;
-        functions.set(exportName, node.declaration);
-        defaultExport = { name: exportName, importKind: "default" };
-        continue;
-      }
-
-      if (t.isIdentifier(node.declaration)) {
-        defaultExport = { name: node.declaration.name, importKind: "default" };
-        continue;
-      }
-
-      const componentExpression = t.isExpression(node.declaration)
-        ? getComponentExpression(node.declaration)
-        : null;
-      if (componentExpression) {
-        functions.set(defaultNameFallback, componentExpression);
-        defaultExport = { name: defaultNameFallback, importKind: "default" };
-      }
-    }
+            functions.set(defaultNameFallback, componentExpression);
+            defaultExport = {
+              name: defaultNameFallback,
+              importKind: "default",
+            };
+          });
+      })
+      .otherwise(() => undefined);
   }
 
+  const resolvedDefaultExport = defaultExport as {
+    name: string;
+    importKind: ComponentImportKind;
+  } | null;
   const selected =
-    (defaultExport && functions.has(defaultExport.name)
+    (resolvedDefaultExport && functions.has(resolvedDefaultExport.name)
       ? {
-          importKind: defaultExport.importKind,
-          name: defaultExport.name,
-          node: functions.get(defaultExport.name)!,
+          importKind: resolvedDefaultExport.importKind,
+          name: resolvedDefaultExport.name,
+          node: functions.get(resolvedDefaultExport.name)!,
         }
       : [...exportedNamed]
           .filter((name) => functions.has(name))
@@ -665,177 +411,7 @@ function buildBoundaryImports(ast: t.File): string[] {
   return [...imports].sort();
 }
 
-function parseSimplePropComparison(
-  expression: t.Expression,
-  propNames: Set<string>,
-  source: string
-): { propName: string; valueExpression: string } | null {
-  if (
-    !t.isBinaryExpression(expression) ||
-    !["===", "=="].includes(expression.operator)
-  ) {
-    return null;
-  }
-
-  if (t.isIdentifier(expression.left) && propNames.has(expression.left.name)) {
-    const valueExpression = toExpressionSource(
-      source,
-      expression.right as t.Expression
-    );
-    return valueExpression
-      ? { propName: expression.left.name, valueExpression }
-      : null;
-  }
-
-  if (
-    t.isIdentifier(expression.right) &&
-    propNames.has(expression.right.name)
-  ) {
-    const valueExpression = toExpressionSource(
-      source,
-      expression.left as t.Expression
-    );
-    return valueExpression
-      ? { propName: expression.right.name, valueExpression }
-      : null;
-  }
-
-  return null;
-}
-
-function extractDisplayText(params: {
-  baseProps: Map<string, InferredPropValue>;
-  expression: t.Expression;
-  propNames: Set<string>;
-  source: string;
-}): string | null {
-  const { baseProps, expression, propNames, source } = params;
-
-  if (t.isStringLiteral(expression)) {
-    return normalizeText(expression.value);
-  }
-
-  if (t.isNumericLiteral(expression)) {
-    return String(expression.value);
-  }
-
-  if (t.isTemplateLiteral(expression)) {
-    if (expression.expressions.length === 0) {
-      return normalizeText(
-        expression.quasis.map((quasi) => quasi.value.cooked ?? "").join("")
-      );
-    }
-
-    let combined = "";
-    for (let index = 0; index < expression.quasis.length; index += 1) {
-      combined += expression.quasis[index]?.value.cooked ?? "";
-      if (index >= expression.expressions.length) {
-        continue;
-      }
-
-      const part = extractDisplayText({
-        baseProps,
-        expression: expression.expressions[index] as t.Expression,
-        propNames,
-        source,
-      });
-      if (part == null) {
-        return null;
-      }
-      combined += part;
-    }
-
-    return normalizeText(combined);
-  }
-
-  if (t.isIdentifier(expression)) {
-    const value = baseProps.get(expression.name)?.literalValue;
-    return value == null ? null : String(value);
-  }
-
-  if (t.isConditionalExpression(expression)) {
-    const comparison = parseSimplePropComparison(
-      expression.test,
-      propNames,
-      source
-    );
-    if (!comparison) {
-      return null;
-    }
-
-    const currentValue = baseProps.get(comparison.propName)?.expression;
-    if (!currentValue) {
-      return null;
-    }
-
-    const branch =
-      currentValue === comparison.valueExpression
-        ? expression.consequent
-        : expression.alternate;
-
-    return extractDisplayText({
-      baseProps,
-      expression: branch,
-      propNames,
-      source,
-    });
-  }
-
-  if (t.isLogicalExpression(expression) && expression.operator === "??") {
-    if (t.isIdentifier(expression.left)) {
-      const currentValue = baseProps.get(expression.left.name);
-      if (currentValue && currentValue.expression !== "undefined") {
-        return currentValue.literalValue == null
-          ? null
-          : String(currentValue.literalValue);
-      }
-    }
-
-    return extractDisplayText({
-      baseProps,
-      expression: expression.right,
-      propNames,
-      source,
-    });
-  }
-
-  return null;
-}
-
-function evaluateAttributeValue(params: {
-  attributeValue?: t.JSXAttribute["value"] | null;
-  baseProps: Map<string, InferredPropValue>;
-  propNames: Set<string>;
-  source: string;
-}): string | null {
-  const { attributeValue, baseProps, propNames, source } = params;
-  if (!attributeValue) {
-    return null;
-  }
-
-  if (t.isStringLiteral(attributeValue)) {
-    return normalizeText(attributeValue.value);
-  }
-
-  if (
-    t.isJSXExpressionContainer(attributeValue) &&
-    t.isExpression(attributeValue.expression)
-  ) {
-    return extractDisplayText({
-      baseProps,
-      expression: attributeValue.expression,
-      propNames,
-      source,
-    });
-  }
-
-  return null;
-}
-
-function buildRoleQuery(
-  role: string,
-  name?: string
-): { descriptor: QueryDescriptor; query: string } {
+function buildRoleQuery(role: string, name?: string): BuiltQuery {
   const namedQuery = name
     ? `screen.getByRole('${role}', { name: '${escapeSingleQuote(name)}' })`
     : `screen.getByRole('${role}')`;
@@ -853,6 +429,302 @@ function buildRoleQuery(
   };
 }
 
+function createSurfaceCollectorState(): SurfaceCollectorState {
+  return {
+    controls: new Map<string, CollectedControl>(),
+    fields: [],
+    hasOpaqueJsx: false,
+    headings: new Map<string, CollectedText>(),
+    labelsById: new Map<string, string>(),
+    supplementalAssertions: new Map<string, CollectedAssertion>(),
+    texts: new Map<string, CollectedText>(),
+  };
+}
+
+function registerHeading(
+  state: SurfaceCollectorState,
+  name: string,
+  level?: number
+): void {
+  if (!state.headings.has(name)) {
+    state.headings.set(name, { kind: "heading", name, level });
+  }
+}
+
+function registerText(state: SurfaceCollectorState, name: string): void {
+  if (!state.texts.has(name) && !state.headings.has(name)) {
+    state.texts.set(name, { kind: "text", name });
+  }
+}
+
+function registerControl(
+  state: SurfaceCollectorState,
+  kind: AccessibleControlKind,
+  name: string,
+  preferredMethod: QueryDescriptor["method"]
+): void {
+  const key = `${kind}:${name}`;
+  if (!state.controls.has(key)) {
+    state.controls.set(key, { kind, name, preferredMethod });
+  }
+}
+
+function registerSupplementalAssertion(
+  state: SurfaceCollectorState,
+  assertion: CollectedAssertion
+): void {
+  const key = `${assertion.query.query}:${assertion.matcher ?? ".toBeVisible()"}`;
+  if (!state.supplementalAssertions.has(key)) {
+    state.supplementalAssertions.set(key, assertion);
+  }
+}
+
+function collectElementChildren(
+  node: t.JSXElement | t.JSXFragment
+): Array<t.JSXElement | t.JSXFragment> {
+  return node.children.filter(
+    (child): child is t.JSXElement | t.JSXFragment =>
+      t.isJSXElement(child) || t.isJSXFragment(child)
+  );
+}
+
+function buildAttributeMap(node: t.JSXElement): Map<string, t.JSXAttribute> {
+  const attributes = new Map<string, t.JSXAttribute>();
+
+  for (const attribute of node.openingElement.attributes) {
+    if (t.isJSXAttribute(attribute) && t.isJSXIdentifier(attribute.name)) {
+      attributes.set(attribute.name.name, attribute);
+    }
+  }
+
+  return attributes;
+}
+
+function resolveElementTextContent(
+  node: t.JSXElement,
+  params: {
+    baseProps: Map<string, InferredPropValue>;
+    propNames: Set<string>;
+    source: string;
+  }
+): string | null {
+  const literalTextContent = normalizeText(
+    node.children
+      .filter((child) => !t.isJSXExpressionContainer(child))
+      .map((child) => collectLiteralText(child))
+      .join(" ")
+  );
+  const resolvedExpressionTexts = node.children.flatMap((child) => {
+    if (
+      !t.isJSXExpressionContainer(child) ||
+      !t.isExpression(child.expression)
+    ) {
+      return [];
+    }
+
+    const resolved = extractDisplayText({
+      baseProps: params.baseProps,
+      expression: child.expression,
+      propNames: params.propNames,
+      source: params.source,
+    });
+    return resolved ? [resolved] : [];
+  });
+
+  return normalizeText(
+    [literalTextContent, ...resolvedExpressionTexts].filter(Boolean).join(" ")
+  );
+}
+
+function buildSurfaceElementDetails(
+  node: t.JSXElement,
+  params: {
+    baseProps: Map<string, InferredPropValue>;
+    importBindings: Map<string, ImportedBinding>;
+    propNames: Set<string>;
+    source: string;
+  }
+): SurfaceElementDetails | null {
+  const tagName = getJsxName(node.openingElement.name);
+  if (!tagName) {
+    return null;
+  }
+
+  const attributes = buildAttributeMap(node);
+  return {
+    ariaLabel: getStringAttributeValue(attributes.get("aria-label")?.value),
+    attributes,
+    htmlFor: getStringAttributeValue(attributes.get("htmlFor")?.value),
+    id: getStringAttributeValue(attributes.get("id")?.value),
+    importBinding: params.importBindings.get(tagName),
+    inputType: getStringAttributeValue(attributes.get("type")?.value) ?? "text",
+    placeholder: getStringAttributeValue(attributes.get("placeholder")?.value),
+    role: getStringAttributeValue(attributes.get("role")?.value),
+    tagName,
+    textContent: resolveElementTextContent(node, params),
+  };
+}
+
+function resolveHeadingRegistration(
+  details: SurfaceElementDetails
+): { level?: number; name: string } | null {
+  const name = details.ariaLabel ?? details.textContent;
+  if (!name) {
+    return null;
+  }
+
+  return match(details)
+    .with(
+      { tagName: P.when((tagName) => /^h[1-6]$/u.test(tagName)) },
+      ({ tagName }) => ({ level: Number(tagName.slice(1)), name })
+    )
+    .with({ role: "heading" }, () => ({ name }))
+    .otherwise(() => null);
+}
+
+function resolveButtonControl(
+  details: SurfaceElementDetails
+): { kind: AccessibleControlKind; name: string } | null {
+  const accessibleName = details.ariaLabel ?? details.textContent;
+  if (
+    accessibleName &&
+    (details.tagName === "button" || details.role === "button")
+  ) {
+    return { kind: "button", name: accessibleName };
+  }
+
+  if (details.tagName !== "input") {
+    return null;
+  }
+
+  return match(details.inputType)
+    .with(P.union("submit", "button"), () => {
+      const value = getStringAttributeValue(
+        details.attributes.get("value")?.value
+      );
+      const name = details.ariaLabel ?? value ?? details.textContent;
+      return name ? { kind: "button" as const, name } : null;
+    })
+    .otherwise(() => null);
+}
+
+function isFormFieldTag(tagName: string): boolean {
+  return tagName === "input" || tagName === "textarea" || tagName === "select";
+}
+
+function resolveFieldKind(
+  details: SurfaceElementDetails
+): CollectedField["kind"] {
+  return match<SurfaceElementDetails, CollectedField["kind"]>(details)
+    .with({ tagName: "select" }, () => "combobox")
+    .with({ tagName: "input", inputType: "checkbox" }, () => "checkbox")
+    .with({ tagName: "input", inputType: "radio" }, () => "radio")
+    .otherwise(() => "textbox");
+}
+
+function resolveFieldControl(
+  kind: CollectedField["kind"],
+  explicitLabel?: string,
+  placeholder?: string | null
+): {
+  kind: AccessibleControlKind;
+  name: string;
+  preferredMethod: QueryDescriptor["method"];
+} | null {
+  return match({ explicitLabel, kind, placeholder })
+    .with(
+      { explicitLabel: P.string },
+      ({ explicitLabel: name, kind: resolvedKind }) => ({
+        kind: resolvedKind,
+        name,
+        preferredMethod:
+          resolvedKind === "textbox" ? "getByLabelText" : "getByRole",
+      })
+    )
+    .with(
+      { kind: "textbox", placeholder: P.string },
+      ({ placeholder: name }) => ({
+        kind: "textbox" as const,
+        name,
+        preferredMethod: "getByPlaceholderText" as const,
+      })
+    )
+    .otherwise(() => null);
+}
+
+function shouldRegisterText(
+  details: SurfaceElementDetails
+): details is SurfaceElementDetails & { textContent: string } {
+  return match(details)
+    .with(
+      {
+        tagName: P.union("p", "span", "legend", "caption", "label"),
+        textContent: P.when(
+          (textContent): textContent is string =>
+            typeof textContent === "string" &&
+            textContent.length >= 4 &&
+            !GENERIC_TEXTS.has(textContent.toLowerCase())
+        ),
+      },
+      () => true
+    )
+    .otherwise(() => false);
+}
+
+function resolveLinkAssertion(
+  details: SurfaceElementDetails,
+  params: {
+    baseProps: Map<string, InferredPropValue>;
+    propNames: Set<string>;
+    source: string;
+  }
+): CollectedAssertion | null {
+  const isLinkLike =
+    details.tagName === "a" ||
+    details.importBinding?.importPath === "next/link";
+  if (!isLinkLike || !details.attributes.has("href")) {
+    return null;
+  }
+
+  const hrefValue = evaluateAttributeValue({
+    attributeValue: details.attributes.get("href")?.value,
+    baseProps: params.baseProps,
+    propNames: params.propNames,
+    source: params.source,
+  });
+
+  return hrefValue
+    ? {
+        label: hrefValue,
+        matcher: `.toHaveAttribute('href', '${escapeSingleQuote(hrefValue)}')`,
+        query: buildRoleQuery("link"),
+      }
+    : null;
+}
+
+function finalizeSurface(
+  state: SurfaceCollectorState,
+  boundaryImports: string[]
+): ComponentSurface {
+  return {
+    headings: [...state.headings.values()].sort((left, right) =>
+      left.name.localeCompare(right.name)
+    ),
+    texts: [...state.texts.values()].sort((left, right) =>
+      left.name.localeCompare(right.name)
+    ),
+    controls: [...state.controls.values()].sort((left, right) =>
+      left.name.localeCompare(right.name)
+    ),
+    fields: state.fields,
+    importBindingsUsed: [],
+    supplementalAssertions: [...state.supplementalAssertions.values()],
+    variantScenarios: [],
+    hasOpaqueJsx: state.hasOpaqueJsx,
+    boundaryImports,
+  };
+}
+
 function collectComponentSurface(
   roots: Array<t.JSXElement | t.JSXFragment>,
   params: {
@@ -865,244 +737,115 @@ function collectComponentSurface(
 ): ComponentSurface {
   const { baseProps, boundaryImports, importBindings, propNames, source } =
     params;
-  const headings = new Map<string, CollectedText>();
-  const texts = new Map<string, CollectedText>();
-  const controls = new Map<string, CollectedControl>();
-  const fields: CollectedField[] = [];
-  const labelsById = new Map<string, string>();
-  const supplementalAssertions = new Map<string, CollectedAssertion>();
-  let hasOpaqueJsx = false;
-
-  const registerHeading = (name: string, level?: number) => {
-    if (!headings.has(name)) {
-      headings.set(name, { kind: "heading", name, level });
-    }
-  };
-
-  const registerText = (name: string) => {
-    if (!texts.has(name) && !headings.has(name)) {
-      texts.set(name, { kind: "text", name });
-    }
-  };
-
-  const registerControl = (
-    kind: AccessibleControlKind,
-    name: string,
-    preferredMethod: QueryDescriptor["method"]
-  ) => {
-    const key = `${kind}:${name}`;
-    if (!controls.has(key)) {
-      controls.set(key, { kind, name, preferredMethod });
-    }
-  };
-
-  const registerSupplementalAssertion = (assertion: CollectedAssertion) => {
-    const key = `${assertion.query.query}:${assertion.matcher ?? ".toBeVisible()"}`;
-    if (!supplementalAssertions.has(key)) {
-      supplementalAssertions.set(key, assertion);
-    }
-  };
+  const state = createSurfaceCollectorState();
 
   const visit = (
     node: t.JSXElement | t.JSXFragment,
-    context: { wrapperLabel?: string | null } = {}
+    context: SurfaceVisitContext = {}
   ) => {
     if (t.isJSXFragment(node)) {
-      for (const child of node.children) {
-        if (t.isJSXElement(child) || t.isJSXFragment(child)) {
-          visit(child, context);
-        }
-      }
+      collectElementChildren(node).forEach((child) => visit(child, context));
       return;
     }
 
-    const tagName = getJsxName(node.openingElement.name);
-    if (!tagName) {
-      return;
-    }
-
-    if (/^[A-Z]/u.test(tagName)) {
-      hasOpaqueJsx = true;
-    }
-
-    const attributes = new Map<string, t.JSXAttribute>();
-    for (const attribute of node.openingElement.attributes) {
-      if (t.isJSXAttribute(attribute) && t.isJSXIdentifier(attribute.name)) {
-        attributes.set(attribute.name.name, attribute);
-      }
-    }
-
-    const literalTextContent = normalizeText(
-      node.children
-        .filter((child) => !t.isJSXExpressionContainer(child))
-        .map((child) => collectLiteralText(child))
-        .join(" ")
-    );
-    const resolvedExpressionTexts = node.children.flatMap((child) => {
-      if (
-        !t.isJSXExpressionContainer(child) ||
-        !t.isExpression(child.expression)
-      ) {
-        return [];
-      }
-
-      const resolved = extractDisplayText({
-        baseProps,
-        expression: child.expression,
-        propNames,
-        source,
-      });
-      return resolved ? [resolved] : [];
+    const details = buildSurfaceElementDetails(node, {
+      baseProps,
+      importBindings,
+      propNames,
+      source,
     });
-    const textContent = normalizeText(
-      [literalTextContent, ...resolvedExpressionTexts].filter(Boolean).join(" ")
-    );
-    const ariaLabel = getStringAttributeValue(
-      attributes.get("aria-label")?.value
-    );
-    const role = getStringAttributeValue(attributes.get("role")?.value);
-    const id = getStringAttributeValue(attributes.get("id")?.value);
-    const htmlFor = getStringAttributeValue(attributes.get("htmlFor")?.value);
-    const placeholder = getStringAttributeValue(
-      attributes.get("placeholder")?.value
-    );
-    const inputType =
-      getStringAttributeValue(attributes.get("type")?.value) ?? "text";
-    const importBinding = importBindings.get(tagName);
-
-    if (tagName === "label") {
-      const labelText = ariaLabel ?? textContent;
-      if (labelText && htmlFor) {
-        labelsById.set(htmlFor, labelText);
-      }
-
-      for (const child of node.children) {
-        if (t.isJSXElement(child) || t.isJSXFragment(child)) {
-          visit(child, { wrapperLabel: labelText ?? context.wrapperLabel });
-        }
-      }
+    if (!details) {
       return;
     }
 
-    if (
-      (/^h[1-6]$/u.test(tagName) || role === "heading") &&
-      (ariaLabel ?? textContent)
-    ) {
-      const level = /^h[1-6]$/u.test(tagName)
-        ? Number(tagName.slice(1))
-        : undefined;
-      registerHeading(ariaLabel ?? textContent!, level);
+    if (/^[A-Z]/u.test(details.tagName)) {
+      state.hasOpaqueJsx = true;
     }
 
-    if (tagName === "button" || role === "button") {
-      const name = ariaLabel ?? textContent;
-      if (name) {
-        registerControl("button", name, "getByRole");
+    if (details.tagName === "label") {
+      const labelText = details.ariaLabel ?? details.textContent;
+      if (labelText && details.htmlFor) {
+        state.labelsById.set(details.htmlFor, labelText);
       }
+
+      collectElementChildren(node).forEach((child) =>
+        visit(child, { wrapperLabel: labelText ?? context.wrapperLabel })
+      );
+      return;
     }
 
-    if (tagName === "input" && ["submit", "button"].includes(inputType)) {
-      const value = getStringAttributeValue(attributes.get("value")?.value);
-      const name = ariaLabel ?? value ?? textContent;
-      if (name) {
-        registerControl("button", name, "getByRole");
-      }
+    const headingRegistration = resolveHeadingRegistration(details);
+    if (headingRegistration) {
+      registerHeading(
+        state,
+        headingRegistration.name,
+        headingRegistration.level
+      );
     }
 
-    if (tagName === "input" || tagName === "textarea" || tagName === "select") {
+    const buttonControl = resolveButtonControl(details);
+    if (buttonControl) {
+      registerControl(
+        state,
+        buttonControl.kind,
+        buttonControl.name,
+        "getByRole"
+      );
+    }
+
+    if (isFormFieldTag(details.tagName)) {
       const explicitLabel =
-        ariaLabel ??
+        details.ariaLabel ??
         context.wrapperLabel ??
-        (id ? labelsById.get(id) : undefined);
-      const kind: CollectedField["kind"] =
-        tagName === "select"
-          ? "combobox"
-          : inputType === "checkbox"
-            ? "checkbox"
-            : inputType === "radio"
-              ? "radio"
-              : "textbox";
+        (details.id ? state.labelsById.get(details.id) : undefined);
+      const kind = resolveFieldKind(details);
 
-      fields.push({
+      state.fields.push({
         kind,
         label: explicitLabel,
-        placeholder: placeholder ?? undefined,
+        placeholder: details.placeholder ?? undefined,
       });
 
-      if (explicitLabel) {
+      const fieldControl = resolveFieldControl(
+        kind,
+        explicitLabel,
+        details.placeholder
+      );
+      if (fieldControl) {
         registerControl(
-          kind,
-          explicitLabel,
-          kind === "textbox" ? "getByLabelText" : "getByRole"
+          state,
+          fieldControl.kind,
+          fieldControl.name,
+          fieldControl.preferredMethod
         );
-      } else if (placeholder && kind === "textbox") {
-        registerControl("textbox", placeholder, "getByPlaceholderText");
       }
     }
 
-    if (
-      ["p", "span", "legend", "caption", "label"].includes(tagName) &&
-      textContent &&
-      textContent.length >= 4 &&
-      !GENERIC_TEXTS.has(textContent.toLowerCase())
-    ) {
-      registerText(textContent);
+    if (shouldRegisterText(details)) {
+      registerText(state, details.textContent);
     }
 
-    if (
-      (tagName === "a" || importBinding?.importPath === "next/link") &&
-      attributes.has("href")
-    ) {
-      const hrefValue = evaluateAttributeValue({
-        attributeValue: attributes.get("href")?.value,
-        baseProps,
-        propNames,
-        source,
-      });
-
-      if (hrefValue) {
-        registerSupplementalAssertion({
-          label: hrefValue,
-          matcher: `.toHaveAttribute('href', '${escapeSingleQuote(hrefValue)}')`,
-          query: buildRoleQuery("link"),
-        });
-      }
+    const linkAssertion = resolveLinkAssertion(details, {
+      baseProps,
+      propNames,
+      source,
+    });
+    if (linkAssertion) {
+      registerSupplementalAssertion(state, linkAssertion);
     }
 
-    for (const child of node.children) {
-      if (t.isJSXElement(child) || t.isJSXFragment(child)) {
-        visit(child, context);
-      }
-    }
+    collectElementChildren(node).forEach((child) => visit(child, context));
   };
 
-  for (const root of roots) {
-    visit(root);
-  }
+  roots.forEach((root) => visit(root));
 
-  return {
-    headings: [...headings.values()].sort((left, right) =>
-      left.name.localeCompare(right.name)
-    ),
-    texts: [...texts.values()].sort((left, right) =>
-      left.name.localeCompare(right.name)
-    ),
-    controls: [...controls.values()].sort((left, right) =>
-      left.name.localeCompare(right.name)
-    ),
-    fields,
-    importBindingsUsed: [],
-    supplementalAssertions: [...supplementalAssertions.values()],
-    variantScenarios: [],
-    hasOpaqueJsx,
-    boundaryImports,
-  };
+  return finalizeSurface(state, boundaryImports);
 }
 
 function buildTextQuery(
   method: QueryDescriptor["method"],
   name: string
-): { descriptor: QueryDescriptor; query: string } {
+): BuiltQuery {
   const escaped = escapeSingleQuote(name);
   return {
     descriptor: {
