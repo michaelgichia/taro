@@ -60,7 +60,8 @@ import { loadInput } from "#core/input-loader.ts";
 import { parseJsRecording } from "#core/js-parser.ts";
 import { analyzeRecording } from "#core/recording-intelligence.ts";
 import { scoreGeneratedTest } from "#core/scorer.ts";
-import { SCORE_REVIEW_CAP } from "#core/state.constants.ts";
+import { TARGET_OUTPUT_SCORE_GATE } from "#core/state.constants.ts";
+import { normalizeGeneratedTestHistoryPath } from "#core/state-paths.ts";
 import {
   detectPackageProfileStaleness,
   loadOrBootstrapTaroState,
@@ -101,12 +102,31 @@ interface DirectoryLoopComponentParams {
   projectRoot: string;
 }
 
+interface LatestGeneratedOutputStatus {
+  overall: number;
+  requiresReview: boolean;
+}
+
 function isSupportedSourceFile(filePath: string): boolean {
   return /\.(?:[cm]?[jt]sx?)$/u.test(filePath);
 }
 
 function isTestFilePath(filePath: string): boolean {
   return /\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(filePath);
+}
+
+function getTargetOutputScoreGatePercent(): number {
+  return TARGET_OUTPUT_SCORE_GATE * 100;
+}
+
+function passesTargetOutputGate(scoreResult: {
+  requiresReview: boolean;
+  total: number;
+}): boolean {
+  return (
+    scoreResult.total >= getTargetOutputScoreGatePercent() &&
+    !scoreResult.requiresReview
+  );
 }
 
 function buildFallbackConventions(projectRoot: string) {
@@ -377,16 +397,13 @@ function buildPostWriteGateFindings(params: {
   scoreResult: ScoreResult;
 }): Finding[] {
   const findings: Finding[] = [];
-  if (
-    params.scoreResult.requiresReview &&
-    params.scoreResult.total < SCORE_REVIEW_CAP * 100
-  ) {
+  if (params.scoreResult.total < getTargetOutputScoreGatePercent()) {
     findings.push({
       severity: "BLOCKING",
       category: "quality",
       message:
         `Generated test scored ${params.scoreResult.total}/100, below the required ` +
-        `${SCORE_REVIEW_CAP * 100}/100 quality gate: ${params.outputPath}`,
+        `${getTargetOutputScoreGatePercent()}/100 quality gate: ${params.outputPath}`,
     });
   }
 
@@ -411,6 +428,50 @@ function buildPostWriteGateFindings(params: {
   }
 
   return findings;
+}
+
+async function readLatestGeneratedOutputStatuses(
+  projectRoot: string
+): Promise<Map<string, LatestGeneratedOutputStatus>> {
+  const bootstrap = await loadOrBootstrapTaroState(projectRoot);
+  const latestStatuses = new Map<
+    string,
+    LatestGeneratedOutputStatus & { createdAtMs: number }
+  >();
+
+  for (const record of bootstrap.state.generatedTests) {
+    const normalizedPath = normalizeGeneratedTestHistoryPath(
+      projectRoot,
+      record.testFile
+    );
+    const createdAtMs = Number.isFinite(Date.parse(record.createdAt))
+      ? Date.parse(record.createdAt)
+      : 0;
+    const previous = latestStatuses.get(normalizedPath);
+
+    if (
+      !previous ||
+      createdAtMs > previous.createdAtMs ||
+      (createdAtMs === previous.createdAtMs &&
+        record.quality.overall >= previous.overall)
+    ) {
+      latestStatuses.set(normalizedPath, {
+        createdAtMs,
+        overall: record.quality.overall,
+        requiresReview: record.requiresReview,
+      });
+    }
+  }
+
+  return new Map(
+    [...latestStatuses.entries()].map(([path, status]) => [
+      path,
+      {
+        overall: status.overall,
+        requiresReview: status.requiresReview,
+      },
+    ])
+  );
 }
 
 async function maybeAcceptExistingOutputForBlockedTarget(params: {
@@ -780,10 +841,7 @@ async function generateForFile(params: {
     ]);
   }
 
-  if (
-    findings.some((finding) => finding.severity === "BLOCKING") &&
-    !allowsDraftOutput
-  ) {
+  if (findings.some((finding) => finding.severity === "BLOCKING")) {
     const existingOutputFindings =
       await maybeAcceptExistingOutputForBlockedTarget({
         componentPath,
@@ -798,7 +856,9 @@ async function generateForFile(params: {
       return existingOutputFindings;
     }
 
-    return normalizeFindings(findings);
+    if (!allowsDraftOutput) {
+      return normalizeFindings(findings);
+    }
   }
 
   const conventions =
@@ -957,6 +1017,9 @@ async function buildDirectoryLoopTracker(params: {
     directoryPath: params.componentPath,
     projectRoot: params.projectRoot,
   });
+  const latestOutputStatuses = await readLatestGeneratedOutputStatuses(
+    params.projectRoot
+  );
   const entries: Array<{
     componentPath: string;
     outputPath: string;
@@ -974,6 +1037,16 @@ async function buildDirectoryLoopTracker(params: {
     const hasExistingOutput = await access(outputPath)
       .then(() => true)
       .catch(() => false);
+    const latestOutputStatus = latestOutputStatuses.get(
+      normalizeGeneratedTestHistoryPath(params.projectRoot, outputPath)
+    );
+    const hasAcceptedExistingOutput =
+      hasExistingOutput &&
+      latestOutputStatus !== undefined &&
+      passesTargetOutputGate({
+        requiresReview: latestOutputStatus.requiresReview,
+        total: latestOutputStatus.overall,
+      });
 
     entries.push({
       componentPath: filePath,
@@ -981,7 +1054,7 @@ async function buildDirectoryLoopTracker(params: {
       status:
         previousEntry?.status === "in-progress"
           ? "in-progress"
-          : hasExistingOutput
+          : hasAcceptedExistingOutput
             ? "completed"
             : "pending",
     });

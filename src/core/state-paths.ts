@@ -8,6 +8,10 @@ import type {
   TaroState,
 } from "#types/state.ts";
 
+function normalizeComparableAbsolutePath(value: string): string {
+  return toPosixPath(resolve(value)).replace(/^\/private(?=\/var\/)/u, "");
+}
+
 export function toPosixPath(value: string): string {
   return value.replace(/\\/g, "/");
 }
@@ -66,7 +70,10 @@ export function normalizeRepoRelativePath(
   filePath: string
 ): string | null {
   const relativePath = toPosixPath(
-    relative(resolve(projectRoot), resolve(filePath))
+    relative(
+      normalizeComparableAbsolutePath(projectRoot),
+      normalizeComparableAbsolutePath(filePath)
+    )
   );
 
   if (
@@ -86,10 +93,7 @@ export function normalizeGeneratedTestHistoryPath(
 ): string {
   return (
     normalizeRepoRelativePath(projectRoot, testFile) ??
-    toPosixPath(resolve(projectRoot, testFile)).replace(
-      /^\/private(?=\/var\/)/u,
-      ""
-    )
+    normalizeComparableAbsolutePath(resolve(projectRoot, testFile))
   );
 }
 

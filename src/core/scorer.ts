@@ -179,6 +179,12 @@ const REPO_CONTRACT_REASON_CONFIG: Record<
     weight: 12,
     severity: "advisory",
   },
+  "component-mock-reimplementation": {
+    dimension: "boundaryIsolation",
+    code: "component-mock-reimplementation",
+    weight: 25,
+    severity: "blocker",
+  },
   "dynamic-prop-shape-dispatcher": {
     dimension: "boundaryIsolation",
     code: "dynamic-prop-shape-dispatcher",
@@ -810,7 +816,10 @@ function analyzeMockCompleteness(params: {
   let missingMockCount = 0;
 
   for (const reference of params.componentImportReferences) {
-    if (reference.guardrailReason || params.mockTargets.has(reference.target)) {
+    if (
+      reference.guardrailReason ||
+      hasMockTargetCoverage(reference.target, params.mockTargets)
+    ) {
       continue;
     }
 
@@ -818,7 +827,7 @@ function analyzeMockCompleteness(params: {
       const hasDynamicModuleCoverage =
         params.dynamicImportTargets.length > 0 &&
         params.dynamicImportTargets.every((target) =>
-          params.mockTargets.has(target)
+          hasMockTargetCoverage(target, params.mockTargets)
         );
       if (hasDynamicModuleCoverage) {
         continue;
@@ -893,7 +902,8 @@ function analyzeMockCompleteness(params: {
 
     if (
       reference.kind === "helper" &&
-      isRepoOwnedImportPath(reference.target)
+      isRepoOwnedImportPath(reference.target) &&
+      !isRelativeImportPath(reference.target)
     ) {
       missingMockCount += 1;
       penalty += 8;
@@ -912,6 +922,34 @@ function analyzeMockCompleteness(params: {
   }
 
   return { missingMockCount, penalty, reasons };
+}
+
+function normalizeMockTarget(target: string): string {
+  return target
+    .replace(/\\/g, "/")
+    .replace(/^\.{1,2}\//u, "")
+    .replace(/\.[cm]?[jt]sx?$/u, "");
+}
+
+function isRelativeImportPath(target: string): boolean {
+  return target.startsWith("./") || target.startsWith("../");
+}
+
+function hasMockTargetCoverage(
+  target: string,
+  mockTargets: Set<string>
+): boolean {
+  if (mockTargets.has(target)) {
+    return true;
+  }
+
+  const normalizedTarget = normalizeMockTarget(target);
+
+  return [...mockTargets].some((mockTarget) => {
+    const normalizedMockTarget = normalizeMockTarget(mockTarget);
+
+    return normalizedMockTarget === normalizedTarget;
+  });
 }
 
 function calculateStructureScoreFromAnalysis(params: {
@@ -1554,6 +1592,11 @@ export function scoreGeneratedTest(
   )
     ? 12
     : 0;
+  const componentMockReimplementationPenalty = repoContractIssues.some(
+    (issue) => issue.code === "component-mock-reimplementation"
+  )
+    ? 25
+    : 0;
 
   const dimensions: ScoreDimensions = {
     queryQuality: clampScore(
@@ -1569,7 +1612,8 @@ export function scoreGeneratedTest(
     boundaryIsolation: clampScore(
       calculateBoundaryIsolationScore(code) -
         mockCompleteness.penalty -
-        incompleteAssetPenalty
+        incompleteAssetPenalty -
+        componentMockReimplementationPenalty
     ),
   };
 
