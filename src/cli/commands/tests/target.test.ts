@@ -382,6 +382,95 @@ describe("createTargetCommand", () => {
     expect(result.stdout).toContain("opaque child components");
   });
 
+  it("accepts an existing output when component inference is blocked but the current test is already valid", async () => {
+    const root = await createSandbox("opaque-component-existing-output");
+    const componentPath = join(root, "src", "DashboardShell.tsx");
+    const outputPath = join(root, "src", "tests", "DashboardShell.test.tsx");
+    await mkdir(dirname(componentPath), { recursive: true });
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(
+      componentPath,
+      [
+        'import { LayoutShell } from "./LayoutShell"',
+        "",
+        "export default function DashboardShell() {",
+        "  return <LayoutShell />",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+    await writeFile(
+      join(root, "src", "LayoutShell.tsx"),
+      [
+        "export function LayoutShell() {",
+        "  return <main aria-label='Dashboard layout'>Layout shell</main>",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+    await writeFile(
+      outputPath,
+      [
+        "import '@testing-library/jest-dom/vitest'",
+        "",
+        "import { render, screen } from '@testing-library/react'",
+        "import { beforeEach, describe, expect, it, vi } from 'vitest'",
+        "",
+        "import DashboardShell from '../DashboardShell'",
+        "",
+        "const layoutShellSpy = vi.fn()",
+        "",
+        "vi.mock('../LayoutShell', () => ({",
+        "  LayoutShell: () => {",
+        "    layoutShellSpy()",
+        "    return (",
+        "      <main aria-label='Dashboard layout'>",
+        "        <h1>Operations dashboard</h1>",
+        "        <p>Layout shell</p>",
+        "      </main>",
+        "    )",
+        "  },",
+        "}));",
+        "",
+        "beforeEach(() => {",
+        "  layoutShellSpy.mockClear()",
+        "})",
+        "",
+        "describe('DashboardShell', () => {",
+        "  it('renders the dashboard layout shell', () => {",
+        "    render(<DashboardShell />)",
+        "    const layout = screen.getByRole('main', { name: 'Dashboard layout' })",
+        "",
+        "    expect(layout).toHaveAttribute('aria-label', 'Dashboard layout')",
+        "    expect(layout).toHaveTextContent('Layout shell')",
+        "    expect(screen.getByRole('heading', { name: 'Operations dashboard' })).toBeInTheDocument()",
+        "    expect(screen.getByRole('heading', { name: 'Operations dashboard' })).toHaveTextContent('Operations dashboard')",
+        "    expect(layout).toHaveTextContent('Operations dashboard')",
+        "    expect(layout).toHaveTextContent('Layout shell')",
+        "  })",
+        "",
+        "  it('renders the layout shell exactly once per render', () => {",
+        "    render(<DashboardShell />)",
+        "",
+        "    expect(layoutShellSpy).toHaveBeenCalledTimes(1)",
+        "  })",
+        "})",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+
+    const result = await runTarget([componentPath], root);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.logs).toContain(
+      "Reusing existing target output because component inference is blocked"
+    );
+    expect(result.stdout).not.toContain("[BLOCKING] component-target");
+  });
+
   it("blocks single-file targets that do not export a JSX component", async () => {
     const root = await createSandbox("non-component-file");
     const modulePath = join(root, "src", "reviewTotals.ts");

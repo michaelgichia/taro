@@ -121,6 +121,36 @@ function buildFallbackConventions(projectRoot: string) {
   };
 }
 
+function normalizeComponentScoreContextForOutput(params: {
+  componentPath: string;
+  componentScoreContext: Awaited<ReturnType<typeof loadComponentScoreContext>>;
+  outputPath: string;
+}) {
+  const { componentPath, componentScoreContext, outputPath } = params;
+  if (!componentScoreContext) {
+    return componentScoreContext;
+  }
+
+  const componentDir = dirname(componentPath);
+  const outputDir = dirname(outputPath);
+  const normalizeImportTarget = (target: string) =>
+    target.startsWith("./") || target.startsWith("../")
+      ? toImportPath(outputDir, resolve(componentDir, target))
+      : target;
+
+  return {
+    ...componentScoreContext,
+    componentImportReferences:
+      componentScoreContext.componentImportReferences?.map((reference) => ({
+        ...reference,
+        target: normalizeImportTarget(reference.target),
+      })) ?? [],
+    dynamicImportTargets:
+      componentScoreContext.dynamicImportTargets?.map(normalizeImportTarget) ??
+      [],
+  };
+}
+
 async function loadPackageContext(params: {
   commandOptions: { auth?: string; instructions?: string };
   targetPath: string;
@@ -383,6 +413,69 @@ function buildPostWriteGateFindings(params: {
   return findings;
 }
 
+async function maybeAcceptExistingOutputForBlockedTarget(params: {
+  componentPath: string;
+  componentScoreContext: Awaited<ReturnType<typeof loadComponentScoreContext>>;
+  outputPath: string;
+  overrides: Awaited<ReturnType<typeof readTaroOverrides>>;
+  packageProfile: ResolvedTaroPackageProfile | null;
+  projectRoot: string;
+}): Promise<Finding[] | null> {
+  let existingCode: string | null = null;
+  try {
+    existingCode = await readFile(params.outputPath, "utf-8");
+  } catch (error: unknown) {
+    const errCode = (error as NodeJS.ErrnoException)?.code;
+    if (errCode && errCode !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  if (!existingCode) {
+    return null;
+  }
+
+  const verification = verifySyntax(existingCode, params.outputPath);
+  if (!verification.valid) {
+    return null;
+  }
+
+  const scoreResult = scoreGeneratedTest(existingCode, {
+    ...(params.componentScoreContext ?? {}),
+    queryResults: [],
+  });
+  const failedHealthCommands = await runHealthCommands({
+    healthCommands: params.overrides.healthCommands,
+    projectRoot: params.projectRoot,
+  });
+  const gateFindings = buildPostWriteGateFindings({
+    failedHealthCommands,
+    outputPath: params.outputPath,
+    scoreResult,
+  });
+
+  if (gateFindings.some((finding) => finding.severity === "BLOCKING")) {
+    return normalizeFindings(gateFindings);
+  }
+
+  log(
+    pc.dim("[taro]") +
+      ` Reusing existing target output because component inference is blocked: ${params.outputPath}`
+  );
+  await finalizeGeneratedOutput({
+    code: existingCode,
+    outputPath: params.outputPath,
+    projectRoot: params.projectRoot,
+    recordingFile: params.componentPath,
+    scoreResult,
+    packageProfile: params.packageProfile,
+  });
+  logScore(scoreResult);
+  emitLowConfidenceBanner(scoreResult);
+
+  return [];
+}
+
 async function collectSourceFiles(dirPath: string): Promise<string[]> {
   const entries = await readdir(dirPath, {
     recursive: true,
@@ -452,6 +545,12 @@ async function generateForFile(params: {
     projectRoot,
   });
   const componentScoreContext = await loadComponentScoreContext(componentPath);
+  const normalizedComponentScoreContext =
+    normalizeComponentScoreContextForOutput({
+      componentPath,
+      componentScoreContext,
+      outputPath,
+    });
   const renderTarget = {
     ...targetPlan.renderTarget,
     importPath: toImportPath(dirname(outputPath), componentPath),
@@ -591,7 +690,7 @@ async function generateForFile(params: {
     const candidateAssessment = {
       flowCoverage: buildFlowCoverageSummary(analyzedRecording, code),
       scoreResult: scoreGeneratedTest(code, {
-        ...(componentScoreContext ?? {}),
+        ...(normalizedComponentScoreContext ?? {}),
         queryResults: mapParsedQueriesToResults(candidateParsed, code),
       }),
     };
@@ -611,7 +710,7 @@ async function generateForFile(params: {
       existingAssessment = await assessOutputAgainstRecording({
         analyzedRecording,
         code: existingCode,
-        componentScoreContext,
+        componentScoreContext: normalizedComponentScoreContext,
       });
     }
     const outputResolution = await reconcileExistingOutput({
@@ -685,6 +784,20 @@ async function generateForFile(params: {
     findings.some((finding) => finding.severity === "BLOCKING") &&
     !allowsDraftOutput
   ) {
+    const existingOutputFindings =
+      await maybeAcceptExistingOutputForBlockedTarget({
+        componentPath,
+        componentScoreContext: normalizedComponentScoreContext,
+        outputPath,
+        overrides,
+        packageProfile: packageProfile ?? null,
+        projectRoot,
+      });
+
+    if (existingOutputFindings) {
+      return existingOutputFindings;
+    }
+
     return normalizeFindings(findings);
   }
 
@@ -724,7 +837,7 @@ async function generateForFile(params: {
     await auditBoundaryPolicy(code, packageProfile ?? null, null)
   );
   const scoreResult = scoreGeneratedTest(code, {
-    ...(componentScoreContext ?? {}),
+    ...(normalizedComponentScoreContext ?? {}),
     queryResults,
   });
   const candidateAssessment = {
@@ -747,7 +860,7 @@ async function generateForFile(params: {
     existingAssessment = await assessOutputAgainstRecording({
       analyzedRecording,
       code: existingCode,
-      componentScoreContext,
+      componentScoreContext: normalizedComponentScoreContext,
     });
   }
   const outputResolution = await reconcileExistingOutput({
