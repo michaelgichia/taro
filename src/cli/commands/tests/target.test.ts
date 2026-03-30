@@ -28,6 +28,15 @@ async function createSandbox(label: string) {
   return root;
 }
 
+async function readDirectoryTracker(logs: string) {
+  const trackerPathMatch = logs.match(/Directory loop tracker: (.+)/u);
+  if (!trackerPathMatch) {
+    throw new Error(`Could not find tracker path in logs:\n${logs}`);
+  }
+
+  return readFile(trackerPathMatch[1].trim(), "utf-8");
+}
+
 async function runTarget(
   args: string[],
   cwdPath: string,
@@ -325,10 +334,14 @@ describe("createTargetCommand", () => {
     );
 
     const result = await runTarget([srcDir, "--directory-loop"], root);
+    const tracker = await readDirectoryTracker(result.logs);
 
     expect(result.thrown).toBeUndefined();
     expect(result.exitCode).toBe(0);
     expect(result.logs).toContain("Directory loop mode enabled");
+    expect(result.logs).toContain("Directory loop tracker:");
+    expect(tracker).toContain("| completed | src/Footer.tsx |");
+    expect(tracker).toContain("| completed | src/Header.tsx |");
 
     const headerTest = await readFile(join(srcDir, "Header.test.tsx"), "utf-8");
     expect(headerTest).toContain("import Header from './Header'");
@@ -355,7 +368,7 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
     await writeFile(
-      join(srcDir, "Button.test.tsx"),
+      join(srcDir, "Existing.test.tsx"),
       "import { render } from '@testing-library/react'\n",
       "utf-8"
     );
@@ -364,7 +377,36 @@ describe("createTargetCommand", () => {
 
     expect(result.thrown).toBeUndefined();
     expect(result.exitCode).toBe(0);
-    expect(result.logs).toContain("Processing 1 component file");
+    expect(result.logs).toContain("Processing 1 pending component file");
+  });
+
+  it("skips already-tested components when building the directory loop tracker", async () => {
+    const root = await createSandbox("dir-existing-test");
+    const srcDir = join(root, "src");
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "Header.tsx"),
+      "export default function Header() { return <h1>Site Header</h1> }\n",
+      "utf-8"
+    );
+    await writeFile(
+      join(srcDir, "Header.test.tsx"),
+      "describe('Header', () => {})\n",
+      "utf-8"
+    );
+    await writeFile(
+      join(srcDir, "Footer.tsx"),
+      "export default function Footer() { return <p>Site Footer</p> }\n",
+      "utf-8"
+    );
+
+    const result = await runTarget([srcDir, "--directory-loop"], root);
+    const tracker = await readDirectoryTracker(result.logs);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.logs).toContain("Processing 1 pending component file");
+    expect(tracker).toContain("| completed | src/Header.tsx | src/Header.test.tsx |");
+    expect(tracker).toContain("| completed | src/Footer.tsx | src/Footer.test.tsx |");
   });
 
   it("reports no files found when the directory has no component source files", async () => {

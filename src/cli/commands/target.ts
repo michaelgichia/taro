@@ -1,4 +1,4 @@
-import { access, readdir, readFile, stat } from "node:fs/promises";
+import { access, readdir, readFile, realpath, stat } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { cwd, stdin, stdout } from "node:process";
 
@@ -7,6 +7,12 @@ import pc from "picocolors";
 
 import { auditBoundaryPolicy } from "#cli/commands/boundary-policy.ts";
 import { applyRepoRenderTarget } from "#cli/commands/context-selection.ts";
+import {
+  createDirectoryLoopTracker,
+  type DirectoryLoopTracker,
+  updateDirectoryLoopTrackerStatus,
+  writeDirectoryLoopTracker,
+} from "#cli/commands/target-directory-tracker.ts";
 import { flushFindings } from "#cli/commands/generate-findings.ts";
 import { toImportPath } from "#cli/commands/generate-paths.ts";
 import {
@@ -626,6 +632,64 @@ async function generateForFile(params: {
   return normalizeFindings(findings);
 }
 
+async function resolveTargetOutputPath(params: {
+  componentPath: string;
+  projectRoot: string;
+  commandOptions: CommandOptions;
+}): Promise<string> {
+  const { componentPath, projectRoot, commandOptions } = params;
+  const { packageProfile } = await loadPackageContext({
+    commandOptions,
+    targetPath: componentPath,
+    projectRoot,
+  });
+  const localFolderPattern =
+    await detectLocalOutputFolderPattern(componentPath);
+
+  return deriveOutputPath(
+    componentPath,
+    localFolderPattern ??
+      (isConcreteFolderPattern(packageProfile?.folderPattern.value)
+        ? packageProfile.folderPattern.value
+        : undefined)
+  );
+}
+
+async function buildDirectoryLoopTracker(params: {
+  sourceFiles: string[];
+  componentPath: string;
+  projectRoot: string;
+  commandOptions: CommandOptions;
+}): Promise<DirectoryLoopTracker> {
+  const entries: Array<{
+    componentPath: string;
+    outputPath: string;
+    status: "completed" | "pending";
+  }> = [];
+  for (const filePath of params.sourceFiles) {
+    const outputPath = await resolveTargetOutputPath({
+      componentPath: filePath,
+      projectRoot: params.projectRoot,
+      commandOptions: params.commandOptions,
+    });
+    const hasExistingOutput = await access(outputPath)
+      .then(() => true)
+      .catch(() => false);
+
+    entries.push({
+      componentPath: filePath,
+      outputPath,
+      status: hasExistingOutput ? "completed" : "pending",
+    });
+  }
+
+  return createDirectoryLoopTracker({
+    directoryPath: params.componentPath,
+    entries,
+    projectRoot: params.projectRoot,
+  });
+}
+
 export function createTargetCommand(
   context: TargetCommandContext = {}
 ): Command {
@@ -673,19 +737,26 @@ export function createTargetCommand(
     )
     .action(async (componentFile: string) => {
       try {
-        const projectRoot = cwd();
-        const componentPath = resolve(componentFile);
+        const rawProjectRoot = cwd();
+        const projectRoot = await realpath(rawProjectRoot).catch(
+          () => rawProjectRoot
+        );
+        const rawComponentPath = resolve(componentFile);
         const commandOptions = target.opts<CommandOptions>();
 
-        const pathStat = await stat(componentPath).catch(() => null);
+        const pathStat = await stat(rawComponentPath).catch(() => null);
         if (!pathStat) {
           const message =
             pc.red("Error:") +
-            ` File not found or not accessible: ${componentPath}`;
+            ` File not found or not accessible: ${rawComponentPath}`;
           console.error(message);
           process.stderr.write(message + "\n");
           process.exit(2);
         }
+
+        const componentPath = await realpath(rawComponentPath).catch(
+          () => rawComponentPath
+        );
 
         if (pathStat.isDirectory()) {
           if (!commandOptions.directoryLoop) {
@@ -717,32 +788,81 @@ export function createTargetCommand(
             flushFindings([]);
           }
 
+          let tracker = await buildDirectoryLoopTracker({
+            sourceFiles,
+            componentPath,
+            projectRoot,
+            commandOptions,
+          });
+          await writeDirectoryLoopTracker(tracker);
+
           log(
             pc.dim("[taro]") + " Directory loop mode enabled"
           );
           log(
             pc.dim("[taro]") +
-              ` Processing ${sourceFiles.length} component file${sourceFiles.length === 1 ? "" : "s"} in ${componentPath}`
+              ` Directory loop tracker: ${tracker.trackerPath}`
+          );
+
+          const pendingEntries = tracker.entries.filter(
+            (entry) => entry.status !== "completed"
+          );
+
+          if (pendingEntries.length === 0) {
+            log(
+              pc.yellow(
+                `[taro] No pending component source files found in: ${componentPath}`
+              )
+            );
+            flushFindings([]);
+          }
+
+          log(
+            pc.dim("[taro]") +
+              ` Processing ${pendingEntries.length} pending component file${pendingEntries.length === 1 ? "" : "s"} in ${componentPath}`
           );
 
           const allFindings: Finding[] = [];
-          for (const filePath of sourceFiles) {
+          for (const entry of pendingEntries) {
+            tracker = updateDirectoryLoopTrackerStatus(tracker, {
+              componentPath: entry.componentPath,
+              projectRoot,
+              status: "in-progress",
+            });
+            await writeDirectoryLoopTracker(tracker);
+
             try {
               const findings = await generateForFile({
-                componentPath: filePath,
+                componentPath: entry.componentPath,
                 projectRoot,
                 commandOptions,
                 context,
               });
               allFindings.push(...findings);
+
+              const hasGeneratedOutput = await access(entry.outputPath)
+                .then(() => true)
+                .catch(() => false);
+              if (hasGeneratedOutput) {
+                tracker = updateDirectoryLoopTrackerStatus(tracker, {
+                  componentPath: entry.componentPath,
+                  projectRoot,
+                  status: "completed",
+                });
+                await writeDirectoryLoopTracker(tracker);
+              }
             } catch (error) {
               const message =
                 error instanceof Error ? error.message : "Unknown error";
-              log(pc.red(`[taro] Error processing ${filePath}: ${message}`));
+              log(
+                pc.red(
+                  `[taro] Error processing ${entry.componentPath}: ${message}`
+                )
+              );
               allFindings.push({
                 severity: "BLOCKING",
                 category: "component-target",
-                message: `Failed to generate test for ${filePath}: ${message}`,
+                message: `Failed to generate test for ${entry.componentPath}: ${message}`,
               });
             }
           }
