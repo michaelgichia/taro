@@ -192,7 +192,7 @@ Taro supports one export path:
 
 Run your runtime-native generate entrypoint against `recording.js`. When Taro infers the owning render target, it must write the generated test next to the inferred component and refuses to overwrite an existing file. If it cannot infer a render target, the fallback boundary-draft output is written next to the recording instead.
 
-If you already know the component under test, use the runtime-native `target` entrypoint with a component file path. `target` writes next to that supplied component and can optionally take a Recorder `.js` file to preserve concrete interaction flow while forcing the component render target.
+If you already know the component under test, use the runtime-native `target` entrypoint with a component file path or a component-directory path. File mode writes next to the supplied component and can optionally take a Recorder `.js` file to preserve concrete interaction flow while forcing the component render target. Directory mode runs with `--directory-loop`, writes a tracker under `.taro/directory-loop/`, and skips non-component source files so mixed directories only queue files that export JSX components.
 
 Expected output:
 

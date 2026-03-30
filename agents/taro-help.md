@@ -18,7 +18,7 @@ Invoke this skill with `$@taro-test/rtl-help`.
 - `$@taro-test/rtl-generate-i` for Recorder-to-RTL generation that forces interactive auth recovery
 - `$@taro-test/rtl-grade` for grading an existing test file and storing a new grade snapshot in `.taro/state.json`
 - `$@taro-test/rtl-regrade` for regrading an existing test file, comparing it to the latest stored snapshot, and storing a new grade snapshot
-- `$@taro-test/rtl-target` for component-targeted RTL generation with an optional Recorder file
+- `$@taro-test/rtl-target` for component-targeted or directory-loop RTL generation, with an optional Recorder file for single-file flows
 - `$@taro-test/rtl-conventions` for convention-aware generation guidance
 - `$@taro-test/rtl-mocks` for mock and fixture review
 
@@ -31,7 +31,7 @@ Invoke this skill with `$@taro-test/rtl-help`.
 - Use `$@taro-test/rtl-generate-i` when the user wants the same generation flow but needs interactive auth recovery forced for that run.
 - Use `$@taro-test/rtl-grade` when the user wants a score for an existing `*.test.*` file and wants that score tracked in `.taro/state.json`.
 - Use `$@taro-test/rtl-regrade` when the user wants to compare a changed test against its latest stored snapshot and append a new stored snapshot.
-- Use `$@taro-test/rtl-target` when the user wants to point Taro at a specific component file and optionally also provide a Recorder file.
+- Use `$@taro-test/rtl-target` when the user wants to point Taro at a specific component file, or at a component directory for directory-loop mode, and optionally also provide a Recorder file for single-file targeting.
 - Use `$@taro-test/rtl-conventions` when the user asks why generated output follows a certain style, file location, import pattern, or helper setup.
 - Use `$@taro-test/rtl-mocks` when the generated test needs API, router, auth, fixture, or provider boundary guidance.
 

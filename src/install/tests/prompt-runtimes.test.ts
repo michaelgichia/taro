@@ -183,6 +183,9 @@ describe("prompt runtime install builders", () => {
     expect(targetContent).toContain(
       `${target.runtimeCommand} __target <component-file>`
     );
+    expect(targetContent).toContain(
+      `${target.runtimeCommand} __target <component-directory> --directory-loop`
+    );
     expect(gradeContent).toContain("Strong `B` example");
     expect(regradeContent).toContain("latest 5 snapshots");
     expect(overridesContent).toContain(`${target.runtimeCommand} __overrides`);
@@ -287,6 +290,9 @@ describe("prompt runtime install builders", () => {
     );
     expect(targetContent).toContain(
       `\`${target.runtimeCommand} __target <component-file>\``
+    );
+    expect(targetContent).toContain(
+      `\`${target.runtimeCommand} __target <component-directory> --directory-loop\``
     );
     expect(gradeContent).toContain("Strong B");
     expect(regradeContent).toContain("latest 5 snapshots");
@@ -416,6 +422,9 @@ describe("prompt runtime install builders", () => {
     );
     expect(targetContent).toContain(
       `\`${target.runtimeCommand} __target <component-file>\``
+    );
+    expect(targetContent).toContain(
+      `\`${target.runtimeCommand} __target <component-directory> --directory-loop\``
     );
     expect(gradeContent).toContain("Strong `B`");
     expect(regradeContent).toContain("latest 5 snapshots");

@@ -62,12 +62,13 @@ If you need a newer package version first, rerun `pnpm dlx @taro-test/rtl@latest
 
 ## Generation Rules
 
-1. Provide a Testing Library Recorder `.js` export for `generate`, or provide a component file path for `target`.
+1. Provide a Testing Library Recorder `.js` export for `generate`, or provide a component file path or component-directory path for `target`.
 2. Run the runtime-native `init` entrypoint first when Taro has just been installed or reinstalled.
 3. When Taro infers the owning render target, it must write the generated test next to the inferred component.
-4. When `target` is used, Taro must write the generated test next to the supplied component.
-5. If no render target can be inferred, the fallback boundary draft is written next to the recording. Existing generated outputs are never overwritten.
-6. Draft-quality output is reported explicitly through score, blockers, and boundary warnings.
+4. When `target` is used with a file, Taro must write the generated test next to the supplied component.
+5. When `target` is used with a directory, Taro must run directory-loop mode, write a tracker under `.taro/directory-loop/`, and skip non-component `.ts` or `.tsx` files.
+6. If no render target can be inferred, the fallback boundary draft is written next to the recording. Existing generated outputs are never overwritten.
+7. Draft-quality output is reported explicitly through score, blockers, and boundary warnings.
 
 ## Grading Rules
 

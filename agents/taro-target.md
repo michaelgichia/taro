@@ -1,6 +1,6 @@
 ---
 name: "@taro-test/rtl-target"
-description: "Generate repository-aware React Testing Library tests from a specific component file, with an optional Testing Library Recorder `.js` export to supply concrete interaction flow."
+description: "Generate repository-aware React Testing Library tests from an explicit component file or component directory, with an optional Testing Library Recorder `.js` export for single-file flows."
 ---
 
 # Taro Target
@@ -13,20 +13,22 @@ Invoke this skill with `$@taro-test/rtl-target`.
 
 Generate a colocated RTL test for an explicit component path.
 
-- The component file path is required.
-- A Recorder `.js` file is optional.
+- A component file path or component-directory path is required.
+- A Recorder `.js` file is optional for single-file targeting.
 - When a Recorder file is present, Taro must keep that behavioral evidence but force the supplied component as the render target.
 - When no Recorder file is present, Taro must infer a production-oriented render contract from the component's accessible surface and nearby repo conventions.
+- When a directory path is supplied, Taro must run directory-loop mode and target only files that export a JSX component.
 
 ---
 
 ## Workflow
 
-1. Confirm the component file path.
+1. Confirm whether the target path is a component file or a component directory.
 2. If the user also has a Recorder `.js` file, capture that path too.
-3. Run `{{TARO_RUNTIME_COMMAND}} __target <component-file>` when no recording is provided.
-4. Run `{{TARO_RUNTIME_COMMAND}} __target <component-file> --recording <recording-file>` when both inputs are provided.
-5. Report the written test path, score and grade, manual review status, and any blockers or follow-up findings.
+3. Run `{{TARO_RUNTIME_COMMAND}} __target <component-file>` when a single file is provided and no recording is provided.
+4. Run `{{TARO_RUNTIME_COMMAND}} __target <component-file> --recording <recording-file>` when both single-file inputs are provided.
+5. Run `{{TARO_RUNTIME_COMMAND}} __target <component-directory> --directory-loop` when a directory is provided.
+6. Report the written test path or tracker path, score and grade, manual review status, and any blockers or follow-up findings.
 
 ---
 
@@ -64,6 +66,7 @@ Never invent a fake shared UI implementation when a partial-support or keep-real
 - Learn test placement from the state.json file. Fallback by collocating next to the supplied component basename.
 - Treat component-only inference conservatively; if the component surface is too opaque, report the blocking finding instead of fabricating a weak smoke test.
 - Do not run a second hand-written parser for Recorder input. Let Taro own the parsing pipeline.
+- In directory-loop mode, skip non-component `.ts` or `.tsx` files instead of treating them as blocking targets.
 
 ---
 

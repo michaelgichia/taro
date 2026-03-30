@@ -8,24 +8,17 @@ import pc from "picocolors";
 
 import { auditBoundaryPolicy } from "#cli/commands/boundary-policy.ts";
 import { applyRepoRenderTarget } from "#cli/commands/context-selection.ts";
-import {
-  createDirectoryLoopTracker,
-  type DirectoryLoopTracker,
-  readDirectoryLoopTracker,
-  updateDirectoryLoopTrackerStatus,
-  writeDirectoryLoopTracker,
-} from "#cli/commands/target-directory-tracker.ts";
 import { flushFindings } from "#cli/commands/generate-findings.ts";
 import { toImportPath } from "#cli/commands/generate-paths.ts";
 import {
   finalizeGeneratedOutput,
   maybeAnalyzeMocks,
 } from "#cli/commands/generate-postprocess.ts";
+import { getPrimarySelector } from "#cli/commands/generate-recording.ts";
 import {
   emitLowConfidenceBanner,
   logScore,
 } from "#cli/commands/generate-reporting.ts";
-import { getPrimarySelector } from "#cli/commands/generate-recording.ts";
 import { logToStderr as log } from "#cli/commands/log.ts";
 import {
   assessOutputAgainstRecording,
@@ -37,6 +30,13 @@ import {
   reconcileExistingOutput,
 } from "#cli/commands/output-reconciliation.ts";
 import { resolveJsGeneration } from "#cli/commands/selector-resolution.ts";
+import {
+  createDirectoryLoopTracker,
+  type DirectoryLoopTracker,
+  readDirectoryLoopTracker,
+  updateDirectoryLoopTrackerStatus,
+  writeDirectoryLoopTracker,
+} from "#cli/commands/target-directory-tracker.ts";
 import {
   hasInteractiveVisualAuthCapability,
   maybeCaptureVisualState,
@@ -50,7 +50,10 @@ import {
   planBoundarySupport,
 } from "#core/boundary-support.ts";
 import { loadComponentScoreContext } from "#core/component-score-context.ts";
-import { inferComponentTargetPlan } from "#core/component-targeting.ts";
+import {
+  inferComponentTargetPlan,
+  resolveComponentDefinitionFromSource,
+} from "#core/component-targeting.ts";
 import type { Finding } from "#core/findings-reporter.ts";
 import { emitQuerySummary, generateTestFromGroups } from "#core/generator.ts";
 import { loadInput } from "#core/input-loader.ts";
@@ -392,6 +395,32 @@ async function collectSourceFiles(dirPath: string): Promise<string[]> {
       (filePath) => isSupportedSourceFile(filePath) && !isTestFilePath(filePath)
     )
     .sort();
+}
+
+async function collectComponentSourceFiles(
+  dirPath: string
+): Promise<{ skippedFiles: string[]; sourceFiles: string[] }> {
+  const sourceFiles = await collectSourceFiles(dirPath);
+  const componentSourceFiles: string[] = [];
+  const skippedFiles: string[] = [];
+
+  for (const filePath of sourceFiles) {
+    const source = await readFile(filePath, "utf-8").catch(() => null);
+    const fallbackName =
+      basename(filePath).replace(/\.[cm]?[jt]sx?$/u, "") || "Component";
+    const definition =
+      source === null
+        ? null
+        : resolveComponentDefinitionFromSource(source, fallbackName);
+
+    if (definition) {
+      componentSourceFiles.push(filePath);
+    } else {
+      skippedFiles.push(filePath);
+    }
+  }
+
+  return { skippedFiles, sourceFiles: componentSourceFiles };
 }
 
 async function generateForFile(params: {
@@ -1016,12 +1045,13 @@ export function createTargetCommand(
             process.exit(2);
           }
 
-          const sourceFiles = await collectSourceFiles(componentPath);
+          const { skippedFiles, sourceFiles } =
+            await collectComponentSourceFiles(componentPath);
 
           if (sourceFiles.length === 0) {
             log(
               pc.yellow(
-                `[taro] No component source files found in: ${componentPath}`
+                `[taro] No JSX component source files found in: ${componentPath}`
               )
             );
             flushFindings([]);
@@ -1036,6 +1066,12 @@ export function createTargetCommand(
           await writeDirectoryLoopTracker(tracker);
 
           log(pc.dim("[taro]") + " Directory loop mode enabled");
+          if (skippedFiles.length > 0) {
+            log(
+              pc.dim("[taro]") +
+                ` Skipping ${skippedFiles.length} non-component source file${skippedFiles.length === 1 ? "" : "s"} in ${componentPath}`
+            );
+          }
           log(
             pc.dim("[taro]") + ` Directory loop tracker: ${tracker.trackerPath}`
           );

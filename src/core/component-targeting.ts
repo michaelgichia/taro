@@ -349,6 +349,23 @@ export function resolveComponentDefinitionFromAst(
   };
 }
 
+export function resolveComponentDefinitionFromSource(
+  source: string,
+  defaultNameFallback: string
+): ComponentDefinition | null {
+  let ast: t.File;
+  try {
+    ast = babelParser.parse(source, {
+      sourceType: "module",
+      plugins: AST_PLUGINS,
+    });
+  } catch {
+    return null;
+  }
+
+  return resolveComponentDefinitionFromAst(ast, defaultNameFallback);
+}
+
 function buildBoundaryImports(ast: t.File): string[] {
   const imports = new Set<string>();
 

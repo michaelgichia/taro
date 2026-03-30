@@ -382,6 +382,30 @@ describe("createTargetCommand", () => {
     expect(result.stdout).toContain("opaque child components");
   });
 
+  it("blocks single-file targets that do not export a JSX component", async () => {
+    const root = await createSandbox("non-component-file");
+    const modulePath = join(root, "src", "reviewTotals.ts");
+    await mkdir(dirname(modulePath), { recursive: true });
+    await writeFile(
+      modulePath,
+      [
+        "export function reviewTotals(values: number[]) {",
+        "  return values.reduce((total, value) => total + value, 0)",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+
+    const result = await runTarget([modulePath], root);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("[BLOCKING] component-target");
+    expect(result.stdout).toContain(
+      "could not resolve an exported JSX component"
+    );
+  });
+
   it("rejects test files as target inputs", async () => {
     const root = await createSandbox("reject-test-file");
     const componentPath = join(root, "src", "CheckoutForm.test.tsx");
@@ -488,6 +512,49 @@ describe("createTargetCommand", () => {
     expect(result.thrown).toBeUndefined();
     expect(result.exitCode).toBe(0);
     expect(result.logs).toContain("Processing 1 pending component file");
+  });
+
+  it("skips non-component source files when scanning a directory", async () => {
+    const root = await createSandbox("dir-skip-non-components");
+    const srcDir = join(root, "src");
+    const calls: string[] = [];
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "Button.tsx"),
+      [
+        "export default function Button() {",
+        "  return <button>Click me</button>",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+    await writeFile(
+      join(srcDir, "constants.ts"),
+      "export const TAX_RATE = 0.05\n",
+      "utf-8"
+    );
+
+    const result = await runTarget([srcDir, "--directory-loop"], root, {
+      runDirectoryLoopComponent: async ({ componentPath }) => {
+        calls.push(componentPath);
+        await writeFile(
+          join(srcDir, "Button.test.tsx"),
+          "describe('Button', () => {})\n",
+          "utf-8"
+        );
+        return { exitCode: 0 };
+      },
+    });
+    const tracker = await readDirectoryTracker(result.logs);
+
+    expect(result.exitCode).toBe(0);
+    expect(calls).toEqual(["src/Button.tsx"]);
+    expect(result.logs).toContain("Skipping 1 non-component source file");
+    expect(tracker).toContain(
+      "| completed | src/Button.tsx | src/Button.test.tsx |"
+    );
+    expect(tracker).not.toContain("constants.ts");
   });
 
   it("skips already-tested components when building the directory loop tracker", async () => {
@@ -672,7 +739,7 @@ describe("createTargetCommand", () => {
     const result = await runTarget([srcDir, "--directory-loop"], root);
 
     expect(result.exitCode).toBe(0);
-    expect(result.logs).toContain("No component source files found");
+    expect(result.logs).toContain("No JSX component source files found");
   });
 
   it("rejects directory input unless --directory-loop is passed", async () => {

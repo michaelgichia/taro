@@ -259,6 +259,9 @@ describe("buildCodexOperations", () => {
     expect(targetSkill).toContain(
       `Run \`${target.runtimeCommand} __target <component-file>\``
     );
+    expect(targetSkill).toContain(
+      `Run \`${target.runtimeCommand} __target <component-directory> --directory-loop\``
+    );
 
     const installedGenerateReferences = (
       await readdir(
