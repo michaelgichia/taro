@@ -4,7 +4,11 @@ import { spawnSync } from "node:child_process";
 import { rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+
+import { runInstallOrExit, shouldRunAsMain } from "./script-runtime-utils.js";
+
+export { runInstallOrExit, shouldRunAsMain };
 
 export function getClaudeBuildPaths(rootDir, homeDirectory = homedir()) {
   return {
@@ -27,26 +31,6 @@ export function getClaudeBuildPaths(rootDir, homeDirectory = homedir()) {
       "rtl"
     ),
   };
-}
-
-export function runInstallOrExit(args, options) {
-  const {
-    spawnImpl,
-    nodeBin,
-    installEntrypoint,
-    rootDir,
-    env,
-    exit = process.exit,
-  } = options;
-  const result = spawnImpl(nodeBin, [installEntrypoint, ...args], {
-    cwd: rootDir,
-    stdio: "inherit",
-    env,
-  });
-
-  if (result.status !== 0) {
-    exit(result.status ?? 1);
-  }
 }
 
 export async function runClaudeBuild(options = {}) {
@@ -104,11 +88,4 @@ export async function runClaudeBuild(options = {}) {
   log("[taro] Claude build/install complete.");
 }
 
-export function shouldRunAsMain(
-  argv1 = process.argv[1],
-  moduleUrl = import.meta.url
-) {
-  return Boolean(argv1 && moduleUrl === pathToFileURL(argv1).href);
-}
-
-if (shouldRunAsMain()) await runClaudeBuild();
+if (shouldRunAsMain(process.argv[1], import.meta.url)) await runClaudeBuild();

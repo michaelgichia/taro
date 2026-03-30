@@ -1,3 +1,18 @@
+/**
+ * Resolves recording evidence into browser-backed test artifacts for generation flows.
+ *
+ * This module sits on the path from normalized recordings to generated RTL output.
+ * It upgrades raw selectors into accessible queries, replays steps against a live
+ * Playwright page, captures visual state for auth and screenshot flows, and turns
+ * semantic marker metadata into planned assertions. The main production callers are
+ * `resolveJsGeneration()` in `src/cli/commands/selector-resolution.ts`,
+ * `captureVisualStateForRecording()` in `src/cli/commands/visual-auth.ts`, and
+ * `planJsSuite()` in `src/core/suite-planner.ts`.
+ *
+ * Side effects: launches Playwright browsers and contexts, navigates live pages,
+ * reads DOM state, writes screenshots and storage state when capture or auth recovery
+ * is enabled, and emits warning output for some degraded resolution paths.
+ */
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
@@ -18,6 +33,50 @@ import {
   isTextQueryMethod,
   toSingularAsyncQueryMethod,
 } from "#core/query-policy.ts";
+import {
+  AUTH_COPY_PATTERN,
+  FIELD_LABEL_HINT_PATTERN,
+  GENERIC_FIELD_CONTEXT_PATTERN,
+  PLAYWRIGHT_AUTH_RECOVERY_POLL_MS,
+  PLAYWRIGHT_AUTH_RECOVERY_RETRY_LIMIT,
+  PLAYWRIGHT_CAPTURE_FAILURE_PREFIX,
+  PLAYWRIGHT_OPEN_RETRY_DELAY_MS,
+  PLAYWRIGHT_OPEN_RETRY_LIMIT,
+  PLAYWRIGHT_PAGE_CONFIRMATION_POLL_MS,
+  PLAYWRIGHT_SELECTOR_INSPECTION_ERROR_PREFIX,
+  PLAYWRIGHT_STEP_REPLAY_TIMEOUT_MS,
+  ROLE_MAP,
+} from "#core/resolver.constants.ts";
+import type {
+  CaptureVisualStateAuthOptions,
+  CaptureVisualStateExpectations,
+  CaptureVisualStateOptions,
+  CaptureVisualStateRecoveryOptions,
+  PageInspector,
+  ReplayStepDebugTrace,
+  ReplayStepResult,
+  ResolvedStepLocator,
+  ResolveSelectorOptions,
+  SelectorInspectionResult,
+  SkippedReplaySelector,
+  VisualPageSnapshot,
+} from "#core/resolver.types.ts";
+import {
+  escapeSingleQuote,
+  formatQueryDescriptorForDebug,
+  getErrorMessage,
+  isRetryablePlaywrightOpenError,
+  normalizeComparableText,
+  resolveElementProbeLocator,
+  sanitizeCaptureSegment,
+  waitForRetryDelay,
+} from "#core/resolver.utils.ts";
+import {
+  getSemanticMarkerCandidate,
+  getSemanticMarkerLink,
+  getUnresolvedSemanticMarker,
+} from "#core/semantic-marker-utils.ts";
+import { isIconOnlyText, normalizeProofText } from "#core/string-utils.ts";
 import type {
   DialogState,
   ElementInfo,
@@ -36,144 +95,15 @@ import type {
   SemanticMarkerAssertionResolution,
   SemanticMarkerAssertionUnresolvedReason,
   SemanticMarkerCandidate,
-  SemanticMarkerLink,
-  StepId,
   UnresolvedSemanticMarker,
   VisualState,
 } from "#types/recording.ts";
-import type { TaroPlaywrightAuthStrategy } from "#types/state.ts";
 
-/**
- * Maps HTML tag names to implied ARIA roles.
- * Used by deriveAccessibleQuery to determine accessible query method.
- */
-const ROLE_MAP: Record<string, string> = {
-  button: "button",
-  a: "link",
-  input: "textbox",
-  select: "combobox",
-  textarea: "textbox",
-  h1: "heading",
-  h2: "heading",
-  h3: "heading",
-  h4: "heading",
-  h5: "heading",
-  h6: "heading",
-  img: "img",
-};
-
-const GENERIC_FIELD_CONTEXT_PATTERN =
-  /\b(details?|information|summary|review|section|panel|wrapper|container|layout|row|table|list|grid)\b/i;
-
-const FIELD_LABEL_HINT_PATTERN =
-  /\b(name|email|phone|pin|quantity|amount|reference|description|notes?|comment|code|search|address|date|time|password|customer|type|number)\b/i;
-const AUTH_COPY_PATTERN =
-  /\b(sign in|log in|continue with|single sign-on|sso|password|verification code|one-time code|two-factor|2fa|multi-factor|mfa|confirm it'?s you)\b/i;
-
-const PLAYWRIGHT_CAPTURE_FAILURE_PREFIX = "Playwright visual capture failed.";
-const PLAYWRIGHT_SELECTOR_INSPECTION_ERROR_PREFIX =
-  "Playwright selector inspection failed.";
-const PLAYWRIGHT_AUTH_RECOVERY_POLL_MS = 1000;
-const PLAYWRIGHT_AUTH_RECOVERY_RETRY_LIMIT = 5;
-const PLAYWRIGHT_PAGE_CONFIRMATION_POLL_MS = 250;
-const PLAYWRIGHT_OPEN_RETRY_LIMIT = 3;
-const PLAYWRIGHT_OPEN_RETRY_DELAY_MS = 2000;
-const PLAYWRIGHT_STEP_REPLAY_TIMEOUT_MS = 5000;
-
-/**
- * Escapes single quotes in strings for use in generated query code.
- */
-function escapeSingleQuote(str: string): string {
-  return str.replace(/'/g, "\\'");
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Unknown error";
-}
-
-function looksLikeCssSelector(target: string): boolean {
-  const normalized = target.trim();
-  if (!normalized) {
-    return false;
-  }
-
-  const descendantTagSelector = normalized.split(/\s+/);
-  if (
-    descendantTagSelector.length > 1 &&
-    descendantTagSelector.every((segment) => /^[a-z][a-z0-9-]*$/.test(segment))
-  ) {
-    return true;
-  }
-
-  return (
-    /^[#.[]/.test(normalized) ||
-    /^[a-z][a-z0-9-]*(?:[.#[:>+~])/.test(normalized) ||
-    /^(button|input|select|textarea|a|img|h[1-6])$/.test(normalized) ||
-    /^(css|xpath|text|id|data-testid|data-test-id|role)=/i.test(normalized)
-  );
-}
-
-function resolveElementProbeLocator(
-  page: Page,
-  selector: string
-): import("playwright").Locator {
-  if (looksLikeCssSelector(selector)) {
-    return page.locator(selector).first();
-  }
-
-  // Visual-state probes sometimes receive recorder target text such as
-  // "Add Item". Treat those as visible-text checks instead of CSS.
-  return page.getByText(selector, { exact: true }).first();
-}
-
-function isRetryablePlaywrightOpenError(error: unknown): boolean {
-  const message = getErrorMessage(error);
-
-  return (
-    /Target page, context or browser has been closed/i.test(message) ||
-    /Timeout \d+ms exceeded/i.test(message) ||
-    /net::ERR_CONNECTION_REFUSED/i.test(message) ||
-    /ERR_ABORTED/i.test(message)
-  );
-}
-
-async function waitForRetryDelay(delayMs: number): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, delayMs));
-}
-
-interface FoundSelectorInspectionResult {
-  status: "found";
-  element: ElementInfo;
-}
-
-interface MissingSelectorInspectionResult {
-  status: "selector-not-found";
-}
-
-interface FailedSelectorInspectionResult {
-  status: "inspection-failed";
-  error: string;
-}
-
-type SelectorInspectionResult =
-  | FoundSelectorInspectionResult
-  | MissingSelectorInspectionResult
-  | FailedSelectorInspectionResult;
-
-interface ResolveSelectorOptions {
-  debug?: {
-    inspectSource?: SelectorResolutionInspectSource;
-    phase?: SelectorResolutionPhase;
-  };
-  url?: string;
-  preservedQuery?: QueryDescriptor;
-  timeoutMs?: number;
-  inspect?: (
-    url: string,
-    cssSelector: string,
-    timeoutMs?: number
-  ) => Promise<SelectorInspectionResult>;
-}
+export type {
+  CaptureVisualStateAuthOptions,
+  ReplayLocatorSource,
+  ReplayStepDebugTrace,
+} from "#core/resolver.types.ts";
 
 async function readElementInfo(
   page: Page,
@@ -306,33 +236,6 @@ function toUnresolvedSelectorResult(
   };
 }
 
-function sanitizeCaptureSegment(value: string): string {
-  return (
-    value.replace(/[^a-zA-Z0-9-_]+/g, "-").replace(/^-+|-+$/g, "") || "capture"
-  );
-}
-
-function formatQueryDescriptorForDebug(query: {
-  method: string;
-  target?: string;
-  role?: string;
-  name?: string;
-}): string {
-  if (query.method === "getByRole" && query.role) {
-    const parts = [`'${query.role}'`];
-    if (query.name) {
-      parts.push(`{ name: '${escapeSingleQuote(query.name)}' }`);
-    }
-    return `${query.method}(${parts.join(", ")})`;
-  }
-
-  if (query.target) {
-    return `${query.method}('${escapeSingleQuote(query.target)}')`;
-  }
-
-  return `${query.method}()`;
-}
-
 function buildSelectorResolutionDebugInfo(
   selector: SelectorDescriptor,
   options: {
@@ -355,71 +258,6 @@ function buildSelectorResolutionDebugInfo(
     reason: options.reason,
     result: options.result,
   };
-}
-
-function getSemanticMarkerCandidate(
-  step: NormalizedStep
-): SemanticMarkerCandidate | undefined {
-  const metadataCandidate = step.metadata?.semanticMarkerCandidate;
-
-  if (
-    metadataCandidate &&
-    typeof metadataCandidate === "object" &&
-    "stepId" in metadataCandidate &&
-    typeof metadataCandidate.stepId === "string"
-  ) {
-    return metadataCandidate as SemanticMarkerCandidate;
-  }
-
-  return step.semanticMarkerCandidate;
-}
-
-function getSemanticMarkerLink(
-  step: NormalizedStep
-): SemanticMarkerLink | undefined {
-  const metadataLink = step.metadata?.semanticMarkerLink;
-
-  if (
-    metadataLink &&
-    typeof metadataLink === "object" &&
-    "markerStepId" in metadataLink &&
-    typeof metadataLink.markerStepId === "string"
-  ) {
-    return metadataLink as SemanticMarkerLink;
-  }
-
-  return step.semanticMarkerLink;
-}
-
-function getUnresolvedSemanticMarker(
-  step: NormalizedStep
-): UnresolvedSemanticMarker | undefined {
-  const metadataMarker = step.metadata?.unresolvedSemanticMarker;
-
-  if (
-    metadataMarker &&
-    typeof metadataMarker === "object" &&
-    "stepId" in metadataMarker &&
-    typeof metadataMarker.stepId === "string"
-  ) {
-    return metadataMarker as UnresolvedSemanticMarker;
-  }
-
-  return step.unresolvedSemanticMarker;
-}
-
-function normalizeProofText(value?: string): string | undefined {
-  const normalized = value?.replace(/\s+/g, " ").trim();
-  return normalized ? normalized : undefined;
-}
-
-function isIconOnlyText(value?: string): boolean {
-  const normalized = normalizeProofText(value);
-  if (!normalized) {
-    return false;
-  }
-
-  return normalized.length <= 2 && !/[a-z0-9]/i.test(normalized);
 }
 
 function getQueryScope(query: QueryDescriptor): string {
@@ -873,10 +711,6 @@ export async function extractDialogState(
   }
 }
 
-function normalizeComparableText(value?: string | null): string {
-  return value?.replace(/\s+/g, " ").trim().toLowerCase() ?? "";
-}
-
 export function urlsMateriallyDiffer(
   expectedUrl?: string,
   actualUrl?: string
@@ -1082,42 +916,6 @@ async function capturePageScreenshot(
   const screenshotPath = `${screenshotDir}/${sanitizeCaptureSegment(nameHint)}.png`;
   await page.screenshot({ path: screenshotPath, fullPage: true });
   return screenshotPath;
-}
-
-interface VisualPageSnapshot {
-  authCheckpoint: AuthCheckpointDetection;
-  dialog: DialogState | null;
-  element: ElementInfo | null;
-  pageTitle: string;
-}
-
-export interface CaptureVisualStateAuthOptions {
-  path: string;
-  strategy: TaroPlaywrightAuthStrategy;
-}
-
-interface CaptureVisualStateExpectations {
-  landmarks?: string[];
-  title?: string;
-  url?: string;
-}
-
-interface CaptureVisualStateRecoveryOptions {
-  enabled: boolean;
-  instructionsPath?: string;
-  persistedAuthPath?: string;
-  saveStorageStatePath?: string;
-  timeoutMs: number;
-}
-
-interface CaptureVisualStateOptions {
-  auth?: CaptureVisualStateAuthOptions | null;
-  authRecovery?: CaptureVisualStateRecoveryOptions;
-  expected?: CaptureVisualStateExpectations;
-  reason: string;
-  screenshotDir?: string;
-  selector?: string;
-  timeoutMs?: number;
 }
 
 async function openCaptureContext(
@@ -2161,46 +1959,6 @@ function queryToPlaywrightLocator(
   return null;
 }
 
-export type ReplayLocatorSource =
-  | "metadata.selector"
-  | "metadata.query"
-  | "step.target"
-  | "fill.placeholder"
-  | "none";
-
-export interface ReplayStepDebugTrace {
-  action: NormalizedAction;
-  error?: string;
-  fallbackLocators?: string[];
-  locatorSource: ReplayLocatorSource;
-  locatorValue?: string;
-  pageTitle?: string;
-  pageUrl?: string;
-  playwrightAction: string;
-  result: "replayed" | "failed" | "skipped";
-  stepId?: StepId;
-  target?: string;
-  timeoutMs: number;
-}
-
-interface ReplayStepResult {
-  debug?: ReplayStepDebugTrace;
-  replayed: boolean;
-  warning?: string;
-}
-
-interface ResolvedStepLocator {
-  locator: import("playwright").Locator | null;
-  source: ReplayLocatorSource;
-  value?: string;
-}
-
-interface SkippedReplaySelector {
-  reason: string;
-  source: ReplayLocatorSource;
-  value: string;
-}
-
 function isPlaywrightTimeoutError(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
@@ -2579,13 +2337,7 @@ export async function replayStep(
  *
  * @param page - A persistent Playwright page already at the correct DOM state
  */
-export function createPageInspector(
-  page: Page
-): (
-  url: string,
-  cssSelector: string,
-  timeoutMs?: number
-) => Promise<SelectorInspectionResult> {
+export function createPageInspector(page: Page): PageInspector {
   return async (
     _url: string,
     cssSelector: string,

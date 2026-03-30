@@ -5,27 +5,32 @@ import { cwd, stdin, stdout } from "node:process";
 import { Command } from "commander";
 import pc from "picocolors";
 
+import { auditBoundaryPolicy } from "#cli/commands/boundary-policy.ts";
+import { applyRepoRenderTarget } from "#cli/commands/context-selection.ts";
+import { flushFindings } from "#cli/commands/generate-findings.ts";
+import { toImportPath } from "#cli/commands/generate-paths.ts";
 import {
-  applyRepoRenderTarget,
+  finalizeGeneratedOutput,
+  maybeAnalyzeMocks,
+} from "#cli/commands/generate-postprocess.ts";
+import { getPrimarySelector } from "#cli/commands/generate-recording.ts";
+import { logToStderr as log } from "#cli/commands/log.ts";
+import {
   assessOutputAgainstRecording,
-  auditBoundaryPolicy,
   buildFlowCoverageSummary,
   deriveOutputPath,
-  finalizeGeneratedOutput,
-  flushFindings,
-  getPrimarySelector,
-  hasInteractiveVisualAuthCapability,
   logExistingOutputDecision,
   mapParsedQueriesToResults,
-  maybeAnalyzeMocks,
-  maybeCaptureVisualState,
   rebaseRenderHelperImportPath,
   reconcileExistingOutput,
-  resolveJsGeneration,
+} from "#cli/commands/output-reconciliation.ts";
+import { resolveJsGeneration } from "#cli/commands/selector-resolution.ts";
+import {
+  hasInteractiveVisualAuthCapability,
+  maybeCaptureVisualState,
   resolveOptionalFilePath,
   resolveVisualAuthStorageStatePath,
-  toImportPath,
-} from "#cli/commands/generate.utils.ts";
+} from "#cli/commands/visual-auth.ts";
 import { normalizeJsBaseline } from "#core/baseline-normalizer.ts";
 import {
   applyBoundarySupport,
@@ -67,10 +72,6 @@ interface CommandOptions {
   instructions?: string;
   recording?: string;
   screenshots?: boolean;
-}
-
-function log(message: string): void {
-  process.stderr.write(message + "\n");
 }
 
 function isSupportedSourceFile(filePath: string): boolean {

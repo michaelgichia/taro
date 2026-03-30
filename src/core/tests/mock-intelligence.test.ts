@@ -12,6 +12,7 @@ import {
   scanMockTargets,
 } from "#core/mock-intelligence.ts";
 import { scanConventions } from "#core/scanner.ts";
+import { __stateTestUtils } from "#core/state.ts";
 
 let testDir: string;
 
@@ -73,6 +74,78 @@ describe("deriveMockRecommendations", () => {
 });
 
 describe("analyzeMocks", () => {
+  it("matches the shared state mock-analysis helpers for repo-scan behavior", async () => {
+    const alphaPath = join(testDir, "alpha.test.ts");
+    const betaPath = join(testDir, "beta.test.ts");
+    const files = [
+      {
+        path: alphaPath,
+        content: `
+          import { describe, expect, it, vi } from 'vitest'
+
+          vi.mock('./api/orders')
+
+          describe('orders', () => {
+            it('shows loading then error', async () => {
+              const mutate = vi.fn().mockRejectedValue(new Error('failed'))
+              vi.resetAllMocks()
+              mutate.mockRejectedValueOnce(new Error('failed'))
+              expect(saveButton).toBeDisabled()
+              await expect(mutate()).rejects.toThrow('failed')
+              expect(screen.getByRole('alert')).toBeVisible()
+            })
+          })
+        `,
+      },
+      {
+        path: betaPath,
+        content: `
+          import { describe, it, vi } from 'vitest'
+
+          vi.mock('./api/orders')
+          vi.mock('./api/users')
+
+          describe('users', () => {
+            it('keeps a shared target', () => {})
+          })
+        `,
+      },
+    ];
+
+    await writeFile(alphaPath, files[0]!.content);
+    await writeFile(betaPath, files[1]!.content);
+
+    const expectedTargets = __stateTestUtils.scanMockTargetsInFiles(
+      testDir,
+      files
+    );
+    const expectedMutationLifecycles =
+      __stateTestUtils.analyzeMutationLifecycleInFiles(testDir, files);
+    const expectedWarnings = __stateTestUtils.detectMockInstabilityInFiles(
+      testDir,
+      files
+    );
+    const expectedContracts = __stateTestUtils.deriveInteractionContracts({
+      mutationLifecycles: expectedMutationLifecycles,
+      boundaryExemplars: [],
+    });
+
+    expect(await scanMockTargets(testDir)).toEqual(expectedTargets);
+    expect(await analyzeMutationLifecycle(testDir)).toEqual(
+      expectedMutationLifecycles
+    );
+    expect(await detectMockInstability(testDir)).toEqual(expectedWarnings);
+
+    const analysis = await analyzeMocks(testDir);
+
+    expect(analysis.repeatedTargets).toEqual(
+      expectedTargets.filter((target) => target.count > 1)
+    );
+    expect(analysis.mutationLifecycles).toEqual(expectedMutationLifecycles);
+    expect(analysis.instabilityWarnings).toEqual(expectedWarnings);
+    expect(analysis.interactionContracts).toEqual(expectedContracts);
+  });
+
   it("combines conventions and repeated-target analysis", async () => {
     await writeFile(
       join(testDir, "alpha.test.ts"),

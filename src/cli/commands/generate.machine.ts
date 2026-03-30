@@ -2,7 +2,11 @@
 import pc from "picocolors";
 import { assign, enqueueActions, fromPromise, setup } from "xstate";
 
-import type { GenerateMachineContext } from "#cli/commands/generate.utils.ts";
+import {
+  formatContextMatchesSummary,
+  summarizePageConfirmedContext,
+} from "#cli/commands/context-selection.ts";
+import { summarizeCleanup } from "#cli/commands/generate-recording.ts";
 import {
   emitLowConfidenceBanner,
   emitMarkerCoverageSection,
@@ -10,27 +14,59 @@ import {
   emitRecoveredMarkerDiagnostics,
   emitScoreHints,
   emitUnresolvedMarkerWarnings,
-  formatContextMatchesSummary,
-  generateMachineGuards,
-  logExistingOutputDecision,
   logScore,
-  summarizeAuthPreflight,
   summarizeBoundaryWarnings,
-  summarizeCleanup,
   summarizeMockAnalysis,
-  summarizePageConfirmedContext,
-  summarizePlaywrightAuth,
   summarizeResolvedPackageProfile,
-  summarizeSelectorWarnings,
   summarizeSuiteContracts,
+} from "#cli/commands/generate-reporting.ts";
+import type { GenerateMachineContext } from "#cli/commands/generate-runtime-types.ts";
+import { logToStderr as log } from "#cli/commands/log.ts";
+import { logExistingOutputDecision } from "#cli/commands/output-reconciliation.ts";
+import { summarizeSelectorWarnings } from "#cli/commands/selector-resolution.ts";
+import {
+  summarizeAuthPreflight,
+  summarizePlaywrightAuth,
   summarizeVisualState,
-} from "#cli/commands/generate.utils.ts";
-
-function log(msg: string): void {
-  process.stderr.write(msg + "\n");
-}
+} from "#cli/commands/visual-auth.ts";
 
 type CtxArg = { context: GenerateMachineContext };
+
+const generateMachineGuards = {
+  isProfileStale: ({
+    context,
+    event,
+  }: {
+    context: GenerateMachineContext;
+    event: any;
+  }) => Boolean(event.output?.staleness?.stale ?? context.staleness?.stale),
+
+  shouldWrite: ({
+    context,
+    event,
+  }: {
+    context: GenerateMachineContext;
+    event: any;
+  }) => {
+    return Boolean(
+      event.output?.outputResolution?.shouldWrite ??
+      context.outputResolution?.shouldWrite
+    );
+  },
+
+  shouldKeepExisting: ({
+    context,
+    event,
+  }: {
+    context: GenerateMachineContext;
+    event: any;
+  }) => {
+    return (
+      !event.output?.outputResolution?.shouldWrite &&
+      !context.outputResolution?.shouldWrite
+    );
+  },
+};
 
 export type GenerateMachineActors = {
   validateFileActor: ReturnType<typeof fromPromise>;

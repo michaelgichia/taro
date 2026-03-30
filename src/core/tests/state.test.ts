@@ -2899,6 +2899,106 @@ describe("state scanning - additional coverage", () => {
     ]);
   });
 
+  it("parses aliased multiline imports for render helpers and provider wrappers", () => {
+    const testFiles = [
+      {
+        path: join(projectRoot, "src", "ast-imports.test.tsx"),
+        content: `
+          import type { WrapperProps } from "@/types"
+          import renderScene, {
+            renderWithApi as renderWithRenamedApi,
+          } from "@/tests/renderers/scene"
+          import {
+            ProviderShell as AppWrapper,
+          } from "@/tests/fixtures/providers"
+
+          renderScene(<App />)
+          renderWithRenamedApi(<App />)
+          render(<App />, {
+            wrapper: AppWrapper,
+          })
+        `,
+      },
+    ];
+
+    const renderHelpers = __stateTestUtils.collectRenderHelpers(
+      projectRoot,
+      testFiles
+    );
+    const providerWrappers = __stateTestUtils.collectProviderWrappers(
+      projectRoot,
+      testFiles
+    );
+
+    expect(renderHelpers).toHaveLength(2);
+    expect(renderHelpers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "renderScene",
+          importPath: "@/tests/renderers/scene",
+          importKind: "default",
+          sourceTestFile: "src/ast-imports.test.tsx",
+          usageCount: 1,
+        }),
+        expect.objectContaining({
+          name: "renderWithRenamedApi",
+          importPath: "@/tests/renderers/scene",
+          importKind: "named",
+          sourceTestFile: "src/ast-imports.test.tsx",
+          usageCount: 1,
+        }),
+      ])
+    );
+    expect(providerWrappers).toEqual([
+      {
+        name: "AppWrapper",
+        importPath: "@/tests/fixtures/providers",
+        sourceTestFile: "src/ast-imports.test.tsx",
+      },
+    ]);
+  });
+
+  it("discovers fixture roots and shared factories from mixed default and named imports", () => {
+    const testFiles = [
+      {
+        path: join(projectRoot, "src", "factories.test.tsx"),
+        content: `
+          import defaultFactory, {
+            buildOrderFactory as makeOrderFactory,
+          } from "@/tests/factories/orders"
+          import { orderFixtures } from "@/tests/fixtures/orders"
+
+          defaultFactory()
+          makeOrderFactory()
+          orderFixtures()
+        `,
+      },
+    ];
+
+    expect(__stateTestUtils.collectFixtureRootsFromImports(testFiles)).toEqual(
+      expect.arrayContaining([
+        { path: "@/tests/factories", kind: "factories", source: "import" },
+        { path: "@/tests/fixtures", kind: "fixtures", source: "import" },
+      ])
+    );
+    expect(
+      __stateTestUtils.collectSharedMockFactories(projectRoot, testFiles)
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          target: "defaultFactory",
+          importPath: "@/tests/factories/orders",
+          count: 1,
+        }),
+        expect.objectContaining({
+          target: "makeOrderFactory",
+          importPath: "@/tests/factories/orders",
+          count: 1,
+        }),
+      ])
+    );
+  });
+
   it("prefers higher-scored render helpers, shared factories, and exemplars when ranking learned evidence", async () => {
     const qualityIndex = __stateTestUtils.buildGeneratedTestQualityIndex(
       projectRoot,
@@ -3155,6 +3255,119 @@ describe("state scanning - additional coverage", () => {
         testFiles: [],
       })
     ).toEqual(expect.objectContaining({ value: "ts", confidence: "low" }));
+  });
+
+  it("keeps weighted convention inference stable when scores favor one convention cluster", () => {
+    const highOne = join(projectRoot, "src", "high-one.test.tsx");
+    const highTwo = join(projectRoot, "src", "high-two.test.tsx");
+    const lowOutlier = join(projectRoot, "src", "tests", "legacy.test.js");
+    const qualityIndex = __stateTestUtils.buildGeneratedTestQualityIndex(
+      projectRoot,
+      [
+        {
+          createdAt: "2026-03-20T08:00:00.000Z",
+          packagePath: ".",
+          recordingFile: "/tmp/high-one.js",
+          testFile: highOne,
+          quality: {
+            overall: 95,
+            grade: "A",
+            dimensions: makeScoreDimensions(),
+            signals: makeScoreSignals(),
+            reasons: [],
+          },
+          requiresReview: false,
+        },
+        {
+          createdAt: "2026-03-20T08:00:00.000Z",
+          packagePath: ".",
+          recordingFile: "/tmp/high-two.js",
+          testFile: highTwo,
+          quality: {
+            overall: 92,
+            grade: "A",
+            dimensions: makeScoreDimensions(),
+            signals: makeScoreSignals(),
+            reasons: [],
+          },
+          requiresReview: false,
+        },
+        {
+          createdAt: "2026-03-20T08:00:00.000Z",
+          packagePath: ".",
+          recordingFile: "/tmp/legacy.js",
+          testFile: lowOutlier,
+          quality: {
+            overall: 20,
+            grade: "F",
+            dimensions: makeScoreDimensions(),
+            signals: makeScoreSignals(),
+            reasons: [],
+          },
+          requiresReview: true,
+        },
+      ]
+    );
+    const conventionFiles = [
+      {
+        path: highOne,
+        importStyle: "esm" as const,
+        hasDescribeBlock: true,
+        mockPattern: "vi.mock" as const,
+        hasHelperWithExpect: false,
+      },
+      {
+        path: highTwo,
+        importStyle: "esm" as const,
+        hasDescribeBlock: true,
+        mockPattern: "vi.mock" as const,
+        hasHelperWithExpect: false,
+      },
+      {
+        path: lowOutlier,
+        importStyle: "cjs" as const,
+        hasDescribeBlock: true,
+        mockPattern: "jest.mock" as const,
+        hasHelperWithExpect: false,
+      },
+    ];
+
+    expect(
+      __stateTestUtils.inferWeightedImportStyle(
+        projectRoot,
+        conventionFiles,
+        qualityIndex
+      )
+    ).toEqual(
+      expect.objectContaining({
+        value: "esm",
+        evidence: expect.arrayContaining([
+          "src/high-one.test.tsx",
+          "src/high-two.test.tsx",
+        ]),
+      })
+    );
+    expect(
+      __stateTestUtils.inferWeightedMockPattern(
+        projectRoot,
+        conventionFiles,
+        qualityIndex
+      )
+    ).toEqual(expect.objectContaining({ value: "vi.mock" }));
+    expect(
+      __stateTestUtils.inferWeightedFolderPattern(
+        projectRoot,
+        conventionFiles,
+        qualityIndex
+      )
+    ).toEqual(expect.objectContaining({ value: "colocated" }));
+    expect(
+      __stateTestUtils.inferWeightedFileExtension(
+        projectRoot,
+        conventionFiles,
+        qualityIndex
+      )
+    ).toEqual(expect.objectContaining({ value: "ts" }));
   });
 
   it("emits component-preferred render boundary when all exemplars prefer component", async () => {

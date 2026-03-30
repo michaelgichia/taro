@@ -4,8 +4,57 @@ import { dirname, join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { generateCommandInternals } from "#cli/commands/generate.ts";
-import { deriveOutputPath } from "#cli/commands/generate.utils.ts";
+import { auditBoundaryPolicy } from "#cli/commands/boundary-policy.ts";
+import {
+  applyRepoRenderTarget,
+  collectVisualElementContextTerm,
+  deriveContextRenderTargets,
+  findRepoContextMatches,
+  resolvePackageProfileFromContextMatches,
+  scoreRenderTargetCandidate,
+} from "#cli/commands/context-selection.ts";
+import { flushFindings } from "#cli/commands/generate-findings.ts";
+import {
+  deriveOutputPath,
+  rebaseRenderHelperImportPath,
+  resolveImportedFilePath,
+  toProjectRelativePath,
+} from "#cli/commands/generate-paths.ts";
+import {
+  finalizeGeneratedOutput,
+  maybeAnalyzeMocks,
+} from "#cli/commands/generate-postprocess.ts";
+import {
+  buildMarkerCoverageSummary,
+  buildMarkerReviewDiagnostics,
+  collectExpectedLandmarks,
+  mergeAnalyzedStepState,
+  stripSemanticMarkerStepsFromScenarios,
+  summarizeCleanup,
+  toItGroups,
+} from "#cli/commands/generate-recording.ts";
+import {
+  emitLowConfidenceBanner,
+  emitMarkerPlacementCorrections,
+  emitRecoveredMarkerDiagnostics,
+  emitScoreHints,
+  emitUnresolvedMarkerWarnings,
+  summarizeMockAnalysis,
+} from "#cli/commands/generate-reporting.ts";
+import {
+  collectComparableTokens,
+  collectStepCoverageTokens,
+  compareOutputAssessments,
+  mapParsedQueriesToResults,
+  reconcileExistingOutput,
+} from "#cli/commands/output-reconciliation.ts";
+import {
+  dedupeQueryResults,
+  isQueryDescriptor,
+  mergeSelectorResolutionWarnings,
+  resolveJsGeneration,
+} from "#cli/commands/selector-resolution.ts";
+import { maybeCaptureVisualState } from "#cli/commands/visual-auth.ts";
 import type { Finding } from "#core/findings-reporter.ts";
 import type {
   ItGroup,
@@ -13,6 +62,45 @@ import type {
   QueryResult,
   SelectorResolutionResult,
 } from "#types/recording.ts";
+
+const generateCommandInternals = {
+  applyRepoRenderTarget,
+  auditBoundaryPolicy,
+  buildMarkerCoverageSummary,
+  buildMarkerReviewDiagnostics,
+  collectComparableTokens,
+  collectExpectedLandmarks,
+  collectStepCoverageTokens,
+  collectVisualElementContextTerm,
+  compareOutputAssessments,
+  dedupeQueryResults,
+  deriveContextRenderTargets,
+  emitLowConfidenceBanner,
+  emitMarkerPlacementCorrections,
+  emitRecoveredMarkerDiagnostics,
+  emitScoreHints,
+  emitUnresolvedMarkerWarnings,
+  finalizeGeneratedOutput,
+  findRepoContextMatches,
+  flushFindings,
+  isQueryDescriptor,
+  mapParsedQueriesToResults,
+  maybeAnalyzeMocks,
+  maybeCaptureVisualState,
+  mergeAnalyzedStepState,
+  mergeSelectorResolutionWarnings,
+  reconcileExistingOutput,
+  rebaseRenderHelperImportPath,
+  resolveImportedFilePath,
+  resolveJsGeneration,
+  resolvePackageProfileFromContextMatches,
+  scoreRenderTargetCandidate,
+  stripSemanticMarkerStepsFromScenarios,
+  summarizeCleanup,
+  summarizeMockAnalysis,
+  toItGroups,
+  toProjectRelativePath,
+};
 
 const {
   analyzeMocksMock,

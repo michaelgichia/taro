@@ -11,18 +11,51 @@ import { Command } from "commander";
 import pc from "picocolors";
 import { createActor } from "xstate";
 
-import * as actors from "#cli/commands/generate.actors.ts";
+import {
+  analyzeMocksActor,
+  analyzeRecordingActor,
+  assessOutputActor,
+  captureVisualActor,
+  finalizeActor,
+  generateCodeActor,
+  loadStateActor,
+  parseRecordingActor,
+  planGenerationActor,
+  refineProfileActor,
+  refreshProfileActor,
+  resolveSelectorsActor,
+  runHealthCommandsActor,
+  searchContextActor,
+  validateFileActor,
+  writeOutputActor,
+} from "#cli/commands/generate.actors.ts";
 import type { GenerateMachineActors } from "#cli/commands/generate.machine.ts";
 import { createGenerateMachine } from "#cli/commands/generate.machine.ts";
-import type { GenerateMachineContext } from "#cli/commands/generate.utils.ts";
-import {
-  flushFindings,
-  type SelectorDebugReporter,
-} from "#cli/commands/generate.utils.ts";
+import { flushFindings } from "#cli/commands/generate-findings.ts";
+import type { GenerateMachineContext } from "#cli/commands/generate-runtime-types.ts";
+import { type SelectorDebugReporter } from "#cli/commands/generate-runtime-types.ts";
+import { logToStderr as log } from "#cli/commands/log.ts";
 import type { ReplayStepDebugTrace } from "#core/resolver.ts";
 import type { SelectorResolutionResult } from "#types/recording.ts";
 
-export { generateCommandInternals } from "#cli/commands/generate.utils.ts";
+const generateMachineActors = {
+  validateFileActor,
+  parseRecordingActor,
+  loadStateActor,
+  captureVisualActor,
+  searchContextActor,
+  refineProfileActor,
+  refreshProfileActor,
+  analyzeRecordingActor,
+  analyzeMocksActor,
+  planGenerationActor,
+  resolveSelectorsActor,
+  generateCodeActor,
+  assessOutputActor,
+  writeOutputActor,
+  finalizeActor,
+  runHealthCommandsActor,
+} as unknown as GenerateMachineActors;
 
 interface GenerateCommandContext {
   input?: { isTTY?: boolean };
@@ -72,18 +105,6 @@ type DebugTraceRecord =
       error: string;
       url: string;
     };
-
-/**
- * Writes an operational log line to stderr.
- *
- * Stdout is reserved for the findings envelope, so callers must use this helper
- * for routine status output from the generation pipeline.
- *
- * @param {string} msg - Supplies the already-formatted message to emit as a single stderr line.
- */
-function log(msg: string): void {
-  process.stderr.write(msg + "\n");
-}
 
 /**
  * Builds a selector replay reporter that mirrors debug traces to stderr and optionally persists them as JSONL.
@@ -322,7 +343,7 @@ export function createGenerateCommand(
         context: GenerateMachineContext;
       }>((resolvePromise) => {
         const actor = createActor(
-          createGenerateMachine(actors as unknown as GenerateMachineActors),
+          createGenerateMachine(generateMachineActors),
           { input: initialContext }
         );
 

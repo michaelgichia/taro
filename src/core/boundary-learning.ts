@@ -5,7 +5,23 @@ import * as babelParser from "@babel/parser";
 import type { NodePath } from "@babel/traverse";
 import _traverse from "@babel/traverse";
 import * as t from "@babel/types";
+import { match, P } from "ts-pattern";
 
+import {
+  getObjectPropertyNames as getReturnedObjectPropertyNames,
+  getStringLiteralValue as getStringLiteral,
+} from "#core/babel-utils.ts";
+import type {
+  BoundaryImportReference,
+  BoundaryLearningResult,
+  BoundaryLearningTestFile,
+  BoundaryObservation,
+  FileBoundaryUsage,
+  ImportedBinding,
+  SupportImportReference,
+  SupportModuleMockDescriptor,
+} from "#core/boundary-learning.types.ts";
+import { isRepoOwnedImportPath as isRepoOwnedBoundaryTarget } from "#core/import-path-utils.ts";
 import type { MutationLifecyclePattern } from "#types/conventions.ts";
 import type {
   RepoRenderTargetCandidate,
@@ -25,68 +41,6 @@ import type {
 } from "#types/state.ts";
 
 const traverse = (_traverse as any).default ?? _traverse;
-
-interface BoundaryLearningTestFile {
-  path: string;
-  content: string;
-}
-
-interface BoundaryLearningResult {
-  profiles: TaroBoundaryProfile[];
-  exemplars: TaroBoundaryExemplarProfile[];
-}
-
-interface BoundaryImportReference {
-  target: string;
-  importedNames: string[];
-  kind: TaroBoundaryKind;
-  guardrailReason: TaroBoundaryGuardrailReason | null;
-}
-
-interface ImportedBinding {
-  importPath: string;
-  imported: string;
-  local: string;
-}
-
-interface SupportImportReference {
-  importPath: string;
-  resolvedPath: string | null;
-  sideEffectOnly: boolean;
-}
-
-interface SupportModuleMockDescriptor {
-  target: string;
-  kind: TaroBoundaryKind;
-  guardrailReason: TaroBoundaryGuardrailReason | null;
-  usesOriginalRuntime: boolean;
-  componentLikeSurface: boolean;
-}
-
-interface BoundaryObservation {
-  target: string;
-  kind: TaroBoundaryKind;
-  strategy: TaroBoundaryStrategy;
-  guardrailReason: TaroBoundaryGuardrailReason | null;
-  supportImportPath: string | null;
-  usesOriginalRuntime: boolean;
-  supportExports: TaroBoundaryProfile["supportExports"];
-  payloadSource: TaroBoundaryPayloadSource;
-  files: Set<string>;
-  evidence: Set<string>;
-  weight: number;
-  componentLikeSurface: boolean;
-}
-
-interface FileBoundaryUsage {
-  file: string;
-  targets: Set<string>;
-  kinds: Set<TaroBoundaryKind>;
-  usesCentralBoundarySupport: boolean;
-  usesProviderWrapper: boolean;
-  overrideStyle: TaroBoundaryExemplarProfile["overrideStyle"];
-  qualityWeight: number;
-}
 
 const AST_PLUGINS: babelParser.ParserPlugin[] = [
   "jsx",
@@ -149,10 +103,6 @@ function normalizeTarget(target: string): string {
   return target.replace(/\\/g, "/");
 }
 
-function isRepoOwnedBoundaryTarget(target: string): boolean {
-  return /^(?:\.{1,2}\/|@\/|~\/)/u.test(target);
-}
-
 function isComponentLikeExportName(name: string): boolean {
   if (name === "default") {
     return true;
@@ -203,62 +153,62 @@ export function getBoundaryGuardrailReason(
 export function classifyBoundaryKind(target: string): TaroBoundaryKind {
   const normalized = normalizeTarget(target);
 
-  if (
-    normalized === "next/navigation" ||
-    /(?:router|navigation|navigate|history)/i.test(normalized)
-  ) {
-    return "router";
-  }
-
-  if (/(?:auth|session|clerk|next-auth)/i.test(normalized)) {
-    return "auth";
-  }
-
-  if (
-    /(?:feature-flag|flag|featureFlags|launchdarkly|statsig)/i.test(normalized)
-  ) {
-    return "feature-flag";
-  }
-
-  if (
-    normalized === "fetch" ||
-    /(?:axios|graphql|trpc|rpc|rest|nock|msw|undici|fetch-mock)/i.test(
-      normalized
+  return match(normalized)
+    .with("next/navigation", () => "router" as const)
+    .with(
+      P.when((value) => /(?:router|navigation|navigate|history)/i.test(value)),
+      () => "router" as const
     )
-  ) {
-    return "network-client";
-  }
-
-  if (/(?:^|\/)(?:actions?|server-actions?)(?:\/|$)/i.test(normalized)) {
-    return "server-action";
-  }
-
-  if (
-    /(?:data-layer|query|mutation|repository|repo|api)(?:\/|$)|(?:\/api(?:\/|$))/i.test(
-      normalized
+    .with(
+      P.when((value) => /(?:auth|session|clerk|next-auth)/i.test(value)),
+      () => "auth" as const
     )
-  ) {
-    return "data-module";
-  }
-
-  if (
-    /(?:localStorage|sessionStorage|Date|Math|window|document)/i.test(
-      normalized
+    .with(
+      P.when((value) =>
+        /(?:feature-flag|flag|featureFlags|launchdarkly|statsig)/i.test(value)
+      ),
+      () => "feature-flag" as const
     )
-  ) {
-    return "env";
-  }
-
-  if (
-    normalized.startsWith("./") ||
-    normalized.startsWith("../") ||
-    normalized.startsWith("@/") ||
-    normalized.startsWith("~/")
-  ) {
-    return "local-child";
-  }
-
-  return "unknown";
+    .with("fetch", () => "network-client" as const)
+    .with(
+      P.when((value) =>
+        /(?:axios|graphql|trpc|rpc|rest|nock|msw|undici|fetch-mock)/i.test(
+          value
+        )
+      ),
+      () => "network-client" as const
+    )
+    .with(
+      P.when((value) =>
+        /(?:^|\/)(?:actions?|server-actions?)(?:\/|$)/i.test(value)
+      ),
+      () => "server-action" as const
+    )
+    .with(
+      P.when((value) =>
+        /(?:data-layer|query|mutation|repository|repo|api)(?:\/|$)|(?:\/api(?:\/|$))/i.test(
+          value
+        )
+      ),
+      () => "data-module" as const
+    )
+    .with(
+      P.when((value) =>
+        /(?:localStorage|sessionStorage|Date|Math|window|document)/i.test(value)
+      ),
+      () => "env" as const
+    )
+    .with(
+      P.when(
+        (value) =>
+          value.startsWith("./") ||
+          value.startsWith("../") ||
+          value.startsWith("@/") ||
+          value.startsWith("~/")
+      ),
+      () => "local-child" as const
+    )
+    .otherwise(() => "unknown" as const);
 }
 
 function inferPayloadSource(
@@ -290,19 +240,6 @@ function createEmptySupportExports(): TaroBoundaryProfile["supportExports"] {
     spyExports: [],
     fixtureExports: [],
   };
-}
-
-function getStringLiteral(node: t.Node | null | undefined): string | null {
-  if (!node) {
-    return null;
-  }
-  if (t.isStringLiteral(node)) {
-    return node.value;
-  }
-  if (t.isTemplateLiteral(node) && node.expressions.length === 0) {
-    return node.quasis[0]?.value.cooked ?? null;
-  }
-  return null;
 }
 
 function getMockTarget(path: NodePath<t.CallExpression>): string | null {
@@ -926,63 +863,51 @@ function inferStrategy(params: {
 }
 
 function getReturnedObjectExpression(
-  factory: t.Expression | t.SpreadElement | t.ArgumentPlaceholder | undefined
+  factory:
+    | t.Expression
+    | t.FunctionDeclaration
+    | t.SpreadElement
+    | t.ArgumentPlaceholder
+    | undefined
 ): t.ObjectExpression | null {
-  if (!factory) {
+  const findReturnedObjectExpression = (
+    statements: t.Statement[]
+  ): t.ObjectExpression | null => {
+    for (const statement of statements) {
+      const returnedObject = match(statement)
+        .with(
+          { type: "ReturnStatement", argument: { type: "ObjectExpression" } },
+          (returnStatement) => returnStatement.argument
+        )
+        .otherwise(() => null);
+      if (returnedObject) {
+        return returnedObject;
+      }
+    }
+
     return null;
-  }
-  if (t.isArrowFunctionExpression(factory)) {
-    if (t.isObjectExpression(factory.body)) {
-      return factory.body;
-    }
-    if (t.isBlockStatement(factory.body)) {
-      for (const statement of factory.body.body) {
-        if (
-          t.isReturnStatement(statement) &&
-          t.isObjectExpression(statement.argument)
-        ) {
-          return statement.argument;
-        }
-      }
-    }
-  }
-  if (t.isFunctionExpression(factory) || t.isFunctionDeclaration(factory)) {
-    for (const statement of factory.body.body) {
-      if (
-        t.isReturnStatement(statement) &&
-        t.isObjectExpression(statement.argument)
-      ) {
-        return statement.argument;
-      }
-    }
-  }
-  return null;
-}
+  };
 
-function getReturnedObjectPropertyNames(
-  node: t.ObjectExpression | null
-): string[] {
-  if (!node) {
-    return [];
-  }
-
-  const names = new Set<string>();
-  for (const property of node.properties) {
-    if (t.isObjectProperty(property)) {
-      if (t.isIdentifier(property.key)) {
-        names.add(property.key.name);
-      } else if (t.isStringLiteral(property.key)) {
-        names.add(property.key.value);
-      }
-      continue;
-    }
-
-    if (t.isObjectMethod(property) && t.isIdentifier(property.key)) {
-      names.add(property.key.name);
-    }
-  }
-
-  return [...names].sort();
+  return match(factory)
+    .with(P.nullish, () => null)
+    .with(
+      { type: "ArrowFunctionExpression", body: { type: "ObjectExpression" } },
+      (arrowFunction) => arrowFunction.body
+    )
+    .with({ type: "ArrowFunctionExpression" }, (arrowFunction) =>
+      match(arrowFunction.body)
+        .with({ type: "BlockStatement" }, (body) =>
+          findReturnedObjectExpression(body.body)
+        )
+        .otherwise(() => null)
+    )
+    .with({ type: "FunctionExpression" }, (functionNode) =>
+      findReturnedObjectExpression(functionNode.body.body)
+    )
+    .with({ type: "FunctionDeclaration" }, (functionNode) =>
+      findReturnedObjectExpression(functionNode.body.body)
+    )
+    .otherwise(() => null);
 }
 
 function inferRenderBoundary(

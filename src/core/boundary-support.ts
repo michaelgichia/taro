@@ -22,7 +22,7 @@ interface BoundarySupportFilePlan {
   lowConfidence: boolean;
 }
 
-export interface BoundarySupportPlan {
+interface BoundarySupportPlan {
   importLines: string[];
   mockBlocks: string[];
   runner?: TaroTestRunner;

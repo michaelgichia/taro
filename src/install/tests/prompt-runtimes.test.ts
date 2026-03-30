@@ -1,15 +1,7 @@
-import {
-  access,
-  copyFile,
-  mkdtemp,
-  readdir,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { access, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -19,13 +11,11 @@ import { buildClaudeRuntimeOperations } from "#install/runtimes/claude.ts";
 import { buildGeminiRuntimeOperations } from "#install/runtimes/gemini.ts";
 import { buildOpenCodeRuntimeOperations } from "#install/runtimes/opencode.ts";
 import { buildPromptRuntimeOperations } from "#install/runtimes/prompt-runtimes.ts";
-import type {
-  InstallFileOperation,
-  InstallLocation,
-  InstallSelection,
-  RuntimeLocationSelections,
-  RuntimeTarget,
-} from "#install/types.ts";
+import {
+  createSingleRuntimeSelection as createSelection,
+  materializeOperations,
+} from "#install/tests/test-utils.ts";
+import type { InstallLocation, RuntimeTarget } from "#install/types.ts";
 
 const tempRoots: string[] = [];
 
@@ -37,18 +27,6 @@ afterEach(async () => {
   );
 });
 
-function createSelection(
-  runtime: RuntimeTarget,
-  location: InstallLocation
-): InstallSelection {
-  return {
-    mode: "non-interactive",
-    runtimes: [runtime],
-    locations: { [runtime]: location } as RuntimeLocationSelections,
-    source: "flags",
-  };
-}
-
 async function createInstallContext(): Promise<{ cwd: string; home: string }> {
   const root = await mkdtemp(join(tmpdir(), "taro-install-"));
   const cwd = join(root, "project");
@@ -59,19 +37,6 @@ async function createInstallContext(): Promise<{ cwd: string; home: string }> {
   await mkdir(home, { recursive: true });
 
   return { cwd, home };
-}
-
-async function materializeOperations(
-  operations: InstallFileOperation[]
-): Promise<void> {
-  for (const operation of operations) {
-    await mkdir(dirname(operation.targetPath), { recursive: true });
-    if (operation.renderedContent != null) {
-      await writeFile(operation.targetPath, operation.renderedContent);
-    } else {
-      await copyFile(operation.sourcePath, operation.targetPath);
-    }
-  }
 }
 
 async function expectFile(path: string): Promise<string> {

@@ -16,6 +16,7 @@ import {
   isSupportedTestingLibraryQueryMethod,
   isTextQueryMethod,
 } from "#core/query-policy.ts";
+import { normalizeProofText } from "#core/string-utils.ts";
 import {
   type AssertionDescriptor,
   createStepId,
@@ -457,11 +458,6 @@ function resolveTarget(
   }
 
   return {};
-}
-
-function normalizeProofText(value?: string): string | undefined {
-  const normalized = value?.replace(/\s+/g, " ").trim();
-  return normalized ? normalized : undefined;
 }
 
 function looksLikeConcreteValue(value?: string): boolean {

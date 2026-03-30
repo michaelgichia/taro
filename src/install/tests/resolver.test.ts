@@ -4,22 +4,7 @@ import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { resolveInstallTargets } from "#install/resolver.ts";
-import type {
-  InstallSelection,
-  RuntimeLocationSelections,
-} from "#install/types.ts";
-
-function createSelection(
-  runtime: keyof RuntimeLocationSelections,
-  location: RuntimeLocationSelections[keyof RuntimeLocationSelections]
-): InstallSelection {
-  return {
-    mode: "non-interactive",
-    runtimes: [runtime],
-    locations: { [runtime]: location } as RuntimeLocationSelections,
-    source: "flags",
-  };
-}
+import { createSingleRuntimeSelection as createSelection } from "#install/tests/test-utils.ts";
 
 describe("resolveInstallTargets", () => {
   it("uses process.cwd() when cwd is omitted for local installs", () => {

@@ -3,6 +3,11 @@ import {
   isPlaceholderTextQueryMethod,
   isTextQueryMethod,
 } from "#core/query-policy.ts";
+import {
+  getSemanticMarkerCandidate,
+  hasLinkedSemanticMarker,
+} from "#core/semantic-marker-utils.ts";
+import { isIconOnlyText, normalizeProofText } from "#core/string-utils.ts";
 import type {
   AnalyzedRecording,
   IntentGroup,
@@ -127,23 +132,6 @@ function isCursorWanderStep(step: NormalizedStep): boolean {
 function normalizedTarget(target?: string): string | undefined {
   const trimmed = target?.trim();
   return trimmed ? trimmed : undefined;
-}
-
-function getSemanticMarkerCandidate(
-  step: NormalizedStep
-): SemanticMarkerCandidate | undefined {
-  const metadataCandidate = step.metadata?.semanticMarkerCandidate;
-
-  if (
-    metadataCandidate &&
-    typeof metadataCandidate === "object" &&
-    "stepId" in metadataCandidate &&
-    typeof metadataCandidate.stepId === "string"
-  ) {
-    return metadataCandidate as SemanticMarkerCandidate;
-  }
-
-  return step.semanticMarkerCandidate;
 }
 
 function isSemanticMarkerGesture(step: NormalizedStep): boolean {
@@ -343,20 +331,6 @@ function applySemanticMarkerState(
   };
 }
 
-function normalizeProofText(value?: string): string | undefined {
-  const normalized = value?.replace(/\s+/g, " ").trim();
-  return normalized ? normalized : undefined;
-}
-
-function isIconOnlyText(value?: string): boolean {
-  const normalized = normalizeProofText(value);
-  if (!normalized) {
-    return false;
-  }
-
-  return normalized.length <= 2 && !/[a-z0-9]/i.test(normalized);
-}
-
 function isResolvableFieldContextCandidate(
   candidate: SemanticMarkerCandidate
 ): boolean {
@@ -496,10 +470,6 @@ function isSameClickTarget(
     normalizedTarget(current.target) !== undefined &&
     normalizedTarget(current.target) === normalizedTarget(candidate.target)
   );
-}
-
-function isPreservedSemanticMarkerStep(step: NormalizedStep): boolean {
-  return Boolean(step.semanticMarkerLink || step.unresolvedSemanticMarker);
 }
 
 function isInteractiveTarget(step: NormalizedStep): boolean {
@@ -688,7 +658,7 @@ export function filterNoiseSteps(steps: NormalizedStep[]): NoiseFilterResult {
       isSemanticMarkerGesture(candidate)
     );
     const preservedMarkers = cluster.filter((candidate) =>
-      isPreservedSemanticMarkerStep(candidate)
+      hasLinkedSemanticMarker(candidate)
     );
 
     if (preservedMarkers.length > 0 || markerGestures.length > 0) {
@@ -706,7 +676,7 @@ export function filterNoiseSteps(steps: NormalizedStep[]): NoiseFilterResult {
       let seenMarkerGesture = false;
 
       for (const candidate of cluster) {
-        if (isPreservedSemanticMarkerStep(candidate)) {
+        if (hasLinkedSemanticMarker(candidate)) {
           filtered.push(candidate);
           seenMarkerGesture = true;
           continue;

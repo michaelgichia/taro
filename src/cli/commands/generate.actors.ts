@@ -6,6 +6,29 @@ import { dirname, join, resolve } from "node:path";
 import pc from "picocolors";
 import { fromPromise } from "xstate";
 
+import { auditBoundaryPolicy } from "#cli/commands/boundary-policy.ts";
+import {
+  applyRepoRenderTarget,
+  collectRepoContextSearchTerms,
+  deriveContextRenderTargets,
+  findRecordingUrl,
+  findRepoContextMatches,
+  resolvePackageProfileFromContextMatches,
+  resolveRepoRenderTarget,
+} from "#cli/commands/context-selection.ts";
+import { toImportPath } from "#cli/commands/generate-paths.ts";
+import { finalizeGeneratedOutput } from "#cli/commands/generate-postprocess.ts";
+import {
+  buildMarkerCoverageSummary,
+  buildMarkerReviewDiagnostics,
+  getPrimarySelector,
+  mergeAnalyzedStepState,
+  rehydrateSuitePlan,
+  stripSemanticMarkerStepsFromHelpers,
+  stripSemanticMarkerStepsFromItGroups,
+  stripSemanticMarkerStepsFromScenarios,
+  toItGroups,
+} from "#cli/commands/generate-recording.ts";
 import type {
   AnalyzeMocksActorInput,
   AnalyzeRecordingActorInput,
@@ -13,51 +36,40 @@ import type {
   CaptureVisualActorInput,
   FinalizeActorInput,
   GenerateCodeActorInput,
+  GenerateCodeActorOutput,
   LoadStateActorInput,
+  LoadStateActorOutput,
   ParseRecordingActorInput,
   PlanGenerationActorInput,
+  PlanGenerationActorOutput,
   RefineProfileActorInput,
+  RefineProfileActorOutput,
   RefreshProfileActorInput,
+  RefreshProfileActorOutput,
   ResolveSelectorsActorInput,
   RunHealthCommandsActorInput,
   SearchContextActorInput,
   ValidateFileActorInput,
   WriteOutputActorInput,
-} from "#cli/commands/generate.utils.ts";
+} from "#cli/commands/generate-runtime-types.ts";
 import {
-  applyRepoRenderTarget,
   assessOutputAgainstRecording,
-  auditBoundaryPolicy,
   buildFlowCoverageSummary,
-  buildMarkerCoverageSummary,
-  buildMarkerReviewDiagnostics,
-  collectRepoContextSearchTerms,
-  deriveContextRenderTargets,
   deriveOutputPath,
-  findRecordingUrl,
-  findRepoContextMatches,
-  getPrimarySelector,
-  hasInteractiveVisualAuthCapability,
-  MANUAL_VISUAL_AUTH_TIMEOUT_MS,
   mapParsedQueriesToResults,
-  maybeCaptureVisualState,
-  mergeAnalyzedStepState,
-  persistRecoveredVisualAuth,
   rebaseRenderHelperImportPath,
   reconcileExistingOutput,
-  rehydrateSuitePlan,
-  resolveJsGeneration,
-  resolveOptionalFilePath,
-  resolvePackageProfileFromContextMatches,
   resolveRenderTargetFile,
-  resolveRepoRenderTarget,
+} from "#cli/commands/output-reconciliation.ts";
+import { resolveJsGeneration } from "#cli/commands/selector-resolution.ts";
+import {
+  hasInteractiveVisualAuthCapability,
+  MANUAL_VISUAL_AUTH_TIMEOUT_MS,
+  maybeCaptureVisualState,
+  persistRecoveredVisualAuth,
+  resolveOptionalFilePath,
   resolveVisualAuthStorageStatePath,
-  stripSemanticMarkerStepsFromHelpers,
-  stripSemanticMarkerStepsFromItGroups,
-  stripSemanticMarkerStepsFromScenarios,
-  toImportPath,
-  toItGroups,
-} from "#cli/commands/generate.utils.ts";
+} from "#cli/commands/visual-auth.ts";
 import { normalizeJsBaseline } from "#core/baseline-normalizer.ts";
 import {
   applyBoundarySupport,
@@ -73,7 +85,6 @@ import { analyzeRecording } from "#core/recording-intelligence.ts";
 import { scoreGeneratedTest } from "#core/scorer.ts";
 import { enrichCanonicalSemanticMarkers } from "#core/semantic-marker-enrichment.ts";
 import {
-  appendGeneratedTestRecord,
   detectPackageProfileStaleness,
   loadOrBootstrapTaroState,
   persistPlaywrightAuthProfile,
@@ -82,7 +93,6 @@ import {
   resolveTaroPackageProfile,
 } from "#core/state.ts";
 import { planJsSuite } from "#core/suite-planner.ts";
-import { verifySyntax } from "#core/verifier.ts";
 import { writeTestFile } from "#core/writer.ts";
 
 export const validateFileActor = fromPromise(
@@ -105,7 +115,11 @@ export const parseRecordingActor = fromPromise(
 );
 
 export const loadStateActor = fromPromise(
-  async ({ input }: { input: LoadStateActorInput }) => {
+  async ({
+    input,
+  }: {
+    input: LoadStateActorInput;
+  }): Promise<LoadStateActorOutput> => {
     const { projectRoot, commandOptions } = input;
     const hadState = await access(join(projectRoot, ".taro", "state.json"))
       .then(() => true)
@@ -236,7 +250,11 @@ export const searchContextActor = fromPromise(
 );
 
 export const refineProfileActor = fromPromise(
-  async ({ input }: { input: RefineProfileActorInput }) => {
+  async ({
+    input,
+  }: {
+    input: RefineProfileActorInput;
+  }): Promise<RefineProfileActorOutput> => {
     const {
       bootstrappedState,
       packageProfile,
@@ -263,7 +281,11 @@ export const refineProfileActor = fromPromise(
 );
 
 export const refreshProfileActor = fromPromise(
-  async ({ input }: { input: RefreshProfileActorInput }) => {
+  async ({
+    input,
+  }: {
+    input: RefreshProfileActorInput;
+  }): Promise<RefreshProfileActorOutput> => {
     const { projectRoot, contextMatches } = input;
     const bootstrappedState = await refreshTaroState(projectRoot);
     const freshOverrides = await readTaroOverrides(projectRoot);
@@ -381,7 +403,11 @@ export const analyzeMocksActor = fromPromise(
 );
 
 export const planGenerationActor = fromPromise(
-  async ({ input }: { input: PlanGenerationActorInput }) => {
+  async ({
+    input,
+  }: {
+    input: PlanGenerationActorInput;
+  }): Promise<PlanGenerationActorOutput> => {
     const {
       markerAwareRecording,
       analyzedRecording,
@@ -495,7 +521,11 @@ export const resolveSelectorsActor = fromPromise(
 );
 
 export const generateCodeActor = fromPromise(
-  async ({ input }: { input: GenerateCodeActorInput }) => {
+  async ({
+    input,
+  }: {
+    input: GenerateCodeActorInput;
+  }): Promise<GenerateCodeActorOutput> => {
     const {
       normalizedRecording,
       resolvedJsGeneration,
@@ -666,33 +696,14 @@ export const writeOutputActor = fromPromise(
 
 export const finalizeActor = fromPromise(
   async ({ input }: { input: FinalizeActorInput }) => {
-    const {
-      generatedCode,
-      outputPath,
-      projectRoot,
-      filePath,
-      scoreResult,
-      packageProfile,
-    } = input;
-    const verification = verifySyntax(generatedCode!, outputPath!);
-    if (!verification.valid) {
-      throw new Error(`Post-write verification failed: ${verification.error}`);
-    }
-    try {
-      await appendGeneratedTestRecord(projectRoot, {
-        packagePath: packageProfile?.packagePath ?? ".",
-        recordingFile: filePath,
-        testFile: outputPath!,
-        scoreResult: scoreResult!,
-      });
-      process.stderr.write(
-        pc.dim("[taro]") +
-          ` Updated .taro/state.json for package ${packageProfile?.packagePath ?? "."}.` +
-          "\n"
-      );
-    } catch {
-      // state updates are best-effort
-    }
+    await finalizeGeneratedOutput({
+      code: input.generatedCode!,
+      outputPath: input.outputPath!,
+      projectRoot: input.projectRoot,
+      recordingFile: input.filePath,
+      scoreResult: input.scoreResult!,
+      packageProfile: input.packageProfile ?? null,
+    });
   }
 );
 

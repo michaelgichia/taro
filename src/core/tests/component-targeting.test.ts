@@ -108,6 +108,84 @@ describe("inferComponentTargetPlan", () => {
     );
   });
 
+  it("resolves memo-wrapped named exports without changing import semantics", async () => {
+    const root = await createWorkspace("memo-named");
+    const componentPath = join(root, "src", "CheckoutPanel.tsx");
+    const outputPath = join(root, "src", "CheckoutPanel.test.tsx");
+    await mkdir(dirname(componentPath), { recursive: true });
+    await writeFile(
+      componentPath,
+      [
+        "import { memo } from 'react'",
+        "",
+        "export const CheckoutPanel = memo(() => (",
+        "  <div>",
+        "    <h2>Checkout</h2>",
+        "    <button>Continue</button>",
+        "  </div>",
+        "))",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+
+    const plan = await inferComponentTargetPlan({
+      componentPath,
+      outputPath,
+      projectRoot: root,
+    });
+
+    expect(plan.renderTarget.symbol).toBe("CheckoutPanel");
+    expect(plan.renderTarget.importKind).toBe("named");
+    expect(plan.queryResults.map((query) => query.query)).toContain(
+      "screen.getByRole('button', { name: 'Continue' })"
+    );
+  });
+
+  it("propagates wrapper labels to fields and captures link assertions", async () => {
+    const root = await createWorkspace("wrapper-label");
+    const componentPath = join(root, "src", "ProfileSummary.tsx");
+    const outputPath = join(root, "src", "ProfileSummary.test.tsx");
+    await mkdir(dirname(componentPath), { recursive: true });
+    await writeFile(
+      componentPath,
+      [
+        "export default function ProfileSummary() {",
+        "  return (",
+        "    <section>",
+        "      <label>",
+        "        Email address",
+        "        <input type='email' />",
+        "      </label>",
+        "      <a href='/profiles/primary'>Open profile</a>",
+        "    </section>",
+        "  )",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+
+    const plan = await inferComponentTargetPlan({
+      componentPath,
+      outputPath,
+      projectRoot: root,
+    });
+
+    expect(plan.queryResults).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          matcher: ".toBeVisible()",
+          query: "screen.getByLabelText('Email address')",
+        }),
+        expect.objectContaining({
+          matcher: ".toHaveAttribute('href', '/profiles/primary')",
+          query: "screen.getByRole('link')",
+        }),
+      ])
+    );
+  });
+
   it("keeps prop-heavy targets as drafts instead of inventing prop-backed scenarios", async () => {
     const root = await createWorkspace("props-and-variants");
     const componentPath = join(root, "src", "ProfileCard.tsx");
