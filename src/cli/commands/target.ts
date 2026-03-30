@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { access, readdir, readFile, realpath, stat } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { cwd, stdin, stdout } from "node:process";
@@ -68,6 +69,9 @@ import type { TaroFolderPattern } from "#types/state.ts";
 interface TargetCommandContext {
   input?: Pick<typeof stdin, "isTTY">;
   output?: Pick<typeof stdout, "isTTY">;
+  runDirectoryLoopComponent?: (
+    params: DirectoryLoopComponentParams
+  ) => Promise<{ exitCode: number }>;
 }
 
 interface CommandOptions {
@@ -79,6 +83,12 @@ interface CommandOptions {
   instructions?: string;
   recording?: string;
   screenshots?: boolean;
+}
+
+interface DirectoryLoopComponentParams {
+  commandOptions: CommandOptions;
+  componentPath: string;
+  projectRoot: string;
 }
 
 function isSupportedSourceFile(filePath: string): boolean {
@@ -690,6 +700,83 @@ async function buildDirectoryLoopTracker(params: {
   });
 }
 
+function buildSingleTargetArgs(
+  componentPath: string,
+  commandOptions: CommandOptions
+): string[] {
+  const args = [componentPath];
+
+  if (commandOptions.recording) {
+    args.push("--recording", commandOptions.recording);
+  }
+
+  if (commandOptions.interactiveAuth) {
+    args.push("--interactive-auth");
+  }
+
+  if (commandOptions.auth) {
+    args.push("--auth", commandOptions.auth);
+  }
+
+  if (commandOptions.instructions) {
+    args.push("--instructions", commandOptions.instructions);
+  }
+
+  if (commandOptions.screenshots === false) {
+    args.push("--no-screenshots");
+  }
+
+  if (commandOptions.debugSelectors) {
+    args.push("--debug-selectors");
+  }
+
+  if (commandOptions.debugSelectorsJson) {
+    args.push("--debug-selectors-json", commandOptions.debugSelectorsJson);
+  }
+
+  return args;
+}
+
+async function runDirectoryLoopComponentInSubprocess(
+  params: DirectoryLoopComponentParams
+): Promise<{ exitCode: number }> {
+  const entrypoint = process.argv[1];
+  if (!entrypoint || /vitest|vite-node/u.test(entrypoint)) {
+    throw new Error(
+      "Directory loop subprocess entrypoint is unavailable in the current runtime."
+    );
+  }
+
+  return await new Promise((resolveRun, rejectRun) => {
+    const child = spawn(
+      process.execPath,
+      [
+        entrypoint,
+        "__target",
+        ...buildSingleTargetArgs(params.componentPath, params.commandOptions),
+      ],
+      {
+        cwd: params.projectRoot,
+        stdio: "inherit",
+      }
+    );
+
+    child.once("error", rejectRun);
+    child.once("exit", (code, signal) => {
+      if (signal) {
+        rejectRun(
+          new Error(
+            `Directory loop target subprocess was interrupted by signal ${signal}.`
+          )
+        );
+        return;
+      }
+
+      resolveRun({ exitCode: code ?? 1 });
+    });
+  });
+}
+
 export function createTargetCommand(
   context: TargetCommandContext = {}
 ): Command {
@@ -757,6 +844,9 @@ export function createTargetCommand(
         const componentPath = await realpath(rawComponentPath).catch(
           () => rawComponentPath
         );
+        const runDirectoryLoopComponent =
+          context.runDirectoryLoopComponent ??
+          runDirectoryLoopComponentInSubprocess;
 
         if (pathStat.isDirectory()) {
           if (!commandOptions.directoryLoop) {
@@ -803,27 +893,35 @@ export function createTargetCommand(
             pc.dim("[taro]") +
               ` Directory loop tracker: ${tracker.trackerPath}`
           );
+          let hasBlockingLoopResult = false;
 
-          const pendingEntries = tracker.entries.filter(
-            (entry) => entry.status !== "completed"
-          );
-
-          if (pendingEntries.length === 0) {
-            log(
-              pc.yellow(
-                `[taro] No pending component source files found in: ${componentPath}`
-              )
+          while (true) {
+            const pendingEntries = tracker.entries.filter(
+              (entry) => entry.status !== "completed"
             );
-            flushFindings([]);
-          }
 
-          log(
-            pc.dim("[taro]") +
-              ` Processing ${pendingEntries.length} pending component file${pendingEntries.length === 1 ? "" : "s"} in ${componentPath}`
-          );
+            if (pendingEntries.length === 0) {
+              if (tracker.entries.length > 0) {
+                log(
+                  pc.dim("[taro]") +
+                    " Directory loop tracker is complete; no pending component source files remain."
+                );
+              } else {
+                log(
+                  pc.yellow(
+                    `[taro] No pending component source files found in: ${componentPath}`
+                  )
+                );
+              }
+              process.exit(hasBlockingLoopResult ? 1 : 0);
+            }
 
-          const allFindings: Finding[] = [];
-          for (const entry of pendingEntries) {
+            log(
+              pc.dim("[taro]") +
+                ` Processing ${pendingEntries.length} pending component file${pendingEntries.length === 1 ? "" : "s"} in ${componentPath}`
+            );
+
+            const entry = pendingEntries[0];
             tracker = updateDirectoryLoopTrackerStatus(tracker, {
               componentPath: entry.componentPath,
               projectRoot,
@@ -831,43 +929,38 @@ export function createTargetCommand(
             });
             await writeDirectoryLoopTracker(tracker);
 
-            try {
-              const findings = await generateForFile({
+            const runResult = await runDirectoryLoopComponent({
+              commandOptions,
+              componentPath: entry.componentPath,
+              projectRoot,
+            });
+
+            tracker = await buildDirectoryLoopTracker({
+              sourceFiles,
+              componentPath,
+              projectRoot,
+              commandOptions,
+            });
+            const refreshedEntry = tracker.entries.find(
+              (candidate) => candidate.componentPath === entry.componentPath
+            );
+
+            if (refreshedEntry?.status !== "completed") {
+              tracker = updateDirectoryLoopTrackerStatus(tracker, {
                 componentPath: entry.componentPath,
                 projectRoot,
-                commandOptions,
-                context,
+                status: "in-progress",
               });
-              allFindings.push(...findings);
+              await writeDirectoryLoopTracker(tracker);
+              process.exit(1);
+            }
 
-              const hasGeneratedOutput = await access(entry.outputPath)
-                .then(() => true)
-                .catch(() => false);
-              if (hasGeneratedOutput) {
-                tracker = updateDirectoryLoopTrackerStatus(tracker, {
-                  componentPath: entry.componentPath,
-                  projectRoot,
-                  status: "completed",
-                });
-                await writeDirectoryLoopTracker(tracker);
-              }
-            } catch (error) {
-              const message =
-                error instanceof Error ? error.message : "Unknown error";
-              log(
-                pc.red(
-                  `[taro] Error processing ${entry.componentPath}: ${message}`
-                )
-              );
-              allFindings.push({
-                severity: "BLOCKING",
-                category: "component-target",
-                message: `Failed to generate test for ${entry.componentPath}: ${message}`,
-              });
+            await writeDirectoryLoopTracker(tracker);
+
+            if (runResult.exitCode !== 0) {
+              hasBlockingLoopResult = true;
             }
           }
-
-          flushFindings(normalizeFindings(allFindings));
         }
 
         if (commandOptions.directoryLoop) {

@@ -42,7 +42,29 @@ async function runTarget(
   cwdPath: string,
   context?: Parameters<typeof createTargetCommand>[0]
 ) {
-  const command = createTargetCommand(context);
+  const effectiveContext = {
+    ...context,
+    runDirectoryLoopComponent:
+      context?.runDirectoryLoopComponent ??
+      (async ({ componentPath }: { componentPath: string }) => {
+        try {
+          await createTargetCommand({
+            input: context?.input,
+            output: context?.output,
+          }).parseAsync([componentPath], {
+            from: "user",
+          });
+          return { exitCode: 0 };
+        } catch (error) {
+          if (error instanceof ProcessExitSignal) {
+            return { exitCode: error.code };
+          }
+
+          throw error;
+        }
+      }),
+  };
+  const command = createTargetCommand(effectiveContext);
   const stderrChunks: string[] = [];
   const stdoutChunks: string[] = [];
   const stderrSpy = vi
@@ -407,6 +429,76 @@ describe("createTargetCommand", () => {
     expect(result.logs).toContain("Processing 1 pending component file");
     expect(tracker).toContain("| completed | src/Header.tsx | src/Header.test.tsx |");
     expect(tracker).toContain("| completed | src/Footer.tsx | src/Footer.test.tsx |");
+  });
+
+  it("stops the directory loop on the current component when no test file is produced", async () => {
+    const root = await createSandbox("dir-loop-stop");
+    const srcDir = join(root, "src");
+    const calls: string[] = [];
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "Alpha.tsx"),
+      "export default function Alpha() { return <h1>Alpha</h1> }\n",
+      "utf-8"
+    );
+    await writeFile(
+      join(srcDir, "Beta.tsx"),
+      "export default function Beta() { return <h1>Beta</h1> }\n",
+      "utf-8"
+    );
+
+    const result = await runTarget([srcDir, "--directory-loop"], root, {
+      runDirectoryLoopComponent: async ({ componentPath }) => {
+        calls.push(componentPath);
+        return { exitCode: 1 };
+      },
+    });
+    const tracker = await readDirectoryTracker(result.logs);
+
+    expect(result.exitCode).toBe(1);
+    expect(calls).toEqual(["src/Alpha.tsx"]);
+    expect(tracker).toContain("| in-progress | src/Alpha.tsx | src/Alpha.test.tsx |");
+    expect(tracker).toContain("| pending | src/Beta.tsx | src/Beta.test.tsx |");
+  });
+
+  it("resumes directory-loop work from existing completed outputs", async () => {
+    const root = await createSandbox("dir-loop-resume");
+    const srcDir = join(root, "src");
+    const calls: string[] = [];
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "Alpha.tsx"),
+      "export default function Alpha() { return <h1>Alpha</h1> }\n",
+      "utf-8"
+    );
+    await writeFile(
+      join(srcDir, "Alpha.test.tsx"),
+      "describe('Alpha', () => {})\n",
+      "utf-8"
+    );
+    await writeFile(
+      join(srcDir, "Beta.tsx"),
+      "export default function Beta() { return <h1>Beta</h1> }\n",
+      "utf-8"
+    );
+
+    const result = await runTarget([srcDir, "--directory-loop"], root, {
+      runDirectoryLoopComponent: async ({ componentPath }) => {
+        calls.push(componentPath);
+        await writeFile(
+          join(srcDir, "Beta.test.tsx"),
+          "describe('Beta', () => {})\n",
+          "utf-8"
+        );
+        return { exitCode: 0 };
+      },
+    });
+    const tracker = await readDirectoryTracker(result.logs);
+
+    expect(result.exitCode).toBe(0);
+    expect(calls).toEqual(["src/Beta.tsx"]);
+    expect(tracker).toContain("| completed | src/Alpha.tsx | src/Alpha.test.tsx |");
+    expect(tracker).toContain("| completed | src/Beta.tsx | src/Beta.test.tsx |");
   });
 
   it("reports no files found when the directory has no component source files", async () => {
