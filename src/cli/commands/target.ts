@@ -68,6 +68,7 @@ interface CommandOptions {
   auth?: string;
   debugSelectors?: boolean;
   debugSelectorsJson?: string;
+  directoryLoop?: boolean;
   interactiveAuth?: boolean;
   instructions?: string;
   recording?: string;
@@ -639,6 +640,10 @@ export function createTargetCommand(
       "Path to the component file or directory that should be tested"
     )
     .option(
+      "--directory-loop",
+      "Treat directory input as an explicit iterative target loop"
+    )
+    .option(
       "--recording <file>",
       "Optional path to a recorder export file (.js)"
     )
@@ -683,6 +688,15 @@ export function createTargetCommand(
         }
 
         if (pathStat.isDirectory()) {
+          if (!commandOptions.directoryLoop) {
+            const message =
+              pc.red("Error:") +
+              " Directory input requires --directory-loop. Pass a single component file for one-off generation.";
+            console.error(message);
+            process.stderr.write(message + "\n");
+            process.exit(2);
+          }
+
           if (commandOptions.recording) {
             const message =
               pc.red("Error:") +
@@ -703,6 +717,9 @@ export function createTargetCommand(
             flushFindings([]);
           }
 
+          log(
+            pc.dim("[taro]") + " Directory loop mode enabled"
+          );
           log(
             pc.dim("[taro]") +
               ` Processing ${sourceFiles.length} component file${sourceFiles.length === 1 ? "" : "s"} in ${componentPath}`
@@ -731,6 +748,15 @@ export function createTargetCommand(
           }
 
           flushFindings(normalizeFindings(allFindings));
+        }
+
+        if (commandOptions.directoryLoop) {
+          const message =
+            pc.red("Error:") +
+            " --directory-loop is only valid when the target path is a directory.";
+          console.error(message);
+          process.stderr.write(message + "\n");
+          process.exit(2);
         }
 
         if (

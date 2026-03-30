@@ -324,10 +324,11 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
 
-    const result = await runTarget([srcDir], root);
+    const result = await runTarget([srcDir, "--directory-loop"], root);
 
     expect(result.thrown).toBeUndefined();
     expect(result.exitCode).toBe(0);
+    expect(result.logs).toContain("Directory loop mode enabled");
 
     const headerTest = await readFile(join(srcDir, "Header.test.tsx"), "utf-8");
     expect(headerTest).toContain("import Header from './Header'");
@@ -359,7 +360,7 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
 
-    const result = await runTarget([srcDir], root);
+    const result = await runTarget([srcDir, "--directory-loop"], root);
 
     expect(result.thrown).toBeUndefined();
     expect(result.exitCode).toBe(0);
@@ -376,10 +377,26 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
 
-    const result = await runTarget([srcDir], root);
+    const result = await runTarget([srcDir, "--directory-loop"], root);
 
     expect(result.exitCode).toBe(0);
     expect(result.logs).toContain("No component source files found");
+  });
+
+  it("rejects directory input unless --directory-loop is passed", async () => {
+    const root = await createSandbox("dir-requires-flag");
+    const srcDir = join(root, "src");
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "Header.tsx"),
+      "export default function Header() { return <h1>Site Header</h1> }\n",
+      "utf-8"
+    );
+
+    const result = await runTarget([srcDir], root);
+
+    expect(result.exitCode).toBe(2);
+    expect(result.logs).toContain("Directory input requires --directory-loop");
   });
 
   it("rejects --recording when a directory is passed", async () => {
@@ -390,13 +407,31 @@ describe("createTargetCommand", () => {
     await writeFile(recordingPath, "test('foo', () => {})\n", "utf-8");
 
     const result = await runTarget(
-      [srcDir, "--recording", recordingPath],
+      [srcDir, "--directory-loop", "--recording", recordingPath],
       root
     );
 
     expect(result.exitCode).toBe(2);
     expect(result.logs).toContain(
       "--recording is not compatible with directory input"
+    );
+  });
+
+  it("rejects --directory-loop when the target is a single file", async () => {
+    const root = await createSandbox("file-rejects-dir-flag");
+    const componentPath = join(root, "src", "Button.tsx");
+    await mkdir(dirname(componentPath), { recursive: true });
+    await writeFile(
+      componentPath,
+      "export default function Button() { return <button>Click me</button> }\n",
+      "utf-8"
+    );
+
+    const result = await runTarget([componentPath, "--directory-loop"], root);
+
+    expect(result.exitCode).toBe(2);
+    expect(result.logs).toContain(
+      "--directory-loop is only valid when the target path is a directory"
     );
   });
 });
