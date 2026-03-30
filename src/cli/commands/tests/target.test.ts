@@ -51,9 +51,7 @@ async function runTarget(
           await createTargetCommand({
             input: context?.input,
             output: context?.output,
-          }).parseAsync([componentPath], {
-            from: "user",
-          });
+          }).parseAsync([componentPath], { from: "user" });
           return { exitCode: 0 };
         } catch (error) {
           if (error instanceof ProcessExitSignal) {
@@ -149,7 +147,7 @@ describe("createTargetCommand", () => {
     const written = await readFile(outputPath, "utf-8");
 
     expect(result.thrown).toBeUndefined();
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(1);
     expect(written).toContain("import CheckoutForm from './CheckoutForm'");
     expect(written).toContain("render(<CheckoutForm />)");
     expect(written).toContain(
@@ -187,7 +185,7 @@ describe("createTargetCommand", () => {
     const written = await readFile(outputPath, "utf-8");
 
     expect(result.thrown).toBeUndefined();
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(1);
     expect(written).toContain("import Button from '../Button'");
     expect(written).toContain("render(<Button />)");
   });
@@ -243,6 +241,77 @@ describe("createTargetCommand", () => {
     );
   });
 
+  it("runs post-write health commands and blocks when one fails", async () => {
+    const root = await createSandbox("health-gate");
+    const componentPath = join(root, "src", "CheckoutForm.tsx");
+    const failCommand = `${JSON.stringify(process.execPath)} -e "process.exit(1)"`;
+    await mkdir(join(root, ".taro"), { recursive: true });
+    await mkdir(dirname(componentPath), { recursive: true });
+    await writeFile(
+      join(root, ".taro", "overrides.json"),
+      JSON.stringify({ healthCommands: [failCommand] }, null, 2) + "\n",
+      "utf-8"
+    );
+    await writeFile(
+      componentPath,
+      [
+        "export default function CheckoutForm() {",
+        "  return (",
+        "    <form>",
+        "      <label htmlFor='email'>Email</label>",
+        "      <input id='email' type='email' />",
+        "      <button type='submit'>Submit order</button>",
+        "    </form>",
+        "  )",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+
+    const result = await runTarget([componentPath], root);
+    const outputPath = join(root, "src", "CheckoutForm.test.tsx");
+    const written = await readFile(outputPath, "utf-8");
+
+    expect(result.thrown).toBeUndefined();
+    expect(result.exitCode).toBe(1);
+    expect(written).toContain("render(<CheckoutForm />)");
+    expect(result.logs).toContain("Running health checks...");
+    expect(result.logs).toContain(`[taro:health] $ ${failCommand}`);
+    expect(result.logs).toContain(`'${failCommand}' exited with code 1`);
+    expect(result.stdout).toContain("[BLOCKING] health");
+  });
+
+  it("keeps existing low-confidence output blocked on rerun", async () => {
+    const root = await createSandbox("rerun-low-confidence");
+    const componentPath = join(root, "src", "CheckoutForm.tsx");
+    await mkdir(dirname(componentPath), { recursive: true });
+    await writeFile(
+      componentPath,
+      [
+        "export default function CheckoutForm() {",
+        "  return (",
+        "    <form>",
+        "      <label htmlFor='email'>Email</label>",
+        "      <input id='email' type='email' />",
+        "      <button type='submit'>Submit order</button>",
+        "    </form>",
+        "  )",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+
+    const firstRun = await runTarget([componentPath], root);
+    const secondRun = await runTarget([componentPath], root);
+
+    expect(firstRun.exitCode).toBe(1);
+    expect(secondRun.exitCode).toBe(1);
+    expect(secondRun.stdout).toContain("[BLOCKING] quality");
+    expect(secondRun.stdout).toContain("[BLOCKING] follow-up");
+  });
+
   it("uses the provided component path as the output target even when a recording is supplied", async () => {
     const root = await createSandbox("recording-backed");
     const componentPath = join(root, "src", "CheckoutForm.tsx");
@@ -281,7 +350,7 @@ describe("createTargetCommand", () => {
     const written = await readFile(outputPath, "utf-8");
 
     expect(result.thrown).toBeUndefined();
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(1);
     expect(written).toContain("import { CheckoutForm } from './CheckoutForm'");
     expect(written).toContain("render(<CheckoutForm />)");
     expect(written).toContain("await user.click(screen.getByText('Continue'))");
@@ -355,7 +424,19 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
 
-    const result = await runTarget([srcDir, "--directory-loop"], root);
+    const result = await runTarget([srcDir, "--directory-loop"], root, {
+      runDirectoryLoopComponent: async ({ componentPath }) => {
+        const componentName = componentPath
+          .replace(/^src\//u, "")
+          .replace(/\.tsx$/u, "");
+        await writeFile(
+          join(srcDir, `${componentName}.test.tsx`),
+          `describe('${componentName}', () => {})\n`,
+          "utf-8"
+        );
+        return { exitCode: 0 };
+      },
+    });
     const tracker = await readDirectoryTracker(result.logs);
 
     expect(result.thrown).toBeUndefined();
@@ -366,12 +447,10 @@ describe("createTargetCommand", () => {
     expect(tracker).toContain("| completed | src/Header.tsx |");
 
     const headerTest = await readFile(join(srcDir, "Header.test.tsx"), "utf-8");
-    expect(headerTest).toContain("import Header from './Header'");
-    expect(headerTest).toContain("render(<Header />)");
+    expect(headerTest).toContain("describe('Header'");
 
     const footerTest = await readFile(join(srcDir, "Footer.test.tsx"), "utf-8");
-    expect(footerTest).toContain("import Footer from './Footer'");
-    expect(footerTest).toContain("render(<Footer />)");
+    expect(footerTest).toContain("describe('Footer'");
   });
 
   it("skips test files when scanning a directory", async () => {
@@ -395,7 +474,16 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
 
-    const result = await runTarget([srcDir, "--directory-loop"], root);
+    const result = await runTarget([srcDir, "--directory-loop"], root, {
+      runDirectoryLoopComponent: async () => {
+        await writeFile(
+          join(srcDir, "Button.test.tsx"),
+          "describe('Button', () => {})\n",
+          "utf-8"
+        );
+        return { exitCode: 0 };
+      },
+    });
 
     expect(result.thrown).toBeUndefined();
     expect(result.exitCode).toBe(0);
@@ -422,13 +510,26 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
 
-    const result = await runTarget([srcDir, "--directory-loop"], root);
+    const result = await runTarget([srcDir, "--directory-loop"], root, {
+      runDirectoryLoopComponent: async () => {
+        await writeFile(
+          join(srcDir, "Footer.test.tsx"),
+          "describe('Footer', () => {})\n",
+          "utf-8"
+        );
+        return { exitCode: 0 };
+      },
+    });
     const tracker = await readDirectoryTracker(result.logs);
 
     expect(result.exitCode).toBe(0);
     expect(result.logs).toContain("Processing 1 pending component file");
-    expect(tracker).toContain("| completed | src/Header.tsx | src/Header.test.tsx |");
-    expect(tracker).toContain("| completed | src/Footer.tsx | src/Footer.test.tsx |");
+    expect(tracker).toContain(
+      "| completed | src/Header.tsx | src/Header.test.tsx |"
+    );
+    expect(tracker).toContain(
+      "| completed | src/Footer.tsx | src/Footer.test.tsx |"
+    );
   });
 
   it("stops the directory loop on the current component when no test file is produced", async () => {
@@ -457,8 +558,61 @@ describe("createTargetCommand", () => {
 
     expect(result.exitCode).toBe(1);
     expect(calls).toEqual(["src/Alpha.tsx"]);
-    expect(tracker).toContain("| in-progress | src/Alpha.tsx | src/Alpha.test.tsx |");
+    expect(tracker).toContain(
+      "| in-progress | src/Alpha.tsx | src/Alpha.test.tsx |"
+    );
     expect(tracker).toContain("| pending | src/Beta.tsx | src/Beta.test.tsx |");
+  });
+
+  it("retries the current directory-loop component when output exists but the run exits non-zero", async () => {
+    const root = await createSandbox("dir-loop-retry-gated");
+    const srcDir = join(root, "src");
+    const calls: string[] = [];
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "Alpha.tsx"),
+      "export default function Alpha() { return <h1>Alpha</h1> }\n",
+      "utf-8"
+    );
+    await writeFile(
+      join(srcDir, "Beta.tsx"),
+      "export default function Beta() { return <h1>Beta</h1> }\n",
+      "utf-8"
+    );
+
+    const firstRun = await runTarget([srcDir, "--directory-loop"], root, {
+      runDirectoryLoopComponent: async ({ componentPath }) => {
+        calls.push(componentPath);
+        await writeFile(
+          join(srcDir, "Alpha.test.tsx"),
+          "describe('Alpha', () => {})\n",
+          "utf-8"
+        );
+        return { exitCode: 1 };
+      },
+    });
+    const firstTracker = await readDirectoryTracker(firstRun.logs);
+
+    expect(firstRun.exitCode).toBe(1);
+    expect(calls).toEqual(["src/Alpha.tsx"]);
+    expect(firstTracker).toContain(
+      "| in-progress | src/Alpha.tsx | src/Alpha.test.tsx |"
+    );
+    expect(firstTracker).toContain(
+      "| pending | src/Beta.tsx | src/Beta.test.tsx |"
+    );
+
+    calls.length = 0;
+
+    const secondRun = await runTarget([srcDir, "--directory-loop"], root, {
+      runDirectoryLoopComponent: async ({ componentPath }) => {
+        calls.push(componentPath);
+        return { exitCode: 1 };
+      },
+    });
+
+    expect(secondRun.exitCode).toBe(1);
+    expect(calls[0]).toBe("src/Alpha.tsx");
   });
 
   it("resumes directory-loop work from existing completed outputs", async () => {
@@ -497,8 +651,12 @@ describe("createTargetCommand", () => {
 
     expect(result.exitCode).toBe(0);
     expect(calls).toEqual(["src/Beta.tsx"]);
-    expect(tracker).toContain("| completed | src/Alpha.tsx | src/Alpha.test.tsx |");
-    expect(tracker).toContain("| completed | src/Beta.tsx | src/Beta.test.tsx |");
+    expect(tracker).toContain(
+      "| completed | src/Alpha.tsx | src/Alpha.test.tsx |"
+    );
+    expect(tracker).toContain(
+      "| completed | src/Beta.tsx | src/Beta.test.tsx |"
+    );
   });
 
   it("reports no files found when the directory has no component source files", async () => {

@@ -1,4 +1,4 @@
-import { mkdir, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 
 import { getProjectStatePath } from "#project-state.ts";
@@ -85,7 +85,9 @@ export function createDirectoryLoopTracker(params: {
         outputPath: toDisplayPath(params.projectRoot, entry.outputPath),
         status: entry.status ?? "pending",
       }))
-      .sort((left, right) => left.componentPath.localeCompare(right.componentPath)),
+      .sort((left, right) =>
+        left.componentPath.localeCompare(right.componentPath)
+      ),
     trackerPath: getDirectoryLoopTrackerPath(
       params.projectRoot,
       params.directoryPath
@@ -165,6 +167,84 @@ export function renderDirectoryLoopTrackerMarkdown(
   ].join("\n");
 }
 
+function parseDirectoryLoopTrackerMarkdown(params: {
+  content: string;
+  directoryPath: string;
+  projectRoot: string;
+  trackerPath: string;
+}): DirectoryLoopTracker {
+  const lines = params.content.split(/\r?\n/u);
+  const directoryPath =
+    lines
+      .find((line) => line.startsWith("- Directory: "))
+      ?.slice("- Directory: ".length)
+      .trim() || toDisplayPath(params.projectRoot, params.directoryPath);
+  const updatedAt =
+    lines
+      .find((line) => line.startsWith("- Updated: "))
+      ?.slice("- Updated: ".length)
+      .trim() || new Date().toISOString();
+  const entries: DirectoryLoopTrackerEntry[] = [];
+
+  for (const line of lines) {
+    const match = line.match(
+      /^\| (pending|in-progress|completed) \| (.+) \| (.+) \|$/u
+    );
+    if (!match) {
+      continue;
+    }
+
+    if (match[2] === "(none)" && match[3] === "-") {
+      continue;
+    }
+
+    entries.push({
+      componentPath: match[2],
+      outputPath: match[3],
+      status: match[1] as DirectoryLoopStatus,
+    });
+  }
+
+  return {
+    createdAt: updatedAt,
+    directoryPath,
+    entries,
+    trackerPath: params.trackerPath,
+    updatedAt,
+  };
+}
+
+export async function readDirectoryLoopTracker(params: {
+  directoryPath: string;
+  projectRoot: string;
+}): Promise<DirectoryLoopTracker | null> {
+  const trackerPath = getDirectoryLoopTrackerPath(
+    params.projectRoot,
+    params.directoryPath
+  );
+  const content = await readFile(trackerPath, "utf-8").catch(
+    (error: unknown) => {
+      const errCode = (error as NodeJS.ErrnoException)?.code;
+      if (errCode === "ENOENT") {
+        return null;
+      }
+
+      throw error;
+    }
+  );
+
+  if (content === null) {
+    return null;
+  }
+
+  return parseDirectoryLoopTrackerMarkdown({
+    content,
+    directoryPath: params.directoryPath,
+    projectRoot: params.projectRoot,
+    trackerPath,
+  });
+}
+
 export async function writeDirectoryLoopTracker(
   tracker: DirectoryLoopTracker
 ): Promise<void> {
@@ -172,6 +252,10 @@ export async function writeDirectoryLoopTracker(
   const tempPath = `${tracker.trackerPath}.${process.pid}.${Date.now()}.tmp`;
 
   await mkdir(trackerDir, { recursive: true });
-  await writeFile(tempPath, renderDirectoryLoopTrackerMarkdown(tracker), "utf-8");
+  await writeFile(
+    tempPath,
+    renderDirectoryLoopTrackerMarkdown(tracker),
+    "utf-8"
+  );
   await rename(tempPath, tracker.trackerPath);
 }

@@ -11,6 +11,7 @@ import { applyRepoRenderTarget } from "#cli/commands/context-selection.ts";
 import {
   createDirectoryLoopTracker,
   type DirectoryLoopTracker,
+  readDirectoryLoopTracker,
   updateDirectoryLoopTrackerStatus,
   writeDirectoryLoopTracker,
 } from "#cli/commands/target-directory-tracker.ts";
@@ -20,6 +21,10 @@ import {
   finalizeGeneratedOutput,
   maybeAnalyzeMocks,
 } from "#cli/commands/generate-postprocess.ts";
+import {
+  emitLowConfidenceBanner,
+  logScore,
+} from "#cli/commands/generate-reporting.ts";
 import { getPrimarySelector } from "#cli/commands/generate-recording.ts";
 import { logToStderr as log } from "#cli/commands/log.ts";
 import {
@@ -52,6 +57,7 @@ import { loadInput } from "#core/input-loader.ts";
 import { parseJsRecording } from "#core/js-parser.ts";
 import { analyzeRecording } from "#core/recording-intelligence.ts";
 import { scoreGeneratedTest } from "#core/scorer.ts";
+import { SCORE_REVIEW_CAP } from "#core/state.constants.ts";
 import {
   detectPackageProfileStaleness,
   loadOrBootstrapTaroState,
@@ -63,6 +69,7 @@ import { planJsSuite } from "#core/suite-planner.ts";
 import { verifySyntax } from "#core/verifier.ts";
 import { writeTestFile } from "#core/writer.ts";
 import type { QueryResult } from "#types/recording.ts";
+import type { ScoreResult } from "#types/score.ts";
 import type { ResolvedTaroPackageProfile } from "#types/state.ts";
 import type { TaroFolderPattern } from "#types/state.ts";
 
@@ -118,6 +125,7 @@ async function loadPackageContext(params: {
 }): Promise<{
   explicitAuthPath: Awaited<ReturnType<typeof resolveOptionalFilePath>>;
   explicitInstructionsPath: Awaited<ReturnType<typeof resolveOptionalFilePath>>;
+  overrides: Awaited<ReturnType<typeof readTaroOverrides>>;
   packageProfile: ResolvedTaroPackageProfile | null;
   visualAuth: ResolvedTaroPackageProfile["playwrightAuth"];
 }> {
@@ -184,6 +192,7 @@ async function loadPackageContext(params: {
   return {
     explicitAuthPath,
     explicitInstructionsPath,
+    overrides,
     packageProfile,
     visualAuth,
   };
@@ -270,6 +279,107 @@ function normalizeFindings(findings: Finding[]): Finding[] {
   });
 }
 
+async function runHealthCommand(
+  command: string,
+  projectRoot: string
+): Promise<{ command: string; exitCode: number }> {
+  return await new Promise((resolveRun) => {
+    const child = spawn(command, {
+      shell: true,
+      cwd: projectRoot,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    child.stdout?.on("data", (chunk: Buffer) => {
+      for (const line of chunk.toString().trimEnd().split("\n")) {
+        if (line.length > 0) {
+          process.stderr.write(pc.dim("[taro:health]") + " " + line + "\n");
+        }
+      }
+    });
+    child.stderr?.on("data", (chunk: Buffer) => {
+      for (const line of chunk.toString().trimEnd().split("\n")) {
+        if (line.length > 0) {
+          process.stderr.write(pc.dim("[taro:health]") + " " + line + "\n");
+        }
+      }
+    });
+    child.on("close", (code) => resolveRun({ command, exitCode: code ?? 1 }));
+  });
+}
+
+async function runHealthCommands(params: {
+  healthCommands?: string[];
+  projectRoot: string;
+}): Promise<Array<{ command: string; exitCode: number }>> {
+  const healthCommands = params.healthCommands ?? [];
+  if (healthCommands.length === 0) {
+    return [];
+  }
+
+  process.stderr.write(pc.dim("[taro]") + " Running health checks...\n");
+
+  const failedCommands: Array<{ command: string; exitCode: number }> = [];
+  for (const command of healthCommands) {
+    process.stderr.write(pc.dim("[taro:health]") + ` $ ${command}\n`);
+    const result = await runHealthCommand(command, params.projectRoot);
+    if (result.exitCode !== 0) {
+      process.stderr.write(
+        pc.yellow(
+          `[taro:health] ⚠ '${command}' exited with code ${result.exitCode}`
+        ) + "\n"
+      );
+      failedCommands.push(result);
+    } else {
+      process.stderr.write(pc.dim(`[taro:health] ✓ ${command}`) + "\n");
+    }
+  }
+
+  return failedCommands;
+}
+
+function buildPostWriteGateFindings(params: {
+  failedHealthCommands?: Array<{ command: string; exitCode: number }>;
+  outputPath: string;
+  scoreResult: ScoreResult;
+}): Finding[] {
+  const findings: Finding[] = [];
+  if (
+    params.scoreResult.requiresReview &&
+    params.scoreResult.total < SCORE_REVIEW_CAP * 100
+  ) {
+    findings.push({
+      severity: "BLOCKING",
+      category: "quality",
+      message:
+        `Generated test scored ${params.scoreResult.total}/100, below the required ` +
+        `${SCORE_REVIEW_CAP * 100}/100 quality gate: ${params.outputPath}`,
+    });
+  }
+
+  if (params.scoreResult.requiresReview) {
+    findings.push({
+      severity: "BLOCKING",
+      category: "follow-up",
+      message:
+        `Generated test still requires manual review (${params.scoreResult.total}/100, ` +
+        `${params.scoreResult.grade}): ${params.outputPath}`,
+    });
+  }
+
+  for (const failedCommand of params.failedHealthCommands ?? []) {
+    findings.push({
+      severity: "BLOCKING",
+      category: "health",
+      message:
+        `Post-write health command failed for ${params.outputPath}: ` +
+        `'${failedCommand.command}' exited with code ${failedCommand.exitCode}.`,
+    });
+  }
+
+  return findings;
+}
+
 async function collectSourceFiles(dirPath: string): Promise<string[]> {
   const entries = await readdir(dirPath, {
     recursive: true,
@@ -292,7 +402,7 @@ async function generateForFile(params: {
 }): Promise<Finding[]> {
   const { componentPath, projectRoot, commandOptions, context } = params;
 
-  const { packageProfile, visualAuth } = await loadPackageContext({
+  const { overrides, packageProfile, visualAuth } = await loadPackageContext({
     commandOptions,
     targetPath: componentPath,
     projectRoot,
@@ -493,6 +603,7 @@ async function generateForFile(params: {
       });
     }
 
+    let failedHealthCommands: Array<{ command: string; exitCode: number }> = [];
     if (outputResolution.shouldWrite) {
       const outputCode = outputResolution.outputCode;
       await materializeBoundarySupport(boundarySupportPlan);
@@ -522,9 +633,23 @@ async function generateForFile(params: {
         scoreResult: outputResolution.outputAssessment.scoreResult,
         packageProfile: packageProfile ?? null,
       });
+      log(pc.green("[taro] ✓ post-write verified"));
+      logScore(outputResolution.outputAssessment.scoreResult);
+      emitLowConfidenceBanner(outputResolution.outputAssessment.scoreResult);
+      failedHealthCommands = await runHealthCommands({
+        healthCommands: overrides.healthCommands,
+        projectRoot,
+      });
     }
 
-    return normalizeFindings(findings);
+    return normalizeFindings([
+      ...findings,
+      ...buildPostWriteGateFindings({
+        failedHealthCommands,
+        outputPath,
+        scoreResult: outputResolution.outputAssessment.scoreResult,
+      }),
+    ]);
   }
 
   if (
@@ -614,6 +739,7 @@ async function generateForFile(params: {
     });
   }
 
+  let failedHealthCommands: Array<{ command: string; exitCode: number }> = [];
   if (outputResolution.shouldWrite) {
     const outputCode = outputResolution.outputCode;
     await materializeBoundarySupport(boundarySupportPlan);
@@ -637,9 +763,23 @@ async function generateForFile(params: {
       scoreResult: outputResolution.outputAssessment.scoreResult,
       packageProfile: packageProfile ?? null,
     });
+    log(pc.green("[taro] ✓ post-write verified"));
+    logScore(outputResolution.outputAssessment.scoreResult);
+    emitLowConfidenceBanner(outputResolution.outputAssessment.scoreResult);
+    failedHealthCommands = await runHealthCommands({
+      healthCommands: overrides.healthCommands,
+      projectRoot,
+    });
   }
 
-  return normalizeFindings(findings);
+  return normalizeFindings([
+    ...findings,
+    ...buildPostWriteGateFindings({
+      failedHealthCommands,
+      outputPath,
+      scoreResult: outputResolution.outputAssessment.scoreResult,
+    }),
+  ]);
 }
 
 async function resolveTargetOutputPath(params: {
@@ -671,10 +811,14 @@ async function buildDirectoryLoopTracker(params: {
   projectRoot: string;
   commandOptions: CommandOptions;
 }): Promise<DirectoryLoopTracker> {
+  const previousTracker = await readDirectoryLoopTracker({
+    directoryPath: params.componentPath,
+    projectRoot: params.projectRoot,
+  });
   const entries: Array<{
     componentPath: string;
     outputPath: string;
-    status: "completed" | "pending";
+    status: "completed" | "in-progress" | "pending";
   }> = [];
   for (const filePath of params.sourceFiles) {
     const outputPath = await resolveTargetOutputPath({
@@ -682,6 +826,9 @@ async function buildDirectoryLoopTracker(params: {
       projectRoot: params.projectRoot,
       commandOptions: params.commandOptions,
     });
+    const previousEntry = previousTracker?.entries.find(
+      (entry) => resolve(params.projectRoot, entry.componentPath) === filePath
+    );
     const hasExistingOutput = await access(outputPath)
       .then(() => true)
       .catch(() => false);
@@ -689,7 +836,12 @@ async function buildDirectoryLoopTracker(params: {
     entries.push({
       componentPath: filePath,
       outputPath,
-      status: hasExistingOutput ? "completed" : "pending",
+      status:
+        previousEntry?.status === "in-progress"
+          ? "in-progress"
+          : hasExistingOutput
+            ? "completed"
+            : "pending",
     });
   }
 
@@ -755,10 +907,7 @@ async function runDirectoryLoopComponentInSubprocess(
         "__target",
         ...buildSingleTargetArgs(params.componentPath, params.commandOptions),
       ],
-      {
-        cwd: params.projectRoot,
-        stdio: "inherit",
-      }
+      { cwd: params.projectRoot, stdio: "inherit" }
     );
 
     child.once("error", rejectRun);
@@ -886,21 +1035,20 @@ export function createTargetCommand(
           });
           await writeDirectoryLoopTracker(tracker);
 
+          log(pc.dim("[taro]") + " Directory loop mode enabled");
           log(
-            pc.dim("[taro]") + " Directory loop mode enabled"
+            pc.dim("[taro]") + ` Directory loop tracker: ${tracker.trackerPath}`
           );
-          log(
-            pc.dim("[taro]") +
-              ` Directory loop tracker: ${tracker.trackerPath}`
-          );
-          let hasBlockingLoopResult = false;
 
           while (true) {
+            const inProgressEntry = tracker.entries.find(
+              (entry) => entry.status === "in-progress"
+            );
             const pendingEntries = tracker.entries.filter(
-              (entry) => entry.status !== "completed"
+              (entry) => entry.status === "pending"
             );
 
-            if (pendingEntries.length === 0) {
+            if (!inProgressEntry && pendingEntries.length === 0) {
               if (tracker.entries.length > 0) {
                 log(
                   pc.dim("[taro]") +
@@ -913,15 +1061,17 @@ export function createTargetCommand(
                   )
                 );
               }
-              process.exit(hasBlockingLoopResult ? 1 : 0);
+              process.exit(0);
             }
 
+            const pendingCount =
+              pendingEntries.length + (inProgressEntry ? 1 : 0);
             log(
               pc.dim("[taro]") +
-                ` Processing ${pendingEntries.length} pending component file${pendingEntries.length === 1 ? "" : "s"} in ${componentPath}`
+                ` Processing ${pendingCount} pending component file${pendingCount === 1 ? "" : "s"} in ${componentPath}`
             );
 
-            const entry = pendingEntries[0];
+            const entry = inProgressEntry ?? pendingEntries[0];
             tracker = updateDirectoryLoopTrackerStatus(tracker, {
               componentPath: entry.componentPath,
               projectRoot,
@@ -935,6 +1085,20 @@ export function createTargetCommand(
               projectRoot,
             });
 
+            const outputExists = await access(
+              resolve(projectRoot, entry.outputPath)
+            )
+              .then(() => true)
+              .catch(() => false);
+            if (outputExists) {
+              tracker = updateDirectoryLoopTrackerStatus(tracker, {
+                componentPath: entry.componentPath,
+                projectRoot,
+                status: "completed",
+              });
+              await writeDirectoryLoopTracker(tracker);
+            }
+
             tracker = await buildDirectoryLoopTracker({
               sourceFiles,
               componentPath,
@@ -945,7 +1109,10 @@ export function createTargetCommand(
               (candidate) => candidate.componentPath === entry.componentPath
             );
 
-            if (refreshedEntry?.status !== "completed") {
+            if (
+              runResult.exitCode !== 0 ||
+              refreshedEntry?.status !== "completed"
+            ) {
               tracker = updateDirectoryLoopTrackerStatus(tracker, {
                 componentPath: entry.componentPath,
                 projectRoot,
@@ -956,10 +1123,6 @@ export function createTargetCommand(
             }
 
             await writeDirectoryLoopTracker(tracker);
-
-            if (runResult.exitCode !== 0) {
-              hasBlockingLoopResult = true;
-            }
           }
         }
 
