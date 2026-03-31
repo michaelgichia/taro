@@ -54,20 +54,20 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RGDIR-01 | Phase 1 | Pending |
-| RGDIR-02 | Phase 1 | Pending |
-| RGDIR-03 | Phase 1 | Pending |
-| RGTRK-01 | Phase 1 | Pending |
-| RGTRK-02 | Phase 1 | Pending |
-| RGTRK-03 | Phase 1 | Pending |
-| RGTRK-04 | Phase 2 | Pending |
-| RGEX-01 | Phase 2 | Pending |
-| RGST-01 | Phase 2 | Pending |
-| RGST-02 | Phase 2 | Pending |
-| RGST-03 | Phase 2 | Pending |
-| RGEX-02 | Phase 3 | Pending |
-| RGEX-03 | Phase 3 | Pending |
-| RGUX-01 | Phase 4 | Pending |
+| RGDIR-01 | Phase 5 | Pending |
+| RGDIR-02 | Phase 5 | Pending |
+| RGDIR-03 | Phase 5 | Pending |
+| RGTRK-01 | Phase 5 | Pending |
+| RGTRK-02 | Phase 5 | Pending |
+| RGTRK-03 | Phase 5 | Pending |
+| RGTRK-04 | Phase 6 | Pending |
+| RGEX-01 | Phase 6 | Pending |
+| RGST-01 | Phase 6 | Pending |
+| RGST-02 | Phase 6 | Pending |
+| RGST-03 | Phase 6 | Pending |
+| RGEX-02 | Phase 7 | Pending |
+| RGEX-03 | Phase 7 | Pending |
+| RGUX-01 | Phase 8 | Pending |
 
 **Coverage:**
 - v1 requirements: 14 total
@@ -76,4 +76,4 @@
 
 ---
 *Requirements defined: 2026-03-31*
-*Last updated: 2026-03-31 after milestone v1.0 definition*
+*Last updated: 2026-03-31 after gap-closure phase planning*

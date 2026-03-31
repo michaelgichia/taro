@@ -93,12 +93,93 @@ Plans:
 - [x] `04-01-PLAN.md` — update packaged runtime docs and help surfaces so regrade documents both single-file and `--directory-loop` flows
 - [x] `04-02-PLAN.md` — add install/runtime regression coverage that locks the new batch regrade guidance to the packaged assets and smoke path
 
+## Phase 5: Formal Verification for Discovery and Tracker
+
+**Goal:** Close the audit blockers for Phase 1 by creating formal verification artifacts and Nyquist sign-off for discovery and tracker behavior.
+
+**Requirements:** `RGDIR-01`, `RGDIR-02`, `RGDIR-03`, `RGTRK-01`, `RGTRK-02`, `RGTRK-03`
+
+**Gap Closure:** Closes the missing verification and partial Nyquist audit gaps for the original Phase 1 work.
+
+**Plans:** 0 plans
+
+**Implementation focus:**
+- validate directory discovery, non-test filtering, and invalid-flag handling against the shipped command surface
+- backfill formal verification evidence for tracker creation, pending bootstrap, and in-progress semantics
+- reconcile requirements traceability with the formal verification outcome
+
+**Verification:**
+- create the missing `05-VERIFICATION.md` or equivalent phase verification artifact set
+- complete Nyquist sign-off for the Phase 5 gap-closure work
+- rerun the scoped command and tracker suites used by the original implementation
+
+## Phase 6: Formal Verification for Loop and History
+
+**Goal:** Close the audit blockers for Phase 2 by formally verifying sequential loop execution, completed tracker rows, and state-history persistence.
+
+**Requirements:** `RGTRK-04`, `RGEX-01`, `RGST-01`, `RGST-02`, `RGST-03`
+
+**Gap Closure:** Closes the missing verification and partial Nyquist audit gaps for the original Phase 2 work.
+
+**Plans:** 0 plans
+
+**Implementation focus:**
+- backfill formal verification evidence for the reusable regrade runner and latest-match history reuse
+- verify completed tracker-row writeback, sequential loop completion, and latest-5 history trimming
+- update traceability from implementation-complete to formally verified
+
+**Verification:**
+- create the missing `06-VERIFICATION.md` or equivalent phase verification artifact set
+- complete Nyquist sign-off for the Phase 6 gap-closure work
+- rerun the original Phase 2 scoped state, runner, and loop suites
+
+## Phase 7: Formal Verification for Resume and Failure
+
+**Goal:** Close the audit blockers for Phase 3 by formally verifying resume, retry, and failure-stop semantics.
+
+**Requirements:** `RGEX-02`, `RGEX-03`
+
+**Gap Closure:** Closes the missing verification and partial Nyquist audit gaps for the original Phase 3 work.
+
+**Plans:** 0 plans
+
+**Implementation focus:**
+- backfill formal verification evidence for skip-completed and retry-current behavior
+- verify failure-stop exit semantics and retry-after-failure continuity
+- align the phase’s verification artifacts with the already-passing command tests
+
+**Verification:**
+- create the missing `07-VERIFICATION.md` or equivalent phase verification artifact set
+- complete Nyquist sign-off for the Phase 7 gap-closure work
+- rerun the original Phase 3 scoped resume and failure suites
+
+## Phase 8: Formal Verification for Runtime Guidance and Re-Audit
+
+**Goal:** Close the audit blockers for Phase 4 by formally verifying runtime guidance coverage, finishing Nyquist sign-off, and rerunning the milestone audit.
+
+**Requirements:** `RGUX-01`
+
+**Gap Closure:** Closes the missing verification and partial Nyquist audit gaps for the original Phase 4 work and prepares the milestone to pass re-audit.
+
+**Plans:** 0 plans
+
+**Implementation focus:**
+- backfill formal verification evidence for README, installed-runtime, and packaged-asset guidance
+- complete Nyquist sign-off for the runtime-guidance gap-closure work
+- rerun the milestone audit and confirm the archive gate is clear
+
+**Verification:**
+- create the missing `08-VERIFICATION.md` or equivalent phase verification artifact set
+- rerun install/runtime/package smoke coverage and milestone audit
+- confirm the re-audit clears the requirement and phase-verification blockers
+
 ## Dependencies and Risks
 
 - Phase 2 depends on a stable tracker model from Phase 1.
 - Phase 3 depends on the loop engine from Phase 2 exposing explicit success/failure signals.
 - The biggest risk is splitting logic between runtime-skill `regrade` behavior and CLI batch orchestration without a shared implementation seam.
 - A second risk is adding tracker metadata that drifts from `.taro/state.json` score history semantics.
+- Phase 5 through Phase 8 exist solely to close formal verification and audit gaps, not to expand milestone feature scope.
 
 ## Delivery Notes
 
@@ -108,8 +189,8 @@ Plans:
 
 ## Next Command
 
-`$gsd-complete-milestone`
+`$gsd-plan-phase 5`
 
 ---
 *Roadmap created: 2026-03-31*
-*Last updated: 2026-03-31 after Phase 4 execution*
+*Last updated: 2026-03-31 after gap-closure phase planning*

@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-last_updated: "2026-03-31T07:27:36Z"
-last_activity: 2026-03-31 -- Milestone audit completed with verification gaps
+status: planning
+last_updated: "2026-03-31T07:32:00Z"
+last_activity: 2026-03-31 -- Gap-closure phases 05-08 created from milestone audit
 progress:
   total_phases: 4
   completed_phases: 4
@@ -19,14 +19,14 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-03-31)
 
 **Core value:** Taro should produce repo-aware, auditable RTL output and score history that make uncertainty explicit instead of hiding it.
-**Current focus:** Close formal verification gaps before milestone archive
+**Current focus:** Plan Phase 05 gap-closure work for formal verification
 
 ## Current Position
 
-Phase: 04 (runtime-guidance-and-regression-coverage) — COMPLETED
-Plan: complete
-Status: Milestone audit found formal verification gaps
-Last activity: 2026-03-31 -- Milestone audit completed with verification gaps
+Phase: 05 (formal-verification-for-discovery-and-tracker) — READY TO PLAN
+Plan: not started
+Status: Gap-closure phases created from milestone audit
+Last activity: 2026-03-31 -- Gap-closure phases 05-08 created from milestone audit
 
 ## Accumulated Context
 
@@ -37,9 +37,11 @@ Last activity: 2026-03-31 -- Milestone audit completed with verification gaps
 - Phase 02 completed the happy-path sequential directory loop and expanded tracker rows to persist updated scores plus follow-up comments.
 - Phase 03 aligned regrade reruns with target-loop semantics: completed rows are skipped, in-progress rows are retried first, and failure preserves the active row for retry.
 - Phase 04 published runtime-facing regrade guidance for both single-file and directory-loop flows and locked that guidance into installed-output, packaging, and CLI smoke coverage.
+- Milestone audit found no integration or E2E flow breakage, but every original phase is missing its formal `VERIFICATION.md` artifact and still needs Nyquist sign-off closure.
+- Gap-closure Phases 05-08 now track formal verification backfill and re-audit readiness without expanding milestone scope.
 
 ## Session Continuity
 
-- Last session: 2026-03-31T07:27:36Z
-- Stopped at: Milestone audit recorded missing phase verification artifacts; next step is gap closure or per-phase validation.
+- Last session: 2026-03-31T07:32:00Z
+- Stopped at: Gap-closure phases 05-08 created; next step is `$gsd-plan-phase 5`.
 - Resume file: none
