@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-last_updated: "2026-03-31T07:13:00Z"
-last_activity: 2026-03-31 -- Phase 04 completed
+last_updated: "2026-03-31T07:27:36Z"
+last_activity: 2026-03-31 -- Milestone audit completed with verification gaps
 progress:
   total_phases: 4
   completed_phases: 4
@@ -19,14 +19,14 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-03-31)
 
 **Core value:** Taro should produce repo-aware, auditable RTL output and score history that make uncertainty explicit instead of hiding it.
-**Current focus:** Milestone wrap-up and archive preparation
+**Current focus:** Close formal verification gaps before milestone archive
 
 ## Current Position
 
 Phase: 04 (runtime-guidance-and-regression-coverage) — COMPLETED
 Plan: complete
-Status: Ready for milestone completion
-Last activity: 2026-03-31 -- Phase 04 completed
+Status: Milestone audit found formal verification gaps
+Last activity: 2026-03-31 -- Milestone audit completed with verification gaps
 
 ## Accumulated Context
 
@@ -37,3 +37,9 @@ Last activity: 2026-03-31 -- Phase 04 completed
 - Phase 02 completed the happy-path sequential directory loop and expanded tracker rows to persist updated scores plus follow-up comments.
 - Phase 03 aligned regrade reruns with target-loop semantics: completed rows are skipped, in-progress rows are retried first, and failure preserves the active row for retry.
 - Phase 04 published runtime-facing regrade guidance for both single-file and directory-loop flows and locked that guidance into installed-output, packaging, and CLI smoke coverage.
+
+## Session Continuity
+
+- Last session: 2026-03-31T07:27:36Z
+- Stopped at: Milestone audit recorded missing phase verification artifacts; next step is gap closure or per-phase validation.
+- Resume file: none
