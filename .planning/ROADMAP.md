@@ -49,8 +49,8 @@ Plans:
 - tracker tests proving completed entries include updated score data and follow-up comments
 
 Plans:
-- [ ] `02-01-PLAN.md` — extract a reusable single-file regrade runner and lock down history append semantics
-- [ ] `02-02-PLAN.md` — extend tracker completion rows and wire the sequential `regrade --directory-loop` success path
+- [x] `02-01-PLAN.md` — extract a reusable single-file regrade runner and lock down history append semantics
+- [x] `02-02-PLAN.md` — extend tracker completion rows and wire the sequential `regrade --directory-loop` success path
 
 ## Phase 3: Resume, Retry, and Failure Semantics
 
@@ -100,8 +100,8 @@ Plans:
 
 ## Next Command
 
-`$gsd-execute-phase 2`
+`$gsd-plan-phase 3`
 
 ---
 *Roadmap created: 2026-03-31*
-*Last updated: 2026-03-31 after Phase 2 planning*
+*Last updated: 2026-03-31 after Phase 2 execution*
