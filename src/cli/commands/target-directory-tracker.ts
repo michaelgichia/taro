@@ -151,10 +151,10 @@ export function renderDirectoryLoopTrackerMarkdown(
 
   const rows =
     tracker.entries.length === 0
-      ? ["| pending | (none) | - |"]
+      ? ["| pending | (none) | - | - | - |"]
       : tracker.entries.map(
           (entry) =>
-            `| ${entry.status} | ${entry.componentPath} | ${entry.outputPath} |`
+            `| ${entry.status} | ${entry.componentPath} | ${entry.outputPath} | ${entry.currentScoreThreshold === null ? "-" : `${entry.currentScoreThreshold}%`} | ${entry.kind} |`
         );
 
   return [
@@ -167,8 +167,8 @@ export function renderDirectoryLoopTrackerMarkdown(
     `- In progress: ${counts.inProgress}`,
     `- Completed: ${counts.completed}`,
     "",
-    "| Status | Component | Output |",
-    "| --- | --- | --- |",
+    "| Status | Path | Output | Current score | Kind |",
+    "| --- | --- | --- | --- | --- |",
     ...rows,
     "",
   ].join("\n");
@@ -194,9 +194,13 @@ function parseDirectoryLoopTrackerMarkdown(params: {
   const entries: DirectoryLoopTrackerEntry[] = [];
 
   for (const line of lines) {
-    const match = line.match(
-      /^\| (pending|in-progress|completed) \| (.+) \| (.+) \|(?: (.+) \| (target|regrade) \|)?$/u
+    const extendedMatch = line.match(
+      /^\| (pending|in-progress|completed) \| (.+) \| (.+) \| (.+) \| (target|regrade) \|$/u
     );
+    const legacyMatch = line.match(
+      /^\| (pending|in-progress|completed) \| (.+) \| (.+) \|$/u
+    );
+    const match = extendedMatch ?? legacyMatch;
     if (!match) {
       continue;
     }
@@ -205,12 +209,19 @@ function parseDirectoryLoopTrackerMarkdown(params: {
       continue;
     }
 
+    const rawCurrentScore = extendedMatch?.[4]?.trim();
+    const parsedCurrentScore =
+      rawCurrentScore && rawCurrentScore !== "-"
+        ? Number.parseFloat(rawCurrentScore.replace(/%$/u, ""))
+        : null;
+
     entries.push({
       componentPath: match[2],
-      currentScoreThreshold: match[4]
-        ? Number.parseFloat(match[4].replace(/%$/u, ""))
+      currentScoreThreshold: Number.isFinite(parsedCurrentScore)
+        ? parsedCurrentScore
         : null,
-      kind: (match[5] as DirectoryLoopEntryKind | undefined) ?? "target",
+      kind:
+        (extendedMatch?.[5] as DirectoryLoopEntryKind | undefined) ?? "target",
       outputPath: match[3],
       status: match[1] as DirectoryLoopStatus,
     });
