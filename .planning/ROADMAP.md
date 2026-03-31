@@ -34,6 +34,8 @@ Plans:
 
 **Requirements:** `RGTRK-04`, `RGEX-01`, `RGST-01`, `RGST-02`, `RGST-03`
 
+**Plans:** 2 plans
+
 **Implementation focus:**
 - introduce or extract a reusable single-file regrade engine that directory mode can call repeatedly
 - load the latest stored `generatedTests` snapshot for each test when available
@@ -45,6 +47,10 @@ Plans:
 - state-history tests for latest-match lookup and latest-5 trimming after repeated directory-loop runs
 - integration tests proving each completed batch regrade appends the expected history entry
 - tracker tests proving completed entries include updated score data and follow-up comments
+
+Plans:
+- [ ] `02-01-PLAN.md` — extract a reusable single-file regrade runner and lock down history append semantics
+- [ ] `02-02-PLAN.md` — extend tracker completion rows and wire the sequential `regrade --directory-loop` success path
 
 ## Phase 3: Resume, Retry, and Failure Semantics
 
@@ -94,8 +100,8 @@ Plans:
 
 ## Next Command
 
-`$gsd-plan-phase 2`
+`$gsd-execute-phase 2`
 
 ---
 *Roadmap created: 2026-03-31*
-*Last updated: 2026-03-31 after Phase 1 execution*
+*Last updated: 2026-03-31 after Phase 2 planning*
