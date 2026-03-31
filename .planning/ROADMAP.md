@@ -90,8 +90,8 @@ Plans:
 - end-to-end smoke coverage for the documented invocation path
 
 Plans:
-- [ ] `04-01-PLAN.md` — update packaged runtime docs and help surfaces so regrade documents both single-file and `--directory-loop` flows
-- [ ] `04-02-PLAN.md` — add install/runtime regression coverage that locks the new batch regrade guidance to the packaged assets and smoke path
+- [x] `04-01-PLAN.md` — update packaged runtime docs and help surfaces so regrade documents both single-file and `--directory-loop` flows
+- [x] `04-02-PLAN.md` — add install/runtime regression coverage that locks the new batch regrade guidance to the packaged assets and smoke path
 
 ## Dependencies and Risks
 
@@ -108,8 +108,8 @@ Plans:
 
 ## Next Command
 
-`$gsd-execute-phase 4`
+`$gsd-complete-milestone`
 
 ---
 *Roadmap created: 2026-03-31*
-*Last updated: 2026-03-31 after Phase 4 planning*
+*Last updated: 2026-03-31 after Phase 4 execution*
