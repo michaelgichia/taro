@@ -209,24 +209,32 @@ For the exact module execution order behind `__generate`, see [docs/PIPELINE.md]
 
 ## Grade Existing Tests
 
-Use the runtime-native grading entrypoints when you want an AI-facing review of an existing test file without rerunning generation:
+Use the runtime-native grading entrypoints when you want an AI-facing review of existing RTL tests without rerunning generation:
 
 - Claude Code: `/@taro-test/rtl:grade path/to/test-file`
 - Claude Code: `/@taro-test/rtl:regrade path/to/test-file`
+- Claude Code: `/@taro-test/rtl:regrade path/to/test-directory --directory-loop`
 - Gemini CLI: `/@taro-test/rtl:grade path/to/test-file`
 - Gemini CLI: `/@taro-test/rtl:regrade path/to/test-file`
+- Gemini CLI: `/@taro-test/rtl:regrade path/to/test-directory --directory-loop`
 - OpenCode: `/@taro-test/rtl-grade path/to/test-file`
 - OpenCode: `/@taro-test/rtl-regrade path/to/test-file`
+- OpenCode: `/@taro-test/rtl-regrade path/to/test-directory --directory-loop`
 - Codex: `$@taro-test/rtl-grade`
 - Codex: `$@taro-test/rtl-regrade`
 
 `grade` scores the current file using the published Taro scoring shape and worked examples, then appends a new `generatedTests` snapshot into `.taro/state.json`.
 
-`regrade` re-scores the current file, compares it to the latest stored `generatedTests` snapshot for the same `testFile` when one exists, and appends a new snapshot into `.taro/state.json`.
+`regrade` supports two modes:
+
+- Single-file mode re-scores the current test file, compares it to the latest stored `generatedTests` snapshot for the same `testFile` when one exists, and appends a new snapshot into `.taro/state.json`.
+- Directory-loop mode runs `regrade <test-directory> --directory-loop`, discovers `*.test.*` and `*.spec.*` files in that directory tree, and writes a tracker under `.taro/directory-loop/`.
 
 For both commands, Taro keeps only the latest 5 stored snapshots per `generatedTests[].testFile` so score movement stays visible over time without unbounded per-test history growth.
 
 Stored `generatedTests` grades now bias future package learning during `init`, `refresh`, and stale-state bootstrap. Higher-scored stored tests count more strongly when Taro relearns conventions, helpers, exemplars, and boundary patterns; unscored tests remain neutral.
+
+In directory-loop mode, each tracker row starts as `pending`, moves to `in-progress` when Taro picks that test, and ends as `completed` after the regrade succeeds. Completed rows keep the current score threshold, the updated score threshold, and any follow-up comments returned by the regrade run.
 
 ### Draft-quality output is explicit
 

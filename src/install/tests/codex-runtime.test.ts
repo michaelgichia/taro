@@ -128,6 +128,8 @@ describe("buildCodexOperations", () => {
     );
     expect(helpSkill).toContain("$@taro-test/rtl-help");
     expect(helpSkill).toContain("## Routing guide");
+    expect(helpSkill).toContain("--directory-loop");
+    expect(helpSkill).toContain(".taro/directory-loop/");
     expect(operations.map((operation) => operation.entrypoint)).toContain(
       "$@taro-test/rtl-help"
     );
@@ -188,6 +190,8 @@ describe("buildCodexOperations", () => {
       "Invoke this skill with `$@taro-test/rtl-help`."
     );
     expect(helpSkill).toContain("Return:");
+    expect(helpSkill).toContain("--directory-loop");
+    expect(helpSkill).toContain(".taro/directory-loop/");
 
     const generateSkill = await readFile(
       join(
@@ -244,6 +248,12 @@ describe("buildCodexOperations", () => {
     );
     expect(regradeSkill).toContain("$@taro-test/rtl-regrade");
     expect(regradeSkill).toContain("latest 5 snapshots");
+    expect(regradeSkill).toContain(
+      `${target.runtimeCommand} __regrade <test-directory> --directory-loop`
+    );
+    expect(regradeSkill).toContain(".taro/directory-loop/");
+    expect(regradeSkill).toContain("current score threshold");
+    expect(regradeSkill).toContain("updated score threshold");
 
     const targetSkill = await readFile(
       join(

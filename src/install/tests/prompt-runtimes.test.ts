@@ -144,7 +144,12 @@ describe("prompt runtime install builders", () => {
     expect(initContent).toContain(`${target.runtimeCommand} __init`);
     expect(refreshContent).toContain(`${target.runtimeCommand} __refresh`);
     expect(gradeContent).toContain("Do not invent or invoke `__grade`.");
-    expect(regradeContent).toContain("Do not invent or invoke `__regrade`.");
+    expect(regradeContent).toContain(
+      `${target.runtimeCommand} __regrade <test-directory> --directory-loop`
+    );
+    expect(regradeContent).toContain(".taro/directory-loop/");
+    expect(regradeContent).toContain("pending");
+    expect(regradeContent).toContain("completed");
     expect(overridesContent).toContain(`${target.runtimeCommand} __overrides`);
     expect(
       operations.map((operation) => operation.relativeDestinationPath)
@@ -188,6 +193,11 @@ describe("prompt runtime install builders", () => {
     );
     expect(gradeContent).toContain("Strong `B` example");
     expect(regradeContent).toContain("latest 5 snapshots");
+    expect(regradeContent).toContain(
+      `${target.runtimeCommand} __regrade <test-directory> --directory-loop`
+    );
+    expect(regradeContent).toContain(".taro/directory-loop/");
+    expect(regradeContent).toContain("current score threshold");
     expect(overridesContent).toContain(`${target.runtimeCommand} __overrides`);
 
     const installedGenerateReferences = (
@@ -252,7 +262,12 @@ describe("prompt runtime install builders", () => {
     expect(initContent).toContain(`\`${target.runtimeCommand} __init\``);
     expect(refreshContent).toContain(`\`${target.runtimeCommand} __refresh\``);
     expect(gradeContent).toContain("Do not invent or invoke `__grade`.");
-    expect(regradeContent).toContain("Do not invent or invoke `__regrade`.");
+    expect(regradeContent).toContain(
+      `\`${target.runtimeCommand} __regrade <test-directory> --directory-loop\``
+    );
+    expect(regradeContent).toContain(".taro/directory-loop/");
+    expect(regradeContent).toContain("pending");
+    expect(regradeContent).toContain("completed");
     expect(overridesContent).toContain(
       `\`${target.runtimeCommand} __overrides\``
     );
@@ -296,6 +311,11 @@ describe("prompt runtime install builders", () => {
     );
     expect(gradeContent).toContain("Strong B");
     expect(regradeContent).toContain("latest 5 snapshots");
+    expect(regradeContent).toContain(
+      `\`${target.runtimeCommand} __regrade <test-directory> --directory-loop\``
+    );
+    expect(regradeContent).toContain(".taro/directory-loop/");
+    expect(regradeContent).toContain("current score threshold");
     expect(overridesContent).toContain(
       `\`${target.runtimeCommand} __overrides\``
     );
@@ -384,7 +404,12 @@ describe("prompt runtime install builders", () => {
     expect(initContent).toContain(`${target.runtimeCommand} __init`);
     expect(refreshContent).toContain(`${target.runtimeCommand} __refresh`);
     expect(gradeContent).toContain("Do not invent or invoke `__grade`.");
-    expect(regradeContent).toContain("Do not invent or invoke `__regrade`.");
+    expect(regradeContent).toContain(
+      `${target.runtimeCommand} __regrade <test-directory> --directory-loop`
+    );
+    expect(regradeContent).toContain(".taro/directory-loop/");
+    expect(regradeContent).toContain("pending");
+    expect(regradeContent).toContain("completed");
     expect(overridesContent).toContain(
       `\`${target.runtimeCommand} __overrides\``
     );
@@ -428,6 +453,11 @@ describe("prompt runtime install builders", () => {
     );
     expect(gradeContent).toContain("Strong `B`");
     expect(regradeContent).toContain("latest 5 snapshots");
+    expect(regradeContent).toContain(
+      `\`${target.runtimeCommand} __regrade <test-directory> --directory-loop\``
+    );
+    expect(regradeContent).toContain(".taro/directory-loop/");
+    expect(regradeContent).toContain("current score threshold");
     expect(overridesContent).toContain(
       `\`${target.runtimeCommand} __overrides\``
     );

@@ -322,6 +322,9 @@ describe("createRegradeCommand", () => {
     expect(result.logs).toContain("Directory loop tracker:");
     expect(result.logs).toContain("Queued 2 pending test files for regrade");
     expect(result.logs).toContain("Processing 2 pending test files");
+    expect(result.logs).toContain(
+      "Regrade directory loop tracker is complete; no pending test files remain."
+    );
     expect(tracker).toContain(
       "| completed | src/tests/CheckoutFlow.test.tsx | src/tests/CheckoutFlow.test.tsx | - | 92% | No follow-up required. | regrade |"
     );

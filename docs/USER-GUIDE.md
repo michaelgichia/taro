@@ -76,7 +76,10 @@ If you need a newer package version first, rerun `pnpm dlx @taro-test/rtl@latest
 2. `grade` should append a new `generatedTests` snapshot into `.taro/state.json`.
 3. `regrade` reevaluates an existing test file against the latest file contents.
 4. `regrade` should compare against the latest matching `generatedTests[].testFile` snapshot when one exists, then append a new snapshot into `.taro/state.json`.
-5. `grade` and `regrade` should keep only the latest 5 stored snapshots per `generatedTests[].testFile`.
+5. `regrade` also supports `regrade <test-directory> --directory-loop` for batch reruns across one directory tree of existing `*.test.*` and `*.spec.*` files.
+6. Directory-loop regrade should write a tracker under `.taro/directory-loop/` and keep each row moving from `pending` to `in-progress` to `completed`.
+7. Completed directory-loop rows should record the current score threshold, updated score threshold, and follow-up comments for that test file.
+8. `grade` and `regrade` should keep only the latest 5 stored snapshots per `generatedTests[].testFile`.
 
 Stored `generatedTests` grades bias later package relearning. During `init`, `refresh`, and stale-state bootstrap, Taro now gives higher-scored stored tests more influence when learning conventions, helpers, exemplars, and boundary strategies. Files without stored grades still participate with neutral weight.
 
