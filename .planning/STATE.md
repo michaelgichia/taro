@@ -5,12 +5,12 @@ milestone_name: milestone
 current_phase: "04"
 current_phase_name: runtime-guidance-and-regression-coverage
 status: planning
-last_updated: "2026-03-31T06:54:36Z"
-last_activity: 2026-03-31 -- Phase 03 execution completed
+last_updated: "2026-03-31T07:00:20Z"
+last_activity: 2026-03-31 -- Phase 04 planned
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 6
+  total_plans: 8
   completed_plans: 6
 ---
 
@@ -26,9 +26,9 @@ See: `.planning/PROJECT.md` (updated 2026-03-31)
 ## Current Position
 
 Phase: 04 (runtime-guidance-and-regression-coverage) — READY TO PLAN
-Plan: 0 of 0
-Status: Ready to plan Phase 04
-Last activity: 2026-03-31 -- Phase 03 execution completed
+Plan: 2 planned
+Status: Ready to execute Phase 04
+Last activity: 2026-03-31 -- Phase 04 planned
 
 ## Accumulated Context
 
@@ -38,3 +38,4 @@ Last activity: 2026-03-31 -- Phase 03 execution completed
 - Phase 02 added a reusable single-file regrade runner that reuses latest matching history metadata and appends fresh score snapshots.
 - Phase 02 completed the happy-path sequential directory loop and expanded tracker rows to persist updated scores plus follow-up comments.
 - Phase 03 aligned regrade reruns with target-loop semantics: completed rows are skipped, in-progress rows are retried first, and failure preserves the active row for retry.
+- Phase 04 planning is focused on packaged regrade guidance first, then install/runtime regression coverage that keeps the new docs aligned with the shipped directory-loop behavior.
