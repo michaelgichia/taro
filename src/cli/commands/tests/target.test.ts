@@ -743,6 +743,10 @@ describe("createTargetCommand", () => {
     expect(result.exitCode).toBe(0);
     expect(result.logs).toContain("Directory loop mode enabled");
     expect(result.logs).toContain("Directory loop tracker:");
+    expect(tracker).toContain("| Status | Path | Output | Current score | Kind |");
+    expect(tracker).toContain(
+      "| completed | src/Footer.tsx | src/Footer.test.tsx | - | target |"
+    );
     expect(tracker).toContain("| completed | src/Footer.tsx |");
     expect(tracker).toContain("| completed | src/Header.tsx |");
 

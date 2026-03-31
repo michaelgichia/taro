@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   createDirectoryLoopTracker,
   getDirectoryLoopTrackerPath,
+  readDirectoryLoopTracker,
   renderDirectoryLoopTrackerMarkdown,
   updateDirectoryLoopTrackerStatus,
   writeDirectoryLoopTracker,
@@ -98,5 +99,45 @@ describe("target directory tracker", () => {
     ).toBe("in-progress");
     expect(markdown).toContain("- Pending: 1");
     expect(markdown).toContain("- In progress: 1");
+  });
+
+  it("round-trips a regrade tracker row with its current stored score", async () => {
+    const root = await createSandbox("regrade-roundtrip");
+    const testsDir = join(root, "src", "tests");
+    const tracker = createDirectoryLoopTracker({
+      directoryPath: testsDir,
+      entries: [
+        {
+          componentPath: join(testsDir, "CheckoutFlow.test.tsx"),
+          currentScoreThreshold: 87,
+          kind: "regrade",
+          outputPath: join(testsDir, "CheckoutFlow.test.tsx"),
+          status: "pending",
+        },
+      ],
+      projectRoot: root,
+    });
+
+    await writeDirectoryLoopTracker(tracker);
+
+    const trackerPath = getDirectoryLoopTrackerPath(root, testsDir);
+    const content = await readFile(trackerPath, "utf-8");
+    const parsed = await readDirectoryLoopTracker({
+      directoryPath: testsDir,
+      projectRoot: root,
+    });
+
+    expect(content).toContain(
+      "| pending | src/tests/CheckoutFlow.test.tsx | src/tests/CheckoutFlow.test.tsx | 87% | regrade |"
+    );
+    expect(parsed?.entries[0]).toEqual(
+      expect.objectContaining({
+        componentPath: "src/tests/CheckoutFlow.test.tsx",
+        currentScoreThreshold: 87,
+        kind: "regrade",
+        outputPath: "src/tests/CheckoutFlow.test.tsx",
+        status: "pending",
+      })
+    );
   });
 });
