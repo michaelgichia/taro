@@ -1,7 +1,7 @@
 ---
 phase: 2
 slug: sequential-regrade-loop-and-history-persistence
-status: draft
+status: approved
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-03-31
@@ -38,12 +38,12 @@ created: 2026-03-31
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 2-01-01 | 01 | 1 | RGST-02 | unit | `pnpm exec vitest run src/cli/commands/tests/regrade-runner.test.ts` | ✅ | ⬜ pending |
-| 2-01-02 | 01 | 1 | RGST-01 | unit | `pnpm exec vitest run src/cli/commands/tests/regrade-runner.test.ts src/core/tests/state.test.ts` | ✅ | ⬜ pending |
-| 2-01-03 | 01 | 1 | RGST-03 | unit | `pnpm exec vitest run src/cli/commands/tests/regrade-runner.test.ts src/core/tests/state.test.ts` | ✅ | ⬜ pending |
-| 2-02-01 | 02 | 2 | RGTRK-04 | unit | `pnpm exec vitest run src/cli/commands/tests/target-directory-tracker.test.ts` | ✅ | ⬜ pending |
-| 2-02-02 | 02 | 2 | RGEX-01 | integration | `pnpm exec vitest run src/cli/commands/tests/regrade.test.ts` | ✅ | ⬜ pending |
-| 2-02-03 | 02 | 2 | RGTRK-04 | integration | `pnpm exec vitest run src/cli/commands/tests/regrade.test.ts src/cli/commands/tests/target-directory-tracker.test.ts` | ✅ | ⬜ pending |
+| 2-01-01 | 01 | 1 | RGST-02 | unit | `pnpm exec vitest run src/cli/commands/tests/regrade-runner.test.ts` | ✅ | ✅ green |
+| 2-01-02 | 01 | 1 | RGST-01 | unit | `pnpm exec vitest run src/cli/commands/tests/regrade-runner.test.ts src/core/tests/state.test.ts` | ✅ | ✅ green |
+| 2-01-03 | 01 | 1 | RGST-03 | unit | `pnpm exec vitest run src/cli/commands/tests/regrade-runner.test.ts src/core/tests/state.test.ts` | ✅ | ✅ green |
+| 2-02-01 | 02 | 2 | RGTRK-04 | unit | `pnpm exec vitest run src/cli/commands/tests/target-directory-tracker.test.ts` | ✅ | ✅ green |
+| 2-02-02 | 02 | 2 | RGEX-01 | integration | `pnpm exec vitest run src/cli/commands/tests/regrade.test.ts` | ✅ | ✅ green |
+| 2-02-03 | 02 | 2 | RGTRK-04 | integration | `pnpm exec vitest run src/cli/commands/tests/regrade.test.ts src/cli/commands/tests/target-directory-tracker.test.ts` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -63,11 +63,11 @@ All planned Phase 2 behaviors have automated coverage targets.
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 90s
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 90s
 - [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-03-31

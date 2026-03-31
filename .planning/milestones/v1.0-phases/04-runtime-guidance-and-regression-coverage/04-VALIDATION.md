@@ -1,7 +1,7 @@
 ---
 phase: 4
 slug: runtime-guidance-and-regression-coverage
-status: draft
+status: approved
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-03-31
@@ -38,12 +38,12 @@ created: 2026-03-31
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 4-01-01 | 01 | 1 | RGUX-01 | review | `pnpm exec vitest run src/install/tests/codex-runtime.test.ts src/install/tests/prompt-runtimes.test.ts` | ✅ | ⬜ pending |
-| 4-01-02 | 01 | 1 | RGUX-01 | review | `pnpm exec vitest run src/install/tests/codex-runtime.test.ts src/install/tests/prompt-runtimes.test.ts` | ✅ | ⬜ pending |
-| 4-01-03 | 01 | 1 | RGUX-01 | docs | `pnpm exec vitest run src/install/tests/codex-runtime.test.ts src/install/tests/prompt-runtimes.test.ts` | ✅ | ⬜ pending |
-| 4-02-01 | 02 | 2 | RGUX-01 | integration | `pnpm exec vitest run src/install/tests/codex-runtime.test.ts src/install/tests/prompt-runtimes.test.ts` | ✅ | ⬜ pending |
-| 4-02-02 | 02 | 2 | RGUX-01 | integration | `pnpm exec vitest run src/install/tests/verification.test.ts src/install/tests/codex-runtime.test.ts src/install/tests/prompt-runtimes.test.ts` | ✅ | ⬜ pending |
-| 4-02-03 | 02 | 2 | RGUX-01 | smoke | `pnpm exec vitest run src/cli/commands/tests/regrade.test.ts` | ✅ | ⬜ pending |
+| 4-01-01 | 01 | 1 | RGUX-01 | review | `pnpm exec vitest run src/install/tests/codex-runtime.test.ts src/install/tests/prompt-runtimes.test.ts` | ✅ | ✅ green |
+| 4-01-02 | 01 | 1 | RGUX-01 | review | `pnpm exec vitest run src/install/tests/codex-runtime.test.ts src/install/tests/prompt-runtimes.test.ts` | ✅ | ✅ green |
+| 4-01-03 | 01 | 1 | RGUX-01 | docs | `pnpm exec vitest run src/install/tests/codex-runtime.test.ts src/install/tests/prompt-runtimes.test.ts` | ✅ | ✅ green |
+| 4-02-01 | 02 | 2 | RGUX-01 | integration | `pnpm exec vitest run src/install/tests/codex-runtime.test.ts src/install/tests/prompt-runtimes.test.ts` | ✅ | ✅ green |
+| 4-02-02 | 02 | 2 | RGUX-01 | integration | `pnpm exec vitest run src/install/tests/verification.test.ts src/install/tests/codex-runtime.test.ts src/install/tests/prompt-runtimes.test.ts` | ✅ | ✅ green |
+| 4-02-03 | 02 | 2 | RGUX-01 | smoke | `pnpm exec vitest run src/cli/commands/tests/regrade.test.ts` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -63,11 +63,11 @@ Existing infrastructure covers all phase requirements.
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 90s
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 90s
 - [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-03-31

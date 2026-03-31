@@ -15,12 +15,13 @@ Taro should produce repo-aware, auditable RTL output and score history that make
 - ✓ Users can install runtime-native `generate`, `grade`, `regrade`, and `target` entrypoints across supported agent runtimes.
 - ✓ Users can batch-generate component tests through `target --directory-loop` with a resumable Markdown tracker under `.taro/directory-loop/`.
 - ✓ Taro stores recent generated-test scoring history in `.taro/state.json` and uses it to bias future learning.
+- ✓ Users can batch regrade eligible test directories through `regrade --directory-loop` with resumable tracker state and score-history persistence. — v1.0
+- ✓ Regrade directory trackers record prior score thresholds, updated thresholds, and follow-up comments for each completed test. — v1.0
+- ✓ Directory-loop regrade resumes safely after failures without changing single-file `regrade` history guarantees. — v1.0
 
 ### Active
 
-- [ ] `regrade --directory-loop` can batch regrade all eligible tests in a target directory.
-- [ ] The regrade directory tracker records per-test status, prior score threshold, new score threshold, and follow-up comments.
-- [ ] Directory-loop regrade resumes safely after failures without changing single-file `regrade` history guarantees.
+- [ ] Define the next milestone requirements.
 
 ### Out of Scope
 
@@ -46,20 +47,22 @@ Taro should produce repo-aware, auditable RTL output and score history that make
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Reuse the existing directory-loop tracker abstraction as the base for regrade batching | The repo already has resume/retry semantics, tracker persistence, and tests around this path | — Pending |
-| Keep directory-loop regrade sequential with one in-progress entry at a time | This matches current batch behavior and reduces write conflicts in tracker/state files | — Pending |
-| Treat follow-up comments as tracker output, not a change to the score rubric | The user asked for richer batch reporting, not a new evaluation model | — Pending |
+| Reuse the existing directory-loop tracker abstraction as the base for regrade batching | The repo already has resume/retry semantics, tracker persistence, and tests around this path | ✓ Shipped in v1.0 |
+| Keep directory-loop regrade sequential with one in-progress entry at a time | This matches current batch behavior and reduces write conflicts in tracker/state files | ✓ Shipped in v1.0 |
+| Treat follow-up comments as tracker output, not a change to the score rubric | The user asked for richer batch reporting, not a new evaluation model | ✓ Shipped in v1.0 |
 
-## Current Milestone: v1.0 Regrade a test directory
+## Current State
 
-**Goal:** Add `regrade --directory-loop` so Taro can batch regrade every eligible test in a directory and track progress/results across the full loop.
+- Latest shipped milestone: `v1.0 Regrade a test directory`
+- Archive summary: `.planning/MILESTONES.md`
+- Roadmap archive: `.planning/milestones/v1.0-ROADMAP.md`
+- Requirements archive: `.planning/milestones/v1.0-REQUIREMENTS.md`
+- No active milestone is in progress.
 
-**Target features:**
-- `regrade` accepts `--directory-loop` for directory targets.
-- The loop creates a Markdown tracker with current and updated per-test score thresholds.
-- Tracker entries move through `pending`, `in-progress`, and `completed` during the loop.
-- Completed entries record follow-up comments from the regrade result.
-- The loop resumes safely until all discovered tests are regraded.
+## Next Milestone Goals
+
+- Define the next milestone scope.
+- Decide whether the next step should deepen batch regrade workflow or shift back to generation/help ergonomics.
 
 ## Evolution
 
@@ -79,4 +82,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-31 after milestone v1.0 kickoff*
+*Last updated: 2026-03-31 after milestone v1.0 completion*
