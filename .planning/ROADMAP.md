@@ -70,8 +70,8 @@ Plans:
 - regression tests that protect against double-processing already completed tests
 
 Plans:
-- [ ] `03-01-PLAN.md` — codify regrade resume semantics so completed rows are skipped and the current in-progress row is retried first
-- [ ] `03-02-PLAN.md` — harden failure-stop behavior, exit codes, and retry-after-failure coverage for the regrade directory loop
+- [x] `03-01-PLAN.md` — codify regrade resume semantics so completed rows are skipped and the current in-progress row is retried first
+- [x] `03-02-PLAN.md` — harden failure-stop behavior, exit codes, and retry-after-failure coverage for the regrade directory loop
 
 ## Phase 4: Runtime Guidance and Regression Coverage
 
@@ -104,8 +104,8 @@ Plans:
 
 ## Next Command
 
-`$gsd-execute-phase 3`
+`$gsd-plan-phase 4`
 
 ---
 *Roadmap created: 2026-03-31*
-*Last updated: 2026-03-31 after Phase 3 planning*
+*Last updated: 2026-03-31 after Phase 3 execution*
