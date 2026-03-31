@@ -10,6 +10,8 @@
 
 **Requirements:** `RGDIR-01`, `RGDIR-02`, `RGDIR-03`, `RGTRK-01`, `RGTRK-02`, `RGTRK-03`
 
+**Plans:** 2 plans
+
 **Implementation focus:**
 - identify or create the reusable command surface for `regrade` directory targets
 - discover eligible `*.test.*` and `*.spec.*` files while excluding non-test files
@@ -21,6 +23,10 @@
 - unit tests for tracker rendering/parsing with prior-score fields
 - command validation tests for directory input vs single-file input
 - discovery tests proving non-test files are excluded
+
+Plans:
+- [ ] `01-01-PLAN.md` — extract shared tracker plumbing and add the regrade-specific Markdown tracker contract under `.taro/directory-loop/`
+- [ ] `01-02-PLAN.md` — add reusable regrade directory discovery and directory-loop validation helpers with focused tests
 
 ## Phase 2: Sequential Regrade Loop and History Persistence
 
