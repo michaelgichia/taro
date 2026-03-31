@@ -7,6 +7,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createRegradeCommand } from "#cli/commands/regrade.ts";
 import type { RegradeRunnerResult } from "#cli/commands/regrade-runner.ts";
+import {
+  createDirectoryLoopTracker,
+  writeDirectoryLoopTracker,
+} from "#cli/commands/target-directory-tracker.ts";
 import { appendGeneratedTestRecord } from "#core/state.ts";
 import type { ScoreResult } from "#types/score.ts";
 
@@ -199,6 +203,30 @@ async function seedGeneratedTestRecord(
   });
 }
 
+async function seedDirectoryLoopTracker(params: {
+  directoryPath: string;
+  entries: Array<{
+    componentPath: string;
+    currentScoreThreshold?: number | null;
+    followUpComments?: string[];
+    outputPath: string;
+    status?: "pending" | "in-progress" | "completed";
+    updatedScoreThreshold?: number | null;
+  }>;
+  root: string;
+}) {
+  await writeDirectoryLoopTracker(
+    createDirectoryLoopTracker({
+      directoryPath: params.directoryPath,
+      entries: params.entries.map((entry) => ({
+        ...entry,
+        kind: "regrade",
+      })),
+      projectRoot: params.root,
+    })
+  );
+}
+
 describe("createRegradeCommand", () => {
   it("rejects directory input unless --directory-loop is passed", async () => {
     const root = await createSandbox("dir-requires-flag");
@@ -332,6 +360,162 @@ describe("createRegradeCommand", () => {
     expect(result.exitCode).toBe(0);
     expect(tracker).toContain(
       "| completed | src/tests/CheckoutFlow.test.tsx | src/tests/CheckoutFlow.test.tsx | 87% | 93% | No follow-up required. | regrade |"
+    );
+  });
+
+  it("skips completed rows and retries an existing in-progress row first on rerun", async () => {
+    const root = await createSandbox("resume-rerun");
+    const testsDir = join(root, "src", "tests");
+    const calls: string[] = [];
+    const alphaTest = join(testsDir, "Alpha.test.tsx");
+    const betaTest = join(testsDir, "Beta.spec.ts");
+    const gammaTest = join(testsDir, "Gamma.test.tsx");
+    await mkdir(testsDir, { recursive: true });
+    await writeFile(alphaTest, "describe('Alpha', () => {})\n", "utf-8");
+    await writeFile(betaTest, "describe('Beta', () => {})\n", "utf-8");
+    await writeFile(gammaTest, "describe('Gamma', () => {})\n", "utf-8");
+    await seedDirectoryLoopTracker({
+      directoryPath: testsDir,
+      entries: [
+        {
+          componentPath: alphaTest,
+          currentScoreThreshold: 90,
+          followUpComments: ["No follow-up required."],
+          outputPath: alphaTest,
+          status: "completed",
+          updatedScoreThreshold: 90,
+        },
+        {
+          componentPath: betaTest,
+          currentScoreThreshold: 71,
+          outputPath: betaTest,
+          status: "in-progress",
+        },
+        {
+          componentPath: gammaTest,
+          outputPath: gammaTest,
+          status: "pending",
+        },
+      ],
+      root,
+    });
+
+    const result = await runRegrade([testsDir, "--directory-loop"], root, {
+      runRegradeTestFile: async ({ testFile }) => {
+        calls.push(testFile.replace(/\\/g, "/"));
+
+        if (testFile.endsWith("Beta.spec.ts")) {
+          return makeRunnerResult({
+            scoreResult: { total: 88 },
+            testFile,
+          });
+        }
+
+        return makeRunnerResult({
+          scoreResult: { total: 79 },
+          testFile,
+        });
+      },
+    });
+    const tracker = await readDirectoryTracker(result.logs);
+
+    expect(result.exitCode).toBe(0);
+    expect(calls).toHaveLength(2);
+    expect(calls[0]).toMatch(/src\/tests\/Beta\.spec\.ts$/u);
+    expect(calls[1]).toMatch(/src\/tests\/Gamma\.test\.tsx$/u);
+    expect(tracker).toContain(
+      "| completed | src/tests/Alpha.test.tsx | src/tests/Alpha.test.tsx | - | 90% | No follow-up required. | regrade |"
+    );
+    expect(tracker).toContain(
+      "| completed | src/tests/Beta.spec.ts | src/tests/Beta.spec.ts | - | 88% | No follow-up required. | regrade |"
+    );
+    expect(tracker).toContain(
+      "| completed | src/tests/Gamma.test.tsx | src/tests/Gamma.test.tsx | - | 79% | No follow-up required. | regrade |"
+    );
+  });
+
+  it("stops on the current test when regrade execution fails", async () => {
+    const root = await createSandbox("failure-stop");
+    const testsDir = join(root, "src", "tests");
+    const alphaTest = join(testsDir, "Alpha.test.tsx");
+    const betaTest = join(testsDir, "Beta.test.tsx");
+    const calls: string[] = [];
+    await mkdir(testsDir, { recursive: true });
+    await writeFile(alphaTest, "describe('Alpha', () => {})\n", "utf-8");
+    await writeFile(betaTest, "describe('Beta', () => {})\n", "utf-8");
+
+    const result = await runRegrade([testsDir, "--directory-loop"], root, {
+      runRegradeTestFile: async ({ testFile }) => {
+        calls.push(testFile.replace(/\\/g, "/"));
+        throw new Error("runner blew up");
+      },
+    });
+    const tracker = await readDirectoryTracker(result.logs);
+
+    expect(result.exitCode).toBe(1);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatch(/src\/tests\/Alpha\.test\.tsx$/u);
+    expect(result.logs).toContain(
+      "Regrade directory loop stopped on src/tests/Alpha.test.tsx: runner blew up"
+    );
+    expect(tracker).toContain(
+      "| in-progress | src/tests/Alpha.test.tsx | src/tests/Alpha.test.tsx | - | - | - | regrade |"
+    );
+    expect(tracker).toContain(
+      "| pending | src/tests/Beta.test.tsx | src/tests/Beta.test.tsx | - | - | - | regrade |"
+    );
+  });
+
+  it("retries the failed in-progress test before continuing on rerun", async () => {
+    const root = await createSandbox("failure-rerun");
+    const testsDir = join(root, "src", "tests");
+    const alphaTest = join(testsDir, "Alpha.test.tsx");
+    const betaTest = join(testsDir, "Beta.test.tsx");
+    const firstRunCalls: string[] = [];
+    const secondRunCalls: string[] = [];
+    await mkdir(testsDir, { recursive: true });
+    await writeFile(alphaTest, "describe('Alpha', () => {})\n", "utf-8");
+    await writeFile(betaTest, "describe('Beta', () => {})\n", "utf-8");
+
+    const firstRun = await runRegrade([testsDir, "--directory-loop"], root, {
+      runRegradeTestFile: async ({ testFile }) => {
+        firstRunCalls.push(testFile.replace(/\\/g, "/"));
+        throw new Error("temporary failure");
+      },
+    });
+
+    expect(firstRun.exitCode).toBe(1);
+    expect(firstRunCalls).toHaveLength(1);
+    expect(firstRunCalls[0]).toMatch(/src\/tests\/Alpha\.test\.tsx$/u);
+
+    const secondRun = await runRegrade([testsDir, "--directory-loop"], root, {
+      runRegradeTestFile: async ({ testFile }) => {
+        secondRunCalls.push(testFile.replace(/\\/g, "/"));
+
+        if (testFile.endsWith("Alpha.test.tsx")) {
+          return makeRunnerResult({
+            scoreResult: { total: 86 },
+            testFile,
+          });
+        }
+
+        return makeRunnerResult({
+          scoreResult: { total: 84 },
+          testFile,
+        });
+      },
+    });
+    const tracker = await readDirectoryTracker(secondRun.logs);
+
+    expect(secondRun.exitCode).toBe(0);
+    expect(secondRunCalls).toHaveLength(2);
+    expect(secondRunCalls[0]).toMatch(/src\/tests\/Alpha\.test\.tsx$/u);
+    expect(secondRunCalls[1]).toMatch(/src\/tests\/Beta\.test\.tsx$/u);
+    expect(tracker).toContain(
+      "| completed | src/tests/Alpha.test.tsx | src/tests/Alpha.test.tsx | - | 86% | No follow-up required. | regrade |"
+    );
+    expect(tracker).toContain(
+      "| completed | src/tests/Beta.test.tsx | src/tests/Beta.test.tsx | - | 84% | No follow-up required. | regrade |"
     );
   });
 });

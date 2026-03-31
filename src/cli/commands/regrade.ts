@@ -8,6 +8,7 @@ import pc from "picocolors";
 import { logToStderr as log } from "#cli/commands/log.ts";
 import { type RegradeRunnerResult, runRegradeForTestFile } from "#cli/commands/regrade-runner.ts";
 import {
+  type DirectoryLoopTracker,
   createDirectoryLoopTracker,
   readDirectoryLoopTracker,
   updateDirectoryLoopTrackerEntry,
@@ -31,6 +32,42 @@ interface CommandOptions {
 interface LatestStoredScoreThreshold {
   createdAtMs: number;
   overall: number;
+}
+
+function resolveRegradeTrackerEntryStatus(
+  previousStatus: DirectoryLoopTracker["entries"][number]["status"] | undefined
+): DirectoryLoopTracker["entries"][number]["status"] {
+  if (previousStatus === "completed" || previousStatus === "in-progress") {
+    return previousStatus;
+  }
+
+  return "pending";
+}
+
+function selectNextRegradeTrackerEntry(tracker: DirectoryLoopTracker): {
+  entry: DirectoryLoopTracker["entries"][number] | null;
+  pendingCount: number;
+} {
+  const inProgressEntry = tracker.entries.find(
+    (entry) => entry.status === "in-progress"
+  );
+  const pendingEntries = tracker.entries.filter(
+    (entry) => entry.status === "pending"
+  );
+
+  return {
+    entry: inProgressEntry ?? pendingEntries[0] ?? null,
+    pendingCount: pendingEntries.length + (inProgressEntry ? 1 : 0),
+  };
+}
+
+function formatExecutionFailureMessage(entryPath: string, error: unknown): string {
+  const details =
+    error instanceof Error
+      ? error.message
+      : "Unknown regrade execution failure.";
+
+  return `[taro] Regrade directory loop stopped on ${entryPath}: ${details}`;
 }
 
 function isSupportedSourceFile(filePath: string): boolean {
@@ -117,7 +154,7 @@ async function buildRegradeDirectoryLoopTracker(params: {
         followUpComments: previousEntry?.followUpComments ?? [],
         kind: "regrade",
         outputPath: testFile,
-        status: previousEntry?.status ?? "pending",
+        status: resolveRegradeTrackerEntryStatus(previousEntry?.status),
         updatedScoreThreshold: previousEntry?.updatedScoreThreshold ?? null,
       };
     }),
@@ -208,14 +245,11 @@ export function createRegradeCommand(
             context.runRegradeTestFile ?? runRegradeForTestFile;
 
           while (true) {
-            const inProgressEntry = tracker.entries.find(
-              (entry) => entry.status === "in-progress"
-            );
-            const pendingEntries = tracker.entries.filter(
-              (entry) => entry.status === "pending"
+            const { entry, pendingCount } = selectNextRegradeTrackerEntry(
+              tracker
             );
 
-            if (!inProgressEntry && pendingEntries.length === 0) {
+            if (!entry && pendingCount === 0) {
               log(
                 pc.dim("[taro]") +
                   " Regrade directory loop tracker is complete; no pending test files remain."
@@ -223,28 +257,32 @@ export function createRegradeCommand(
               process.exit(0);
             }
 
-            const pendingCount =
-              pendingEntries.length + (inProgressEntry ? 1 : 0);
             log(
               pc.dim("[taro]") +
                 ` Processing ${pendingCount} pending test file${pendingCount === 1 ? "" : "s"} in ${resolvedTargetPath}`
             );
 
-            const entry = inProgressEntry ?? pendingEntries[0]!;
+            const activeEntry = entry!;
             tracker = updateDirectoryLoopTrackerStatus(tracker, {
-              componentPath: entry.componentPath,
+              componentPath: activeEntry.componentPath,
               projectRoot,
               status: "in-progress",
             });
             await writeDirectoryLoopTracker(tracker);
 
-            const result = await executeRegradeForTestFile({
-              projectRoot,
-              testFile: resolve(projectRoot, entry.componentPath),
-            });
+            let result: RegradeRunnerResult;
+            try {
+              result = await executeRegradeForTestFile({
+                projectRoot,
+                testFile: resolve(projectRoot, activeEntry.componentPath),
+              });
+            } catch (error) {
+              log(pc.red(formatExecutionFailureMessage(activeEntry.componentPath, error)));
+              process.exit(1);
+            }
 
             tracker = updateDirectoryLoopTrackerEntry(tracker, {
-              componentPath: entry.componentPath,
+              componentPath: activeEntry.componentPath,
               followUpComments: result.followUpComments,
               projectRoot,
               status: "completed",
