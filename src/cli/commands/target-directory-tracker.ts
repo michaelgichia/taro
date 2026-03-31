@@ -4,9 +4,12 @@ import { dirname, relative, resolve } from "node:path";
 import { getProjectStatePath } from "#project-state.ts";
 
 export type DirectoryLoopStatus = "pending" | "in-progress" | "completed";
+export type DirectoryLoopEntryKind = "target" | "regrade";
 
 export interface DirectoryLoopTrackerEntry {
   componentPath: string;
+  currentScoreThreshold: number | null;
+  kind: DirectoryLoopEntryKind;
   outputPath: string;
   status: DirectoryLoopStatus;
 }
@@ -69,6 +72,8 @@ export function createDirectoryLoopTracker(params: {
   directoryPath: string;
   entries: Array<{
     componentPath: string;
+    currentScoreThreshold?: number | null;
+    kind?: DirectoryLoopEntryKind;
     outputPath: string;
     status?: DirectoryLoopStatus;
   }>;
@@ -82,6 +87,8 @@ export function createDirectoryLoopTracker(params: {
     entries: params.entries
       .map((entry) => ({
         componentPath: toDisplayPath(params.projectRoot, entry.componentPath),
+        currentScoreThreshold: entry.currentScoreThreshold ?? null,
+        kind: entry.kind ?? "target",
         outputPath: toDisplayPath(params.projectRoot, entry.outputPath),
         status: entry.status ?? "pending",
       }))
@@ -188,7 +195,7 @@ function parseDirectoryLoopTrackerMarkdown(params: {
 
   for (const line of lines) {
     const match = line.match(
-      /^\| (pending|in-progress|completed) \| (.+) \| (.+) \|$/u
+      /^\| (pending|in-progress|completed) \| (.+) \| (.+) \|(?: (.+) \| (target|regrade) \|)?$/u
     );
     if (!match) {
       continue;
@@ -200,6 +207,10 @@ function parseDirectoryLoopTrackerMarkdown(params: {
 
     entries.push({
       componentPath: match[2],
+      currentScoreThreshold: match[4]
+        ? Number.parseFloat(match[4].replace(/%$/u, ""))
+        : null,
+      kind: (match[5] as DirectoryLoopEntryKind | undefined) ?? "target",
       outputPath: match[3],
       status: match[1] as DirectoryLoopStatus,
     });
