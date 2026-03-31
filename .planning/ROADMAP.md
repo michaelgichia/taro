@@ -13,4 +13,5 @@ No active milestone is in progress.
 `$gsd-new-milestone`
 
 ---
-*Last updated: 2026-03-31 after archiving milestone v1.0*
+
+_Last updated: 2026-03-31 after archiving milestone v1.0_

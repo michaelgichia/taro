@@ -101,7 +101,8 @@ export function buildStateSummaryMarkdown(
 ): string {
   const qualityIndex = buildGeneratedTestQualityIndex(
     projectRoot,
-    state.generatedTests
+    state.generatedTests,
+    state.gradedTests
   );
   const lines = [
     "# Taro Boundary Summary",
@@ -129,7 +130,7 @@ export function buildStateSummaryMarkdown(
     lines.push("");
     lines.push(`- Runner: \`${profile.runner.value}\``);
     lines.push(
-      `- Score-aware learning: ${learningSummary.scoredTestFileCount > 0 ? "active" : "inactive"} (${learningSummary.scoredTestFileCount} scored, ${learningSummary.unscoredTestFileCount} unscored, source=generatedTests, mode=weighted-bias)`
+      `- Score-aware learning: ${learningSummary.scoredTestFileCount > 0 ? "active" : "inactive"} (${learningSummary.scoredTestFileCount} scored, ${learningSummary.unscoredTestFileCount} unscored, source=gradedTests, fallback=generatedTests, mode=weighted-bias)`
     );
     lines.push(
       `- Preferred render boundary: \`${summarizeRenderBoundaryPreference(profile)}\``
@@ -208,7 +209,8 @@ export function buildExistingStateResult(
   const summaryPackages = buildSummaryPackages(
     projectRoot,
     existingState.packages,
-    existingState.generatedTests
+    existingState.generatedTests,
+    existingState.gradedTests
   );
 
   return {

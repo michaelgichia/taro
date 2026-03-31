@@ -141,15 +141,13 @@ function getMockFactory(
   | t.FunctionExpression
   | t.ArrowFunctionExpression
   | null {
-  return (
-    node.arguments.find((argument) => {
-      return (
-        t.isFunctionDeclaration(argument) ||
-        t.isFunctionExpression(argument) ||
-        t.isArrowFunctionExpression(argument)
-      );
-    }) ?? null
-  ) as
+  return (node.arguments.find((argument) => {
+    return (
+      t.isFunctionDeclaration(argument) ||
+      t.isFunctionExpression(argument) ||
+      t.isArrowFunctionExpression(argument)
+    );
+  }) ?? null) as
     | t.FunctionDeclaration
     | t.FunctionExpression
     | t.ArrowFunctionExpression
@@ -289,7 +287,10 @@ function unwrapMockedComponentImplementation(
     ["vi", "jest"].includes(value.callee.object.name)
   ) {
     const [firstArg] = value.arguments;
-    if (t.isFunctionExpression(firstArg) || t.isArrowFunctionExpression(firstArg)) {
+    if (
+      t.isFunctionExpression(firstArg) ||
+      t.isArrowFunctionExpression(firstArg)
+    ) {
       return firstArg;
     }
   }
@@ -313,8 +314,9 @@ function getMockedComponentImplementations(
     return [];
   }
 
-  const implementations: Array<t.FunctionExpression | t.ArrowFunctionExpression> =
-    [];
+  const implementations: Array<
+    t.FunctionExpression | t.ArrowFunctionExpression
+  > = [];
 
   for (const property of expression.properties) {
     if (!t.isObjectProperty(property) || !t.isExpression(property.value)) {
@@ -424,7 +426,8 @@ function hasComponentMockReimplementation(ast: t.File | null): boolean {
     }
 
     const returnedExpression = getReturnedExpression(factory);
-    const implementations = getMockedComponentImplementations(returnedExpression);
+    const implementations =
+      getMockedComponentImplementations(returnedExpression);
 
     if (
       implementations.some((implementation) =>

@@ -11,7 +11,8 @@ provides:
 affects: [01-02, phase-02-regrade-loop]
 tech-stack:
   added: []
-  patterns: [shared directory-loop tracker schema, backward-compatible markdown parsing]
+  patterns:
+    [shared directory-loop tracker schema, backward-compatible markdown parsing]
 key-files:
   created: []
   modified:
@@ -42,6 +43,7 @@ completed: 2026-03-31
 - **Files modified:** 3
 
 ## Accomplishments
+
 - Generalized the canonical `.taro/directory-loop/*.md` tracker shape to represent both target and regrade work.
 - Added Markdown rendering and parsing for current stored score thresholds without breaking legacy tracker rows.
 - Expanded regression coverage to protect both the new regrade row contract and existing target-loop output.
@@ -55,11 +57,13 @@ Each task was committed atomically:
 3. **Task 3: Expand tracker regression coverage without breaking target loop behavior** - `78eb577` (test)
 
 ## Files Created/Modified
+
 - `src/cli/commands/target-directory-tracker.ts` - Expanded tracker entries, row rendering, and backward-compatible parsing.
 - `src/cli/commands/tests/target-directory-tracker.test.ts` - Added regrade row round-trip coverage and invariant assertions.
 - `src/cli/commands/tests/target.test.ts` - Locked in the updated tracker table shape for target directory-loop output.
 
 ## Decisions Made
+
 - Reused `componentPath` and `outputPath` as the canonical row fields for both target and regrade directory loops to avoid duplicating tracker plumbing.
 - Added explicit `kind` metadata so later phases can distinguish target entries from regrade entries without guessing from paths.
 
@@ -82,5 +86,5 @@ The tracker contract is stable for the regrade directory command to bootstrap wo
 ## Self-Check: PASSED
 
 ---
-*Phase: 01-regrade-directory-discovery-and-tracker-shape*
-*Completed: 2026-03-31*
+
+_Phase: 01-regrade-directory-discovery-and-tracker-shape_ _Completed: 2026-03-31_

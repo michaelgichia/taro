@@ -24,7 +24,8 @@ key-decisions:
   - "Closed the audit gap by generating formal verification evidence for the original phase instead of reopening product implementation."
 patterns-established:
   - "Gap-closure phases can verify completed implementation retroactively while keeping milestone scope fixed."
-requirements-completed: [RGDIR-01, RGDIR-02, RGDIR-03, RGTRK-01, RGTRK-02, RGTRK-03]
+requirements-completed:
+  [RGDIR-01, RGDIR-02, RGDIR-03, RGTRK-01, RGTRK-02, RGTRK-03]
 duration: 5min
 completed: 2026-03-31
 ---
@@ -80,5 +81,5 @@ Phase 6 can apply the same formal-verification backfill pattern to loop and hist
 ## Self-Check: PASSED
 
 ---
-*Phase: 05-formal-verification-for-discovery-and-tracker*
-*Completed: 2026-03-31*
+
+_Phase: 05-formal-verification-for-discovery-and-tracker_ _Completed: 2026-03-31_

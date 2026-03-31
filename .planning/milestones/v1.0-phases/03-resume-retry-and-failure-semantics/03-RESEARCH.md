@@ -1,8 +1,6 @@
 # Phase 3 Research: Resume, Retry, and Failure Semantics
 
-**Phase:** 3
-**Date:** 2026-03-31
-**Status:** Complete
+**Phase:** 3 **Date:** 2026-03-31 **Status:** Complete
 
 ## Goal
 
@@ -21,21 +19,15 @@ No `03-CONTEXT.md` exists, so this research is derived from:
 
 ## Relevant Existing Surfaces
 
-- `src/cli/commands/regrade.ts`
-  Already bootstraps or reloads the tracker, preserves prior row status when rebuilding entries, processes `in-progress` before `pending`, and marks successful regrades `completed`. It does not yet harden failure handling inside the loop.
-- `src/cli/commands/regrade-runner.ts`
-  Represents the per-test regrade worker. It returns a scored result on success and currently signals failure by throwing.
-- `src/cli/commands/target.ts`
-  Already implements the restart model Phase 3 should mirror: mark the current row `in-progress`, run exactly one item, stop on failure, keep the current row active, and resume from that row on rerun.
-- `src/cli/commands/target-directory-tracker.ts`
-  Already supports the single-active-entry invariant and Markdown persistence needed for resumed runs.
-- `src/cli/commands/tests/target.test.ts`
-  Already codifies the expected target-loop semantics for:
+- `src/cli/commands/regrade.ts` Already bootstraps or reloads the tracker, preserves prior row status when rebuilding entries, processes `in-progress` before `pending`, and marks successful regrades `completed`. It does not yet harden failure handling inside the loop.
+- `src/cli/commands/regrade-runner.ts` Represents the per-test regrade worker. It returns a scored result on success and currently signals failure by throwing.
+- `src/cli/commands/target.ts` Already implements the restart model Phase 3 should mirror: mark the current row `in-progress`, run exactly one item, stop on failure, keep the current row active, and resume from that row on rerun.
+- `src/cli/commands/target-directory-tracker.ts` Already supports the single-active-entry invariant and Markdown persistence needed for resumed runs.
+- `src/cli/commands/tests/target.test.ts` Already codifies the expected target-loop semantics for:
   - stopping on the current item when work fails
   - retrying the current `in-progress` row on rerun
   - skipping already-completed rows on resume
-- `src/cli/commands/tests/regrade.test.ts`
-  Currently covers only the happy path, validation, and completed-row metadata.
+- `src/cli/commands/tests/regrade.test.ts` Currently covers only the happy path, validation, and completed-row metadata.
 
 ## What Already Works
 
@@ -105,6 +97,7 @@ Phase 3 must cover these IDs explicitly:
 ## Recommended Decomposition
 
 ### Plan 03-01 (Wave 1)
+
 Codify resume semantics and tracker reconciliation for reruns.
 
 Recommended files:
@@ -118,6 +111,7 @@ Why first:
 - Phase 3 should establish skip-completed and retry-current semantics before adding failure-path hardening
 
 ### Plan 03-02 (Wave 2)
+
 Add explicit failure-stop handling and resume-after-failure coverage.
 
 Recommended files:

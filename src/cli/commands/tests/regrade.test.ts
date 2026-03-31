@@ -11,7 +11,9 @@ import {
   createDirectoryLoopTracker,
   writeDirectoryLoopTracker,
 } from "#cli/commands/target-directory-tracker.ts";
+import { appendGradedTestRecord } from "#core/graded-test-history.ts";
 import { appendGeneratedTestRecord } from "#core/state.ts";
+import type { ExistingTestGradeResult } from "#types/existing-test-grade.ts";
 import type { ScoreResult } from "#types/score.ts";
 
 const sandboxes: string[] = [];
@@ -108,24 +110,85 @@ async function runRegrade(
 
 function makeRunnerResult(params: {
   followUpComments?: string[];
-  scoreResult?: Partial<ScoreResult>;
+  matchedGeneratedTestRecord?: RegradeRunnerResult["matchedGeneratedTestRecord"];
+  matchedHistorySource?: RegradeRunnerResult["matchedHistorySource"];
+  scoreResult?: Partial<ExistingTestGradeResult> & {
+    dimensions?: Partial<ExistingTestGradeResult["dimensions"]>;
+    signals?: Partial<ExistingTestGradeResult["signals"]>;
+  };
   testFile: string;
 }): RegradeRunnerResult {
-  const scoreResult = makeScoreResult(params.scoreResult);
+  const scoreResult = makeExistingTestGradeResult(params.scoreResult);
 
   return {
     followUpComments:
       params.followUpComments ??
       (scoreResult.requiresReview
-        ? [`Manual review required (${scoreResult.total}/100, ${scoreResult.grade}).`]
+        ? [
+            `Manual review required (${scoreResult.total}/100, ${scoreResult.grade}).`,
+          ]
         : ["No follow-up required."]),
-    matchedGeneratedTestRecord: null,
-    persistenceContext: {
-      packagePath: ".",
-      recordingFile: null,
-    },
+    matchedGeneratedTestRecord: params.matchedGeneratedTestRecord ?? null,
+    matchedHistorySource: params.matchedHistorySource ?? null,
+    persistenceContext: { packagePath: ".", recordingFile: null },
     scoreResult,
     testFile: params.testFile,
+  };
+}
+
+function makeExistingTestGradeResult(
+  overrides: Partial<ExistingTestGradeResult> & {
+    dimensions?: Partial<ExistingTestGradeResult["dimensions"]>;
+    signals?: Partial<ExistingTestGradeResult["signals"]>;
+  } = {}
+): ExistingTestGradeResult {
+  const total = overrides.total ?? 80;
+
+  return {
+    total,
+    grade:
+      overrides.grade ??
+      (total >= 90
+        ? "A"
+        : total >= 80
+          ? "B"
+          : total >= 70
+            ? "C"
+            : total >= 60
+              ? "D"
+              : "F"),
+    dimensions: {
+      robustness: 20,
+      readability: 12,
+      assertionStrength: 16,
+      mockFidelity: 16,
+      maintainability: 16,
+      ...overrides.dimensions,
+    },
+    signals: {
+      roleQueryCount: 1,
+      labelQueryCount: 0,
+      placeholderQueryCount: 0,
+      textQueryCount: 0,
+      testIdQueryCount: 0,
+      querySelectorCount: 0,
+      positionalRoleQueryCount: 0,
+      payloadAssertionCount: 1,
+      strongAssertionCount: 1,
+      presenceAssertionCount: 1,
+      visibilityAssertionCount: 0,
+      mockCallAssertionCount: 0,
+      sharedMockImportCount: 0,
+      setupHelperCount: 1,
+      renderHelperImportCount: 0,
+      beforeEachCount: 1,
+      mockResetCount: 1,
+      lineCount: 20,
+      ...overrides.signals,
+    },
+    reasons: overrides.reasons ?? [],
+    blockers: overrides.blockers ?? [],
+    requiresReview: overrides.requiresReview ?? total < 80,
   };
 }
 
@@ -218,10 +281,7 @@ async function seedDirectoryLoopTracker(params: {
   await writeDirectoryLoopTracker(
     createDirectoryLoopTracker({
       directoryPath: params.directoryPath,
-      entries: params.entries.map((entry) => ({
-        ...entry,
-        kind: "regrade",
-      })),
+      entries: params.entries.map((entry) => ({ ...entry, kind: "regrade" })),
       projectRoot: params.root,
     })
   );
@@ -284,33 +344,23 @@ describe("createRegradeCommand", () => {
       "utf-8"
     );
 
-    const result = await runRegrade(
-      [testsDir, "--directory-loop"],
-      root,
-      {
-        runRegradeTestFile: async ({ testFile }) => {
-          calls.push(testFile.replace(/\\/g, "/"));
-          if (testFile.endsWith("Orders.spec.ts")) {
-            return makeRunnerResult({
-              followUpComments: [
-                "Manual review required (67/100, D).",
-                "Strengthen assertions.",
-              ],
-              scoreResult: {
-                requiresReview: true,
-                total: 67,
-              },
-              testFile,
-            });
-          }
-
+    const result = await runRegrade([testsDir, "--directory-loop"], root, {
+      runRegradeTestFile: async ({ testFile }) => {
+        calls.push(testFile.replace(/\\/g, "/"));
+        if (testFile.endsWith("Orders.spec.ts")) {
           return makeRunnerResult({
-            scoreResult: { total: 92 },
+            followUpComments: [
+              "Manual review required (67/100, D).",
+              "Strengthen assertions.",
+            ],
+            scoreResult: { requiresReview: true, total: 67 },
             testFile,
           });
-        },
-      }
-    );
+        }
+
+        return makeRunnerResult({ scoreResult: { total: 92 }, testFile });
+      },
+    });
     const tracker = await readDirectoryTracker(result.logs);
 
     expect(result.thrown).toBeUndefined();
@@ -347,17 +397,10 @@ describe("createRegradeCommand", () => {
     );
     await seedGeneratedTestRecord(root, checkoutTest, { total: 87 });
 
-    const result = await runRegrade(
-      [testsDir, "--directory-loop"],
-      root,
-      {
-        runRegradeTestFile: async ({ testFile }) =>
-          makeRunnerResult({
-            scoreResult: { total: 93 },
-            testFile,
-          }),
-      }
-    );
+    const result = await runRegrade([testsDir, "--directory-loop"], root, {
+      runRegradeTestFile: async ({ testFile }) =>
+        makeRunnerResult({ scoreResult: { total: 93 }, testFile }),
+    });
     const tracker = await readDirectoryTracker(result.logs);
 
     expect(result.exitCode).toBe(0);
@@ -394,11 +437,7 @@ describe("createRegradeCommand", () => {
           outputPath: betaTest,
           status: "in-progress",
         },
-        {
-          componentPath: gammaTest,
-          outputPath: gammaTest,
-          status: "pending",
-        },
+        { componentPath: gammaTest, outputPath: gammaTest, status: "pending" },
       ],
       root,
     });
@@ -408,16 +447,10 @@ describe("createRegradeCommand", () => {
         calls.push(testFile.replace(/\\/g, "/"));
 
         if (testFile.endsWith("Beta.spec.ts")) {
-          return makeRunnerResult({
-            scoreResult: { total: 88 },
-            testFile,
-          });
+          return makeRunnerResult({ scoreResult: { total: 88 }, testFile });
         }
 
-        return makeRunnerResult({
-          scoreResult: { total: 79 },
-          testFile,
-        });
+        return makeRunnerResult({ scoreResult: { total: 79 }, testFile });
       },
     });
     const tracker = await readDirectoryTracker(result.logs);
@@ -433,7 +466,7 @@ describe("createRegradeCommand", () => {
       "| completed | src/tests/Beta.spec.ts | src/tests/Beta.spec.ts | - | 88% | No follow-up required. | regrade |"
     );
     expect(tracker).toContain(
-      "| completed | src/tests/Gamma.test.tsx | src/tests/Gamma.test.tsx | - | 79% | No follow-up required. | regrade |"
+      "| completed | src/tests/Gamma.test.tsx | src/tests/Gamma.test.tsx | - | 79% | Manual review required (79/100, C). | regrade |"
     );
   });
 
@@ -496,16 +529,10 @@ describe("createRegradeCommand", () => {
         secondRunCalls.push(testFile.replace(/\\/g, "/"));
 
         if (testFile.endsWith("Alpha.test.tsx")) {
-          return makeRunnerResult({
-            scoreResult: { total: 86 },
-            testFile,
-          });
+          return makeRunnerResult({ scoreResult: { total: 86 }, testFile });
         }
 
-        return makeRunnerResult({
-          scoreResult: { total: 84 },
-          testFile,
-        });
+        return makeRunnerResult({ scoreResult: { total: 84 }, testFile });
       },
     });
     const tracker = await readDirectoryTracker(secondRun.logs);
@@ -519,6 +546,83 @@ describe("createRegradeCommand", () => {
     );
     expect(tracker).toContain(
       "| completed | src/tests/Beta.test.tsx | src/tests/Beta.test.tsx | - | 84% | No follow-up required. | regrade |"
+    );
+  });
+
+  it("regrades a single test file via the shared runner and reports the score delta", async () => {
+    const root = await createSandbox("single-file");
+    const testFile = join(root, "src", "CheckoutFlow.test.tsx");
+    await mkdir(dirname(testFile), { recursive: true });
+    await writeFile(testFile, "describe('CheckoutFlow', () => {})\n", "utf-8");
+
+    const previousRecord = {
+      createdAt: "2026-03-31T09:00:00.000Z",
+      packagePath: ".",
+      recordingFile: "recordings/checkout-flow.js",
+      testFile,
+      quality: {
+        overall: 72,
+        grade: "C" as const,
+        dimensions: {
+          queryQuality: 72,
+          assertionSpecificity: 72,
+          testStructure: 72,
+          boundaryIsolation: 72,
+        },
+        signals: makeScoreResult({ total: 72 }).signals,
+        reasons: [],
+      },
+      requiresReview: true,
+    };
+
+    const result = await runRegrade([testFile], root, {
+      runRegradeTestFile: async ({ testFile }) =>
+        makeRunnerResult({
+          followUpComments: ["Strengthen assertions."],
+          matchedGeneratedTestRecord: previousRecord,
+          matchedHistorySource: "generated",
+          scoreResult: { total: 85 },
+          testFile,
+        }),
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.logs).toContain("Regrade single-file mode enabled");
+    expect(result.logs).toContain(
+      "Previous snapshot (generatedTests fallback): 72/100 (C)"
+    );
+    expect(result.logs).toContain("Score: 85/100 (B)");
+    expect(result.logs).toContain("Delta: +13");
+    expect(result.logs).toContain("Follow-up: Strengthen assertions.");
+  });
+
+  it("prefers gradedTests thresholds over generated fallback in directory-loop mode", async () => {
+    const root = await createSandbox("graded-threshold");
+    const testsDir = join(root, "src", "tests");
+    const checkoutTest = join(testsDir, "CheckoutFlow.test.tsx");
+    await mkdir(testsDir, { recursive: true });
+    await writeFile(
+      checkoutTest,
+      "describe('CheckoutFlow', () => {})\n",
+      "utf-8"
+    );
+    await seedGeneratedTestRecord(root, checkoutTest, { total: 67 });
+    await appendGradedTestRecord(root, {
+      packagePath: ".",
+      recordingFile: null,
+      testFile: checkoutTest,
+      gradeResult: makeExistingTestGradeResult({ total: 91 }),
+    });
+
+    const result = await runRegrade([testsDir, "--directory-loop"], root, {
+      runRegradeTestFile: async ({ testFile }) =>
+        makeRunnerResult({ scoreResult: { total: 95 }, testFile }),
+    });
+    const tracker = await readDirectoryTracker(result.logs);
+
+    expect(result.exitCode).toBe(0);
+    expect(tracker).toContain(
+      "| completed | src/tests/CheckoutFlow.test.tsx | src/tests/CheckoutFlow.test.tsx | 91% | 95% | No follow-up required. | regrade |"
     );
   });
 });

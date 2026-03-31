@@ -89,6 +89,7 @@ export function emptyState(now: string, taroVersion: string): TaroState {
     packages: {},
     mockStore: { rootDir: null, importHint: null, resources: [] },
     generatedTests: [],
+    gradedTests: [],
   };
 }
 

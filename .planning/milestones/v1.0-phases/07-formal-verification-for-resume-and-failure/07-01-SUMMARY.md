@@ -80,5 +80,5 @@ Phase 8 can close the final runtime-guidance verification gap and rerun the mile
 ## Self-Check: PASSED
 
 ---
-*Phase: 07-formal-verification-for-resume-and-failure*
-*Completed: 2026-03-31*
+
+_Phase: 07-formal-verification-for-resume-and-failure_ _Completed: 2026-03-31_

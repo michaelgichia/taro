@@ -80,5 +80,5 @@ Phase 7 can apply the same formal-verification backfill pattern to resume and fa
 ## Self-Check: PASSED
 
 ---
-*Phase: 06-formal-verification-for-loop-and-history*
-*Completed: 2026-03-31*
+
+_Phase: 06-formal-verification-for-loop-and-history_ _Completed: 2026-03-31_

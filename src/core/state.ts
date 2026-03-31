@@ -36,7 +36,6 @@ import {
   createLoadOrBootstrapStateMachine,
   createScanStateMachine,
 } from "#core/state.machine.ts";
-import { normalizeGeneratedTestHistoryPath } from "#core/state-paths.ts";
 import type {
   GeneratedTestQualityIndex,
   TaroPackageProfileStaleness,
@@ -89,6 +88,7 @@ import {
   safeParseTaroOverrides,
   safeParseTaroState,
 } from "#core/state.validation.ts";
+import { normalizeGeneratedTestHistoryPath } from "#core/state-paths.ts";
 import type {
   LoadedLegacyStateResult,
   PackageDescriptor,
@@ -1100,6 +1100,9 @@ async function finalizeScanResult(
   const generatedTests = params.preserveGeneratedTests
     ? trimGeneratedTestHistory(projectRoot, existingState?.generatedTests ?? [])
     : [];
+  const gradedTests = params.preserveGeneratedTests
+    ? (existingState?.gradedTests ?? [])
+    : [];
   const state: TaroState = {
     version: STATE_VERSION,
     meta: {
@@ -1110,11 +1113,13 @@ async function finalizeScanResult(
     packages: params.packages,
     mockStore: await collectMockStoreResources(projectRoot, params.packages),
     generatedTests,
+    gradedTests,
   };
   const summaryPackages = buildSummaryPackages(
     projectRoot,
     params.packages,
-    params.generatedHistoryForLearning
+    params.generatedHistoryForLearning,
+    gradedTests
   );
 
   return {

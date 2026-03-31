@@ -29,10 +29,10 @@ Target test file: $ARGUMENTS
    - run `{{TARO_RUNTIME_COMMAND}} __regrade <test-directory> --directory-loop`
    - report the tracker path under `.taro/directory-loop/`
    - explain that rows move from `pending` to `in-progress` to `completed`
-   - report that completed rows keep the current score threshold, updated score threshold, and follow-up comments
-3. If the path is a single file, do not invoke `__regrade`.
+   - report that completed rows keep the current score threshold from gradedTests (with generatedTests fallback), the updated score threshold, and follow-up comments
+3. If the path is a single file, run `{{TARO_RUNTIME_COMMAND}} __regrade <test-file>` and use that output as the scoring source of truth for the updated grade.
 4. Read the target test and `.taro/state.json`.
-5. Find the latest `generatedTests` record whose normalized `testFile` path matches the provided test path.
+5. Find the latest `gradedTests` record whose normalized `testFile` path matches the provided test path.
 6. If no previous match exists:
    - grade the file in the response
    - explain that this is the first stored snapshot for the test
@@ -59,9 +59,9 @@ Target test file: $ARGUMENTS
      - current file regresses to `<App />`, brittle selectors, and weak assertions
      - expected new result: `D` or `F`
    - First-snapshot example:
-     - the file exists but no matching `generatedTests[].testFile` exists
+     - the file exists but no matching `gradedTests[].testFile` exists
      - report the grade, initialize or update state, and append the first stored snapshot
-10. Persist a new `generatedTests` snapshot in `.taro/state.json`:
+10. Persist a new `gradedTests` snapshot in `.taro/state.json`:
    - if state is missing, initialize a valid minimal state object first
    - reuse the latest matching `packagePath` and `recordingFile` when present
    - otherwise use the best matching package profile or `"."`, and store `recordingFile: null`

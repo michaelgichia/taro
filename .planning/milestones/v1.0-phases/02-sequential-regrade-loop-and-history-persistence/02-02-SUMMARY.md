@@ -13,7 +13,8 @@ provides:
 affects: [phase-03-resume, phase-04-runtime-guidance]
 tech-stack:
   added: []
-  patterns: [completed regrade tracker metadata, sequential directory-loop execution]
+  patterns:
+    [completed regrade tracker metadata, sequential directory-loop execution]
 key-files:
   created: []
   modified:
@@ -46,6 +47,7 @@ completed: 2026-03-31
 - **Files modified:** 5
 
 ## Accomplishments
+
 - Extended tracker rows so completed regrades persist updated score thresholds and follow-up comments alongside the previously stored score.
 - Replaced bootstrap-only directory behavior with a sequential success-path loop that processes every queued test until no pending rows remain.
 - Added command-level coverage proving completed rows are written for every discovered test and manual-review outcomes stay explicit in tracker output.
@@ -57,6 +59,7 @@ This plan landed as one atomic implementation commit:
 1. **Tasks 1-3: Extend tracker completion rows and execute the directory loop sequentially** - `464cbbb` (feat)
 
 ## Files Created/Modified
+
 - `src/cli/commands/regrade.ts` - Drives the sequential regrade loop, tracker status transitions, and completed-row result persistence.
 - `src/cli/commands/target-directory-tracker.ts` - Renders and parses updated score and follow-up comment columns for completed regrade entries.
 - `src/cli/commands/tests/regrade.test.ts` - Covers full directory-loop success-path execution, updated scores, and manual-review tracker output.
@@ -64,6 +67,7 @@ This plan landed as one atomic implementation commit:
 - `src/cli/commands/tests/target.test.ts` - Updates target-loop assertions to the expanded tracker schema.
 
 ## Decisions Made
+
 - Preserved tracker compatibility by teaching the parser to understand both the new completed-row shape and older target-loop rows.
 - Injected the runner into the command context for tests so directory-loop orchestration can be verified without rescoring files twice.
 
@@ -86,5 +90,5 @@ Phase 3 can now focus on resume and failure behavior on top of an already-workin
 ## Self-Check: PASSED
 
 ---
-*Phase: 02-sequential-regrade-loop-and-history-persistence*
-*Completed: 2026-03-31*
+
+_Phase: 02-sequential-regrade-loop-and-history-persistence_ _Completed: 2026-03-31_

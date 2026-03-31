@@ -7,16 +7,14 @@ score: 5/5 must-haves verified
 
 # Phase 2: Sequential Regrade Loop and History Persistence Verification Report
 
-**Phase Goal:** Execute sequential batch regrades and persist the score movement for each completed test.
-**Verified:** 2026-03-31T08:01:00Z
-**Status:** passed
+**Phase Goal:** Execute sequential batch regrades and persist the score movement for each completed test. **Verified:** 2026-03-31T08:01:00Z **Status:** passed
 
 ## Goal Achievement
 
 ### Observable Truths
 
 | # | Truth | Status | Evidence |
-|---|-------|--------|----------|
+| --- | --- | --- | --- |
 | 1 | The directory loop processes queued tests sequentially until no pending rows remain on the success path | ✓ VERIFIED | `src/cli/commands/regrade.ts` loops through tracker entries and `src/cli/commands/tests/regrade.test.ts` asserts all queued tests complete. |
 | 2 | Completed tracker rows record the updated score threshold and follow-up comments | ✓ VERIFIED | Tracker completion metadata is rendered by `src/cli/commands/target-directory-tracker.ts` and asserted in command/tracker tests. |
 | 3 | Single-file regrade execution appends a fresh generated-test record for each success | ✓ VERIFIED | `src/cli/commands/regrade-runner.ts` persists via shared state helpers and runner tests cover append behavior. |
@@ -28,7 +26,7 @@ score: 5/5 must-haves verified
 ## Required Artifacts
 
 | Artifact | Expected | Status | Details |
-|----------|----------|--------|---------|
+| --- | --- | --- | --- |
 | `src/cli/commands/regrade-runner.ts` | Reusable single-file regrade runner | ✓ EXISTS + SUBSTANTIVE | Encapsulates scoring, persistence metadata reuse, snapshot append, and follow-up shaping. |
 | `src/core/state.ts` | Latest-match lookup and append pipeline | ✓ EXISTS + SUBSTANTIVE | Keeps regrade on the shared generated-test persistence surface. |
 | `src/cli/commands/regrade.ts` | Sequential directory-loop success path | ✓ EXISTS + SUBSTANTIVE | Uses the runner per queued test and writes completed tracker rows. |
@@ -40,7 +38,7 @@ score: 5/5 must-haves verified
 ## Key Link Verification
 
 | From | To | Via | Status | Details |
-|------|----|-----|--------|---------|
+| --- | --- | --- | --- | --- |
 | directory loop | runner | `runRegradeForTestFile()` | ✓ WIRED | `regrade.ts` delegates scoring and persistence instead of duplicating it. |
 | runner | generatedTests history | append pipeline in `state.ts` | ✓ WIRED | Successful regrades append fresh state through shared helpers. |
 | runner result | tracker completion rows | updated threshold and follow-up comments | ✓ WIRED | Completed rows reflect the same result shape returned by the runner. |
@@ -49,13 +47,13 @@ score: 5/5 must-haves verified
 
 ## Requirements Coverage
 
-| Requirement | Status | Blocking Issue |
-|-------------|--------|----------------|
-| RGTRK-04 | ✓ SATISFIED | - |
-| RGEX-01 | ✓ SATISFIED | - |
-| RGST-01 | ✓ SATISFIED | - |
-| RGST-02 | ✓ SATISFIED | - |
-| RGST-03 | ✓ SATISFIED | - |
+| Requirement | Status      | Blocking Issue |
+| ----------- | ----------- | -------------- |
+| RGTRK-04    | ✓ SATISFIED | -              |
+| RGEX-01     | ✓ SATISFIED | -              |
+| RGST-01     | ✓ SATISFIED | -              |
+| RGST-02     | ✓ SATISFIED | -              |
+| RGST-03     | ✓ SATISFIED | -              |
 
 **Coverage:** 5/5 requirements satisfied
 
@@ -73,11 +71,8 @@ None — all phase behaviors are covered by automated runner, state, tracker, an
 
 ## Verification Metadata
 
-**Verification approach:** Goal-backward from Phase 2 must-haves, runner/state evidence, and command-level success-path checks
-**Automated checks:** Existing runner, state, tracker, and loop suites
-**Human checks required:** 0
-**Total verification time:** 7 min
+**Verification approach:** Goal-backward from Phase 2 must-haves, runner/state evidence, and command-level success-path checks **Automated checks:** Existing runner, state, tracker, and loop suites **Human checks required:** 0 **Total verification time:** 7 min
 
 ---
-*Verified: 2026-03-31T08:01:00Z*
-*Verifier: the agent*
+
+_Verified: 2026-03-31T08:01:00Z_ _Verifier: the agent_

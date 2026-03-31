@@ -723,7 +723,8 @@ describe('InvoiceAllowancesChargesSection', () => {
       queryResults: [
         {
           method: "getByRole",
-          query: "screen.getByRole('heading', { name: 'Invoice allowances & charges' })",
+          query:
+            "screen.getByRole('heading', { name: 'Invoice allowances & charges' })",
           quality: "good",
         },
       ],

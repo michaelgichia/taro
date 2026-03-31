@@ -61,7 +61,6 @@ import { parseJsRecording } from "#core/js-parser.ts";
 import { analyzeRecording } from "#core/recording-intelligence.ts";
 import { scoreGeneratedTest } from "#core/scorer.ts";
 import { TARGET_OUTPUT_SCORE_GATE } from "#core/state.constants.ts";
-import { normalizeGeneratedTestHistoryPath } from "#core/state-paths.ts";
 import {
   detectPackageProfileStaleness,
   loadOrBootstrapTaroState,
@@ -69,6 +68,7 @@ import {
   refreshTaroState,
   resolveTaroPackageProfile,
 } from "#core/state.ts";
+import { normalizeGeneratedTestHistoryPath } from "#core/state-paths.ts";
 import { planJsSuite } from "#core/suite-planner.ts";
 import { verifySyntax } from "#core/verifier.ts";
 import { writeTestFile } from "#core/writer.ts";
@@ -466,10 +466,7 @@ async function readLatestGeneratedOutputStatuses(
   return new Map(
     [...latestStatuses.entries()].map(([path, status]) => [
       path,
-      {
-        overall: status.overall,
-        requiresReview: status.requiresReview,
-      },
+      { overall: status.overall, requiresReview: status.requiresReview },
     ])
   );
 }

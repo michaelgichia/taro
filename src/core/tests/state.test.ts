@@ -1568,7 +1568,7 @@ describe("score-weighted learning", () => {
       expect.objectContaining({ value: "js", confidence: "high" })
     );
     expect(summary).toContain(
-      "Score-aware learning: active (3 scored, 0 unscored, source=generatedTests, mode=weighted-bias)"
+      "Score-aware learning: active (3 scored, 0 unscored, source=gradedTests, fallback=generatedTests, mode=weighted-bias)"
     );
   });
 

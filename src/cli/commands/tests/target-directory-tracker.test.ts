@@ -91,12 +91,14 @@ describe("target directory tracker", () => {
     const markdown = renderDirectoryLoopTrackerMarkdown(betaInProgress);
 
     expect(
-      betaInProgress.entries.find((entry) => entry.componentPath === "src/Alpha.tsx")
-        ?.status
+      betaInProgress.entries.find(
+        (entry) => entry.componentPath === "src/Alpha.tsx"
+      )?.status
     ).toBe("pending");
     expect(
-      betaInProgress.entries.find((entry) => entry.componentPath === "src/Beta.tsx")
-        ?.status
+      betaInProgress.entries.find(
+        (entry) => entry.componentPath === "src/Beta.tsx"
+      )?.status
     ).toBe("in-progress");
     expect(markdown).toContain("- Pending: 1");
     expect(markdown).toContain("- In progress: 1");

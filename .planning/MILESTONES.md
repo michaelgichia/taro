@@ -7,6 +7,7 @@
 **Phases completed:** 1-8 (12 plans total)
 
 **Key accomplishments:**
+
 - Added `regrade --directory-loop` discovery and tracker bootstrap for eligible `*.test.*` and `*.spec.*` files.
 - Reused single-file regrade history semantics while processing directory runs sequentially and recording updated thresholds plus follow-up comments.
 - Hardened resume and failure behavior so completed rows are skipped and the active row is safely retried after interruption.
@@ -14,6 +15,7 @@
 - Closed all audit blockers with formal verification backfill and approved Nyquist sign-off across Phases 1-8.
 
 **Stats:**
+
 - 8 phases, 12 plans, 36 tasks
 - 79,354 lines of TypeScript in the current repo snapshot
 - Same-day milestone from kickoff to ship on 2026-03-31

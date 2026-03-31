@@ -16,7 +16,7 @@ created: 2026-03-31
 ## Test Infrastructure
 
 | Property | Value |
-|----------|-------|
+| --- | --- |
 | **Framework** | vitest |
 | **Config file** | `package.json` scripts plus Vitest defaults |
 | **Quick run command** | `pnpm test -- --run src/cli/commands/tests/target-directory-tracker.test.ts src/cli/commands/tests/regrade.test.ts` |
@@ -37,7 +37,7 @@ created: 2026-03-31
 ## Per-Task Verification Map
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
-|---------|------|------|-------------|-----------|-------------------|-------------|--------|
+| --- | --- | --- | --- | --- | --- | --- | --- |
 | 1-01-01 | 01 | 1 | RGTRK-01 | unit | `pnpm test -- --run src/cli/commands/tests/target-directory-tracker.test.ts` | ✅ | ✅ green |
 | 1-01-02 | 01 | 1 | RGTRK-02 | unit | `pnpm test -- --run src/cli/commands/tests/target-directory-tracker.test.ts` | ✅ | ✅ green |
 | 1-01-03 | 01 | 1 | RGTRK-03 | unit | `pnpm test -- --run src/cli/commands/tests/target-directory-tracker.test.ts src/cli/commands/tests/target.test.ts` | ✅ | ✅ green |
@@ -45,7 +45,7 @@ created: 2026-03-31
 | 1-02-02 | 02 | 2 | RGDIR-02 | unit | `pnpm test -- --run src/cli/commands/tests/regrade.test.ts` | ✅ | ✅ green |
 | 1-02-03 | 02 | 2 | RGDIR-03 | unit | `pnpm test -- --run src/cli/commands/tests/regrade.test.ts` | ✅ | ✅ green |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+_Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky_
 
 ---
 

@@ -223,16 +223,16 @@ Use the runtime-native grading entrypoints when you want an AI-facing review of 
 - Codex: `$@taro-test/rtl-grade`
 - Codex: `$@taro-test/rtl-regrade`
 
-`grade` scores the current file using the published Taro scoring shape and worked examples, then appends a new `generatedTests` snapshot into `.taro/state.json`.
+`grade` scores the current file using Taro's shared existing-test grading engine and the published grading rubric, then appends a new `gradedTests` snapshot into `.taro/state.json`.
 
 `regrade` supports two modes:
 
-- Single-file mode re-scores the current test file, compares it to the latest stored `generatedTests` snapshot for the same `testFile` when one exists, and appends a new snapshot into `.taro/state.json`.
-- Directory-loop mode runs `regrade <test-directory> --directory-loop`, discovers `*.test.*` and `*.spec.*` files in that directory tree, and writes a tracker under `.taro/directory-loop/`.
+- Single-file mode re-scores the current test file, compares it to the latest stored `gradedTests` snapshot for the same `testFile` when one exists, and appends a new snapshot into `.taro/state.json`.
+- Directory-loop mode runs `regrade <test-directory> --directory-loop`, discovers `*.test.*` and `*.spec.*` files in that directory tree, and writes a tracker under `.taro/directory-loop/` while reusing the same file-grade runner as single-file regrade.
 
-For both commands, Taro keeps only the latest 5 stored snapshots per `generatedTests[].testFile` so score movement stays visible over time without unbounded per-test history growth.
+For both commands, Taro keeps only the latest 5 stored snapshots per `gradedTests[].testFile` so score movement stays visible over time without unbounded per-test history growth.
 
-Stored `generatedTests` grades now bias future package learning during `init`, `refresh`, and stale-state bootstrap. Higher-scored stored tests count more strongly when Taro relearns conventions, helpers, exemplars, and boundary patterns; unscored tests remain neutral.
+Stored `gradedTests` grades bias existing-test learning during `init`, `refresh`, and stale-state bootstrap, with `generatedTests` retained as generation-output fallback history. Higher-scored stored tests count more strongly when Taro relearns conventions, helpers, exemplars, and boundary patterns; unscored tests remain neutral.
 
 In directory-loop mode, each tracker row starts as `pending`, moves to `in-progress` when Taro picks that test, and ends as `completed` after the regrade succeeds. Completed rows keep the current score threshold, the updated score threshold, and any follow-up comments returned by the regrade run.
 

@@ -13,7 +13,11 @@ provides:
 affects: [03-02, phase-04-runtime-guidance]
 tech-stack:
   added: []
-  patterns: [retry-current-first directory-loop resume, tracker-state preservation on rebuild]
+  patterns:
+    [
+      retry-current-first directory-loop resume,
+      tracker-state preservation on rebuild,
+    ]
 key-files:
   created: []
   modified:
@@ -43,6 +47,7 @@ completed: 2026-03-31
 - **Files modified:** 2
 
 ## Accomplishments
+
 - Refactored the regrade loop so the retry-current and skip-completed selection rule is explicit.
 - Preserved `completed` and `in-progress` status when rebuilding the tracker from discovered test files.
 - Added integration coverage for reruns that resume from existing tracker state instead of reprocessing finished work.
@@ -54,10 +59,12 @@ This plan landed together with Plan `03-02` in one implementation commit:
 1. **Tasks 1-3: Lock down regrade resume semantics and failure handling** - `07bcf63` (feat)
 
 ## Files Created/Modified
+
 - `src/cli/commands/regrade.ts` - Makes the resume-selection rule explicit and preserves prior row state during tracker rebuild.
 - `src/cli/commands/tests/regrade.test.ts` - Verifies completed rows are skipped and existing in-progress rows are retried first on rerun.
 
 ## Decisions Made
+
 - Matched the target directory-loop resume model instead of introducing a regrade-only retry policy.
 - Left current stored score thresholds sourced from `generatedTests` history so the tracker remains derived from state, not vice versa.
 
@@ -80,5 +87,5 @@ Plan `03-02` can now harden the failure path on top of an explicit and already-t
 ## Self-Check: PASSED
 
 ---
-*Phase: 03-resume-retry-and-failure-semantics*
-*Completed: 2026-03-31*
+
+_Phase: 03-resume-retry-and-failure-semantics_ _Completed: 2026-03-31_

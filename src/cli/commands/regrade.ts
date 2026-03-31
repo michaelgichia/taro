@@ -5,18 +5,25 @@ import { cwd } from "node:process";
 import { Command } from "commander";
 import pc from "picocolors";
 
-import { logToStderr as log } from "#cli/commands/log.ts";
-import { type RegradeRunnerResult, runRegradeForTestFile } from "#cli/commands/regrade-runner.ts";
 import {
-  type DirectoryLoopTracker,
+  buildSingleFileExistingTestSummaryLines,
+  isTestFilePath,
+} from "#cli/commands/existing-test-grading.ts";
+import { logToStderr as log } from "#cli/commands/log.ts";
+import {
+  type RegradeRunnerResult,
+  runRegradeForTestFile,
+} from "#cli/commands/regrade-runner.ts";
+import {
   createDirectoryLoopTracker,
+  type DirectoryLoopTracker,
   readDirectoryLoopTracker,
   updateDirectoryLoopTrackerEntry,
   updateDirectoryLoopTrackerStatus,
   writeDirectoryLoopTracker,
 } from "#cli/commands/target-directory-tracker.ts";
-import { normalizeGeneratedTestHistoryPath } from "#core/state-paths.ts";
 import { loadOrBootstrapTaroState } from "#core/state.ts";
+import { normalizeGeneratedTestHistoryPath } from "#core/state-paths.ts";
 
 interface RegradeCommandContext {
   runRegradeTestFile?: (params: {
@@ -61,7 +68,10 @@ function selectNextRegradeTrackerEntry(tracker: DirectoryLoopTracker): {
   };
 }
 
-function formatExecutionFailureMessage(entryPath: string, error: unknown): string {
+function formatExecutionFailureMessage(
+  entryPath: string,
+  error: unknown
+): string {
   const details =
     error instanceof Error
       ? error.message
@@ -72,10 +82,6 @@ function formatExecutionFailureMessage(entryPath: string, error: unknown): strin
 
 function isSupportedSourceFile(filePath: string): boolean {
   return /\.(?:[cm]?[jt]sx?)$/u.test(filePath);
-}
-
-function isTestFilePath(filePath: string): boolean {
-  return /\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(filePath);
 }
 
 async function collectRegradeTestFiles(dirPath: string): Promise<string[]> {
@@ -120,6 +126,21 @@ async function readLatestStoredScoreThresholds(
         overall: record.quality.overall,
       });
     }
+  }
+
+  for (const record of bootstrap.state.gradedTests) {
+    const normalizedPath = normalizeGeneratedTestHistoryPath(
+      projectRoot,
+      record.testFile
+    );
+    const createdAtMs = Number.isFinite(Date.parse(record.createdAt))
+      ? Date.parse(record.createdAt)
+      : 0;
+
+    latestThresholds.set(normalizedPath, {
+      createdAtMs,
+      overall: record.quality.overall,
+    });
   }
 
   return latestThresholds;
@@ -169,7 +190,7 @@ export function createRegradeCommand(
 
   regrade
     .description(
-      "Internal runtime-only regrade surface for directory-loop test discovery"
+      "Internal runtime-only regrade surface for single-file and directory-loop existing-test grading"
     )
     .argument(
       "<target-path>",
@@ -206,7 +227,7 @@ export function createRegradeCommand(
           if (!commandOptions.directoryLoop) {
             const message =
               pc.red("Error:") +
-              " Directory input requires --directory-loop. Pass a single test file to use the runtime regrade skill for one-off regrading.";
+              " Directory input requires --directory-loop. Pass a single test file to use the same runtime regrade path for one-off regrading.";
             console.error(message);
             process.stderr.write(message + "\n");
             process.exit(2);
@@ -223,8 +244,7 @@ export function createRegradeCommand(
 
           log(pc.dim("[taro]") + " Regrade directory loop mode enabled");
           log(
-            pc.dim("[taro]") +
-              ` Directory loop tracker: ${tracker.trackerPath}`
+            pc.dim("[taro]") + ` Directory loop tracker: ${tracker.trackerPath}`
           );
 
           if (testFiles.length === 0) {
@@ -245,9 +265,8 @@ export function createRegradeCommand(
             context.runRegradeTestFile ?? runRegradeForTestFile;
 
           while (true) {
-            const { entry, pendingCount } = selectNextRegradeTrackerEntry(
-              tracker
-            );
+            const { entry, pendingCount } =
+              selectNextRegradeTrackerEntry(tracker);
 
             if (!entry && pendingCount === 0) {
               log(
@@ -277,7 +296,14 @@ export function createRegradeCommand(
                 testFile: resolve(projectRoot, activeEntry.componentPath),
               });
             } catch (error) {
-              log(pc.red(formatExecutionFailureMessage(activeEntry.componentPath, error)));
+              log(
+                pc.red(
+                  formatExecutionFailureMessage(
+                    activeEntry.componentPath,
+                    error
+                  )
+                )
+              );
               process.exit(1);
             }
 
@@ -301,12 +327,36 @@ export function createRegradeCommand(
           process.exit(2);
         }
 
-        const message =
-          pc.red("Error:") +
-          " Single-file regrade remains a runtime skill flow; this internal command currently supports only directory bootstrap.";
-        console.error(message);
-        process.stderr.write(message + "\n");
-        process.exit(2);
+        if (!pathStat.isFile() || !isTestFilePath(resolvedTargetPath)) {
+          const message =
+            pc.red("Error:") +
+            " Target file must be an RTL test file ending in .test.* or .spec.*.";
+          console.error(message);
+          process.stderr.write(message + "\n");
+          process.exit(2);
+        }
+
+        const executeRegradeForTestFile =
+          context.runRegradeTestFile ?? runRegradeForTestFile;
+        const result = await executeRegradeForTestFile({
+          projectRoot,
+          testFile: resolvedTargetPath,
+        });
+
+        for (const line of buildSingleFileExistingTestSummaryLines({
+          mode: "regrade",
+          result: {
+            followUpComments: result.followUpComments,
+            matchedHistoryRecord: result.matchedGeneratedTestRecord,
+            matchedHistorySource: result.matchedHistorySource,
+            scoreResult: result.scoreResult,
+            testFile: result.testFile,
+          },
+        })) {
+          log(line);
+        }
+
+        process.exit(0);
       } catch (error) {
         if (
           error &&
@@ -321,7 +371,7 @@ export function createRegradeCommand(
         const message =
           error instanceof Error
             ? error.message
-            : "Regrade directory bootstrap failed with an unknown error.";
+            : "Regrade failed with an unknown error.";
         console.error(pc.red("Error:") + ` ${message}`);
         process.stderr.write(pc.red("Error:") + ` ${message}\n`);
         process.exit(2);

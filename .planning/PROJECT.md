@@ -46,7 +46,7 @@ Taro should produce repo-aware, auditable RTL output and score history that make
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
-|----------|-----------|---------|
+| --- | --- | --- |
 | Reuse the existing directory-loop tracker abstraction as the base for regrade batching | The repo already has resume/retry semantics, tracker persistence, and tests around this path | ✓ Shipped in v1.0 |
 | Keep directory-loop regrade sequential with one in-progress entry at a time | This matches current batch behavior and reduces write conflicts in tracker/state files | ✓ Shipped in v1.0 |
 | Treat follow-up comments as tracker output, not a change to the score rubric | The user asked for richer batch reporting, not a new evaluation model | ✓ Shipped in v1.0 |
@@ -69,6 +69,7 @@ Taro should produce repo-aware, auditable RTL output and score history that make
 This document evolves at phase transitions and milestone boundaries.
 
 **After each phase transition** (via `$gsd-transition`):
+
 1. Requirements invalidated? → Move to Out of Scope with reason
 2. Requirements validated? → Move to Validated with phase reference
 3. New requirements emerged? → Add to Active
@@ -76,10 +77,12 @@ This document evolves at phase transitions and milestone boundaries.
 5. "What This Is" still accurate? → Update if drifted
 
 **After each milestone** (via `$gsd-complete-milestone`):
+
 1. Full review of all sections
 2. Core Value check — still the right priority?
 3. Audit Out of Scope — reasons still valid?
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-31 after milestone v1.0 completion*
+
+_Last updated: 2026-03-31 after milestone v1.0 completion_

@@ -290,6 +290,47 @@ const packageProfileSchema = z.object({
   playwrightAuth: playwrightAuthProfileSchema.nullable().default(null),
   warnings: z.array(z.string()),
 });
+const existingTestGradeDimensionsSchema = z.object({
+  robustness: z.number(),
+  readability: z.number(),
+  assertionStrength: z.number(),
+  mockFidelity: z.number(),
+  maintainability: z.number(),
+});
+const existingTestGradeSignalsSchema = z.object({
+  roleQueryCount: z.number(),
+  labelQueryCount: z.number(),
+  placeholderQueryCount: z.number(),
+  textQueryCount: z.number(),
+  testIdQueryCount: z.number(),
+  querySelectorCount: z.number(),
+  positionalRoleQueryCount: z.number(),
+  payloadAssertionCount: z.number(),
+  strongAssertionCount: z.number(),
+  presenceAssertionCount: z.number(),
+  visibilityAssertionCount: z.number(),
+  mockCallAssertionCount: z.number(),
+  sharedMockImportCount: z.number(),
+  setupHelperCount: z.number(),
+  renderHelperImportCount: z.number(),
+  beforeEachCount: z.number(),
+  mockResetCount: z.number(),
+  lineCount: z.number(),
+});
+const existingTestGradeReasonSchema = z.object({
+  code: z.string(),
+  dimension: z.enum([
+    "robustness",
+    "readability",
+    "assertionStrength",
+    "mockFidelity",
+    "maintainability",
+  ]),
+  impact: z.enum(["positive", "negative"]),
+  weight: z.number(),
+  message: z.string(),
+  severity: z.enum(["advisory", "blocker"]).optional(),
+});
 const generatedTestRecordSchema = z.object({
   createdAt: z.string(),
   packagePath: z.string(),
@@ -301,6 +342,21 @@ const generatedTestRecordSchema = z.object({
     dimensions: scoreDimensionsSchema,
     signals: scoreSignalsSchema,
     reasons: z.array(scoreReasonSchema),
+  }),
+  requiresReview: z.boolean(),
+});
+const gradedTestRecordSchema = z.object({
+  createdAt: z.string(),
+  packagePath: z.string(),
+  recordingFile: z.string().nullable().optional().default(null),
+  testFile: z.string(),
+  quality: z.object({
+    overall: z.number(),
+    grade: z.enum(["A", "B", "C", "D", "F"]),
+    dimensions: existingTestGradeDimensionsSchema,
+    signals: existingTestGradeSignalsSchema,
+    reasons: z.array(existingTestGradeReasonSchema),
+    blockers: z.array(z.string()).default([]),
   }),
   requiresReview: z.boolean(),
 });
@@ -326,6 +382,7 @@ export const taroStateSchema = z.object({
     ),
   }),
   generatedTests: z.array(generatedTestRecordSchema),
+  gradedTests: z.array(gradedTestRecordSchema).default([]),
 });
 
 export const taroOverridesSchema = z.object({

@@ -16,7 +16,7 @@ created: 2026-03-31
 ## Test Infrastructure
 
 | Property | Value |
-|----------|-------|
+| --- | --- |
 | **Framework** | vitest |
 | **Config file** | `package.json` scripts plus Vitest defaults |
 | **Quick run command** | `pnpm exec vitest run src/cli/commands/tests/regrade-runner.test.ts src/cli/commands/tests/regrade.test.ts src/cli/commands/tests/target-directory-tracker.test.ts` |
@@ -37,7 +37,7 @@ created: 2026-03-31
 ## Per-Task Verification Map
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
-|---------|------|------|-------------|-----------|-------------------|-------------|--------|
+| --- | --- | --- | --- | --- | --- | --- | --- |
 | 2-01-01 | 01 | 1 | RGST-02 | unit | `pnpm exec vitest run src/cli/commands/tests/regrade-runner.test.ts` | ✅ | ✅ green |
 | 2-01-02 | 01 | 1 | RGST-01 | unit | `pnpm exec vitest run src/cli/commands/tests/regrade-runner.test.ts src/core/tests/state.test.ts` | ✅ | ✅ green |
 | 2-01-03 | 01 | 1 | RGST-03 | unit | `pnpm exec vitest run src/cli/commands/tests/regrade-runner.test.ts src/core/tests/state.test.ts` | ✅ | ✅ green |
@@ -45,7 +45,7 @@ created: 2026-03-31
 | 2-02-02 | 02 | 2 | RGEX-01 | integration | `pnpm exec vitest run src/cli/commands/tests/regrade.test.ts` | ✅ | ✅ green |
 | 2-02-03 | 02 | 2 | RGTRK-04 | integration | `pnpm exec vitest run src/cli/commands/tests/regrade.test.ts src/cli/commands/tests/target-directory-tracker.test.ts` | ✅ | ✅ green |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+_Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky_
 
 ---
 

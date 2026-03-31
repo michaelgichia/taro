@@ -13,7 +13,11 @@ provides:
 affects: [phase-04-runtime-guidance]
 tech-stack:
   added: []
-  patterns: [preserve in-progress row on failure, distinguish usage errors from execution failures]
+  patterns:
+    [
+      preserve in-progress row on failure,
+      distinguish usage errors from execution failures,
+    ]
 key-files:
   created: []
   modified:
@@ -43,6 +47,7 @@ completed: 2026-03-31
 - **Files modified:** 2
 
 ## Accomplishments
+
 - Added an explicit failure boundary around per-test regrade execution inside the directory loop.
 - Split mid-loop execution failure from invalid-command usage handling so failures exit with code `1` and contextual loop logging.
 - Added integration tests proving failure leaves the active row `in-progress` and reruns retry that row before continuing.
@@ -54,10 +59,12 @@ This plan landed together with Plan `03-01` in one implementation commit:
 1. **Tasks 1-3: Lock down regrade resume semantics and failure handling** - `07bcf63` (feat)
 
 ## Files Created/Modified
+
 - `src/cli/commands/regrade.ts` - Stops the loop on runner failure, logs the active test, and preserves retryable tracker state.
 - `src/cli/commands/tests/regrade.test.ts` - Verifies stop-on-failure, retry-after-failure, and final continuation through the remaining queue.
 
 ## Decisions Made
+
 - Mirrored the target directory-loop failure contract rather than inventing a second execution model for regrade.
 - Used a loop-local failure path so usage/configuration errors continue to exit through the existing code path.
 
@@ -80,5 +87,5 @@ Phase 4 can now focus on runtime guidance and regression/documentation coverage 
 ## Self-Check: PASSED
 
 ---
-*Phase: 03-resume-retry-and-failure-semantics*
-*Completed: 2026-03-31*
+
+_Phase: 03-resume-retry-and-failure-semantics_ _Completed: 2026-03-31_

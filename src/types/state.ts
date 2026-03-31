@@ -10,6 +10,12 @@ import type {
   MutationLifecyclePattern,
 } from "#types/conventions.ts";
 import type {
+  ExistingTestGradeDimensions,
+  ExistingTestGradeLetter,
+  ExistingTestGradeReason,
+  ExistingTestGradeSignals,
+} from "#types/existing-test-grade.ts";
+import type {
   ScoreDimensions,
   ScoreReason,
   ScoreSignals,
@@ -239,6 +245,22 @@ export interface TaroGeneratedTestRecord {
   requiresReview: boolean;
 }
 
+export interface TaroGradedTestRecord {
+  createdAt: string;
+  packagePath: string;
+  recordingFile: string | null;
+  testFile: string;
+  quality: {
+    overall: number;
+    grade: ExistingTestGradeLetter;
+    dimensions: ExistingTestGradeDimensions;
+    signals: ExistingTestGradeSignals;
+    reasons: ExistingTestGradeReason[];
+    blockers: string[];
+  };
+  requiresReview: boolean;
+}
+
 export interface TaroState {
   version: 1;
   meta: { createdAt: string; updatedAt: string; taroVersion: string };
@@ -249,6 +271,7 @@ export interface TaroState {
     resources: TaroMockStoreResource[];
   };
   generatedTests: TaroGeneratedTestRecord[];
+  gradedTests: TaroGradedTestRecord[];
 }
 
 export interface TaroPackageOverrides {

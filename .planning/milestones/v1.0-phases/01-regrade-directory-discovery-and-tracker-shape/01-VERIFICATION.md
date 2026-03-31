@@ -7,16 +7,14 @@ score: 6/6 must-haves verified
 
 # Phase 1: Regrade Directory Discovery and Tracker Shape Verification Report
 
-**Phase Goal:** Define which files a regrade directory loop processes and extend the Markdown tracker format to represent test-oriented entries.
-**Verified:** 2026-03-31T08:00:00Z
-**Status:** passed
+**Phase Goal:** Define which files a regrade directory loop processes and extend the Markdown tracker format to represent test-oriented entries. **Verified:** 2026-03-31T08:00:00Z **Status:** passed
 
 ## Goal Achievement
 
 ### Observable Truths
 
 | # | Truth | Status | Evidence |
-|---|-------|--------|----------|
+| --- | --- | --- | --- |
 | 1 | Regrade directory discovery can target only `*.test.*` and `*.spec.*` files | ✓ VERIFIED | `src/cli/commands/regrade.ts` filters supported test-file patterns and `src/cli/commands/tests/regrade.test.ts` covers mixed-directory discovery. |
 | 2 | Non-test files are excluded from the tracker bootstrap | ✓ VERIFIED | Command tests assert `CheckoutFlow.tsx` and `helper.ts` never appear in tracker rows. |
 | 3 | Directory input requires `--directory-loop`, and `--directory-loop` is rejected for single files | ✓ VERIFIED | Validation messages are implemented in `src/cli/commands/regrade.ts` and asserted in `src/cli/commands/tests/regrade.test.ts`. |
@@ -29,7 +27,7 @@ score: 6/6 must-haves verified
 ## Required Artifacts
 
 | Artifact | Expected | Status | Details |
-|----------|----------|--------|---------|
+| --- | --- | --- | --- |
 | `src/cli/commands/target-directory-tracker.ts` | Generalized tracker implementation | ✓ EXISTS + SUBSTANTIVE | Handles regrade entry metadata, rendering, parsing, and atomic writes. |
 | `src/cli/commands/regrade.ts` | Internal `__regrade` bootstrap surface | ✓ EXISTS + SUBSTANTIVE | Validates flags, discovers tests, reads stored thresholds, writes tracker. |
 | `src/index.ts` | CLI dispatch to `__regrade` | ✓ EXISTS + SUBSTANTIVE | Routes the hidden command into the CLI entrypoint table. |
@@ -41,7 +39,7 @@ score: 6/6 must-haves verified
 ## Key Link Verification
 
 | From | To | Via | Status | Details |
-|------|----|-----|--------|---------|
+| --- | --- | --- | --- | --- |
 | `regrade.ts` | shared tracker | `createDirectoryLoopTracker` / `writeDirectoryLoopTracker` | ✓ WIRED | Regrade bootstrap uses the canonical tracker surface from Phase 1 plan 01. |
 | tracker writer | tracker reader | generalized Markdown columns | ✓ WIRED | Tracker tests prove rendered rows round-trip for regrade metadata. |
 | CLI dispatch | `createRegradeCommand()` | hidden `__regrade` branch | ✓ WIRED | `src/index.ts` dispatches the command into the new internal CLI surface. |
@@ -50,14 +48,14 @@ score: 6/6 must-haves verified
 
 ## Requirements Coverage
 
-| Requirement | Status | Blocking Issue |
-|-------------|--------|----------------|
-| RGDIR-01 | ✓ SATISFIED | - |
-| RGDIR-02 | ✓ SATISFIED | - |
-| RGDIR-03 | ✓ SATISFIED | - |
-| RGTRK-01 | ✓ SATISFIED | - |
-| RGTRK-02 | ✓ SATISFIED | - |
-| RGTRK-03 | ✓ SATISFIED | - |
+| Requirement | Status      | Blocking Issue |
+| ----------- | ----------- | -------------- |
+| RGDIR-01    | ✓ SATISFIED | -              |
+| RGDIR-02    | ✓ SATISFIED | -              |
+| RGDIR-03    | ✓ SATISFIED | -              |
+| RGTRK-01    | ✓ SATISFIED | -              |
+| RGTRK-02    | ✓ SATISFIED | -              |
+| RGTRK-03    | ✓ SATISFIED | -              |
 
 **Coverage:** 6/6 requirements satisfied
 
@@ -75,11 +73,8 @@ None — all phase behaviors are backed by automated CLI and tracker tests.
 
 ## Verification Metadata
 
-**Verification approach:** Goal-backward using original Phase 1 plan must-haves and implementation evidence
-**Automated checks:** Existing scoped Vitest suites plus command/tracker regression coverage
-**Human checks required:** 0
-**Total verification time:** 6 min
+**Verification approach:** Goal-backward using original Phase 1 plan must-haves and implementation evidence **Automated checks:** Existing scoped Vitest suites plus command/tracker regression coverage **Human checks required:** 0 **Total verification time:** 6 min
 
 ---
-*Verified: 2026-03-31T08:00:00Z*
-*Verifier: the agent*
+
+_Verified: 2026-03-31T08:00:00Z_ _Verifier: the agent_

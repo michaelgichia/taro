@@ -235,6 +235,9 @@ describe("buildCodexOperations", () => {
     );
     expect(gradeSkill).toContain("$@taro-test/rtl-grade");
     expect(gradeSkill).toContain("## Worked Examples");
+    expect(gradeSkill).toContain(
+      `${target.runtimeCommand} __grade <test-file>`
+    );
 
     const regradeSkill = await readFile(
       join(
@@ -250,6 +253,9 @@ describe("buildCodexOperations", () => {
     expect(regradeSkill).toContain("latest 5 snapshots");
     expect(regradeSkill).toContain(
       `${target.runtimeCommand} __regrade <test-directory> --directory-loop`
+    );
+    expect(regradeSkill).toContain(
+      `${target.runtimeCommand} __regrade <test-file>`
     );
     expect(regradeSkill).toContain(".taro/directory-loop/");
     expect(regradeSkill).toContain("current score threshold");

@@ -84,5 +84,5 @@ The milestone is ready for a passing audit, archive, and cleanup.
 ## Self-Check: PASSED
 
 ---
-*Phase: 08-formal-verification-for-runtime-guidance-and-reaudit*
-*Completed: 2026-03-31*
+
+_Phase: 08-formal-verification-for-runtime-guidance-and-reaudit_ _Completed: 2026-03-31_

@@ -1,8 +1,6 @@
 # Phase 4 Research: Runtime Guidance and Regression Coverage
 
-**Phase:** 4
-**Date:** 2026-03-31
-**Status:** Complete
+**Phase:** 4 **Date:** 2026-03-31 **Status:** Complete
 
 ## Goal
 
@@ -22,25 +20,17 @@ No `04-CONTEXT.md` exists, so this research is derived from:
 
 ## Relevant Existing Surfaces
 
-- `README.md`
-  Documents generation, grading, and target directory-loop behavior, but the regrade section still describes only single-file regrade. It does not yet tell users how to invoke directory-loop regrade, where the tracker lives, or which statuses to expect.
-- `docs/USER-GUIDE.md`
-  Mirrors the same gap: `regrade` is described as a single-file reevaluation flow, while directory-loop details exist only for `target`.
-- `.codex/skills/@taro-test/rtl-regrade/SKILL.md`
-  Still frames regrade as “existing RTL test file” only and explicitly avoids invoking `__regrade`, which is now wrong for directory-loop use.
-- `agents/taro-regrade.md`
-  Is the authored source for the packaged Codex regrade skill. It has the same single-file-only framing.
+- `README.md` Documents generation, grading, and target directory-loop behavior, but the regrade section still describes only single-file regrade. It does not yet tell users how to invoke directory-loop regrade, where the tracker lives, or which statuses to expect.
+- `docs/USER-GUIDE.md` Mirrors the same gap: `regrade` is described as a single-file reevaluation flow, while directory-loop details exist only for `target`.
+- `.codex/skills/@taro-test/rtl-regrade/SKILL.md` Still frames regrade as “existing RTL test file” only and explicitly avoids invoking `__regrade`, which is now wrong for directory-loop use.
+- `agents/taro-regrade.md` Is the authored source for the packaged Codex regrade skill. It has the same single-file-only framing.
 - `commands/claude/@taro-test/rtl/regrade.md`
 - `commands/gemini/@taro-test/rtl/regrade.toml`
-- `commands/opencode/@taro-test/rtl-regrade.md`
-  These prompt-runtime assets are also still single-file oriented and do not route directory input with `--directory-loop` into the runtime command.
-- `.codex/skills/@taro-test/rtl-help/SKILL.md`
-  Routes users to `$@taro-test/rtl-regrade` but does not explain that regrade now supports directory-loop mode for test directories.
+- `commands/opencode/@taro-test/rtl-regrade.md` These prompt-runtime assets are also still single-file oriented and do not route directory input with `--directory-loop` into the runtime command.
+- `.codex/skills/@taro-test/rtl-help/SKILL.md` Routes users to `$@taro-test/rtl-regrade` but does not explain that regrade now supports directory-loop mode for test directories.
 - `src/install/tests/codex-runtime.test.ts`
-- `src/install/tests/prompt-runtimes.test.ts`
-  Assert basic regrade asset content today, but only for the legacy single-file wording like “latest 5 snapshots” and “Do not invent or invoke `__regrade`.”
-- `src/cli/commands/tests/regrade.test.ts`
-  Already acts as a CLI smoke suite for the implemented `__regrade <dir> --directory-loop` behavior and tracker output.
+- `src/install/tests/prompt-runtimes.test.ts` Assert basic regrade asset content today, but only for the legacy single-file wording like “latest 5 snapshots” and “Do not invent or invoke `__regrade`.”
+- `src/cli/commands/tests/regrade.test.ts` Already acts as a CLI smoke suite for the implemented `__regrade <dir> --directory-loop` behavior and tracker output.
 
 ## Current Gap
 
@@ -115,6 +105,7 @@ Phase 4 must cover this ID explicitly:
 ## Recommended Decomposition
 
 ### Plan 04-01 (Wave 1)
+
 Update user-facing runtime docs and packaged asset sources.
 
 Recommended files:
@@ -133,6 +124,7 @@ Why first:
 - it defines the canonical wording and invocation contract that regression tests should assert
 
 ### Plan 04-02 (Wave 2)
+
 Add regression coverage for packaged runtime assets and documented invocation smoke.
 
 Recommended files:

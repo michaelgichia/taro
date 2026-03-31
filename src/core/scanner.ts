@@ -86,6 +86,7 @@ export async function persistConventions(
     packages: {},
     mockStore: { rootDir: null, importHint: null, resources: [] },
     generatedTests: [],
+    gradedTests: [],
   };
 
   state.packages["."] = {

@@ -35,8 +35,7 @@ async function createSandbox(label: string) {
 function makeStoredScoreResult(total: number) {
   return {
     total,
-    grade:
-      total >= 90 ? "A" : total >= 80 ? "B" : total >= 70 ? "C" : "D",
+    grade: total >= 90 ? "A" : total >= 80 ? "B" : total >= 70 ? "C" : "D",
     dimensions: {
       queryQuality: total,
       assertionSpecificity: total,
@@ -106,9 +105,12 @@ async function writeTestFile(root: string, relativePath: string) {
 }
 
 describe("runRegradeForTestFile", () => {
-  it("reuses the latest matching generated-test metadata when present", async () => {
+  it("reuses the latest matching stored test metadata when present", async () => {
     const root = await createSandbox("matched-history");
-    const testFile = await writeTestFile(root, join("src", "CheckoutFlow.test.tsx"));
+    const testFile = await writeTestFile(
+      root,
+      join("src", "CheckoutFlow.test.tsx")
+    );
     await appendGeneratedTestRecord(root, {
       packagePath: "packages/app",
       recordingFile: "recordings/checkout-flow.js",
@@ -116,12 +118,9 @@ describe("runRegradeForTestFile", () => {
       scoreResult: makeStoredScoreResult(72),
     });
 
-    const result = await runRegradeForTestFile({
-      projectRoot: root,
-      testFile,
-    });
+    const result = await runRegradeForTestFile({ projectRoot: root, testFile });
     const state = await loadOrBootstrapTaroState(root);
-    const matchingHistory = state.state.generatedTests.filter((record) =>
+    const matchingHistory = state.state.gradedTests.filter((record) =>
       record.testFile.endsWith("CheckoutFlow.test.tsx")
     );
     const latestRecord = matchingHistory.at(-1);
@@ -133,11 +132,12 @@ describe("runRegradeForTestFile", () => {
         quality: expect.objectContaining({ overall: 72 }),
       })
     );
+    expect(result.matchedHistorySource).toBe("generated");
     expect(result.persistenceContext).toEqual({
       packagePath: "packages/app",
       recordingFile: "recordings/checkout-flow.js",
     });
-    expect(matchingHistory).toHaveLength(2);
+    expect(matchingHistory).toHaveLength(1);
     expect(latestRecord).toEqual(
       expect.objectContaining({
         packagePath: "packages/app",
@@ -147,27 +147,22 @@ describe("runRegradeForTestFile", () => {
     expect(result.followUpComments.length).toBeGreaterThan(0);
   });
 
-  it("initializes generated-test history cleanly when no prior match exists", async () => {
+  it("initializes graded-test history cleanly when no prior match exists", async () => {
     const root = await createSandbox("fresh-history");
     const testFile = await writeTestFile(root, join("src", "Orders.spec.tsx"));
 
-    const result = await runRegradeForTestFile({
-      projectRoot: root,
-      testFile,
-    });
+    const result = await runRegradeForTestFile({ projectRoot: root, testFile });
     const state = await loadOrBootstrapTaroState(root);
 
     expect(result.matchedGeneratedTestRecord).toBeNull();
+    expect(result.matchedHistorySource).toBeNull();
     expect(result.persistenceContext).toEqual({
       packagePath: ".",
       recordingFile: null,
     });
-    expect(state.state.generatedTests).toHaveLength(1);
-    expect(state.state.generatedTests[0]).toEqual(
-      expect.objectContaining({
-        packagePath: ".",
-        recordingFile: null,
-      })
+    expect(state.state.gradedTests).toHaveLength(1);
+    expect(state.state.gradedTests[0]).toEqual(
+      expect.objectContaining({ packagePath: ".", recordingFile: null })
     );
   });
 });

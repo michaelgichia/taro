@@ -87,5 +87,5 @@ All planned Phase 4 work is complete. The milestone is ready for completion/arch
 ## Self-Check: PASSED
 
 ---
-*Phase: 04-runtime-guidance-and-regression-coverage*
-*Completed: 2026-03-31*
+
+_Phase: 04-runtime-guidance-and-regression-coverage_ _Completed: 2026-03-31_

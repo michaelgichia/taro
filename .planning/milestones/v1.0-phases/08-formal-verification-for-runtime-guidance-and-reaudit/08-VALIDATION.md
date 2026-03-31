@@ -12,7 +12,7 @@ created: 2026-03-31
 ## Test Infrastructure
 
 | Property | Value |
-|----------|-------|
+| --- | --- |
 | **Framework** | vitest |
 | **Config file** | `package.json` scripts plus Vitest defaults |
 | **Quick run command** | `pnpm exec vitest run src/install/tests/codex-runtime.test.ts src/install/tests/prompt-runtimes.test.ts src/install/tests/verification.test.ts src/cli/commands/tests/regrade.test.ts` |
@@ -29,12 +29,12 @@ created: 2026-03-31
 ## Per-Task Verification Map
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
-|---------|------|------|-------------|-----------|-------------------|-------------|--------|
+| --- | --- | --- | --- | --- | --- | --- | --- |
 | 8-01-01 | 01 | 1 | RGUX-01 | verification | `pnpm exec vitest run src/install/tests/codex-runtime.test.ts src/install/tests/prompt-runtimes.test.ts src/install/tests/verification.test.ts src/cli/commands/tests/regrade.test.ts` | ✅ | ✅ green |
 | 8-01-02 | 01 | 1 | RGUX-01 | audit | `pnpm exec vitest run src/install/tests/codex-runtime.test.ts src/install/tests/prompt-runtimes.test.ts src/install/tests/verification.test.ts src/cli/commands/tests/regrade.test.ts` | ✅ | ✅ green |
 | 8-01-03 | 01 | 1 | RGUX-01 | milestone | `pnpm exec vitest run src/install/tests/codex-runtime.test.ts src/install/tests/prompt-runtimes.test.ts src/install/tests/verification.test.ts src/cli/commands/tests/regrade.test.ts` | ✅ | ✅ green |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+_Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky_
 
 ## Wave 0 Requirements
 

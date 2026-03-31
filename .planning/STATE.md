@@ -18,15 +18,11 @@ progress:
 
 See: `.planning/PROJECT.md` (updated 2026-03-31)
 
-**Core value:** Taro should produce repo-aware, auditable RTL output and score history that make uncertainty explicit instead of hiding it.
-**Current focus:** Plan the next milestone
+**Core value:** Taro should produce repo-aware, auditable RTL output and score history that make uncertainty explicit instead of hiding it. **Current focus:** Plan the next milestone
 
 ## Current Position
 
-Phase: none
-Plan: none
-Status: Milestone v1.0 archived and no active milestone is open
-Last activity: 2026-03-31 -- Milestone v1.0 archived after passing re-audit
+Phase: none Plan: none Status: Milestone v1.0 archived and no active milestone is open Last activity: 2026-03-31 -- Milestone v1.0 archived after passing re-audit
 
 ## Accumulated Context
 

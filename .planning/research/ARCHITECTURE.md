@@ -1,7 +1,6 @@
 # Milestone Research: Architecture
 
-**Date:** 2026-03-31
-**Milestone:** v1.0 Regrade a test directory
+**Date:** 2026-03-31 **Milestone:** v1.0 Regrade a test directory
 
 ## Likely Integration Path
 

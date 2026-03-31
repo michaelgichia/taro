@@ -13,7 +13,11 @@ provides:
 affects: [phase-02-regrade-loop, phase-03-resume]
 tech-stack:
   added: []
-  patterns: [regrade directory discovery bootstrap, latest-score lookup by normalized test path]
+  patterns:
+    [
+      regrade directory discovery bootstrap,
+      latest-score lookup by normalized test path,
+    ]
 key-files:
   created:
     - src/cli/commands/regrade.ts
@@ -44,6 +48,7 @@ completed: 2026-03-31
 - **Files modified:** 3
 
 ## Accomplishments
+
 - Added `__regrade` dispatch and an internal command surface that validates directory-only use of `--directory-loop`.
 - Implemented recursive discovery for `*.test.*` and `*.spec.*` files and persisted the tracker under `.taro/directory-loop/`.
 - Recorded each discovered test’s latest stored score threshold when a prior generated-test snapshot exists.
@@ -57,11 +62,13 @@ Each task was committed atomically:
 3. **Task 3: Expand regrade tests for discovery rows and stored-threshold coverage** - `0c76f24` (test)
 
 ## Files Created/Modified
+
 - `src/index.ts` - Wires the hidden `__regrade` dispatch branch into the CLI entrypoint.
 - `src/cli/commands/regrade.ts` - Implements validation, recursive test discovery, tracker bootstrap, and latest-score lookup.
 - `src/cli/commands/tests/regrade.test.ts` - Covers validation, file discovery, tracker rows, and seeded stored-score output.
 
 ## Decisions Made
+
 - Reused the tracker module from Plan `01-01` directly so target and regrade loops persist through the same Markdown contract.
 - Limited this plan to tracker bootstrap only and intentionally left sequential regrade execution and state-history writes for Phase 2.
 
@@ -84,5 +91,5 @@ Phase 2 can now focus on sequentially regrading each queued test, updating track
 ## Self-Check: PASSED
 
 ---
-*Phase: 01-regrade-directory-discovery-and-tracker-shape*
-*Completed: 2026-03-31*
+
+_Phase: 01-regrade-directory-discovery-and-tracker-shape_ _Completed: 2026-03-31_

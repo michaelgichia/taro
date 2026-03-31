@@ -13,7 +13,8 @@ provides:
 affects: [02-02, phase-03-resume]
 tech-stack:
   added: []
-  patterns: [single-file regrade runner, normalized generated-test history lookup]
+  patterns:
+    [single-file regrade runner, normalized generated-test history lookup]
 key-files:
   created:
     - src/cli/commands/regrade-runner.ts
@@ -45,6 +46,7 @@ completed: 2026-03-31
 - **Files modified:** 4
 
 ## Accomplishments
+
 - Added a dedicated runner for single-file regrade execution that reads the current test file, scores it, and appends a fresh history record.
 - Reused the latest matching generated-test metadata when available and cleanly initialized first-time regrades when no history existed.
 - Locked down latest-5 trimming semantics while preserving unrelated history entries during repeated regrades.
@@ -56,12 +58,14 @@ This plan landed as one atomic implementation commit:
 1. **Tasks 1-3: Add latest-match lookup, single-file runner, and history regression coverage** - `5734742` (feat)
 
 ## Files Created/Modified
+
 - `src/cli/commands/regrade-runner.ts` - Encapsulates single-file regrade scoring, metadata reuse, state persistence, and follow-up comment shaping.
 - `src/cli/commands/tests/regrade-runner.test.ts` - Proves matched-history reuse and first-time history initialization.
 - `src/core/state.ts` - Adds latest generated-test lookup aligned to normalized history paths.
 - `src/core/tests/state.test.ts` - Verifies repeated regrades keep only the latest five snapshots while preserving unrelated history.
 
 ## Decisions Made
+
 - Extracted regrade persistence into a dedicated runner before wiring batch orchestration so single-file and directory flows share the same scoring/write path.
 - Reused stored `packagePath` and `recordingFile` metadata from the latest matching history record to preserve continuity across regrades.
 
@@ -84,5 +88,5 @@ Plan `02-02` can now run one queued test at a time and persist tracker-visible r
 ## Self-Check: PASSED
 
 ---
-*Phase: 02-sequential-regrade-loop-and-history-persistence*
-*Completed: 2026-03-31*
+
+_Phase: 02-sequential-regrade-loop-and-history-persistence_ _Completed: 2026-03-31_

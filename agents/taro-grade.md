@@ -9,15 +9,15 @@ Invoke this skill with `$@taro-test/rtl-grade`.
 
 ## Purpose
 
-Assess an existing RTL test file without relying on a hidden runtime scorer.
+Assess an existing RTL test file using Taro's shared existing-test grading engine.
 
 This skill is intentionally example-driven:
 
 - read the target test directly
 - use minimal repo context
-- score each dimension explicitly
+- run `{{TARO_RUNTIME_COMMAND}} __grade <test-file>` first, then explain the shared-engine result explicitly
 - persist a new grade snapshot so test quality can be tracked over time
-- explain the result in the open instead of pretending Taro has a private `__grade` command
+- persist the shared-engine result in the open with the published grading rubric
 
 ## Inputs
 
@@ -35,10 +35,10 @@ If that context is still ambiguous, say so directly instead of expanding the sca
 
 ## State Persistence Rules
 
-After scoring, persist a new `generatedTests` snapshot in `.taro/state.json`.
+After scoring, persist a new `gradedTests` snapshot in `.taro/state.json`.
 
 - if `.taro/state.json` is missing, initialize a valid minimal state object first
-- compare existing history by normalized `generatedTests[].testFile`
+- compare existing history by normalized `gradedTests[].testFile`
 - reuse the latest matching `packagePath` and `recordingFile` when they exist
 - when no prior match exists, use the best matching package profile or `"."`, and store `recordingFile: null`
 - append a fresh history record instead of overwriting older scores

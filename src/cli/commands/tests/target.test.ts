@@ -375,7 +375,7 @@ describe("createTargetCommand", () => {
         "beforeEach(() => {",
         "  vi.mocked(formatLabel).mockReset()",
         "  vi.mocked(formatLabel).mockImplementation(",
-        '    (value: string) => `formatted:${value}`',
+        "    (value: string) => `formatted:${value}`",
         "  )",
         "})",
         "",
@@ -862,7 +862,11 @@ describe("createTargetCommand", () => {
           .replace(/^src\//u, "")
           .replace(/\.tsx$/u, "");
         const outputPath = join(srcDir, `${componentName}.test.tsx`);
-        await writeFile(outputPath, `describe('${componentName}', () => {})\n`, "utf-8");
+        await writeFile(
+          outputPath,
+          `describe('${componentName}', () => {})\n`,
+          "utf-8"
+        );
         await seedGeneratedTestRecord(root, outputPath);
         return { exitCode: 0 };
       },
@@ -910,7 +914,11 @@ describe("createTargetCommand", () => {
           .replace(/^src\//u, "")
           .replace(/\.tsx$/u, "");
         const outputPath = join(srcDir, `${componentName}.test.tsx`);
-        await writeFile(outputPath, `describe('${componentName}', () => {})\n`, "utf-8");
+        await writeFile(
+          outputPath,
+          `describe('${componentName}', () => {})\n`,
+          "utf-8"
+        );
         await seedGeneratedTestRecord(root, outputPath);
         return { exitCode: 0 };
       },
@@ -1039,7 +1047,11 @@ describe("createTargetCommand", () => {
           .replace(/^src\//u, "")
           .replace(/\.tsx$/u, "");
         const outputPath = join(srcDir, `${componentName}.test.tsx`);
-        await writeFile(outputPath, `describe('${componentName}', () => {})\n`, "utf-8");
+        await writeFile(
+          outputPath,
+          `describe('${componentName}', () => {})\n`,
+          "utf-8"
+        );
         await seedGeneratedTestRecord(root, outputPath);
         return { exitCode: 0 };
       },

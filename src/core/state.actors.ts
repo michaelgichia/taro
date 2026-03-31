@@ -34,7 +34,8 @@ export interface StateActorDependencies {
   ): ScanStateResult;
   buildGeneratedTestQualityIndex(
     projectRoot: string,
-    generatedTests: TaroState["generatedTests"]
+    generatedTests: TaroState["generatedTests"],
+    gradedTests?: TaroState["gradedTests"]
   ): Map<
     string,
     {
@@ -148,7 +149,8 @@ export function createStateActors(deps: StateActorDependencies) {
     }): Promise<BuildPackagesActorOutput> => {
       const qualityIndex = deps.buildGeneratedTestQualityIndex(
         input.projectRoot,
-        input.generatedHistoryForLearning ?? []
+        input.generatedHistoryForLearning ?? [],
+        input.loadedLegacy?.state?.gradedTests ?? []
       );
       const packagesByKey = new Map<string, TestFileContent[]>();
 

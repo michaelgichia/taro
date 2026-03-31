@@ -1,8 +1,6 @@
 # Phase 1 Research: Regrade Directory Discovery and Tracker Shape
 
-**Phase:** 1
-**Date:** 2026-03-31
-**Status:** Complete
+**Phase:** 1 **Date:** 2026-03-31 **Status:** Complete
 
 ## Goal
 
@@ -10,20 +8,13 @@ Define which files a regrade directory loop processes and extend the Markdown tr
 
 ## Relevant Existing Surfaces
 
-- `src/cli/commands/target.ts`
-  Owns the existing `--directory-loop` flow, including validation, tracker bootstrap, sequential processing, and resume/retry semantics.
-- `src/cli/commands/target-directory-tracker.ts`
-  Owns canonical `.taro/directory-loop/*.md` tracker naming, Markdown rendering/parsing, single-in-progress updates, and atomic writes.
-- `src/cli/commands/tests/target.test.ts`
-  Already covers directory scanning, non-component skips, completed/in-progress transitions, resume behavior, and tracker log output.
-- `src/cli/commands/tests/target-directory-tracker.test.ts`
-  Covers tracker path generation, Markdown rendering, and the single-active-entry invariant.
-- `src/core/state.ts`
-  Exposes `appendGeneratedTestRecord()` and existing `.taro/state.json` persistence, but that belongs mostly to Phase 2 onward.
-- `src/types/state.ts` and `src/core/state.validation.ts`
-  Define the persisted `generatedTests` schema. No tracker-facing metadata for follow-up comments or prior score thresholds exists there today.
-- `.codex/skills/@taro-test/rtl-regrade/SKILL.md`
-  Documents the current single-file `regrade` contract: latest matching snapshot lookup, append-only history, and latest-5 trimming.
+- `src/cli/commands/target.ts` Owns the existing `--directory-loop` flow, including validation, tracker bootstrap, sequential processing, and resume/retry semantics.
+- `src/cli/commands/target-directory-tracker.ts` Owns canonical `.taro/directory-loop/*.md` tracker naming, Markdown rendering/parsing, single-in-progress updates, and atomic writes.
+- `src/cli/commands/tests/target.test.ts` Already covers directory scanning, non-component skips, completed/in-progress transitions, resume behavior, and tracker log output.
+- `src/cli/commands/tests/target-directory-tracker.test.ts` Covers tracker path generation, Markdown rendering, and the single-active-entry invariant.
+- `src/core/state.ts` Exposes `appendGeneratedTestRecord()` and existing `.taro/state.json` persistence, but that belongs mostly to Phase 2 onward.
+- `src/types/state.ts` and `src/core/state.validation.ts` Define the persisted `generatedTests` schema. No tracker-facing metadata for follow-up comments or prior score thresholds exists there today.
+- `.codex/skills/@taro-test/rtl-regrade/SKILL.md` Documents the current single-file `regrade` contract: latest matching snapshot lookup, append-only history, and latest-5 trimming.
 
 ## Planning Boundary
 

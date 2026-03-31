@@ -9,6 +9,7 @@ import { Command } from "commander";
 import pc from "picocolors";
 
 import { createGenerateCommand } from "#cli/commands/generate.ts";
+import { createGradeCommand } from "#cli/commands/grade.ts";
 import { createInitCommand } from "#cli/commands/init.ts";
 import {
   applyInstallOptions,
@@ -27,6 +28,10 @@ const program = new Command();
 
 if (process.argv[2] === "__generate") {
   await createGenerateCommand().parseAsync(process.argv.slice(3), {
+    from: "user",
+  });
+} else if (process.argv[2] === "__grade") {
+  await createGradeCommand().parseAsync(process.argv.slice(3), {
     from: "user",
   });
 } else if (process.argv[2] === "__init") {

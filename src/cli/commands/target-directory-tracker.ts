@@ -285,9 +285,9 @@ function parseDirectoryLoopTrackerMarkdown(params: {
       ),
       followUpComments: parseFollowUpComments(completeMatch?.[6]),
       kind:
-        ((completeMatch?.[7] ??
-          extendedMatch?.[5]) as DirectoryLoopEntryKind | undefined) ??
-        "target",
+        ((completeMatch?.[7] ?? extendedMatch?.[5]) as
+          | DirectoryLoopEntryKind
+          | undefined) ?? "target",
       outputPath: match[3],
       status: match[1] as DirectoryLoopStatus,
       updatedScoreThreshold: parseScoreThreshold(completeMatch?.[5]),

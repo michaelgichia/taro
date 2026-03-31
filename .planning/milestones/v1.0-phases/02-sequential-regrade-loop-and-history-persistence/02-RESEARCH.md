@@ -1,8 +1,6 @@
 # Phase 2 Research: Sequential Regrade Loop and History Persistence
 
-**Phase:** 2
-**Date:** 2026-03-31
-**Status:** Complete
+**Phase:** 2 **Date:** 2026-03-31 **Status:** Complete
 
 ## Goal
 
@@ -20,20 +18,13 @@ No `02-CONTEXT.md` exists, so this research is derived from:
 
 ## Relevant Existing Surfaces
 
-- `src/cli/commands/regrade.ts`
-  Already validates `--directory-loop`, discovers eligible tests, reads the latest stored score threshold, and writes the initial tracker bootstrap.
-- `src/cli/commands/target-directory-tracker.ts`
-  Owns canonical tracker naming, repo-relative display paths, atomic writes, Markdown round-tripping, and single-active-entry status updates.
-- `src/core/state.ts`
-  Exposes `appendGeneratedTestRecord()` and the existing `generatedTests` trimming behavior. It does not yet expose a reusable “latest matching generated-test record” lookup for regrade flows.
-- `src/core/state-paths.ts`
-  Already contains `normalizeGeneratedTestHistoryPath()`, which is the correct comparison key for matching regrade history to a test file.
-- `src/core/scorer.ts`
-  Exposes `scoreGeneratedTest()`, the repo’s real scoring engine for current test contents.
-- `.codex/skills/@taro-test/rtl-regrade/SKILL.md`
-  Documents the intended single-file regrade contract: compare to latest matching snapshot, append a new snapshot, preserve unrelated history, and keep only the latest 5 records for the target file.
-- `src/cli/commands/target.ts`
-  Already demonstrates the existing directory-loop sequencing pattern: bootstrap tracker, mark one entry `in-progress`, run a per-item worker, update the tracker, and continue until no pending work remains.
+- `src/cli/commands/regrade.ts` Already validates `--directory-loop`, discovers eligible tests, reads the latest stored score threshold, and writes the initial tracker bootstrap.
+- `src/cli/commands/target-directory-tracker.ts` Owns canonical tracker naming, repo-relative display paths, atomic writes, Markdown round-tripping, and single-active-entry status updates.
+- `src/core/state.ts` Exposes `appendGeneratedTestRecord()` and the existing `generatedTests` trimming behavior. It does not yet expose a reusable “latest matching generated-test record” lookup for regrade flows.
+- `src/core/state-paths.ts` Already contains `normalizeGeneratedTestHistoryPath()`, which is the correct comparison key for matching regrade history to a test file.
+- `src/core/scorer.ts` Exposes `scoreGeneratedTest()`, the repo’s real scoring engine for current test contents.
+- `.codex/skills/@taro-test/rtl-regrade/SKILL.md` Documents the intended single-file regrade contract: compare to latest matching snapshot, append a new snapshot, preserve unrelated history, and keep only the latest 5 records for the target file.
+- `src/cli/commands/target.ts` Already demonstrates the existing directory-loop sequencing pattern: bootstrap tracker, mark one entry `in-progress`, run a per-item worker, update the tracker, and continue until no pending work remains.
 
 ## Existing Implementation Seams To Extend
 
@@ -107,6 +98,7 @@ Phase 2 must cover these IDs explicitly:
 ## Recommended Decomposition
 
 ### Plan 02-01 (Wave 1)
+
 Build a reusable single-file regrade runner and history persistence contract.
 
 Recommended files:
@@ -122,6 +114,7 @@ Why first:
 - it isolates `generatedTests` semantics before tracker/UI integration
 
 ### Plan 02-02 (Wave 2)
+
 Extend tracker completion rows and wire the sequential `regrade --directory-loop` loop.
 
 Recommended files:

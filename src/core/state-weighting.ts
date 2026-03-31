@@ -31,6 +31,7 @@ import type {
   TaroFileExtension,
   TaroFolderPattern,
   TaroGeneratedTestRecord,
+  TaroGradedTestRecord,
   TaroPackageProfile,
   TaroSignal,
   TaroState,
@@ -50,7 +51,10 @@ export function toConfidence(value: number): TaroStateConfidence {
 }
 
 export function calculateGeneratedTestQualityWeight(
-  record: Pick<TaroGeneratedTestRecord, "quality" | "requiresReview">
+  record: Pick<
+    TaroGeneratedTestRecord | TaroGradedTestRecord,
+    "quality" | "requiresReview"
+  >
 ): number {
   const baseWeight = clamp(
     SCORE_WEIGHT_BASE + record.quality.overall / 100,
@@ -63,13 +67,13 @@ export function calculateGeneratedTestQualityWeight(
     : baseWeight;
 }
 
-export function buildGeneratedTestQualityIndex(
+function appendQualityIndexRecords(
+  qualityIndex: GeneratedTestQualityIndex,
   projectRoot: string,
-  generatedTests: TaroGeneratedTestRecord[]
-): GeneratedTestQualityIndex {
-  const qualityIndex: GeneratedTestQualityIndex = new Map();
-
-  for (const record of generatedTests) {
+  records: Array<TaroGeneratedTestRecord | TaroGradedTestRecord>,
+  options: { replaceExisting: boolean }
+) {
+  for (const record of records) {
     const normalizedPath = normalizeRepoRelativePath(
       projectRoot,
       record.testFile
@@ -89,13 +93,29 @@ export function buildGeneratedTestQualityIndex(
 
     if (
       !existing ||
-      nextEntry.createdAtMs >= existing.createdAtMs ||
+      options.replaceExisting ||
+      nextEntry.createdAtMs > existing.createdAtMs ||
       (nextEntry.createdAtMs === existing.createdAtMs &&
         nextEntry.overall >= existing.overall)
     ) {
       qualityIndex.set(normalizedPath, nextEntry);
     }
   }
+}
+
+export function buildGeneratedTestQualityIndex(
+  projectRoot: string,
+  generatedTests: TaroGeneratedTestRecord[],
+  gradedTests: TaroGradedTestRecord[] = []
+): GeneratedTestQualityIndex {
+  const qualityIndex: GeneratedTestQualityIndex = new Map();
+
+  appendQualityIndexRecords(qualityIndex, projectRoot, generatedTests, {
+    replaceExisting: false,
+  });
+  appendQualityIndexRecords(qualityIndex, projectRoot, gradedTests, {
+    replaceExisting: true,
+  });
 
   return qualityIndex;
 }
@@ -232,12 +252,15 @@ export function summarizePackageScoreLearning(
 }
 
 function getLatestGeneratedTestRecordTimestamp(state: TaroState): number {
-  return state.generatedTests.reduce((latest, record) => {
-    const createdAtMs = Date.parse(record.createdAt);
-    return Number.isFinite(createdAtMs)
-      ? Math.max(latest, createdAtMs)
-      : latest;
-  }, 0);
+  return [...state.generatedTests, ...state.gradedTests].reduce(
+    (latest, record) => {
+      const createdAtMs = Date.parse(record.createdAt);
+      return Number.isFinite(createdAtMs)
+        ? Math.max(latest, createdAtMs)
+        : latest;
+    },
+    0
+  );
 }
 
 function getLatestPackageScanTimestamp(state: TaroState): number {
@@ -476,11 +499,13 @@ export function inferMockPattern(
 export function buildSummaryPackages(
   projectRoot: string,
   packages: Record<string, TaroPackageProfile>,
-  generatedTests: TaroState["generatedTests"]
+  generatedTests: TaroState["generatedTests"],
+  gradedTests: TaroState["gradedTests"] = []
 ): TaroStateSummaryPackage[] {
   const qualityIndex = buildGeneratedTestQualityIndex(
     projectRoot,
-    generatedTests
+    generatedTests,
+    gradedTests
   );
 
   return orderBy(

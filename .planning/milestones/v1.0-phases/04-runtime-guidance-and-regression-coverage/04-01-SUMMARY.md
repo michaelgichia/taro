@@ -13,7 +13,8 @@ provides:
 affects: [04-02, milestone-closeout]
 tech-stack:
   added: []
-  patterns: [runtime-doc parity across packaged assets, tracker lifecycle documentation]
+  patterns:
+    [runtime-doc parity across packaged assets, tracker lifecycle documentation]
 key-files:
   created: []
   modified:
@@ -93,5 +94,5 @@ Plan `04-02` can now lock the updated guidance into installed-output and smoke c
 ## Self-Check: PASSED
 
 ---
-*Phase: 04-runtime-guidance-and-regression-coverage*
-*Completed: 2026-03-31*
+
+_Phase: 04-runtime-guidance-and-regression-coverage_ _Completed: 2026-03-31_

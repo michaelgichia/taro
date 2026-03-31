@@ -13,7 +13,7 @@ argument-instructions: |
 ---
 
 <objective>
-Grade an existing React Testing Library test file without inventing a hidden Taro runtime scorer.
+Grade an existing React Testing Library test file using Taro's shared existing-test grading engine.
 
 This command is example-driven:
 
@@ -29,7 +29,7 @@ Target test file: $ARGUMENTS
 
 <process>
 1. Accept exactly one argument: a path to an existing `*.test.*` or `*.spec.*` file.
-2. Do not invent or invoke `__grade`.
+2. Run `{{TARO_RUNTIME_COMMAND}} __grade <test-file>` and use its output as the scoring source of truth.
 3. Read the target test first. Read `.taro/state.json` if present. Inspect at most 4 additional nearby files only when they materially affect provider wrappers, fixtures, or boundary support.
 4. Score these dimensions explicitly:
    - `robustness` out of 25
@@ -59,9 +59,9 @@ Target test file: $ARGUMENTS
      - role queries stay the same
      - exact payload and visible success assertions are added
      - a low `C` often becomes a mid/high `B`
-8. Persist a new `generatedTests` snapshot in `.taro/state.json`:
+8. Persist a new `gradedTests` snapshot in `.taro/state.json`:
    - if state is missing, initialize a valid minimal state object first
-   - match prior history by normalized `generatedTests[].testFile`
+   - match prior history by normalized `gradedTests[].testFile`
    - reuse the latest matching `packagePath` and `recordingFile` when present
    - otherwise use the best matching package profile or `"."`, and store `recordingFile: null`
    - append a fresh snapshot instead of overwriting older grades
