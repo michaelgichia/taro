@@ -25,7 +25,7 @@
 - discovery tests proving non-test files are excluded
 
 Plans:
-- [ ] `01-01-PLAN.md` — extract shared tracker plumbing and add the regrade-specific Markdown tracker contract under `.taro/directory-loop/`
+- [x] `01-01-PLAN.md` — extract shared tracker plumbing and add the regrade-specific Markdown tracker contract under `.taro/directory-loop/`
 - [ ] `01-02-PLAN.md` — add reusable regrade directory discovery and directory-loop validation helpers with focused tests
 
 ## Phase 2: Sequential Regrade Loop and History Persistence
