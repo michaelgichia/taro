@@ -1313,6 +1313,61 @@ describe("appendGeneratedTestRecord", () => {
     ).toHaveLength(1);
   });
 
+  it("preserves unrelated history while appendGeneratedTestRecord trims repeated regrades to the latest five", async () => {
+    await initTaroState(projectRoot);
+
+    await appendGeneratedTestRecord(projectRoot, {
+      packagePath: ".",
+      testFile: join(projectRoot, "src", "other.test.tsx"),
+      scoreResult: {
+        total: 88,
+        grade: "B",
+        dimensions: makeScoreDimensions({ queryQuality: 88 }),
+        signals: makeScoreSignals({ roleQueryCount: 4 }),
+        reasons: [],
+        requiresReview: false,
+      },
+    });
+
+    for (let index = 0; index < 6; index += 1) {
+      await appendGeneratedTestRecord(projectRoot, {
+        packagePath: ".",
+        recordingFile: index % 2 === 0 ? `/tmp/regrade-${index}.js` : null,
+        testFile: join(projectRoot, "src", "feature.test.tsx"),
+        scoreResult: {
+          total: 70 + index,
+          grade: index >= 5 ? "B" : "C",
+          dimensions: makeScoreDimensions({ queryQuality: 70 + index }),
+          signals: makeScoreSignals({ roleQueryCount: index + 1 }),
+          reasons: [],
+          requiresReview: index < 5,
+        },
+      });
+    }
+
+    const state = await readTaroState(projectRoot);
+    const featureHistory =
+      state?.generatedTests.filter((record) =>
+        record.testFile.endsWith("feature.test.tsx")
+      ) ?? [];
+    const otherHistory =
+      state?.generatedTests.filter((record) =>
+        record.testFile.endsWith("other.test.tsx")
+      ) ?? [];
+
+    expect(featureHistory).toHaveLength(5);
+    expect(featureHistory.map((record) => record.quality.overall)).toEqual([
+      71, 72, 73, 74, 75,
+    ]);
+    expect(otherHistory).toHaveLength(1);
+    expect(otherHistory[0]).toEqual(
+      expect.objectContaining({
+        testFile: join(projectRoot, "src", "other.test.tsx"),
+        quality: expect.objectContaining({ overall: 88 }),
+      })
+    );
+  });
+
   it("backfills legacy scorer signals when reading generated test history", async () => {
     const initialized = await initTaroState(projectRoot);
     const legacyState = {

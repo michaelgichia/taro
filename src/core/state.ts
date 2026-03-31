@@ -36,6 +36,7 @@ import {
   createLoadOrBootstrapStateMachine,
   createScanStateMachine,
 } from "#core/state.machine.ts";
+import { normalizeGeneratedTestHistoryPath } from "#core/state-paths.ts";
 import type {
   GeneratedTestQualityIndex,
   TaroPackageProfileStaleness,
@@ -1590,6 +1591,43 @@ export async function persistPlaywrightAuthProfile(
 
   await writeTaroState(projectRoot, nextState);
   return true;
+}
+
+export function findLatestGeneratedTestRecord(
+  generatedTests: TaroState["generatedTests"],
+  projectRoot: string,
+  testFile: string
+): TaroState["generatedTests"][number] | null {
+  const normalizedTarget = normalizeGeneratedTestHistoryPath(
+    projectRoot,
+    testFile
+  );
+  let latestRecord: TaroState["generatedTests"][number] | null = null;
+  let latestRecordCreatedAtMs = -1;
+
+  for (const record of generatedTests) {
+    if (
+      normalizeGeneratedTestHistoryPath(projectRoot, record.testFile) !==
+      normalizedTarget
+    ) {
+      continue;
+    }
+
+    const createdAtMs = Number.isFinite(Date.parse(record.createdAt))
+      ? Date.parse(record.createdAt)
+      : 0;
+    if (
+      latestRecord === null ||
+      createdAtMs > latestRecordCreatedAtMs ||
+      (createdAtMs === latestRecordCreatedAtMs &&
+        record.quality.overall >= latestRecord.quality.overall)
+    ) {
+      latestRecord = record;
+      latestRecordCreatedAtMs = createdAtMs;
+    }
+  }
+
+  return latestRecord;
 }
 
 export async function appendGeneratedTestRecord(
