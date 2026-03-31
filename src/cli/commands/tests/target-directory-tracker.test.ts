@@ -9,6 +9,7 @@ import {
   getDirectoryLoopTrackerPath,
   readDirectoryLoopTracker,
   renderDirectoryLoopTrackerMarkdown,
+  updateDirectoryLoopTrackerEntry,
   updateDirectoryLoopTrackerStatus,
   writeDirectoryLoopTracker,
 } from "#cli/commands/target-directory-tracker.ts";
@@ -101,10 +102,10 @@ describe("target directory tracker", () => {
     expect(markdown).toContain("- In progress: 1");
   });
 
-  it("round-trips a regrade tracker row with its current stored score", async () => {
+  it("round-trips a completed regrade tracker row with score changes and follow-up comments", async () => {
     const root = await createSandbox("regrade-roundtrip");
     const testsDir = join(root, "src", "tests");
-    const tracker = createDirectoryLoopTracker({
+    const pendingTracker = createDirectoryLoopTracker({
       directoryPath: testsDir,
       entries: [
         {
@@ -117,6 +118,16 @@ describe("target directory tracker", () => {
       ],
       projectRoot: root,
     });
+    const tracker = updateDirectoryLoopTrackerEntry(pendingTracker, {
+      componentPath: join(testsDir, "CheckoutFlow.test.tsx"),
+      followUpComments: [
+        "Manual review required (74/100, C).",
+        "Strengthen outcome assertions.",
+      ],
+      projectRoot: root,
+      status: "completed",
+      updatedScoreThreshold: 74,
+    });
 
     await writeDirectoryLoopTracker(tracker);
 
@@ -128,15 +139,20 @@ describe("target directory tracker", () => {
     });
 
     expect(content).toContain(
-      "| pending | src/tests/CheckoutFlow.test.tsx | src/tests/CheckoutFlow.test.tsx | 87% | regrade |"
+      "| completed | src/tests/CheckoutFlow.test.tsx | src/tests/CheckoutFlow.test.tsx | 87% | 74% | Manual review required (74/100, C).<br>Strengthen outcome assertions. | regrade |"
     );
     expect(parsed?.entries[0]).toEqual(
       expect.objectContaining({
         componentPath: "src/tests/CheckoutFlow.test.tsx",
         currentScoreThreshold: 87,
+        followUpComments: [
+          "Manual review required (74/100, C).",
+          "Strengthen outcome assertions.",
+        ],
         kind: "regrade",
         outputPath: "src/tests/CheckoutFlow.test.tsx",
-        status: "pending",
+        status: "completed",
+        updatedScoreThreshold: 74,
       })
     );
   });

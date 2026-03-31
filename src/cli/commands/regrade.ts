@@ -6,13 +6,23 @@ import { Command } from "commander";
 import pc from "picocolors";
 
 import { logToStderr as log } from "#cli/commands/log.ts";
+import { type RegradeRunnerResult, runRegradeForTestFile } from "#cli/commands/regrade-runner.ts";
 import {
   createDirectoryLoopTracker,
   readDirectoryLoopTracker,
+  updateDirectoryLoopTrackerEntry,
+  updateDirectoryLoopTrackerStatus,
   writeDirectoryLoopTracker,
 } from "#cli/commands/target-directory-tracker.ts";
 import { normalizeGeneratedTestHistoryPath } from "#core/state-paths.ts";
 import { loadOrBootstrapTaroState } from "#core/state.ts";
+
+interface RegradeCommandContext {
+  runRegradeTestFile?: (params: {
+    projectRoot: string;
+    testFile: string;
+  }) => Promise<RegradeRunnerResult>;
+}
 
 interface CommandOptions {
   directoryLoop?: boolean;
@@ -104,16 +114,20 @@ async function buildRegradeDirectoryLoopTracker(params: {
       return {
         componentPath: testFile,
         currentScoreThreshold: latestThreshold?.overall ?? null,
+        followUpComments: previousEntry?.followUpComments ?? [],
         kind: "regrade",
         outputPath: testFile,
         status: previousEntry?.status ?? "pending",
+        updatedScoreThreshold: previousEntry?.updatedScoreThreshold ?? null,
       };
     }),
     projectRoot: params.projectRoot,
   });
 }
 
-export function createRegradeCommand(): Command {
+export function createRegradeCommand(
+  context: RegradeCommandContext = {}
+): Command {
   const regrade = new Command("__regrade");
 
   regrade
@@ -162,7 +176,7 @@ export function createRegradeCommand(): Command {
           }
 
           const testFiles = await collectRegradeTestFiles(resolvedTargetPath);
-          const tracker = await buildRegradeDirectoryLoopTracker({
+          let tracker = await buildRegradeDirectoryLoopTracker({
             directoryPath: resolvedTargetPath,
             projectRoot,
             testFiles,
@@ -189,7 +203,55 @@ export function createRegradeCommand(): Command {
             pc.dim("[taro]") +
               ` Queued ${testFiles.length} pending test file${testFiles.length === 1 ? "" : "s"} for regrade in ${resolvedTargetPath}`
           );
-          process.exit(0);
+
+          const executeRegradeForTestFile =
+            context.runRegradeTestFile ?? runRegradeForTestFile;
+
+          while (true) {
+            const inProgressEntry = tracker.entries.find(
+              (entry) => entry.status === "in-progress"
+            );
+            const pendingEntries = tracker.entries.filter(
+              (entry) => entry.status === "pending"
+            );
+
+            if (!inProgressEntry && pendingEntries.length === 0) {
+              log(
+                pc.dim("[taro]") +
+                  " Regrade directory loop tracker is complete; no pending test files remain."
+              );
+              process.exit(0);
+            }
+
+            const pendingCount =
+              pendingEntries.length + (inProgressEntry ? 1 : 0);
+            log(
+              pc.dim("[taro]") +
+                ` Processing ${pendingCount} pending test file${pendingCount === 1 ? "" : "s"} in ${resolvedTargetPath}`
+            );
+
+            const entry = inProgressEntry ?? pendingEntries[0]!;
+            tracker = updateDirectoryLoopTrackerStatus(tracker, {
+              componentPath: entry.componentPath,
+              projectRoot,
+              status: "in-progress",
+            });
+            await writeDirectoryLoopTracker(tracker);
+
+            const result = await executeRegradeForTestFile({
+              projectRoot,
+              testFile: resolve(projectRoot, entry.componentPath),
+            });
+
+            tracker = updateDirectoryLoopTrackerEntry(tracker, {
+              componentPath: entry.componentPath,
+              followUpComments: result.followUpComments,
+              projectRoot,
+              status: "completed",
+              updatedScoreThreshold: result.scoreResult.total,
+            });
+            await writeDirectoryLoopTracker(tracker);
+          }
         }
 
         if (commandOptions.directoryLoop) {

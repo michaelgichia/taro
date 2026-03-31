@@ -9,9 +9,11 @@ export type DirectoryLoopEntryKind = "target" | "regrade";
 export interface DirectoryLoopTrackerEntry {
   componentPath: string;
   currentScoreThreshold: number | null;
+  followUpComments: string[];
   kind: DirectoryLoopEntryKind;
   outputPath: string;
   status: DirectoryLoopStatus;
+  updatedScoreThreshold: number | null;
 }
 
 export interface DirectoryLoopTracker {
@@ -73,9 +75,11 @@ export function createDirectoryLoopTracker(params: {
   entries: Array<{
     componentPath: string;
     currentScoreThreshold?: number | null;
+    followUpComments?: string[];
     kind?: DirectoryLoopEntryKind;
     outputPath: string;
     status?: DirectoryLoopStatus;
+    updatedScoreThreshold?: number | null;
   }>;
   projectRoot: string;
 }): DirectoryLoopTracker {
@@ -88,9 +92,11 @@ export function createDirectoryLoopTracker(params: {
       .map((entry) => ({
         componentPath: toDisplayPath(params.projectRoot, entry.componentPath),
         currentScoreThreshold: entry.currentScoreThreshold ?? null,
+        followUpComments: entry.followUpComments ?? [],
         kind: entry.kind ?? "target",
         outputPath: toDisplayPath(params.projectRoot, entry.outputPath),
         status: entry.status ?? "pending",
+        updatedScoreThreshold: entry.updatedScoreThreshold ?? null,
       }))
       .sort((left, right) =>
         left.componentPath.localeCompare(right.componentPath)
@@ -103,13 +109,53 @@ export function createDirectoryLoopTracker(params: {
   };
 }
 
-export function updateDirectoryLoopTrackerStatus(
+function formatScoreThreshold(value: number | null): string {
+  return value === null ? "-" : `${value}%`;
+}
+
+function formatFollowUpComments(comments: string[]): string {
+  if (comments.length === 0) {
+    return "-";
+  }
+
+  return comments
+    .map((comment) => comment.replaceAll("|", "/").trim())
+    .filter((comment) => comment.length > 0)
+    .join("<br>");
+}
+
+function parseScoreThreshold(rawValue: string | undefined): number | null {
+  const trimmed = rawValue?.trim();
+  const parsed =
+    trimmed && trimmed !== "-"
+      ? Number.parseFloat(trimmed.replace(/%$/u, ""))
+      : null;
+
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseFollowUpComments(rawValue: string | undefined): string[] {
+  const trimmed = rawValue?.trim();
+  if (!trimmed || trimmed === "-") {
+    return [];
+  }
+
+  return trimmed
+    .split(/<br\s*\/?>/iu)
+    .map((comment) => comment.trim())
+    .filter((comment) => comment.length > 0);
+}
+
+export function updateDirectoryLoopTrackerEntry(
   tracker: DirectoryLoopTracker,
   params: {
     componentPath: string;
+    currentScoreThreshold?: number | null;
+    followUpComments?: string[];
     projectRoot: string;
-    status: DirectoryLoopStatus;
+    status?: DirectoryLoopStatus;
     updatedAt?: string;
+    updatedScoreThreshold?: number | null;
   }
 ): DirectoryLoopTracker {
   const targetPath = toDisplayPath(params.projectRoot, params.componentPath);
@@ -118,7 +164,15 @@ export function updateDirectoryLoopTrackerStatus(
     ...tracker,
     entries: tracker.entries.map((entry) => {
       if (entry.componentPath === targetPath) {
-        return { ...entry, status: params.status };
+        return {
+          ...entry,
+          currentScoreThreshold:
+            params.currentScoreThreshold ?? entry.currentScoreThreshold,
+          followUpComments: params.followUpComments ?? entry.followUpComments,
+          status: params.status ?? entry.status,
+          updatedScoreThreshold:
+            params.updatedScoreThreshold ?? entry.updatedScoreThreshold,
+        };
       }
 
       if (params.status === "in-progress" && entry.status === "in-progress") {
@@ -129,6 +183,18 @@ export function updateDirectoryLoopTrackerStatus(
     }),
     updatedAt: params.updatedAt ?? new Date().toISOString(),
   };
+}
+
+export function updateDirectoryLoopTrackerStatus(
+  tracker: DirectoryLoopTracker,
+  params: {
+    componentPath: string;
+    projectRoot: string;
+    status: DirectoryLoopStatus;
+    updatedAt?: string;
+  }
+): DirectoryLoopTracker {
+  return updateDirectoryLoopTrackerEntry(tracker, params);
 }
 
 export function renderDirectoryLoopTrackerMarkdown(
@@ -151,10 +217,10 @@ export function renderDirectoryLoopTrackerMarkdown(
 
   const rows =
     tracker.entries.length === 0
-      ? ["| pending | (none) | - | - | - |"]
+      ? ["| pending | (none) | - | - | - | - | - |"]
       : tracker.entries.map(
           (entry) =>
-            `| ${entry.status} | ${entry.componentPath} | ${entry.outputPath} | ${entry.currentScoreThreshold === null ? "-" : `${entry.currentScoreThreshold}%`} | ${entry.kind} |`
+            `| ${entry.status} | ${entry.componentPath} | ${entry.outputPath} | ${formatScoreThreshold(entry.currentScoreThreshold)} | ${formatScoreThreshold(entry.updatedScoreThreshold)} | ${formatFollowUpComments(entry.followUpComments)} | ${entry.kind} |`
         );
 
   return [
@@ -167,8 +233,8 @@ export function renderDirectoryLoopTrackerMarkdown(
     `- In progress: ${counts.inProgress}`,
     `- Completed: ${counts.completed}`,
     "",
-    "| Status | Path | Output | Current score | Kind |",
-    "| --- | --- | --- | --- | --- |",
+    "| Status | Path | Output | Current score | Updated score | Follow-up | Kind |",
+    "| --- | --- | --- | --- | --- | --- | --- |",
     ...rows,
     "",
   ].join("\n");
@@ -194,13 +260,16 @@ function parseDirectoryLoopTrackerMarkdown(params: {
   const entries: DirectoryLoopTrackerEntry[] = [];
 
   for (const line of lines) {
+    const completeMatch = line.match(
+      /^\| (pending|in-progress|completed) \| (.+) \| (.+) \| (.+) \| (.+) \| (.+) \| (target|regrade) \|$/u
+    );
     const extendedMatch = line.match(
       /^\| (pending|in-progress|completed) \| (.+) \| (.+) \| (.+) \| (target|regrade) \|$/u
     );
     const legacyMatch = line.match(
       /^\| (pending|in-progress|completed) \| (.+) \| (.+) \|$/u
     );
-    const match = extendedMatch ?? legacyMatch;
+    const match = completeMatch ?? extendedMatch ?? legacyMatch;
     if (!match) {
       continue;
     }
@@ -209,21 +278,19 @@ function parseDirectoryLoopTrackerMarkdown(params: {
       continue;
     }
 
-    const rawCurrentScore = extendedMatch?.[4]?.trim();
-    const parsedCurrentScore =
-      rawCurrentScore && rawCurrentScore !== "-"
-        ? Number.parseFloat(rawCurrentScore.replace(/%$/u, ""))
-        : null;
-
     entries.push({
       componentPath: match[2],
-      currentScoreThreshold: Number.isFinite(parsedCurrentScore)
-        ? parsedCurrentScore
-        : null,
+      currentScoreThreshold: parseScoreThreshold(
+        completeMatch?.[4] ?? extendedMatch?.[4]
+      ),
+      followUpComments: parseFollowUpComments(completeMatch?.[6]),
       kind:
-        (extendedMatch?.[5] as DirectoryLoopEntryKind | undefined) ?? "target",
+        ((completeMatch?.[7] ??
+          extendedMatch?.[5]) as DirectoryLoopEntryKind | undefined) ??
+        "target",
       outputPath: match[3],
       status: match[1] as DirectoryLoopStatus,
+      updatedScoreThreshold: parseScoreThreshold(completeMatch?.[5]),
     });
   }
 

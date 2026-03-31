@@ -6,6 +6,7 @@ import { stripVTControlCharacters } from "node:util";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createRegradeCommand } from "#cli/commands/regrade.ts";
+import type { RegradeRunnerResult } from "#cli/commands/regrade-runner.ts";
 import { appendGeneratedTestRecord } from "#core/state.ts";
 import type { ScoreResult } from "#types/score.ts";
 
@@ -39,8 +40,12 @@ async function readDirectoryTracker(logs: string) {
   return readFile(trackerPathMatch[1].trim(), "utf-8");
 }
 
-async function runRegrade(args: string[], cwdPath: string) {
-  const command = createRegradeCommand();
+async function runRegrade(
+  args: string[],
+  cwdPath: string,
+  context?: Parameters<typeof createRegradeCommand>[0]
+) {
+  const command = createRegradeCommand(context);
   const stderrChunks: string[] = [];
   const stdoutChunks: string[] = [];
   const stderrSpy = vi
@@ -94,6 +99,29 @@ async function runRegrade(args: string[], cwdPath: string) {
     stdout: stripVTControlCharacters(stdoutChunks.join("")),
     thrown,
     warnings: stripVTControlCharacters(warnSpy.mock.calls.flat().join("\n")),
+  };
+}
+
+function makeRunnerResult(params: {
+  followUpComments?: string[];
+  scoreResult?: Partial<ScoreResult>;
+  testFile: string;
+}): RegradeRunnerResult {
+  const scoreResult = makeScoreResult(params.scoreResult);
+
+  return {
+    followUpComments:
+      params.followUpComments ??
+      (scoreResult.requiresReview
+        ? [`Manual review required (${scoreResult.total}/100, ${scoreResult.grade}).`]
+        : ["No follow-up required."]),
+    matchedGeneratedTestRecord: null,
+    persistenceContext: {
+      packagePath: ".",
+      recordingFile: null,
+    },
+    scoreResult,
+    testFile: params.testFile,
   };
 }
 
@@ -202,9 +230,10 @@ describe("createRegradeCommand", () => {
     );
   });
 
-  it("queues only test and spec files into the directory tracker", async () => {
+  it("completes queued test files sequentially and excludes non-test files", async () => {
     const root = await createSandbox("discovery");
     const testsDir = join(root, "src", "tests");
+    const calls: string[] = [];
     await mkdir(join(testsDir, "nested"), { recursive: true });
     await writeFile(
       join(testsDir, "CheckoutFlow.test.tsx"),
@@ -227,25 +256,55 @@ describe("createRegradeCommand", () => {
       "utf-8"
     );
 
-    const result = await runRegrade([testsDir, "--directory-loop"], root);
+    const result = await runRegrade(
+      [testsDir, "--directory-loop"],
+      root,
+      {
+        runRegradeTestFile: async ({ testFile }) => {
+          calls.push(testFile.replace(/\\/g, "/"));
+          if (testFile.endsWith("Orders.spec.ts")) {
+            return makeRunnerResult({
+              followUpComments: [
+                "Manual review required (67/100, D).",
+                "Strengthen assertions.",
+              ],
+              scoreResult: {
+                requiresReview: true,
+                total: 67,
+              },
+              testFile,
+            });
+          }
+
+          return makeRunnerResult({
+            scoreResult: { total: 92 },
+            testFile,
+          });
+        },
+      }
+    );
     const tracker = await readDirectoryTracker(result.logs);
 
     expect(result.thrown).toBeUndefined();
     expect(result.exitCode).toBe(0);
+    expect(calls).toHaveLength(2);
+    expect(calls[0]).toMatch(/src\/tests\/CheckoutFlow\.test\.tsx$/u);
+    expect(calls[1]).toMatch(/src\/tests\/nested\/Orders\.spec\.ts$/u);
     expect(result.logs).toContain("Regrade directory loop mode enabled");
     expect(result.logs).toContain("Directory loop tracker:");
     expect(result.logs).toContain("Queued 2 pending test files for regrade");
+    expect(result.logs).toContain("Processing 2 pending test files");
     expect(tracker).toContain(
-      "| pending | src/tests/CheckoutFlow.test.tsx | src/tests/CheckoutFlow.test.tsx | - | regrade |"
+      "| completed | src/tests/CheckoutFlow.test.tsx | src/tests/CheckoutFlow.test.tsx | - | 92% | No follow-up required. | regrade |"
     );
     expect(tracker).toContain(
-      "| pending | src/tests/nested/Orders.spec.ts | src/tests/nested/Orders.spec.ts | - | regrade |"
+      "| completed | src/tests/nested/Orders.spec.ts | src/tests/nested/Orders.spec.ts | - | 67% | Manual review required (67/100, D).<br>Strengthen assertions. | regrade |"
     );
     expect(tracker).not.toContain("CheckoutFlow.tsx");
     expect(tracker).not.toContain("helper.ts");
   });
 
-  it("writes the latest stored score threshold into the tracker when present", async () => {
+  it("writes previous and updated score thresholds into completed tracker rows", async () => {
     const root = await createSandbox("stored-threshold");
     const testsDir = join(root, "src", "tests");
     const checkoutTest = join(testsDir, "CheckoutFlow.test.tsx");
@@ -257,12 +316,22 @@ describe("createRegradeCommand", () => {
     );
     await seedGeneratedTestRecord(root, checkoutTest, { total: 87 });
 
-    const result = await runRegrade([testsDir, "--directory-loop"], root);
+    const result = await runRegrade(
+      [testsDir, "--directory-loop"],
+      root,
+      {
+        runRegradeTestFile: async ({ testFile }) =>
+          makeRunnerResult({
+            scoreResult: { total: 93 },
+            testFile,
+          }),
+      }
+    );
     const tracker = await readDirectoryTracker(result.logs);
 
     expect(result.exitCode).toBe(0);
     expect(tracker).toContain(
-      "| pending | src/tests/CheckoutFlow.test.tsx | src/tests/CheckoutFlow.test.tsx | 87% | regrade |"
+      "| completed | src/tests/CheckoutFlow.test.tsx | src/tests/CheckoutFlow.test.tsx | 87% | 93% | No follow-up required. | regrade |"
     );
   });
 });
