@@ -26,7 +26,7 @@
 
 Plans:
 - [x] `01-01-PLAN.md` — extract shared tracker plumbing and add the regrade-specific Markdown tracker contract under `.taro/directory-loop/`
-- [ ] `01-02-PLAN.md` — add reusable regrade directory discovery and directory-loop validation helpers with focused tests
+- [x] `01-02-PLAN.md` — add reusable regrade directory discovery and directory-loop validation helpers with focused tests
 
 ## Phase 2: Sequential Regrade Loop and History Persistence
 
@@ -94,8 +94,8 @@ Plans:
 
 ## Next Command
 
-`$gsd-plan-phase 1`
+`$gsd-plan-phase 2`
 
 ---
 *Roadmap created: 2026-03-31*
-*Last updated: 2026-03-31 after milestone v1.0 definition*
+*Last updated: 2026-03-31 after Phase 1 execution*
