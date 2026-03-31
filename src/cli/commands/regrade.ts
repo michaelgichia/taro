@@ -1,13 +1,116 @@
-import { realpath, stat } from "node:fs/promises";
-import { resolve } from "node:path";
+import { readdir, realpath, stat } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import { cwd } from "node:process";
 
 import { Command } from "commander";
 import pc from "picocolors";
 
 import { logToStderr as log } from "#cli/commands/log.ts";
+import {
+  createDirectoryLoopTracker,
+  readDirectoryLoopTracker,
+  writeDirectoryLoopTracker,
+} from "#cli/commands/target-directory-tracker.ts";
+import { normalizeGeneratedTestHistoryPath } from "#core/state-paths.ts";
+import { loadOrBootstrapTaroState } from "#core/state.ts";
+
 interface CommandOptions {
   directoryLoop?: boolean;
+}
+
+interface LatestStoredScoreThreshold {
+  createdAtMs: number;
+  overall: number;
+}
+
+function isSupportedSourceFile(filePath: string): boolean {
+  return /\.(?:[cm]?[jt]sx?)$/u.test(filePath);
+}
+
+function isTestFilePath(filePath: string): boolean {
+  return /\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(filePath);
+}
+
+async function collectRegradeTestFiles(dirPath: string): Promise<string[]> {
+  const entries = await readdir(dirPath, {
+    recursive: true,
+    withFileTypes: true,
+  });
+
+  return entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath, entry.name))
+    .filter(
+      (filePath) => isSupportedSourceFile(filePath) && isTestFilePath(filePath)
+    )
+    .sort();
+}
+
+async function readLatestStoredScoreThresholds(
+  projectRoot: string
+): Promise<Map<string, LatestStoredScoreThreshold>> {
+  const bootstrap = await loadOrBootstrapTaroState(projectRoot);
+  const latestThresholds = new Map<string, LatestStoredScoreThreshold>();
+
+  for (const record of bootstrap.state.generatedTests) {
+    const normalizedPath = normalizeGeneratedTestHistoryPath(
+      projectRoot,
+      record.testFile
+    );
+    const createdAtMs = Number.isFinite(Date.parse(record.createdAt))
+      ? Date.parse(record.createdAt)
+      : 0;
+    const previous = latestThresholds.get(normalizedPath);
+
+    if (
+      !previous ||
+      createdAtMs > previous.createdAtMs ||
+      (createdAtMs === previous.createdAtMs &&
+        record.quality.overall >= previous.overall)
+    ) {
+      latestThresholds.set(normalizedPath, {
+        createdAtMs,
+        overall: record.quality.overall,
+      });
+    }
+  }
+
+  return latestThresholds;
+}
+
+async function buildRegradeDirectoryLoopTracker(params: {
+  directoryPath: string;
+  projectRoot: string;
+  testFiles: string[];
+}) {
+  const previousTracker = await readDirectoryLoopTracker({
+    directoryPath: params.directoryPath,
+    projectRoot: params.projectRoot,
+  });
+  const latestThresholds = await readLatestStoredScoreThresholds(
+    params.projectRoot
+  );
+
+  return createDirectoryLoopTracker({
+    directoryPath: params.directoryPath,
+    entries: params.testFiles.map((testFile) => {
+      const previousEntry = previousTracker?.entries.find(
+        (entry) => resolve(params.projectRoot, entry.componentPath) === testFile
+      );
+      const latestThreshold = latestThresholds.get(
+        normalizeGeneratedTestHistoryPath(params.projectRoot, testFile)
+      );
+
+      return {
+        componentPath: testFile,
+        currentScoreThreshold: latestThreshold?.overall ?? null,
+        kind: "regrade",
+        outputPath: testFile,
+        status: previousEntry?.status ?? "pending",
+      };
+    }),
+    projectRoot: params.projectRoot,
+  });
 }
 
 export function createRegradeCommand(): Command {
@@ -27,6 +130,10 @@ export function createRegradeCommand(): Command {
     )
     .action(async (targetPath: string) => {
       try {
+        const rawProjectRoot = cwd();
+        const projectRoot = await realpath(rawProjectRoot).catch(
+          () => rawProjectRoot
+        );
         const rawTargetPath = resolve(targetPath);
         const commandOptions = regrade.opts<CommandOptions>();
 
@@ -54,10 +161,33 @@ export function createRegradeCommand(): Command {
             process.exit(2);
           }
 
+          const testFiles = await collectRegradeTestFiles(resolvedTargetPath);
+          const tracker = await buildRegradeDirectoryLoopTracker({
+            directoryPath: resolvedTargetPath,
+            projectRoot,
+            testFiles,
+          });
+
+          await writeDirectoryLoopTracker(tracker);
+
           log(pc.dim("[taro]") + " Regrade directory loop mode enabled");
           log(
             pc.dim("[taro]") +
-              ` Directory target accepted for bootstrap: ${resolvedTargetPath}`
+              ` Directory loop tracker: ${tracker.trackerPath}`
+          );
+
+          if (testFiles.length === 0) {
+            log(
+              pc.yellow(
+                `[taro] No RTL test files found in: ${resolvedTargetPath}`
+              )
+            );
+            process.exit(0);
+          }
+
+          log(
+            pc.dim("[taro]") +
+              ` Queued ${testFiles.length} pending test file${testFiles.length === 1 ? "" : "s"} for regrade in ${resolvedTargetPath}`
           );
           process.exit(0);
         }
