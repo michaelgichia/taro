@@ -47,11 +47,11 @@ export function resolveTargetScoreGateConfig(
 }
 
 export function passesScoreGate(
-  scoreResult: { requiresReview: boolean; total: number },
+  scoreResult: { requiresReview: boolean; overall: number },
   scoreGate: ScoreGateConfig
 ): boolean {
   return (
-    scoreResult.total >= scoreGate.minScore &&
+    scoreResult.overall >= scoreGate.minScore &&
     (!scoreGate.enforceRequiresReview || !scoreResult.requiresReview)
   );
 }

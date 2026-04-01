@@ -112,13 +112,10 @@ function makeRunnerResult(params: {
   followUpComments?: string[];
   matchedGeneratedTestRecord?: RegradeRunnerResult["matchedGeneratedTestRecord"];
   matchedHistorySource?: RegradeRunnerResult["matchedHistorySource"];
-  scoreResult?: Partial<ExistingTestGradeResult> & {
-    dimensions?: Partial<ExistingTestGradeResult["dimensions"]>;
-    signals?: Partial<ExistingTestGradeResult["signals"]>;
-  };
+  scoreResult?: Partial<ScoreResult>;
   testFile: string;
 }): RegradeRunnerResult {
-  const scoreResult = makeExistingTestGradeResult(params.scoreResult);
+  const scoreResult = makeScoreResult(params.scoreResult);
 
   return {
     followUpComments:
@@ -231,7 +228,7 @@ function makeScoreResult(overrides: Partial<ScoreResult> = {}): ScoreResult {
     },
     reasons: overrides.reasons ?? [],
     blockers: overrides.blockers ?? [],
-    requiresReview: overrides.requiresReview ?? false,
+    requiresReview: overrides.requiresReview ?? total < 80,
     markerCoverage: {
       detected: 0,
       emitted: 0,
@@ -590,14 +587,14 @@ describe("createRegradeCommand", () => {
     expect(result.exitCode).toBe(0);
     expect(result.logs).toContain("Regrade single-file mode enabled");
     expect(result.logs).toContain(
-      "Previous snapshot (generatedTests fallback): 72/100 (C)"
+      "Previous snapshot (generatedTests): 72/100 (C)"
     );
     expect(result.logs).toContain("Score: 85/100 (B)");
     expect(result.logs).toContain("Delta: +13");
     expect(result.logs).toContain("Follow-up: Strengthen assertions.");
   });
 
-  it("prefers gradedTests thresholds over generated fallback in directory-loop mode", async () => {
+  it("prefers generatedTests thresholds over legacy graded fallback in directory-loop mode", async () => {
     const root = await createSandbox("graded-threshold");
     const testsDir = join(root, "src", "tests");
     const checkoutTest = join(testsDir, "CheckoutFlow.test.tsx");
@@ -623,7 +620,7 @@ describe("createRegradeCommand", () => {
 
     expect(result.exitCode).toBe(0);
     expect(tracker).toContain(
-      "| completed | src/tests/CheckoutFlow.test.tsx | src/tests/CheckoutFlow.test.tsx | 91% | 95% | No follow-up required. | regrade |"
+      "| completed | src/tests/CheckoutFlow.test.tsx | src/tests/CheckoutFlow.test.tsx | 67% | 95% | No follow-up required. | regrade |"
     );
   });
 });

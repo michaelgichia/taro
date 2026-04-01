@@ -20,6 +20,7 @@ import { detectRepoContractIssues } from "#core/repo-contracts.ts";
 import { clampScore } from "#core/score-utils.ts";
 import type { QueryResult } from "#types/recording.ts";
 import type {
+  GenerationScoreResult,
   HighSignalBranchHint,
   MarkerCoverageTotals,
   MarkerQualityGateState,
@@ -28,7 +29,6 @@ import type {
   ScoreGeneratedTestOptions,
   ScoreImportReference,
   ScoreReason,
-  ScoreResult,
   ScoreSignals,
 } from "#types/score.ts";
 
@@ -670,8 +670,36 @@ function normalizeComponentScoreContext(
   };
 }
 
-function calculateQueryScore(queryResults: QueryResult[]): number {
+function calculateCodeOnlyQueryScore(analysis: TestCodeAnalysis): number {
+  let score = 40;
+
+  if (analysis.roleQueryCountFromCode > 0) {
+    score += 35;
+  } else {
+    score -= 10;
+  }
+
+  if (analysis.testIdQueryCountFromCode > 0) {
+    score -= Math.min(25, analysis.testIdQueryCountFromCode * 8);
+  }
+
+  if (analysis.fireEventCount > 0) {
+    score -= 5;
+  }
+
+  return clampScore(score);
+}
+
+function calculateQueryScore(
+  queryResults: QueryResult[],
+  analysis: TestCodeAnalysis,
+  queryEvidencePolicy: "recording-aware" | "code-only"
+): number {
   if (queryResults.length === 0) {
+    if (queryEvidencePolicy === "code-only") {
+      return calculateCodeOnlyQueryScore(analysis);
+    }
+
     return 100;
   }
 
@@ -1096,6 +1124,8 @@ function collectReasons(params: {
   branchCoverage: BranchCoverageSignal;
   componentContext: NormalizedComponentScoreContext;
   mockCompleteness: MockCompletenessResult;
+  queryEvidencePolicy: "recording-aware" | "code-only";
+  queryResults: QueryResult[];
 }): ScoreReason[] {
   const {
     code,
@@ -1109,9 +1139,24 @@ function collectReasons(params: {
     branchCoverage,
     componentContext,
     mockCompleteness,
+    queryEvidencePolicy,
+    queryResults,
   } = params;
 
   const reasons: ScoreReason[] = [];
+
+  if (queryEvidencePolicy === "code-only" && queryResults.length === 0) {
+    reasons.push(
+      createReason(
+        "code-only-query-scoring",
+        "queryQuality",
+        "negative",
+        6,
+        "Recorder query evidence is unavailable, so query quality was derived from code-only heuristics.",
+        "advisory"
+      )
+    );
+  }
 
   if (signals.queryCheckpointCount > 0) {
     reasons.push(
@@ -1435,7 +1480,7 @@ function deriveBlockers(reasons: ScoreReason[], limit = 2): string[] {
 
 function calculateAggregateScore(
   dimensions: ScoreDimensions
-): Pick<ScoreResult, "total" | "grade"> {
+): Pick<GenerationScoreResult, "total" | "grade"> {
   const total = clampScore(
     dimensions.queryQuality * 0.3 +
       dimensions.assertionSpecificity * 0.25 +
@@ -1532,6 +1577,7 @@ function resolveScoreGeneratedTestOptions(
   markerCoverage: MarkerCoverageTotals;
   markerDiagnostics: MarkerReviewDiagnostics;
   componentContext: NormalizedComponentScoreContext;
+  queryEvidencePolicy: "recording-aware" | "code-only";
 } {
   if (Array.isArray(input)) {
     return {
@@ -1539,6 +1585,7 @@ function resolveScoreGeneratedTestOptions(
       markerCoverage: resolveMarkerCoverage(),
       markerDiagnostics: resolveMarkerDiagnostics(),
       componentContext: normalizeComponentScoreContext(),
+      queryEvidencePolicy: "recording-aware",
     };
   }
 
@@ -1548,6 +1595,7 @@ function resolveScoreGeneratedTestOptions(
       markerCoverage: resolveMarkerCoverage(input.markerCoverage),
       markerDiagnostics: resolveMarkerDiagnostics(input.markerDiagnostics),
       componentContext: normalizeComponentScoreContext(input),
+      queryEvidencePolicy: input.queryEvidencePolicy ?? "recording-aware",
     };
   }
 
@@ -1556,15 +1604,21 @@ function resolveScoreGeneratedTestOptions(
     markerCoverage: resolveMarkerCoverage(),
     markerDiagnostics: resolveMarkerDiagnostics(),
     componentContext: normalizeComponentScoreContext(),
+    queryEvidencePolicy: "recording-aware",
   };
 }
 
 export function scoreGeneratedTest(
   code: string,
   input: QueryResult[] | ScoreGeneratedTestOptions = []
-): ScoreResult {
-  const { queryResults, markerCoverage, markerDiagnostics, componentContext } =
-    resolveScoreGeneratedTestOptions(input);
+): GenerationScoreResult {
+  const {
+    queryResults,
+    markerCoverage,
+    markerDiagnostics,
+    componentContext,
+    queryEvidencePolicy,
+  } = resolveScoreGeneratedTestOptions(input);
   const markerQualityGate = deriveMarkerQualityGate(markerCoverage);
   const boundaryIssues = analyzeBoundaryIsolation(code);
   const repoContractIssues = detectRepoContractIssues(code);
@@ -1600,7 +1654,8 @@ export function scoreGeneratedTest(
 
   const dimensions: ScoreDimensions = {
     queryQuality: clampScore(
-      calculateQueryScore(queryResults) - queryCheckpointPenalty
+      calculateQueryScore(queryResults, analysis, queryEvidencePolicy) -
+        queryCheckpointPenalty
     ),
     assertionSpecificity: calculateAssertionScore(analysis, repoContractIssues),
     testStructure: calculateStructureScoreFromAnalysis({
@@ -1629,6 +1684,8 @@ export function scoreGeneratedTest(
     branchCoverage,
     componentContext,
     mockCompleteness,
+    queryEvidencePolicy,
+    queryResults,
   });
   const blockers = deriveBlockers(reasons);
   const aggregate = calculateAggregateScore(dimensions);

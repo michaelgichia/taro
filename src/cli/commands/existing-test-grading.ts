@@ -45,7 +45,7 @@ export function buildSingleFileExistingTestSummaryLines(params: {
   const previousScore = result.matchedHistoryRecord?.quality.overall ?? null;
   const previousGrade = result.matchedHistoryRecord?.quality.grade ?? null;
   const delta =
-    previousScore === null ? null : result.scoreResult.total - previousScore;
+    previousScore === null ? null : result.scoreResult.overall - previousScore;
   const lines = [
     `${pc.dim("[taro]")} ${verb} single-file mode enabled`,
     `${pc.dim("[taro]")} ${pastTenseVerb} ${result.testFile}`,
@@ -60,11 +60,24 @@ export function buildSingleFileExistingTestSummaryLines(params: {
   }
 
   lines.push(
-    `${pc.dim("[taro]")} Score: ${result.scoreResult.total}/100 (${result.scoreResult.grade}) — ` +
-      `query ${result.scoreResult.dimensions.queryQuality}, ` +
-      `assertions ${result.scoreResult.dimensions.assertionSpecificity}, ` +
-      `structure ${result.scoreResult.dimensions.testStructure}, ` +
-      `boundary ${result.scoreResult.dimensions.boundaryIsolation}`
+    `${pc.dim("[taro]")} Score: ${result.scoreResult.overall}/100 (${result.scoreResult.grade}) — ` +
+      `generation ${result.scoreResult.families.generation.total}, ` +
+      `grading ${result.scoreResult.families.grading.total}`
+  );
+  lines.push(
+    `${pc.dim("[taro]")} Generation: ` +
+      `query ${result.scoreResult.families.generation.dimensions.queryQuality}, ` +
+      `assertions ${result.scoreResult.families.generation.dimensions.assertionSpecificity}, ` +
+      `structure ${result.scoreResult.families.generation.dimensions.testStructure}, ` +
+      `boundary ${result.scoreResult.families.generation.dimensions.boundaryIsolation}`
+  );
+  lines.push(
+    `${pc.dim("[taro]")} Grading: ` +
+      `robustness ${result.scoreResult.families.grading.dimensions.robustness}, ` +
+      `readability ${result.scoreResult.families.grading.dimensions.readability}, ` +
+      `assertionStrength ${result.scoreResult.families.grading.dimensions.assertionStrength}, ` +
+      `mockFidelity ${result.scoreResult.families.grading.dimensions.mockFidelity}, ` +
+      `maintainability ${result.scoreResult.families.grading.dimensions.maintainability}`
   );
 
   if (delta !== null) {

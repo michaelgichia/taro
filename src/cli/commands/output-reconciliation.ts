@@ -15,7 +15,7 @@ import type {
 import { logToStderr as log } from "#cli/commands/log.ts";
 import { looksLikeSelectorLikeString } from "#cli/commands/selector-string-utils.ts";
 import { type JsParseResult, parseJsRecording } from "#core/js-parser.ts";
-import { scoreGeneratedTest } from "#core/scorer.ts";
+import { scoreTestQuality } from "#core/test-quality-scorer.ts";
 import type {
   AnalyzedRecording,
   NormalizedStep,
@@ -242,7 +242,7 @@ export async function assessOutputAgainstRecording(params: {
     params.analyzedRecording,
     params.code
   );
-  const scoreResult = scoreGeneratedTest(params.code, {
+  const scoreResult = scoreTestQuality(params.code, {
     ...(params.componentScoreContext ?? {}),
     queryResults: mapParsedQueriesToResults(parsed, params.code),
   });

@@ -2,6 +2,9 @@ import type {
   TaroBoundaryGuardrailReason,
   TaroBoundaryKind,
 } from "#types/state.ts";
+import type { ExistingTestGradeResult } from "#types/existing-test-grade.ts";
+
+export type ScoreGradeLetter = "A" | "B" | "C" | "D" | "F";
 
 export interface ScoreDimensions {
   queryQuality: number;
@@ -100,9 +103,9 @@ export interface MarkerQualityGateState {
   message: string;
 }
 
-export interface ScoreResult {
+export interface GenerationScoreResult {
   total: number;
-  grade: "A" | "B" | "C" | "D" | "F";
+  grade: ScoreGradeLetter;
   dimensions: ScoreDimensions;
   signals: ScoreSignals;
   reasons: ScoreReason[];
@@ -113,10 +116,34 @@ export interface ScoreResult {
   markerQualityGate: MarkerQualityGateState;
 }
 
+export interface ScoreFamilies {
+  generation: GenerationScoreResult;
+  grading: ExistingTestGradeResult;
+}
+
+export type ScoreOverallSource = "hybrid" | "legacy-generated" | "legacy-graded";
+
+export interface ScoreResult {
+  overall: number;
+  total: number;
+  grade: ScoreGradeLetter;
+  requiresReview: boolean;
+  blockers: string[];
+  families: ScoreFamilies;
+  // Compatibility mirrors for generation-family reporting code.
+  dimensions: ScoreDimensions;
+  signals: ScoreSignals;
+  reasons: ScoreReason[];
+  markerCoverage: MarkerCoverageTotals;
+  markerDiagnostics: MarkerReviewDiagnostics;
+  markerQualityGate: MarkerQualityGateState;
+}
+
 export interface ScoreGeneratedTestOptions extends ComponentScoreContext {
   queryResults?: import("#types/recording.ts").QueryResult[];
   markerCoverage?: Partial<MarkerCoverageTotals>;
   markerDiagnostics?: Partial<MarkerReviewDiagnostics>;
+  queryEvidencePolicy?: "recording-aware" | "code-only";
 }
 
 export interface HistoryEntry {

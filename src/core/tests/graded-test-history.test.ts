@@ -144,7 +144,7 @@ function makeExistingTestGradeResult(total: number): ExistingTestGradeResult {
 }
 
 describe("graded-test-history", () => {
-  it("falls back to generated history and then prefers graded history for the same test file", async () => {
+  it("prefers generated history when both generated and graded snapshots exist", async () => {
     const root = await createSandbox("history-fallback");
     const testFile = join(root, "src", "CheckoutFlow.test.tsx");
 
@@ -170,6 +170,24 @@ describe("graded-test-history", () => {
 
     state = (await runLoadOrBootstrapStateWorkflow(root)).state;
     history = findLatestExistingTestHistoryRecord(state, root, testFile);
+
+    expect(history?.source).toBe("generated");
+    expect(history?.record.quality.overall).toBe(72);
+  });
+
+  it("falls back to graded history when no generated snapshot exists", async () => {
+    const root = await createSandbox("graded-fallback");
+    const testFile = join(root, "src", "CheckoutFlow.test.tsx");
+
+    await appendGradedTestRecord(root, {
+      packagePath: ".",
+      recordingFile: "recordings/checkout-flow.js",
+      testFile,
+      gradeResult: makeExistingTestGradeResult(84),
+    });
+
+    const state = (await runLoadOrBootstrapStateWorkflow(root)).state;
+    const history = findLatestExistingTestHistoryRecord(state, root, testFile);
 
     expect(history?.source).toBe("graded");
     expect(history?.record.quality.overall).toBe(84);

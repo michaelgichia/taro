@@ -120,7 +120,7 @@ describe("runRegradeForTestFile", () => {
 
     const result = await runRegradeForTestFile({ projectRoot: root, testFile });
     const state = await runLoadOrBootstrapStateWorkflow(root);
-    const matchingHistory = state.state.gradedTests.filter((record) =>
+    const matchingHistory = state.state.generatedTests.filter((record) =>
       record.testFile.endsWith("CheckoutFlow.test.tsx")
     );
     const latestRecord = matchingHistory.at(-1);
@@ -137,7 +137,7 @@ describe("runRegradeForTestFile", () => {
       packagePath: "packages/app",
       recordingFile: "recordings/checkout-flow.js",
     });
-    expect(matchingHistory).toHaveLength(1);
+    expect(matchingHistory).toHaveLength(2);
     expect(latestRecord).toEqual(
       expect.objectContaining({
         packagePath: "packages/app",
@@ -147,7 +147,7 @@ describe("runRegradeForTestFile", () => {
     expect(result.followUpComments.length).toBeGreaterThan(0);
   });
 
-  it("initializes graded-test history cleanly when no prior match exists", async () => {
+  it("initializes generated test history cleanly when no prior match exists", async () => {
     const root = await createSandbox("fresh-history");
     const testFile = await writeTestFile(root, join("src", "Orders.spec.tsx"));
 
@@ -160,8 +160,8 @@ describe("runRegradeForTestFile", () => {
       packagePath: ".",
       recordingFile: null,
     });
-    expect(state.state.gradedTests).toHaveLength(1);
-    expect(state.state.gradedTests[0]).toEqual(
+    expect(state.state.generatedTests).toHaveLength(1);
+    expect(state.state.generatedTests[0]).toEqual(
       expect.objectContaining({ packagePath: ".", recordingFile: null })
     );
   });

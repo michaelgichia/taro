@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createGradeCommand } from "#cli/commands/grade.ts";
 import type { GradeRunnerResult } from "#cli/commands/grade-runner.ts";
-import type { ExistingTestGradeResult } from "#types/existing-test-grade.ts";
+import type { ScoreResult } from "#types/score.ts";
 
 const sandboxes: string[] = [];
 
@@ -92,12 +92,7 @@ async function runGrade(
   };
 }
 
-function makeGradeResult(
-  overrides: Partial<ExistingTestGradeResult> & {
-    dimensions?: Partial<ExistingTestGradeResult["dimensions"]>;
-    signals?: Partial<ExistingTestGradeResult["signals"]>;
-  } = {}
-): ExistingTestGradeResult {
+function makeScoreResult(overrides: Partial<ScoreResult> = {}): ScoreResult {
   const total = overrides.total ?? 84;
 
   return {
@@ -114,38 +109,57 @@ function makeGradeResult(
               ? "D"
               : "F"),
     dimensions: {
-      robustness: 20,
-      readability: 12,
-      assertionStrength: 18,
-      mockFidelity: 16,
-      maintainability: 18,
+      queryQuality: 100,
+      assertionSpecificity: 84,
+      testStructure: 76,
+      boundaryIsolation: 76,
       ...overrides.dimensions,
     },
     signals: {
+      queryCheckpointCount: 0,
       roleQueryCount: 1,
-      labelQueryCount: 0,
-      placeholderQueryCount: 0,
-      textQueryCount: 0,
       testIdQueryCount: 0,
-      querySelectorCount: 0,
-      positionalRoleQueryCount: 0,
-      payloadAssertionCount: 1,
       strongAssertionCount: 1,
       presenceAssertionCount: 1,
       visibilityAssertionCount: 0,
-      mockCallAssertionCount: 0,
-      sharedMockImportCount: 1,
-      passthroughModuleMockCount: 0,
-      setupHelperCount: 1,
-      renderHelperImportCount: 1,
-      beforeEachCount: 1,
-      mockResetCount: 1,
-      lineCount: 30,
+      visibilityOnlyTestCount: 0,
+      presenceOnlyTestCount: 0,
+      boundaryWarningCount: 0,
+      boundaryIssueCount: 0,
+      placeholderRenderTarget: false,
+      multipleTestBlocks: true,
+      minimumExpectedTestCount: 1,
+      branchCoverageRatio: 1,
+      missingMockCount: 0,
+      fireEventCount: 0,
+      hasBasePropsConstant: true,
+      hasOverrideRenderHelper: true,
+      duplicatedInlineRenderCount: 0,
+      hasStandaloneUtilityDescribe: false,
       ...overrides.signals,
     },
     reasons: overrides.reasons ?? [],
     blockers: overrides.blockers ?? [],
     requiresReview: overrides.requiresReview ?? total < 80,
+    markerCoverage: {
+      detected: 0,
+      emitted: 0,
+      unresolved: 0,
+      ...overrides.markerCoverage,
+    },
+    markerDiagnostics: {
+      canonicalRecoveries: 0,
+      placementConflicts: 0,
+      placementCorrections: 0,
+      ...overrides.markerDiagnostics,
+    },
+    markerQualityGate: {
+      status: "pass",
+      reason: "no-markers-detected",
+      failing: false,
+      message: "No assertion markers detected.",
+      ...overrides.markerQualityGate,
+    },
   };
 }
 
@@ -155,7 +169,7 @@ function makeRunnerResult(params: {
   matchedHistorySource?: GradeRunnerResult["matchedHistorySource"];
   testFile: string;
 }): GradeRunnerResult {
-  const gradeResult = makeGradeResult();
+  const gradeResult = makeScoreResult();
 
   return {
     followUpComments: params.followUpComments ?? ["No follow-up required."],
@@ -240,9 +254,7 @@ describe("createGradeCommand", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.logs).toContain("Grade single-file mode enabled");
-    expect(result.logs).toContain(
-      "Previous snapshot (generatedTests fallback): 72/100 (C)"
-    );
+    expect(result.logs).toContain("Previous snapshot (generatedTests): 72/100 (C)");
     expect(result.logs).toContain("Score: 84/100 (B)");
     expect(result.logs).toContain("Delta: +12");
     expect(result.logs).toContain("Follow-up: Tighten the success assertions.");

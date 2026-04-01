@@ -212,8 +212,8 @@ When you need a score gate, append `--min-score <0-100>` to `__generate` or `__t
 Expected output:
 
 ```text
-Parsed: my user flow — 8 steps
-[taro] Score: 78/100 (B) — query: 80, assertions: 70, structure: 85
+Parsed: my user flow - 8 steps
+[taro] Score: 78/100 (B) — query: 80, assertions: 70, structure: 85, boundary: 76
 Created: src/components/MyComponent.test.tsx
 [taro] ✓ post-write verified
 ```
@@ -238,18 +238,27 @@ Use the runtime-native grading entrypoints when you want an AI-facing review of 
 - Codex: `$@taro-test/rtl-grade`
 - Codex: `$@taro-test/rtl-regrade`
 
-`grade` scores the current file using Taro's shared existing-test grading engine and the published grading rubric, then appends a new `gradedTests` snapshot into `.taro/state.json`.
+`grade` scores the current file with the same `ScoreResult` scorer used by `generate`, `generate-i`, and `target`, then appends a new `generatedTests` snapshot into `.taro/state.json`.
 
 `regrade` supports two modes:
 
-- Single-file mode re-scores the current test file, compares it to the latest stored `gradedTests` snapshot for the same `testFile` when one exists, and appends a new snapshot into `.taro/state.json`.
+- Single-file mode re-scores the current test file, compares it to the latest stored `generatedTests` snapshot for the same `testFile` when one exists, and appends a new snapshot into `.taro/state.json`.
 - Directory-loop mode runs `regrade <test-directory> --directory-loop`, discovers `*.test.*` and `*.spec.*` files in that directory tree, and writes a tracker under `.taro/directory-loop/` while reusing the same file-grade runner as single-file regrade.
 
-For both commands, Taro keeps only the latest 5 stored snapshots per `gradedTests[].testFile` so score movement stays visible over time without unbounded per-test history growth.
+For both commands, Taro keeps only the latest 5 stored snapshots per `generatedTests[].testFile` so score movement stays visible over time without unbounded per-test history growth.
 
-Stored `gradedTests` grades bias existing-test learning during `init`, `refresh`, and stale-state bootstrap, with `generatedTests` retained as generation-output fallback history. Higher-scored stored tests count more strongly when Taro relearns conventions, helpers, exemplars, and boundary patterns; unscored tests remain neutral.
+Stored `generatedTests` scores bias existing-test learning during `init`, `refresh`, and stale-state bootstrap. Legacy `gradedTests` history is only used as fallback when no canonical `generatedTests` snapshot exists yet for a test. Higher-scored stored tests count more strongly when Taro relearns conventions, helpers, exemplars, and boundary patterns; unscored tests remain neutral.
 
-In directory-loop mode, each tracker row starts as `pending`, moves to `in-progress` when Taro picks that test, and ends as `completed` after the regrade succeeds. Completed rows keep the current score threshold, the updated score threshold, and any follow-up comments returned by the regrade run.
+Across `target`, `grade`, `regrade`, `generate`, and `generate-i`, Taro reports the same score shape:
+
+- `queryQuality` /100
+- `assertionSpecificity` /100
+- `testStructure` /100
+- `boundaryIsolation` /100
+
+Taro then computes the final `overall` score as a weighted aggregate of those four dimensions: query `30%`, assertions `25%`, structure `20%`, boundary `25%`.
+
+In directory-loop mode, each tracker row starts as `pending`, moves to `in-progress` when Taro picks that test, and ends as `completed` after the regrade succeeds. Completed rows keep the current score threshold from the latest `generatedTests` snapshot, the updated score threshold, and any follow-up comments returned by the regrade run.
 
 ### Draft-quality output is explicit
 
@@ -297,8 +306,8 @@ Run your installed runtime-native generate entrypoint with `./login-flow.js`.
 ### Terminal output
 
 ```
-Parsed: login flow — 7 steps
-[taro] Score: 82/100 (B) — query: 90, assertions: 75, structure: 80
+Parsed: login flow - 7 steps
+[taro] Score: 82/100 (B) — query: 90, assertions: 75, structure: 80, boundary: 85
 Created: login-flow.test.tsx
 [taro] ✓ post-write verified
 ```

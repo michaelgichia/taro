@@ -29,27 +29,32 @@ Target test file: $ARGUMENTS
    - run `{{TARO_RUNTIME_COMMAND}} __regrade <test-directory> --directory-loop`
    - report the tracker path under `.taro/directory-loop/`
    - explain that rows move from `pending` to `in-progress` to `completed`
-   - report that completed rows keep the current score threshold from gradedTests (with generatedTests fallback), the updated score threshold, and follow-up comments
+   - report that completed rows keep the current score threshold from `generatedTests` (with `gradedTests` legacy fallback), the updated score threshold, and follow-up comments
 3. If the path is a single file, run `{{TARO_RUNTIME_COMMAND}} __regrade <test-file>` and use that output as the scoring source of truth for the updated grade.
 4. Read the target test and `.taro/state.json`.
-5. Find the latest `gradedTests` record whose normalized `testFile` path matches the provided test path.
+5. Find the latest `generatedTests` record whose normalized `testFile` path matches the provided test path.
 6. If no previous match exists:
    - grade the file in the response
    - explain that this is the first stored snapshot for the test
    - still append a new history record
+   - use legacy `gradedTests` only as metadata fallback when no generated snapshot exists yet
 7. Score these dimensions explicitly:
-   - `robustness` out of 25
-   - `readability` out of 15
-   - `assertionStrength` out of 20
-   - `mockFidelity` out of 20
-   - `maintainability` out of 20
-8. Grade mapping:
+   - `queryQuality` out of 100
+   - `assertionSpecificity` out of 100
+   - `testStructure` out of 100
+   - `boundaryIsolation` out of 100
+8. Compute the final `overall` score as:
+   - `queryQuality * 0.30`
+   - `assertionSpecificity * 0.25`
+   - `testStructure * 0.20`
+   - `boundaryIsolation * 0.25`
+9. Grade mapping:
    - `A`: 90-100
    - `B`: 80-89
    - `C`: 70-79
    - `D`: 60-69
    - `F`: 0-59
-9. Calibrate the regrade with these worked examples:
+10. Calibrate the regrade with these worked examples:
    - Improvement example:
      - stored `72 / C`
      - current file upgrades weak queries to `getByRole(...)`, adds exact payload assertions, and adds a visible success outcome
@@ -59,9 +64,9 @@ Target test file: $ARGUMENTS
      - current file regresses to `<App />`, brittle selectors, and weak assertions
      - expected new result: `D` or `F`
    - First-snapshot example:
-     - the file exists but no matching `gradedTests[].testFile` exists
+     - the file exists but no matching `generatedTests[].testFile` exists
      - report the grade, initialize or update state, and append the first stored snapshot
-10. Persist a new `gradedTests` snapshot in `.taro/state.json`:
+11. Persist a new `generatedTests` snapshot in `.taro/state.json`:
    - if state is missing, initialize a valid minimal state object first
    - reuse the latest matching `packagePath` and `recordingFile` when present
    - otherwise use the best matching package profile or `"."`, and store `recordingFile: null`

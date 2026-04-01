@@ -68,7 +68,7 @@ import { emitQuerySummary, generateTestFromGroups } from "#core/generator.ts";
 import { loadInput } from "#core/input-loader.ts";
 import { parseJsRecording } from "#core/js-parser.ts";
 import { analyzeRecording } from "#core/recording-intelligence.ts";
-import { scoreGeneratedTest } from "#core/scorer.ts";
+import { scoreTestQuality } from "#core/test-quality-scorer.ts";
 import {
   detectPackageProfileStaleness,
   runLoadOrBootstrapStateWorkflow,
@@ -132,6 +132,7 @@ function isTestFilePath(filePath: string): boolean {
 
 function passesTargetOutputGate(scoreResult: {
   requiresReview: boolean;
+  overall: number;
   total: number;
 }, scoreGate: ScoreGateConfig): boolean {
   return passesScoreGate(scoreResult, scoreGate);
@@ -621,7 +622,7 @@ async function maybeAcceptExistingOutputForBlockedTarget(params: {
     return null;
   }
 
-  const scoreResult = scoreGeneratedTest(existingCode, {
+  const scoreResult = scoreTestQuality(existingCode, {
     ...(params.componentScoreContext ?? {}),
     queryResults: [],
   });
@@ -878,7 +879,7 @@ async function generateForFile(params: {
     const candidateParsed = await parseJsRecording(code);
     const candidateAssessment = {
       flowCoverage: buildFlowCoverageSummary(analyzedRecording, code),
-      scoreResult: scoreGeneratedTest(code, {
+      scoreResult: scoreTestQuality(code, {
         ...(normalizedComponentScoreContext ?? {}),
         queryResults: mapParsedQueriesToResults(candidateParsed, code),
       }),
@@ -1037,7 +1038,7 @@ async function generateForFile(params: {
     null
   );
   code = prependBoundaryWarnings(code, boundaryPolicyWarnings);
-  const scoreResult = scoreGeneratedTest(code, {
+  const scoreResult = scoreTestQuality(code, {
     ...(normalizedComponentScoreContext ?? {}),
     queryResults,
   });
@@ -1206,6 +1207,7 @@ async function buildDirectoryLoopTracker(params: {
       latestOutputStatus !== undefined &&
       passesTargetOutputGate({
         requiresReview: latestOutputStatus.requiresReview,
+        overall: latestOutputStatus.overall,
         total: latestOutputStatus.overall,
       }, scoreGate);
 
@@ -1527,6 +1529,7 @@ export function createTargetCommand(
               passesTargetOutputGate(
                 {
                   requiresReview: latestOutputStatus.requiresReview,
+                  overall: latestOutputStatus.overall,
                   total: latestOutputStatus.overall,
                 },
                 directoryLoopScoreGate

@@ -1100,9 +1100,7 @@ async function finalizeScanResult(
   const generatedTests = params.preserveGeneratedTests
     ? trimGeneratedTestHistory(projectRoot, existingState?.generatedTests ?? [])
     : [];
-  const gradedTests = params.preserveGeneratedTests
-    ? (existingState?.gradedTests ?? [])
-    : [];
+  const gradedTests: TaroState["gradedTests"] = [];
   const state: TaroState = {
     version: STATE_VERSION,
     meta: {
@@ -1118,8 +1116,7 @@ async function finalizeScanResult(
   const summaryPackages = buildSummaryPackages(
     projectRoot,
     params.packages,
-    params.generatedHistoryForLearning,
-    gradedTests
+    params.generatedHistoryForLearning
   );
 
   return {
@@ -1659,11 +1656,14 @@ export async function appendGeneratedTestRecord(
         recordingFile: record.recordingFile ?? null,
         testFile: normalizedTestFile,
         quality: {
-          overall: record.scoreResult.total,
+          overall: record.scoreResult.overall,
           grade: record.scoreResult.grade,
-          dimensions: record.scoreResult.dimensions,
-          signals: record.scoreResult.signals,
-          reasons: record.scoreResult.reasons,
+          overallSource: "hybrid",
+          blockers: record.scoreResult.blockers,
+          families: {
+            generation: record.scoreResult.families.generation,
+            grading: record.scoreResult.families.grading,
+          },
         },
         requiresReview: record.scoreResult.requiresReview,
       },

@@ -1,6 +1,6 @@
 import type { MutationLifecycleStage } from "#types/conventions.ts";
 
-export const STATE_VERSION = 1;
+export const STATE_VERSION = 2;
 export const GENERATED_TEST_HISTORY_LIMIT_PER_TEST = 5;
 export const MAX_EVIDENCE = 50;
 export const MAX_EXEMPLARS = 5;

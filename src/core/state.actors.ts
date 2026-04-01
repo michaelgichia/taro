@@ -149,8 +149,7 @@ export function createStateActors(deps: StateActorDependencies) {
     }): Promise<BuildPackagesActorOutput> => {
       const qualityIndex = deps.buildGeneratedTestQualityIndex(
         input.projectRoot,
-        input.generatedHistoryForLearning ?? [],
-        input.loadedLegacy?.state?.gradedTests ?? []
+        input.generatedHistoryForLearning ?? []
       );
       const packagesByKey = new Map<string, TestFileContent[]>();
 

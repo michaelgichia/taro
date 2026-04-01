@@ -77,12 +77,12 @@ import {
   planBoundarySupport,
 } from "#core/boundary-support.ts";
 import { loadComponentScoreContext } from "#core/component-score-context.ts";
+import { scoreTestQuality } from "#core/test-quality-scorer.ts";
 import { emitQuerySummary, generateTestFromGroups } from "#core/generator.ts";
 import { loadInput } from "#core/input-loader.ts";
 import { parseJsRecording } from "#core/js-parser.ts";
 import { analyzeMocks } from "#core/mock-intelligence.ts";
 import { analyzeRecording } from "#core/recording-intelligence.ts";
-import { scoreGeneratedTest } from "#core/scorer.ts";
 import { enrichCanonicalSemanticMarkers } from "#core/semantic-marker-enrichment.ts";
 import {
   detectPackageProfileStaleness,
@@ -606,7 +606,7 @@ export const generateCodeActor = fromPromise(
       suitePlan: hydratedSuitePlan,
     });
     const markerDiagnostics = buildMarkerReviewDiagnostics(hydratedSuitePlan);
-    const scoreResult = scoreGeneratedTest(code, {
+    const scoreResult = scoreTestQuality(code, {
       ...(componentScoreContext ?? {}),
       queryResults: resolvedJsGeneration?.queryResults ?? [],
       markerCoverage,
@@ -665,7 +665,7 @@ export const assessOutputActor = fromPromise(
         analyzedRecording!,
         generatedCode!
       ),
-      scoreResult: scoreGeneratedTest(generatedCode!, {
+      scoreResult: scoreTestQuality(generatedCode!, {
         ...(input.componentScoreContext ?? {}),
         queryResults: mapParsedQueriesToResults(
           await parseJsRecording(generatedCode!),

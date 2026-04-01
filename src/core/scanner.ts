@@ -18,6 +18,7 @@ import {
 import { findReadableProjectStatePath } from "#project-state.ts";
 import type { ConventionFile, ConventionsSchema } from "#types/conventions.ts";
 import { DEFAULT_CONVENTIONS } from "#types/conventions.ts";
+import type { TaroState } from "#types/state.ts";
 
 export type { TestFileContent } from "#core/convention-intelligence.ts";
 export { findTestFiles, readTestFiles };
@@ -76,18 +77,20 @@ export async function persistConventions(
   projectRoot: string,
   conventions: ConventionsSchema
 ): Promise<void> {
-  const state = (await readTaroState(projectRoot)) ?? {
-    version: 1 as const,
-    meta: {
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      taroVersion: "unknown",
-    },
-    packages: {},
-    mockStore: { rootDir: null, importHint: null, resources: [] },
-    generatedTests: [],
-    gradedTests: [],
-  };
+  const state =
+    (await readTaroState(projectRoot)) ??
+    ({
+      version: 2 as const,
+      meta: {
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        taroVersion: "unknown",
+      },
+      packages: {},
+      mockStore: { rootDir: null, importHint: null, resources: [] },
+      generatedTests: [],
+      gradedTests: [],
+    } satisfies TaroState);
 
   state.packages["."] = {
     packagePath: ".",

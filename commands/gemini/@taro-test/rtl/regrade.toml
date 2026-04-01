@@ -6,30 +6,35 @@ Regrade an existing React Testing Library test file, or batch regrade every matc
 
 Process:
 1. Accept exactly one required path argument: a path to an existing `*.test.*`, `*.spec.*`, or a directory.
-2. If the path is a directory, require `--directory-loop`, run `{{TARO_RUNTIME_COMMAND}} __regrade <test-directory> --directory-loop`, report the tracker path under `.taro/directory-loop/`, explain that rows move from `pending` to `in-progress` to `completed`, and report that completed rows keep the current score threshold from gradedTests (with generatedTests fallback), the updated score threshold, and follow-up comments.
+2. If the path is a directory, require `--directory-loop`, run `{{TARO_RUNTIME_COMMAND}} __regrade <test-directory> --directory-loop`, report the tracker path under `.taro/directory-loop/`, explain that rows move from `pending` to `in-progress` to `completed`, and report that completed rows keep the current score threshold from generatedTests (with gradedTests legacy fallback), the updated score threshold, and follow-up comments.
 3. If the path is a single file, run `{{TARO_RUNTIME_COMMAND}} __regrade <test-file>` and use that output as the scoring source of truth for the updated grade.
 4. Read the target test and `.taro/state.json`.
-5. Find the latest `gradedTests` record whose normalized `testFile` path matches the provided test path.
-6. If no previous graded match exists, grade the file in the response, explain that this is the first stored graded snapshot for the test, and still append a new history record. Legacy generatedTests history may be used only as a metadata fallback.
+5. Find the latest `generatedTests` record whose normalized `testFile` path matches the provided test path.
+6. If no previous generated match exists, grade the file in the response, explain that this is the first stored canonical snapshot for the test, and still append a new history record. Legacy gradedTests history may be used only as a metadata fallback.
 7. Score these dimensions explicitly:
-   - robustness /25
-   - readability /15
-   - assertionStrength /20
-   - mockFidelity /20
-   - maintainability /20
-8. Grade mapping:
+   - queryQuality /100
+   - assertionSpecificity /100
+   - testStructure /100
+   - boundaryIsolation /100
+8. Compute the final overall score as:
+   - queryQuality * 0.30
+   - assertionSpecificity * 0.25
+   - testStructure * 0.20
+   - boundaryIsolation * 0.25
+9. Grade mapping:
    - A: 90-100
    - B: 80-89
    - C: 70-79
    - D: 60-69
    - F: 0-59
-9. Calibrate the result with these examples:
+10. Calibrate the result with these examples:
    - Improvement: stored `72 / C`, current file upgrades weak queries to `getByRole(...)`, adds exact payload assertions, and adds a visible success outcome, so the new result typically lands in the 80s / B.
    - Regression: stored `88 / B`, current file regresses to `<App />`, brittle selectors, and weak assertions, so the new result typically drops into D or F.
    - First snapshot: report the fresh grade, initialize or update state, and append the first stored history entry.
-10. Persist a new `gradedTests` snapshot in `.taro/state.json`:
+11. Persist a new `generatedTests` snapshot in `.taro/state.json`:
    - if state is missing, initialize a valid minimal state object first
    - reuse the latest matching `packagePath` and `recordingFile` when present
+   - when no generated match exists, allow legacy gradedTests only as metadata fallback
    - otherwise use the best matching package profile or `.` and store `recordingFile: null`
    - append a fresh snapshot instead of mutating the previous one
    - keep only the latest 5 snapshots for the normalized `testFile`

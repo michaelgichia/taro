@@ -91,9 +91,11 @@ export function normalizeGeneratedTestHistoryPath(
   projectRoot: string,
   testFile: string
 ): string {
+  const resolvedTestFile = resolve(projectRoot, testFile);
+
   return (
-    normalizeRepoRelativePath(projectRoot, testFile) ??
-    normalizeComparableAbsolutePath(resolve(projectRoot, testFile))
+    normalizeRepoRelativePath(projectRoot, resolvedTestFile) ??
+    normalizeComparableAbsolutePath(resolvedTestFile)
   );
 }
 

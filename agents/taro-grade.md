@@ -1,6 +1,6 @@
 ---
 name: "@taro-test/rtl-grade"
-description: "Grade an existing React Testing Library test file using Taro's published scoring shape, then persist a new grade snapshot in `.taro/state.json`. Use when a user wants a score for an existing test without regenerating it."
+description: "Grade an existing React Testing Library test file using Taro's shared ScoreResult rubric, then persist a score snapshot in `.taro/state.json`. Use when a user wants a score for an existing test without regenerating it."
 ---
 
 # Taro Grade
@@ -9,15 +9,15 @@ Invoke this skill with `$@taro-test/rtl-grade`.
 
 ## Purpose
 
-Assess an existing RTL test file using Taro's shared existing-test grading engine.
+Assess an existing RTL test file using the same `ScoreResult` scorer used by `generate`, `generate-i`, and `target`.
 
 This skill is intentionally example-driven:
 
 - read the target test directly
 - use minimal repo context
-- run `{{TARO_RUNTIME_COMMAND}} __grade <test-file>` first, then explain the shared-engine result explicitly
-- persist a new grade snapshot so test quality can be tracked over time
-- persist the shared-engine result in the open with the published grading rubric
+- run `{{TARO_RUNTIME_COMMAND}} __grade <test-file>` first, then explain the shared scorer result explicitly
+- persist a new score snapshot so test quality can be tracked over time
+- persist the shared scorer result in the open with the published scoring rubric
 
 ## Inputs
 
@@ -35,11 +35,12 @@ If that context is still ambiguous, say so directly instead of expanding the sca
 
 ## State Persistence Rules
 
-After scoring, persist a new `gradedTests` snapshot in `.taro/state.json`.
+After scoring, persist a new `generatedTests` snapshot in `.taro/state.json`.
 
 - if `.taro/state.json` is missing, initialize a valid minimal state object first
-- compare existing history by normalized `gradedTests[].testFile`
+- compare existing history by normalized `generatedTests[].testFile`
 - reuse the latest matching `packagePath` and `recordingFile` when they exist
+- when no `generatedTests` match exists, allow legacy `gradedTests` only as metadata fallback
 - when no prior match exists, use the best matching package profile or `"."`, and store `recordingFile: null`
 - append a fresh history record instead of overwriting older scores
 - keep only the latest 5 snapshots for that normalized `testFile`
@@ -51,11 +52,17 @@ After scoring, persist a new `gradedTests` snapshot in `.taro/state.json`.
 
 Score the file dimension by dimension:
 
-- `robustness` out of 25
-- `readability` out of 15
-- `assertionStrength` out of 20
-- `mockFidelity` out of 20
-- `maintainability` out of 20
+- `queryQuality` out of 100
+- `assertionSpecificity` out of 100
+- `testStructure` out of 100
+- `boundaryIsolation` out of 100
+
+Compute the final `overall` score as:
+
+- `queryQuality * 0.30`
+- `assertionSpecificity * 0.25`
+- `testStructure * 0.20`
+- `boundaryIsolation * 0.25`
 
 Map the total to:
 
@@ -69,7 +76,7 @@ Manual review is still required when blockers remain or the result is below `80`
 
 ## Worked Examples
 
-Use these examples to calibrate the grade instead of inventing a second scoring system.
+Use these examples to calibrate the score instead of inventing a second scoring system.
 
 ### Example A: Strong Existing Test
 

@@ -14,7 +14,7 @@ import {
   findBestPackageProfile,
   normalizeGeneratedTestHistoryPath,
 } from "#core/state-paths.ts";
-import { scoreGeneratedTest } from "#core/scorer.ts";
+import { scoreTestQuality } from "#core/test-quality-scorer.ts";
 import type { ComponentScoreContext, ScoreResult } from "#types/score.ts";
 import type { TaroState } from "#types/state.ts";
 
@@ -159,9 +159,10 @@ export async function runGradeForTestFile(params: {
     recordingFile: persistenceContext.recordingFile,
     testFile: resolvedTestFile,
   });
-  const gradeResult = scoreGeneratedTest(code, {
+  const gradeResult = scoreTestQuality(code, {
     ...(componentScoreContext ?? {}),
     queryResults: [],
+    queryEvidencePolicy: "code-only",
   });
   const normalizedTestFile = normalizeGeneratedTestHistoryPath(
     params.projectRoot,

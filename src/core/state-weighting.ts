@@ -31,7 +31,6 @@ import type {
   TaroFileExtension,
   TaroFolderPattern,
   TaroGeneratedTestRecord,
-  TaroGradedTestRecord,
   TaroPackageProfile,
   TaroSignal,
   TaroState,
@@ -51,10 +50,7 @@ export function toConfidence(value: number): TaroStateConfidence {
 }
 
 export function calculateGeneratedTestQualityWeight(
-  record: Pick<
-    TaroGeneratedTestRecord | TaroGradedTestRecord,
-    "quality" | "requiresReview"
-  >
+  record: Pick<TaroGeneratedTestRecord, "quality" | "requiresReview">
 ): number {
   const baseWeight = clamp(
     SCORE_WEIGHT_BASE + record.quality.overall / 100,
@@ -70,8 +66,7 @@ export function calculateGeneratedTestQualityWeight(
 function appendQualityIndexRecords(
   qualityIndex: GeneratedTestQualityIndex,
   projectRoot: string,
-  records: Array<TaroGeneratedTestRecord | TaroGradedTestRecord>,
-  options: { replaceExisting: boolean }
+  records: TaroGeneratedTestRecord[]
 ) {
   for (const record of records) {
     const normalizedPath = normalizeRepoRelativePath(
@@ -93,7 +88,6 @@ function appendQualityIndexRecords(
 
     if (
       !existing ||
-      options.replaceExisting ||
       nextEntry.createdAtMs > existing.createdAtMs ||
       (nextEntry.createdAtMs === existing.createdAtMs &&
         nextEntry.overall >= existing.overall)
@@ -105,17 +99,11 @@ function appendQualityIndexRecords(
 
 export function buildGeneratedTestQualityIndex(
   projectRoot: string,
-  generatedTests: TaroGeneratedTestRecord[],
-  gradedTests: TaroGradedTestRecord[] = []
+  generatedTests: TaroGeneratedTestRecord[]
 ): GeneratedTestQualityIndex {
   const qualityIndex: GeneratedTestQualityIndex = new Map();
 
-  appendQualityIndexRecords(qualityIndex, projectRoot, generatedTests, {
-    replaceExisting: false,
-  });
-  appendQualityIndexRecords(qualityIndex, projectRoot, gradedTests, {
-    replaceExisting: true,
-  });
+  appendQualityIndexRecords(qualityIndex, projectRoot, generatedTests);
 
   return qualityIndex;
 }
@@ -252,7 +240,7 @@ export function summarizePackageScoreLearning(
 }
 
 function getLatestGeneratedTestRecordTimestamp(state: TaroState): number {
-  return [...state.generatedTests, ...state.gradedTests].reduce(
+  return state.generatedTests.reduce(
     (latest, record) => {
       const createdAtMs = Date.parse(record.createdAt);
       return Number.isFinite(createdAtMs)
@@ -499,14 +487,9 @@ export function inferMockPattern(
 export function buildSummaryPackages(
   projectRoot: string,
   packages: Record<string, TaroPackageProfile>,
-  generatedTests: TaroState["generatedTests"],
-  gradedTests: TaroState["gradedTests"] = []
+  generatedTests: TaroState["generatedTests"]
 ): TaroStateSummaryPackage[] {
-  const qualityIndex = buildGeneratedTestQualityIndex(
-    projectRoot,
-    generatedTests,
-    gradedTests
-  );
+  const qualityIndex = buildGeneratedTestQualityIndex(projectRoot, generatedTests);
 
   return orderBy(
     Object.values(packages).map((profile) => ({
