@@ -67,8 +67,9 @@ If you need a newer package version first, rerun `pnpm dlx @taro-test/rtl@latest
 3. When Taro infers the owning render target, it must write the generated test next to the inferred component.
 4. When `target` is used with a file, Taro must write the generated test next to the supplied component.
 5. When `target` is used with a directory, Taro must run directory-loop mode, write a tracker under `.taro/directory-loop/`, and skip non-component `.ts` or `.tsx` files.
-6. If no render target can be inferred, the fallback boundary draft is written next to the recording. Existing generated outputs are never overwritten.
-7. Draft-quality output is reported explicitly through score, blockers, and boundary warnings.
+6. `generate`, `generate-i`, and `target` accept `--min-score <0-100>` to require a minimum Taro score for the selected output.
+7. If no render target can be inferred, the fallback boundary draft is written next to the recording. Existing generated outputs are never overwritten.
+8. Draft-quality output is reported explicitly through score, blockers, and boundary warnings.
 
 ## Grading Rules
 

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const {
   cwdMock,
   writeFileMock,
-  loadOrBootstrapTaroStateMock,
+  runLoadOrBootstrapStateWorkflowMock,
   ensureProjectStateDirMock,
   findReadableProjectStatePathMock,
   getProjectStatePathMock,
@@ -11,7 +11,7 @@ const {
 } = vi.hoisted(() => ({
   cwdMock: vi.fn(() => "/repo"),
   writeFileMock: vi.fn(),
-  loadOrBootstrapTaroStateMock: vi.fn(),
+  runLoadOrBootstrapStateWorkflowMock: vi.fn(),
   ensureProjectStateDirMock: vi.fn(),
   findReadableProjectStatePathMock: vi.fn(),
   getProjectStatePathMock: vi.fn(
@@ -27,7 +27,7 @@ vi.mock("node:process", () => ({ cwd: cwdMock }));
 vi.mock("node:fs/promises", () => ({ writeFile: writeFileMock }));
 
 vi.mock("#core/state.ts", () => ({
-  loadOrBootstrapTaroState: loadOrBootstrapTaroStateMock,
+  runLoadOrBootstrapStateWorkflow: runLoadOrBootstrapStateWorkflowMock,
 }));
 
 vi.mock("#project-state.ts", () => ({
@@ -185,7 +185,7 @@ describe("createOverridesCommand", () => {
 
     ensureProjectStateDirMock.mockResolvedValue("/repo/.taro");
     findReadableProjectStatePathMock.mockResolvedValue(null);
-    loadOrBootstrapTaroStateMock.mockResolvedValue({
+    runLoadOrBootstrapStateWorkflowMock.mockResolvedValue({
       state: createState({ ".": createPackageProfile() }),
       summary: { packageCount: 1 },
     });
@@ -200,7 +200,7 @@ describe("createOverridesCommand", () => {
     await command.parseAsync([], { from: "user" });
 
     expect(cwdMock).toHaveBeenCalled();
-    expect(loadOrBootstrapTaroStateMock).toHaveBeenCalledWith("/repo");
+    expect(runLoadOrBootstrapStateWorkflowMock).toHaveBeenCalledWith("/repo");
     expect(ensureProjectStateDirMock).toHaveBeenCalledWith("/repo");
     expect(writeFileMock).toHaveBeenCalledWith(
       "/repo/.taro/overrides.json",

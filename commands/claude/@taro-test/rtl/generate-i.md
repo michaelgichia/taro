@@ -13,6 +13,6 @@ argument-instructions: |
   Stop if the input is missing or does not end in `.js`.
 ---
 
-Run the same workflow as `/@taro-test/rtl:generate`, but force interactive Playwright auth recovery by running `{{TARO_RUNTIME_COMMAND}} __generate -i <recording-file>`.
+Run the same workflow as `/@taro-test/rtl:generate`, but force interactive Playwright auth recovery by running `{{TARO_RUNTIME_COMMAND}} __generate -i <recording-file>`. When the user specifies a quality threshold, append `--min-score <0-100>` to that runtime command.
 
 Report: command run, generated file path, score + grade, manual review status, top blockers, and whether interactive auth recovery was triggered.

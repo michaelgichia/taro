@@ -76,15 +76,16 @@ Execute the Taro generation workflow end-to-end.
      - explicit local child modules when isolation clearly requires them
    - If the mock plan would violate this policy, stop and call out the violation instead of writing a misleading result.
 9. Run `{{TARO_RUNTIME_COMMAND}} __generate <recording-file>`.
-10. Read and apply:
+10. When the user specifies a quality threshold, append `--min-score <0-100>` to that runtime command.
+11. Read and apply:
     - `references/quality-scoring.md`
     - `references/verification-gate.md`
-11. If live URL inspection or screenshots are relevant, let `{{TARO_RUNTIME_COMMAND}} __generate` own Playwright directly:
+12. If live URL inspection or screenshots are relevant, let `{{TARO_RUNTIME_COMMAND}} __generate` own Playwright directly:
 
 - do not run a separate browser-tool pass for this command flow
 - do not substitute a second manual Playwright CLI/browser routine alongside Taro
 
-12. Screenshot workflow when a recording URL is known:
+13. Screenshot workflow when a recording URL is known:
 
 - output `Taro runtime will attempt Playwright visual capture during generation.`
 - if Playwright cannot launch, output `Warning: Playwright visual capture could not start. Screenshot capture skipped. Parsed steps are still valid for Phase 8.`
@@ -94,13 +95,13 @@ Execute the Taro generation workflow end-to-end.
 - report working notes containing `recording_url`, parsed step count, screenshot status, and any saved screenshot paths
 - close the visual pass with `Phase 7 complete. {N} interaction steps parsed. Visual capture status recorded. Ready for component discovery.`
 
-13. Interpret score, blockers, marker coverage, and verification output before calling the result complete.
-14. Minimum report after generation:
+14. Interpret score, blockers, marker coverage, and verification output before calling the result complete.
+15. Minimum report after generation:
     - command run
     - generated file path
     - score and grade
     - whether manual review is required
     - top blockers
     - whether marker coverage or boundary fidelity remains incomplete
-15. If Taro reports draft-quality output, QUAL-02 warnings, unresolved markers, or boundary warnings, state plainly that the result is not production-ready yet.
-16. When repo context was limited, say so explicitly instead of inventing certainty. </process>
+16. If Taro reports draft-quality output, QUAL-02 warnings, unresolved markers, or boundary warnings, state plainly that the result is not production-ready yet.
+17. When repo context was limited, say so explicitly instead of inventing certainty. </process>

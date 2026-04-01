@@ -21,6 +21,13 @@ import {
 } from "#cli/commands/generate-reporting.ts";
 import { logToStderr as log } from "#cli/commands/log.ts";
 import {
+  formatScore,
+  parseMinScoreOption,
+  passesScoreGate,
+  resolveTargetScoreGateConfig,
+  type ScoreGateConfig,
+} from "#cli/commands/min-score.ts";
+import {
   assessOutputAgainstRecording,
   buildFlowCoverageSummary,
   deriveOutputPath,
@@ -60,10 +67,9 @@ import { loadInput } from "#core/input-loader.ts";
 import { parseJsRecording } from "#core/js-parser.ts";
 import { analyzeRecording } from "#core/recording-intelligence.ts";
 import { scoreGeneratedTest } from "#core/scorer.ts";
-import { TARGET_OUTPUT_SCORE_GATE } from "#core/state.constants.ts";
 import {
   detectPackageProfileStaleness,
-  loadOrBootstrapTaroState,
+  runLoadOrBootstrapStateWorkflow,
   readTaroOverrides,
   refreshTaroState,
   resolveTaroPackageProfile,
@@ -92,8 +98,14 @@ interface CommandOptions {
   directoryLoop?: boolean;
   interactiveAuth?: boolean;
   instructions?: string;
+  minScore?: number;
   recording?: string;
   screenshots?: boolean;
+}
+
+interface RawCommandOptions
+  extends Omit<CommandOptions, "minScore"> {
+  minScore?: string;
 }
 
 interface DirectoryLoopComponentParams {
@@ -115,18 +127,11 @@ function isTestFilePath(filePath: string): boolean {
   return /\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(filePath);
 }
 
-function getTargetOutputScoreGatePercent(): number {
-  return TARGET_OUTPUT_SCORE_GATE * 100;
-}
-
 function passesTargetOutputGate(scoreResult: {
   requiresReview: boolean;
   total: number;
-}): boolean {
-  return (
-    scoreResult.total >= getTargetOutputScoreGatePercent() &&
-    !scoreResult.requiresReview
-  );
+}, scoreGate: ScoreGateConfig): boolean {
+  return passesScoreGate(scoreResult, scoreGate);
 }
 
 function buildFallbackConventions(projectRoot: string) {
@@ -188,10 +193,10 @@ async function loadPackageContext(params: {
     .catch(() => false);
 
   if (!hadState) {
-    await loadOrBootstrapTaroState(projectRoot);
+    await runLoadOrBootstrapStateWorkflow(projectRoot);
   }
 
-  const bootstrappedState = await loadOrBootstrapTaroState(projectRoot);
+  const bootstrappedState = await runLoadOrBootstrapStateWorkflow(projectRoot);
   const overrides = await readTaroOverrides(projectRoot);
   const packageProfile = resolveTaroPackageProfile(
     bootstrappedState.state,
@@ -394,20 +399,24 @@ async function runHealthCommands(params: {
 function buildPostWriteGateFindings(params: {
   failedHealthCommands?: Array<{ command: string; exitCode: number }>;
   outputPath: string;
+  scoreGate: ScoreGateConfig;
   scoreResult: ScoreResult;
 }): Finding[] {
   const findings: Finding[] = [];
-  if (params.scoreResult.total < getTargetOutputScoreGatePercent()) {
+  if (params.scoreResult.total < params.scoreGate.minScore) {
+    const requiredLabel = params.scoreGate.enforceRequiresReview
+      ? `${formatScore(params.scoreGate.minScore)}/100 quality gate`
+      : `--min-score ${formatScore(params.scoreGate.minScore)}/100`;
     findings.push({
       severity: "BLOCKING",
       category: "quality",
       message:
-        `Generated test scored ${params.scoreResult.total}/100, below the required ` +
-        `${getTargetOutputScoreGatePercent()}/100 quality gate: ${params.outputPath}`,
+        `Generated test scored ${formatScore(params.scoreResult.total)}/100, below the required ` +
+        `${requiredLabel}: ${params.outputPath}`,
     });
   }
 
-  if (params.scoreResult.requiresReview) {
+  if (params.scoreResult.requiresReview && params.scoreGate.enforceRequiresReview) {
     findings.push({
       severity: "BLOCKING",
       category: "follow-up",
@@ -433,7 +442,7 @@ function buildPostWriteGateFindings(params: {
 async function readLatestGeneratedOutputStatuses(
   projectRoot: string
 ): Promise<Map<string, LatestGeneratedOutputStatus>> {
-  const bootstrap = await loadOrBootstrapTaroState(projectRoot);
+  const bootstrap = await runLoadOrBootstrapStateWorkflow(projectRoot);
   const latestStatuses = new Map<
     string,
     LatestGeneratedOutputStatus & { createdAtMs: number }
@@ -478,6 +487,7 @@ async function maybeAcceptExistingOutputForBlockedTarget(params: {
   overrides: Awaited<ReturnType<typeof readTaroOverrides>>;
   packageProfile: ResolvedTaroPackageProfile | null;
   projectRoot: string;
+  scoreGate: ScoreGateConfig;
 }): Promise<Finding[] | null> {
   let existingCode: string | null = null;
   try {
@@ -509,6 +519,7 @@ async function maybeAcceptExistingOutputForBlockedTarget(params: {
   const gateFindings = buildPostWriteGateFindings({
     failedHealthCommands,
     outputPath: params.outputPath,
+    scoreGate: params.scoreGate,
     scoreResult,
   });
 
@@ -581,6 +592,7 @@ async function generateForFile(params: {
   context: TargetCommandContext;
 }): Promise<Finding[]> {
   const { componentPath, projectRoot, commandOptions, context } = params;
+  const scoreGate = resolveTargetScoreGateConfig(commandOptions.minScore);
 
   const { overrides, packageProfile, visualAuth } = await loadPackageContext({
     commandOptions,
@@ -833,6 +845,7 @@ async function generateForFile(params: {
       ...buildPostWriteGateFindings({
         failedHealthCommands,
         outputPath,
+        scoreGate,
         scoreResult: outputResolution.outputAssessment.scoreResult,
       }),
     ]);
@@ -847,6 +860,7 @@ async function generateForFile(params: {
         overrides,
         packageProfile: packageProfile ?? null,
         projectRoot,
+        scoreGate,
       });
 
     if (existingOutputFindings) {
@@ -976,6 +990,7 @@ async function generateForFile(params: {
     ...buildPostWriteGateFindings({
       failedHealthCommands,
       outputPath,
+      scoreGate,
       scoreResult: outputResolution.outputAssessment.scoreResult,
     }),
   ]);
@@ -1010,6 +1025,7 @@ async function buildDirectoryLoopTracker(params: {
   projectRoot: string;
   commandOptions: CommandOptions;
 }): Promise<DirectoryLoopTracker> {
+  const scoreGate = resolveTargetScoreGateConfig(params.commandOptions.minScore);
   const previousTracker = await readDirectoryLoopTracker({
     directoryPath: params.componentPath,
     projectRoot: params.projectRoot,
@@ -1043,7 +1059,7 @@ async function buildDirectoryLoopTracker(params: {
       passesTargetOutputGate({
         requiresReview: latestOutputStatus.requiresReview,
         total: latestOutputStatus.overall,
-      });
+      }, scoreGate);
 
     entries.push({
       componentPath: filePath,
@@ -1096,6 +1112,10 @@ function buildSingleTargetArgs(
 
   if (commandOptions.debugSelectorsJson) {
     args.push("--debug-selectors-json", commandOptions.debugSelectorsJson);
+  }
+
+  if (typeof commandOptions.minScore === "number") {
+    args.push("--min-score", String(commandOptions.minScore));
   }
 
   return args;
@@ -1183,6 +1203,10 @@ export function createTargetCommand(
       "--debug-selectors-json <file>",
       "Reserved for recorder-backed target generation diagnostics"
     )
+    .option(
+      "--min-score <number>",
+      "Minimum accepted Taro score (0-100). When provided, Taro gates on score only."
+    )
     .action(async (componentFile: string) => {
       try {
         const rawProjectRoot = cwd();
@@ -1190,7 +1214,12 @@ export function createTargetCommand(
           () => rawProjectRoot
         );
         const rawComponentPath = resolve(componentFile);
-        const commandOptions = target.opts<CommandOptions>();
+        const rawCommandOptions = target.opts<RawCommandOptions>();
+        const minScore = parseMinScoreOption(rawCommandOptions.minScore);
+        const commandOptions: CommandOptions = {
+          ...rawCommandOptions,
+          minScore: minScore ?? undefined,
+        };
 
         const pathStat = await stat(rawComponentPath).catch(() => null);
         if (!pathStat) {

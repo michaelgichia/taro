@@ -86,7 +86,7 @@ import { scoreGeneratedTest } from "#core/scorer.ts";
 import { enrichCanonicalSemanticMarkers } from "#core/semantic-marker-enrichment.ts";
 import {
   detectPackageProfileStaleness,
-  loadOrBootstrapTaroState,
+  runLoadOrBootstrapStateWorkflow,
   persistPlaywrightAuthProfile,
   readTaroOverrides,
   refreshTaroState,
@@ -124,7 +124,7 @@ export const loadStateActor = fromPromise(
     const hadState = await access(join(projectRoot, ".taro", "state.json"))
       .then(() => true)
       .catch(() => false);
-    const bootstrappedState = await loadOrBootstrapTaroState(projectRoot);
+    const bootstrappedState = await runLoadOrBootstrapStateWorkflow(projectRoot);
     const overrides = await readTaroOverrides(projectRoot);
     const colocatedOutputPath = deriveOutputPath(input.filePath);
     const packageProfile = resolveTaroPackageProfile(

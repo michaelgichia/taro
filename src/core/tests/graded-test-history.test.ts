@@ -10,7 +10,7 @@ import {
 } from "#core/graded-test-history.ts";
 import {
   appendGeneratedTestRecord,
-  loadOrBootstrapTaroState,
+  runLoadOrBootstrapStateWorkflow,
 } from "#core/state.ts";
 import type { ExistingTestGradeResult } from "#types/existing-test-grade.ts";
 import type { ScoreResult } from "#types/score.ts";
@@ -155,7 +155,7 @@ describe("graded-test-history", () => {
       scoreResult: makeGeneratedScoreResult(72),
     });
 
-    let state = (await loadOrBootstrapTaroState(root)).state;
+    let state = (await runLoadOrBootstrapStateWorkflow(root)).state;
     let history = findLatestExistingTestHistoryRecord(state, root, testFile);
 
     expect(history?.source).toBe("generated");
@@ -168,7 +168,7 @@ describe("graded-test-history", () => {
       gradeResult: makeExistingTestGradeResult(84),
     });
 
-    state = (await loadOrBootstrapTaroState(root)).state;
+    state = (await runLoadOrBootstrapStateWorkflow(root)).state;
     history = findLatestExistingTestHistoryRecord(state, root, testFile);
 
     expect(history?.source).toBe("graded");
@@ -188,7 +188,7 @@ describe("graded-test-history", () => {
       });
     }
 
-    const state = (await loadOrBootstrapTaroState(root)).state;
+    const state = (await runLoadOrBootstrapStateWorkflow(root)).state;
     const matching = state.gradedTests.filter((record) =>
       record.testFile.endsWith("Orders.test.tsx")
     );

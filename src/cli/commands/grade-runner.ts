@@ -6,7 +6,7 @@ import {
   appendGradedTestRecord,
   findLatestExistingTestHistoryRecord,
 } from "#core/graded-test-history.ts";
-import { loadOrBootstrapTaroState } from "#core/state.ts";
+import { runLoadOrBootstrapStateWorkflow } from "#core/state.ts";
 import {
   findBestPackageProfile,
   normalizeGeneratedTestHistoryPath,
@@ -81,7 +81,7 @@ export async function runGradeForTestFile(params: {
 }): Promise<GradeRunnerResult> {
   const resolvedTestFile = resolve(params.projectRoot, params.testFile);
   const code = await readFile(resolvedTestFile, "utf-8");
-  const bootstrap = await loadOrBootstrapTaroState(params.projectRoot);
+  const bootstrap = await runLoadOrBootstrapStateWorkflow(params.projectRoot);
   const matchedHistory = findLatestExistingTestHistoryRecord(
     bootstrap.state,
     params.projectRoot,

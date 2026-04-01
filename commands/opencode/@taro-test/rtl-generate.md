@@ -12,7 +12,8 @@ Generate a React Testing Library test from a Testing Library Recorder JS export.
 2. Taro must write the generated test next to the inferred component when it resolves the owning render target. If the render target stays unresolved, the fallback boundary draft is written next to the recording. If that intended output file already exists, compare the existing test against the Recorder flow and the new candidate quality; keep it when it already matches or exceeds the candidate, otherwise update it in place and explain why.
 3. If live URL inspection or screenshots are relevant, let `{{TARO_RUNTIME_COMMAND}} __generate` own Playwright directly. Do not run a separate browser-tool pass for this flow. If Playwright cannot launch or the page cannot be reached, report screenshots skipped and continue.
 4. Run `{{TARO_RUNTIME_COMMAND}} __generate <recording-file>`.
-5. Parse the score output and work through any required manual fixes.
+5. When the user specifies a quality threshold, append `--min-score <0-100>` to that runtime command.
+6. Parse the score output and work through any required manual fixes.
 
 ## Scoring
 

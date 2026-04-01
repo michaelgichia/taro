@@ -13,9 +13,10 @@ Generate a React Testing Library test for a specific component file or component
 3. Run `{{TARO_RUNTIME_COMMAND}} __target <component-file>` for component-only inference.
 4. Run `{{TARO_RUNTIME_COMMAND}} __target <component-file> --recording <recording-file>` when both single-file inputs are present.
 5. Run `{{TARO_RUNTIME_COMMAND}} __target <component-directory> --directory-loop` when a directory is supplied.
-6. Treat the supplied target path as the authoritative output location.
-7. In directory mode, Taro should skip non-component source files and only queue files that export JSX components.
-8. If Taro emits blocking findings because the component is too opaque, report them plainly instead of pretending the output is finished.
+6. When the user specifies a quality threshold, append `--min-score <0-100>` to the chosen runtime command (including directory-loop runs).
+7. Treat the supplied target path as the authoritative output location.
+8. In directory mode, Taro should skip non-component source files and only queue files that export JSX components.
+9. If Taro emits blocking findings because the component is too opaque, report them plainly instead of pretending the output is finished.
 
 ## Response
 

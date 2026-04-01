@@ -1188,7 +1188,7 @@ async function runScanStateWorkflow(
   throw finalState.context.error ?? new Error(SCAN_STATE_FAILURE_MESSAGE);
 }
 
-async function runLoadOrBootstrapStateWorkflow(
+export async function runLoadOrBootstrapStateWorkflow(
   projectRoot: string
 ): Promise<ScanStateResult> {
   const actor = createActor(createLoadOrBootstrapStateMachine(stateActors), {
@@ -1234,12 +1234,6 @@ export async function refreshTaroState(
   });
   await writeTaroState(projectRoot, result.state);
   return result;
-}
-
-export async function loadOrBootstrapTaroState(
-  projectRoot: string
-): Promise<ScanStateResult> {
-  return runLoadOrBootstrapStateWorkflow(projectRoot);
 }
 
 export { findRepoFallbackPackageProfile } from "#core/state.utils.ts";
@@ -1574,7 +1568,7 @@ export async function persistPlaywrightAuthProfile(
   packagePath: string,
   playwrightAuth: TaroPlaywrightAuthProfile | null
 ): Promise<boolean> {
-  const bootstrap = await loadOrBootstrapTaroState(projectRoot);
+  const bootstrap = await runLoadOrBootstrapStateWorkflow(projectRoot);
   const profile = bootstrap.state.packages[packagePath];
 
   if (!profile) {
@@ -1644,7 +1638,7 @@ export async function appendGeneratedTestRecord(
     scoreResult: ScoreResult;
   }
 ): Promise<void> {
-  const bootstrap = await loadOrBootstrapTaroState(projectRoot);
+  const bootstrap = await runLoadOrBootstrapStateWorkflow(projectRoot);
   const createdAt = new Date().toISOString();
   const nextState: TaroState = {
     ...bootstrap.state,

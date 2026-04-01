@@ -22,7 +22,7 @@ import {
   updateDirectoryLoopTrackerStatus,
   writeDirectoryLoopTracker,
 } from "#cli/commands/target-directory-tracker.ts";
-import { loadOrBootstrapTaroState } from "#core/state.ts";
+import { runLoadOrBootstrapStateWorkflow } from "#core/state.ts";
 import { normalizeGeneratedTestHistoryPath } from "#core/state-paths.ts";
 
 interface RegradeCommandContext {
@@ -102,7 +102,7 @@ async function collectRegradeTestFiles(dirPath: string): Promise<string[]> {
 async function readLatestStoredScoreThresholds(
   projectRoot: string
 ): Promise<Map<string, LatestStoredScoreThreshold>> {
-  const bootstrap = await loadOrBootstrapTaroState(projectRoot);
+  const bootstrap = await runLoadOrBootstrapStateWorkflow(projectRoot);
   const latestThresholds = new Map<string, LatestStoredScoreThreshold>();
 
   for (const record of bootstrap.state.generatedTests) {

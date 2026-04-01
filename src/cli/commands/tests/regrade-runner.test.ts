@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { runRegradeForTestFile } from "#cli/commands/regrade-runner.ts";
 import {
   appendGeneratedTestRecord,
-  loadOrBootstrapTaroState,
+  runLoadOrBootstrapStateWorkflow,
 } from "#core/state.ts";
 
 const sandboxes: string[] = [];
@@ -119,7 +119,7 @@ describe("runRegradeForTestFile", () => {
     });
 
     const result = await runRegradeForTestFile({ projectRoot: root, testFile });
-    const state = await loadOrBootstrapTaroState(root);
+    const state = await runLoadOrBootstrapStateWorkflow(root);
     const matchingHistory = state.state.gradedTests.filter((record) =>
       record.testFile.endsWith("CheckoutFlow.test.tsx")
     );
@@ -152,7 +152,7 @@ describe("runRegradeForTestFile", () => {
     const testFile = await writeTestFile(root, join("src", "Orders.spec.tsx"));
 
     const result = await runRegradeForTestFile({ projectRoot: root, testFile });
-    const state = await loadOrBootstrapTaroState(root);
+    const state = await runLoadOrBootstrapStateWorkflow(root);
 
     expect(result.matchedGeneratedTestRecord).toBeNull();
     expect(result.matchedHistorySource).toBeNull();

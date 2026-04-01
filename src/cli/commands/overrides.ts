@@ -4,7 +4,7 @@ import { cwd } from "node:process";
 import { Command } from "commander";
 import pc from "picocolors";
 
-import { loadOrBootstrapTaroState } from "#core/state.ts";
+import { runLoadOrBootstrapStateWorkflow } from "#core/state.ts";
 import {
   ensureProjectStateDir,
   findReadableProjectStatePath,
@@ -138,7 +138,7 @@ export function createOverridesCommand(): Command {
     )
     .action(async (options: OverridesCommandOptions) => {
       const projectRoot = cwd();
-      const result = await loadOrBootstrapTaroState(projectRoot);
+      const result = await runLoadOrBootstrapStateWorkflow(projectRoot);
       const scaffold = buildSuggestedOverrides(result.state);
       const packageCount = Object.keys(scaffold.packages ?? {}).length;
 

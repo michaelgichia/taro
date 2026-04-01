@@ -2,7 +2,7 @@ import type { Finding } from "#core/findings-reporter.ts";
 import type { MockAnalysis } from "#core/mock-intelligence.ts";
 import type { ReplayStepDebugTrace } from "#core/resolver.ts";
 import type {
-  loadOrBootstrapTaroState,
+  runLoadOrBootstrapStateWorkflow,
   readTaroOverrides,
 } from "#core/state.ts";
 import type { JsSuitePlan } from "#core/suite-planner.ts";
@@ -80,6 +80,7 @@ export interface GenerateMachineContext {
     debugSelectorsJson?: string;
     interactiveAuth?: boolean;
     instructions?: string;
+    minScore?: number;
     screenshots?: boolean;
   };
   debugReporter: SelectorDebugReporter;
@@ -87,7 +88,7 @@ export interface GenerateMachineContext {
   normalizedRecording?: NormalizedRecording;
   defaultOutputPath?: string;
   hadState?: boolean;
-  bootstrappedState?: Awaited<ReturnType<typeof loadOrBootstrapTaroState>>;
+  bootstrappedState?: Awaited<ReturnType<typeof runLoadOrBootstrapStateWorkflow>>;
   overrides?: Awaited<ReturnType<typeof readTaroOverrides>>;
   packageProfile?: ResolvedTaroPackageProfile | null;
   explicitAuthPath?: { absolutePath: string; relativePath: string } | null;
@@ -152,7 +153,7 @@ export type LoadStateActorInput = Pick<
 
 export interface LoadStateActorOutput {
   hadState: boolean;
-  bootstrappedState: Awaited<ReturnType<typeof loadOrBootstrapTaroState>>;
+  bootstrappedState: Awaited<ReturnType<typeof runLoadOrBootstrapStateWorkflow>>;
   overrides: Awaited<ReturnType<typeof readTaroOverrides>>;
   packageProfile: ResolvedTaroPackageProfile | null;
   defaultOutputPath: string;
@@ -207,7 +208,7 @@ export type RefreshProfileActorInput = Pick<
 >;
 
 export interface RefreshProfileActorOutput {
-  bootstrappedState: Awaited<ReturnType<typeof loadOrBootstrapTaroState>>;
+  bootstrappedState: Awaited<ReturnType<typeof runLoadOrBootstrapStateWorkflow>>;
   overrides: Awaited<ReturnType<typeof readTaroOverrides>>;
   packageProfile: ResolvedTaroPackageProfile | null;
   contextProfileReason: string | null;

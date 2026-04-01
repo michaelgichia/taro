@@ -28,7 +28,8 @@ Generate a colocated RTL test for an explicit component path.
 3. Run `{{TARO_RUNTIME_COMMAND}} __target <component-file>` when a single file is provided and no recording is provided.
 4. Run `{{TARO_RUNTIME_COMMAND}} __target <component-file> --recording <recording-file>` when both single-file inputs are provided.
 5. Run `{{TARO_RUNTIME_COMMAND}} __target <component-directory> --directory-loop` when a directory is provided.
-6. Report the written test path or tracker path, score and grade, manual review status, and any blockers or follow-up findings.
+6. When the user specifies a quality threshold, append `--min-score <0-100>` to the chosen runtime command (including directory-loop runs).
+7. Report the written test path or tracker path, score and grade, manual review status, and any blockers or follow-up findings.
 
 ---
 

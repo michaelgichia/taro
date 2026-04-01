@@ -194,6 +194,8 @@ Run your runtime-native generate entrypoint against `recording.js`. When Taro in
 
 If you already know the component under test, use the runtime-native `target` entrypoint with a component file path or a component-directory path. File mode writes next to the supplied component and can optionally take a Recorder `.js` file to preserve concrete interaction flow while forcing the component render target. Directory mode runs with `--directory-loop`, writes a tracker under `.taro/directory-loop/`, and skips non-component source files so mixed directories only queue files that export JSX components.
 
+When you need a score gate, append `--min-score <0-100>` to `__generate` or `__target` (including `--directory-loop`). Taro still writes the preferred output, then exits blocking when the selected output score is below the requested threshold.
+
 Expected output:
 
 ```text

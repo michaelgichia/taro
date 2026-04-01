@@ -84,7 +84,8 @@ When you do repo inspection beyond Taro's own console output, report:
 2. Recover semantic intent from the recording before discussing code changes.
 3. Resolve render boundary and mock plan with entry-path fidelity in mind.
 4. Run `{{TARO_RUNTIME_COMMAND}} __generate <recording-file>`.
-5. Interpret score, blockers, marker coverage, and verification output before calling the result complete.
+5. When the user specifies a quality threshold, append `--min-score <0-100>` to that runtime command.
+6. Interpret score, blockers, marker coverage, and verification output before calling the result complete.
 
 ## Intent Recovery Rules
 

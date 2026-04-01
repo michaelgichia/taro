@@ -1,5 +1,5 @@
 import {
-  loadOrBootstrapTaroState,
+  runLoadOrBootstrapStateWorkflow,
   refreshTaroState,
   writeTaroState,
 } from "#core/state.ts";
@@ -116,7 +116,7 @@ export async function appendGradedTestRecord(
     gradeResult: ExistingTestGradeResult;
   }
 ): Promise<void> {
-  const bootstrap = await loadOrBootstrapTaroState(projectRoot);
+  const bootstrap = await runLoadOrBootstrapStateWorkflow(projectRoot);
   const createdAt = new Date().toISOString();
   const nextState: TaroState = {
     ...bootstrap.state,

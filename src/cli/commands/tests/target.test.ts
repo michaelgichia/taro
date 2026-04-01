@@ -1135,4 +1135,147 @@ describe("createTargetCommand", () => {
       "--directory-loop is only valid when the target path is a directory"
     );
   });
+
+  it("rejects invalid --min-score values", async () => {
+    const root = await createSandbox("invalid-min-score");
+    const componentPath = join(root, "src", "Button.tsx");
+    await mkdir(dirname(componentPath), { recursive: true });
+    await writeFile(
+      componentPath,
+      "export default function Button() { return <button>Click me</button> }\n",
+      "utf-8"
+    );
+
+    const result = await runTarget([componentPath, "--min-score", "101"], root);
+
+    expect(result.exitCode).toBe(2);
+    expect(result.logs).toContain("Invalid --min-score value");
+  });
+
+  it("emits a blocking quality finding when --min-score is not met", async () => {
+    const root = await createSandbox("custom-min-score-blocking");
+    const componentPath = join(root, "src", "CheckoutForm.tsx");
+    await mkdir(dirname(componentPath), { recursive: true });
+    await writeFile(
+      componentPath,
+      [
+        "export default function CheckoutForm() {",
+        "  return (",
+        "    <form>",
+        "      <label htmlFor='email'>Email</label>",
+        "      <input id='email' type='email' />",
+        "      <button type='submit'>Submit order</button>",
+        "    </form>",
+        "  )",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+
+    const result = await runTarget([componentPath, "--min-score", "100"], root);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("[BLOCKING] quality");
+    expect(result.stdout).toContain("--min-score 100/100");
+  });
+
+  it("forwards --min-score through directory-loop subprocess parameters", async () => {
+    const root = await createSandbox("dir-loop-forward-min-score");
+    const srcDir = join(root, "src");
+    const seenMinScores: Array<number | undefined> = [];
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "Alpha.tsx"),
+      "export default function Alpha() { return <h1>Alpha</h1> }\n",
+      "utf-8"
+    );
+
+    const result = await runTarget([srcDir, "--directory-loop", "--min-score", "88"], root, {
+      runDirectoryLoopComponent: async ({ commandOptions }) => {
+        seenMinScores.push(commandOptions.minScore);
+        const outputPath = join(srcDir, "Alpha.test.tsx");
+        await writeFile(outputPath, "describe('Alpha', () => {})\n", "utf-8");
+        await seedGeneratedTestRecord(root, outputPath, {
+          total: 90,
+          requiresReview: false,
+        });
+        return { exitCode: 0 };
+      },
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(seenMinScores).toEqual([88]);
+  });
+
+  it("marks existing outputs as completed when they meet a custom --min-score even if requiresReview is true", async () => {
+    const root = await createSandbox("dir-loop-custom-min-score-complete");
+    const srcDir = join(root, "src");
+    const calls: string[] = [];
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "Alpha.tsx"),
+      "export default function Alpha() { return <h1>Alpha</h1> }\n",
+      "utf-8"
+    );
+    await writeFile(
+      join(srcDir, "Alpha.test.tsx"),
+      "describe('Alpha', () => {})\n",
+      "utf-8"
+    );
+    await seedGeneratedTestRecord(root, join(srcDir, "Alpha.test.tsx"), {
+      total: 90,
+      requiresReview: true,
+    });
+
+    const result = await runTarget([srcDir, "--directory-loop", "--min-score", "85"], root, {
+      runDirectoryLoopComponent: async ({ componentPath }) => {
+        calls.push(componentPath);
+        return { exitCode: 0 };
+      },
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(calls).toEqual([]);
+    expect(result.logs).toContain(
+      "Directory loop tracker is complete; no pending component source files remain."
+    );
+  });
+
+  it("requeues existing outputs when they fall below a custom --min-score", async () => {
+    const root = await createSandbox("dir-loop-custom-min-score-requeue");
+    const srcDir = join(root, "src");
+    const calls: string[] = [];
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "Alpha.tsx"),
+      "export default function Alpha() { return <h1>Alpha</h1> }\n",
+      "utf-8"
+    );
+    await writeFile(
+      join(srcDir, "Alpha.test.tsx"),
+      "describe('Alpha', () => {})\n",
+      "utf-8"
+    );
+    await seedGeneratedTestRecord(root, join(srcDir, "Alpha.test.tsx"), {
+      total: 85,
+      requiresReview: false,
+    });
+
+    const result = await runTarget([srcDir, "--directory-loop", "--min-score", "90"], root, {
+      runDirectoryLoopComponent: async ({ componentPath }) => {
+        calls.push(componentPath);
+        const outputPath = join(srcDir, "Alpha.test.tsx");
+        await writeFile(outputPath, "describe('Alpha', () => {})\n", "utf-8");
+        await seedGeneratedTestRecord(root, outputPath, {
+          total: 92,
+          requiresReview: false,
+        });
+        return { exitCode: 0 };
+      },
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(calls).toEqual(["src/Alpha.tsx"]);
+  });
 });

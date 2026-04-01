@@ -11,7 +11,7 @@ import {
   findRepoFallbackPackageProfile,
   formatStateSummary,
   initTaroState,
-  loadOrBootstrapTaroState,
+  runLoadOrBootstrapStateWorkflow,
   persistPlaywrightAuthProfile,
   readTaroOverrides,
   readTaroState,
@@ -681,7 +681,7 @@ describe("initTaroState", () => {
   });
 });
 
-describe("loadOrBootstrapTaroState", () => {
+describe("runLoadOrBootstrapStateWorkflow", () => {
   it("ignores invalid state.json and rebuilds clean state", async () => {
     await mkdir(join(projectRoot, ".taro"), { recursive: true });
     await writeFile(
@@ -690,7 +690,7 @@ describe("loadOrBootstrapTaroState", () => {
       "utf-8"
     );
 
-    const result = await loadOrBootstrapTaroState(projectRoot);
+    const result = await runLoadOrBootstrapStateWorkflow(projectRoot);
 
     expect(result.summary.warnings).toContain(
       "Invalid .taro/state.json shape detected. Taro will ignore it and rebuild state."
@@ -748,7 +748,7 @@ describe("loadOrBootstrapTaroState", () => {
       "utf-8"
     );
 
-    const result = await loadOrBootstrapTaroState(projectRoot);
+    const result = await runLoadOrBootstrapStateWorkflow(projectRoot);
 
     expect(result.state.generatedTests).toHaveLength(1);
     expect(result.state.packages["."]?.conventions.mockPattern).toBe("vi.mock");
@@ -1607,7 +1607,7 @@ describe("score-weighted learning", () => {
 
     await writeTaroState(projectRoot, staleState);
 
-    const result = await loadOrBootstrapTaroState(projectRoot);
+    const result = await runLoadOrBootstrapStateWorkflow(projectRoot);
 
     expect(
       Date.parse(result.state.packages["."]?.scannedAt ?? "")
@@ -3529,17 +3529,17 @@ describe("state scanning - additional coverage", () => {
     expect(profile).toBeDefined();
   });
 
-  it("handles loadOrBootstrapTaroState returning existing valid state directly without rescanning", async () => {
+  it("handles runLoadOrBootstrapStateWorkflow returning existing valid state directly without rescanning", async () => {
     await initTaroState(projectRoot);
 
     // Second call - state.json already exists, so it should return existing state directly
-    const result = await loadOrBootstrapTaroState(projectRoot);
+    const result = await runLoadOrBootstrapStateWorkflow(projectRoot);
 
     expect(result.state.version).toBe(1);
     expect(result.summary).toBeDefined();
   });
 
-  it("handles loadOrBootstrapTaroState with only legacy history.json (no conventions)", async () => {
+  it("handles runLoadOrBootstrapStateWorkflow with only legacy history.json (no conventions)", async () => {
     await mkdir(join(projectRoot, ".taro"), { recursive: true });
     await writeFile(
       join(projectRoot, ".taro", "history.json"),
@@ -3558,7 +3558,7 @@ describe("state scanning - additional coverage", () => {
       "utf-8"
     );
 
-    const result = await loadOrBootstrapTaroState(projectRoot);
+    const result = await runLoadOrBootstrapStateWorkflow(projectRoot);
 
     expect(result.state.generatedTests).toHaveLength(1);
     expect(result.state.generatedTests[0]?.grade).toBeUndefined();
@@ -3584,7 +3584,7 @@ describe("state scanning - additional coverage", () => {
       "utf-8"
     );
 
-    const result = await loadOrBootstrapTaroState(projectRoot);
+    const result = await runLoadOrBootstrapStateWorkflow(projectRoot);
 
     expect(result.state.generatedTests[0]?.quality.grade).toBe("F");
   });
@@ -3608,7 +3608,7 @@ describe("state scanning - additional coverage", () => {
       "utf-8"
     );
 
-    const result = await loadOrBootstrapTaroState(projectRoot);
+    const result = await runLoadOrBootstrapStateWorkflow(projectRoot);
 
     expect(result.state.generatedTests[0]?.quality.grade).toBe("A");
   });
@@ -3632,7 +3632,7 @@ describe("state scanning - additional coverage", () => {
       "utf-8"
     );
 
-    const result = await loadOrBootstrapTaroState(projectRoot);
+    const result = await runLoadOrBootstrapStateWorkflow(projectRoot);
 
     expect(result.state.generatedTests[0]?.quality.grade).toBe("D");
   });
@@ -3662,7 +3662,7 @@ describe("state scanning - additional coverage", () => {
       "utf-8"
     );
 
-    const result = await loadOrBootstrapTaroState(projectRoot);
+    const result = await runLoadOrBootstrapStateWorkflow(projectRoot);
 
     expect(result.state.generatedTests).toHaveLength(1);
     expect(result.state.generatedTests[0]?.recordingFile).toBe("/tmp/valid.js");
@@ -4059,7 +4059,7 @@ describe("state scanning - additional coverage", () => {
       "utf-8"
     );
 
-    const result = await loadOrBootstrapTaroState(projectRoot);
+    const result = await runLoadOrBootstrapStateWorkflow(projectRoot);
 
     expect(result.summary.warnings).toContain(
       "Failed to parse .taro/state.json. Taro will ignore it and rebuild state."

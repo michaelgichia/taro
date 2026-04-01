@@ -33,8 +33,9 @@ Output: a generated test written next to the supplied component, plus a report c
 3. Run `{{TARO_RUNTIME_COMMAND}} __target <component-file>` for component-only generation.
 4. Run `{{TARO_RUNTIME_COMMAND}} __target <component-file> --recording <recording-file>` when both single-file inputs are present.
 5. Run `{{TARO_RUNTIME_COMMAND}} __target <component-directory> --directory-loop` when the target path is a directory.
-6. The supplied path is authoritative for output placement.
-7. In directory mode, skip non-component `.ts` or `.tsx` files and report the tracker path.
-8. If the component surface is too opaque for safe inference, report the blocking finding instead of improvising a weak draft.
-9. Report the generated file path or tracker path, score and grade, whether manual review is required, and the top blockers or advisories.
+6. When the user specifies a quality threshold, append `--min-score <0-100>` to the chosen runtime command (including directory-loop runs).
+7. The supplied path is authoritative for output placement.
+8. In directory mode, skip non-component `.ts` or `.tsx` files and report the tracker path.
+9. If the component surface is too opaque for safe inference, report the blocking finding instead of improvising a weak draft.
+10. Report the generated file path or tracker path, score and grade, whether manual review is required, and the top blockers or advisories.
 </process>
