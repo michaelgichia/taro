@@ -133,6 +133,9 @@ async function readLatestStoredScoreThresholds(
       projectRoot,
       record.testFile
     );
+    if (latestThresholds.has(normalizedPath)) {
+      continue;
+    }
     const createdAtMs = Number.isFinite(Date.parse(record.createdAt))
       ? Date.parse(record.createdAt)
       : 0;

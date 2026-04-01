@@ -1,6 +1,6 @@
 import pc from "picocolors";
 
-import type { ExistingTestGradeResult } from "#types/existing-test-grade.ts";
+import type { ScoreResult } from "#types/score.ts";
 import type { TaroState } from "#types/state.ts";
 
 type ExistingTestHistoryRecord =
@@ -11,7 +11,7 @@ export interface ExistingTestSummaryInput {
   followUpComments: string[];
   matchedHistoryRecord: ExistingTestHistoryRecord | null;
   matchedHistorySource: "graded" | "generated" | null;
-  scoreResult: ExistingTestGradeResult;
+  scoreResult: ScoreResult;
   testFile: string;
 }
 
@@ -20,12 +20,12 @@ export function isTestFilePath(filePath: string): boolean {
 }
 
 function formatHistorySource(source: "graded" | "generated" | null): string {
-  if (source === "graded") {
-    return "gradedTests";
+  if (source === "generated") {
+    return "generatedTests";
   }
 
-  if (source === "generated") {
-    return "generatedTests fallback";
+  if (source === "graded") {
+    return "gradedTests fallback";
   }
 
   return "none";
@@ -61,11 +61,10 @@ export function buildSingleFileExistingTestSummaryLines(params: {
 
   lines.push(
     `${pc.dim("[taro]")} Score: ${result.scoreResult.total}/100 (${result.scoreResult.grade}) — ` +
-      `robustness ${result.scoreResult.dimensions.robustness}/25, ` +
-      `readability ${result.scoreResult.dimensions.readability}/15, ` +
-      `assertionStrength ${result.scoreResult.dimensions.assertionStrength}/20, ` +
-      `mockFidelity ${result.scoreResult.dimensions.mockFidelity}/20, ` +
-      `maintainability ${result.scoreResult.dimensions.maintainability}/20`
+      `query ${result.scoreResult.dimensions.queryQuality}, ` +
+      `assertions ${result.scoreResult.dimensions.assertionSpecificity}, ` +
+      `structure ${result.scoreResult.dimensions.testStructure}, ` +
+      `boundary ${result.scoreResult.dimensions.boundaryIsolation}`
   );
 
   if (delta !== null) {

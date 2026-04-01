@@ -1640,6 +1640,10 @@ export async function appendGeneratedTestRecord(
 ): Promise<void> {
   const bootstrap = await runLoadOrBootstrapStateWorkflow(projectRoot);
   const createdAt = new Date().toISOString();
+  const normalizedTestFile = normalizeGeneratedTestHistoryPath(
+    projectRoot,
+    record.testFile
+  );
   const nextState: TaroState = {
     ...bootstrap.state,
     meta: {
@@ -1653,7 +1657,7 @@ export async function appendGeneratedTestRecord(
         createdAt,
         packagePath: record.packagePath,
         recordingFile: record.recordingFile ?? null,
-        testFile: record.testFile,
+        testFile: normalizedTestFile,
         quality: {
           overall: record.scoreResult.total,
           grade: record.scoreResult.grade,

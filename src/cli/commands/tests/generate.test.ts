@@ -2932,6 +2932,61 @@ describe('Example flow', () => {
     );
   });
 
+  it("emits stable mock-review findings when generated output needs mutation lifecycle follow-up", async () => {
+    const fixture = await createRecordingFixture("mock-review-lifecycle");
+    const { analyzeMocks: analyzeMocksModule } =
+      await import("#core/mock-intelligence.ts");
+    vi.mocked(analyzeMocksModule).mockResolvedValueOnce({
+      source: "package-profile",
+      packagePath: ".",
+      repeatedTargets: [],
+      mutationLifecycles: [
+        {
+          file: "src/orders.test.tsx",
+          stages: ["loading", "success"],
+          evidence: [],
+        },
+      ],
+      interactionContracts: [
+        {
+          file: "src/orders.test.tsx",
+          kind: "mutation-form",
+          states: ["loading", "success"],
+          supportTargets: [],
+          overrideStyle: "stable-handles",
+          confidence: "high",
+          evidence: [],
+        },
+      ],
+      instabilityWarnings: [],
+      boundaryProfiles: [],
+      recommendations: [],
+      conventions: null,
+      inlineSafeMockTargets: [],
+      sharedMockFactories: [],
+      preferredSharedMocks: {},
+      forbidMocks: [],
+      preferredBoundaryImplementations: {},
+      forbidBoundaryTargets: [],
+      queryHookPolicy: "avoid",
+      companionPolicy: "heuristic",
+      enabledContractFamilies: ["mutation-form"],
+    } as never);
+
+    const result = await runGenerate(
+      [fixture.recordingPath],
+      fixture.outputDir
+    );
+
+    expect(result.thrown).toBeUndefined();
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("=== taro:findings:start ===");
+    expect(result.stdout).toContain("[ADVISORY] mock-lifecycle");
+    expect(result.stdout).toContain(
+      "may need loading or failure companion coverage before final acceptance"
+    );
+  });
+
   it("emits existing-output assessment error warning when reading existing output fails", async () => {
     const fixture = await createInlineJsFixture(
       "existing-output-error",

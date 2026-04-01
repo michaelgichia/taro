@@ -75,17 +75,20 @@ Execute the Taro generation workflow end-to-end.
      - environment/browser gaps
      - explicit local child modules when isolation clearly requires them
    - If the mock plan would violate this policy, stop and call out the violation instead of writing a misleading result.
-9. Run `{{TARO_RUNTIME_COMMAND}} __generate <recording-file>`.
-10. When the user specifies a quality threshold, append `--min-score <0-100>` to that runtime command.
-11. Read and apply:
+9. Run `{{TARO_RUNTIME_COMMAND}} __generate <recording-file>` for the first pass, even when the user requested a quality threshold.
+10. Inspect the machine-readable findings block. If it includes `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`, run one bounded mock-review repair pass using the `/@taro-test/rtl:mocks` contract against the generated file.
+11. Auto-apply at most one safe mock-scoped edit pass. Limit changes to the generated test file and existing repo support paths backed by repo evidence or already planned boundary support.
+12. After auto-fixes, run `{{TARO_RUNTIME_COMMAND}} __regrade <generated-test-file>` and accept the revised file only if syntax still verifies, score does not drop, flow coverage does not drop, and blocking findings do not increase. Otherwise restore the original file and report the mock feedback as manual follow-up.
+13. Treat any requested `--min-score <0-100>` as the final post-review gate, not the first-pass gate.
+14. Read and apply:
     - `references/quality-scoring.md`
     - `references/verification-gate.md`
-12. If live URL inspection or screenshots are relevant, let `{{TARO_RUNTIME_COMMAND}} __generate` own Playwright directly:
+15. If live URL inspection or screenshots are relevant, let `{{TARO_RUNTIME_COMMAND}} __generate` own Playwright directly:
 
 - do not run a separate browser-tool pass for this command flow
 - do not substitute a second manual Playwright CLI/browser routine alongside Taro
 
-13. Screenshot workflow when a recording URL is known:
+16. Screenshot workflow when a recording URL is known:
 
 - output `Taro runtime will attempt Playwright visual capture during generation.`
 - if Playwright cannot launch, output `Warning: Playwright visual capture could not start. Screenshot capture skipped. Parsed steps are still valid for Phase 8.`
@@ -95,13 +98,14 @@ Execute the Taro generation workflow end-to-end.
 - report working notes containing `recording_url`, parsed step count, screenshot status, and any saved screenshot paths
 - close the visual pass with `Phase 7 complete. {N} interaction steps parsed. Visual capture status recorded. Ready for component discovery.`
 
-14. Interpret score, blockers, marker coverage, and verification output before calling the result complete.
-15. Minimum report after generation:
+17. Interpret score, blockers, marker coverage, verification output, and any mock-review follow-up before calling the result complete.
+18. Minimum report after generation:
     - command run
     - generated file path
     - score and grade
     - whether manual review is required
     - top blockers
+    - whether the mock-review pass ran, and whether its edits were accepted or rolled back
     - whether marker coverage or boundary fidelity remains incomplete
-16. If Taro reports draft-quality output, QUAL-02 warnings, unresolved markers, or boundary warnings, state plainly that the result is not production-ready yet.
-17. When repo context was limited, say so explicitly instead of inventing certainty. </process>
+19. If Taro reports draft-quality output, QUAL-02 warnings, unresolved markers, or boundary warnings, state plainly that the result is not production-ready yet.
+20. When repo context was limited, say so explicitly instead of inventing certainty. </process>

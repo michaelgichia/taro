@@ -1,6 +1,6 @@
 # Taro User Guide
 
-Taro installs runtime-native commands or skills into Claude Code, Gemini CLI, OpenCode, and Codex. The recommended first step after install is the runtime-native `init` entrypoint, and `refresh` is the maintenance path for owned assets after that. Taro then turns Testing Library Recorder `.js` exports into repository-aware React Testing Library tests and can grade or regrade existing tests through installed AI-facing workflows.
+Taro installs runtime-native commands or skills into Claude Code, Gemini CLI, OpenCode, and Codex. The recommended first step after install is the runtime-native `init` entrypoint, and `refresh` is the maintenance path for owned assets after that. Taro then turns Testing Library Recorder `.js` exports into repository-aware React Testing Library tests, can run bounded mock review on generated output, and can grade or regrade existing tests through installed AI-facing workflows.
 
 For the current strict-order runtime pipeline, see [PIPELINE.md](./PIPELINE.md).
 
@@ -44,10 +44,10 @@ That command builds Taro, installs the Codex skill surface into this repo's `./.
 
 ## Runtime Entrypoints
 
-- Claude Code: `/@taro-test/rtl:help`, `/@taro-test/rtl:init`, `/@taro-test/rtl:refresh`, `/@taro-test/rtl:generate`, `/@taro-test/rtl:generate-i`, `/@taro-test/rtl:grade`, `/@taro-test/rtl:regrade`, `/@taro-test/rtl:target`
-- Gemini CLI: `/@taro-test/rtl:help`, `/@taro-test/rtl:init`, `/@taro-test/rtl:refresh`, `/@taro-test/rtl:generate`, `/@taro-test/rtl:generate-i`, `/@taro-test/rtl:grade`, `/@taro-test/rtl:regrade`, `/@taro-test/rtl:target`
-- OpenCode: `/@taro-test/rtl-help`, `/@taro-test/rtl-init`, `/@taro-test/rtl-refresh`, `/@taro-test/rtl-generate`, `/@taro-test/rtl-generate-i`, `/@taro-test/rtl-grade`, `/@taro-test/rtl-regrade`, `/@taro-test/rtl-target`
-- Codex: `$@taro-test/rtl-help`, `$@taro-test/rtl-init`, `$@taro-test/rtl-refresh`, `$@taro-test/rtl-generate`, `$@taro-test/rtl-generate-i`, `$@taro-test/rtl-grade`, `$@taro-test/rtl-regrade`, `$@taro-test/rtl-target`
+- Claude Code: `/@taro-test/rtl:help`, `/@taro-test/rtl:init`, `/@taro-test/rtl:refresh`, `/@taro-test/rtl:generate`, `/@taro-test/rtl:generate-i`, `/@taro-test/rtl:target`, `/@taro-test/rtl:mocks`, `/@taro-test/rtl:grade`, `/@taro-test/rtl:regrade`
+- Gemini CLI: `/@taro-test/rtl:help`, `/@taro-test/rtl:init`, `/@taro-test/rtl:refresh`, `/@taro-test/rtl:generate`, `/@taro-test/rtl:generate-i`, `/@taro-test/rtl:target`, `/@taro-test/rtl:mocks`, `/@taro-test/rtl:grade`, `/@taro-test/rtl:regrade`
+- OpenCode: `/@taro-test/rtl-help`, `/@taro-test/rtl-init`, `/@taro-test/rtl-refresh`, `/@taro-test/rtl-generate`, `/@taro-test/rtl-generate-i`, `/@taro-test/rtl-target`, `/@taro-test/rtl-mocks`, `/@taro-test/rtl-grade`, `/@taro-test/rtl-regrade`
+- Codex: `$@taro-test/rtl-help`, `$@taro-test/rtl-init`, `$@taro-test/rtl-refresh`, `$@taro-test/rtl-generate`, `$@taro-test/rtl-generate-i`, `$@taro-test/rtl-target`, `$@taro-test/rtl-mocks`, `$@taro-test/rtl-grade`, `$@taro-test/rtl-regrade`
 
 ## Refresh Maintenance
 
@@ -67,9 +67,12 @@ If you need a newer package version first, rerun `pnpm dlx @taro-test/rtl@latest
 3. When Taro infers the owning render target, it must write the generated test next to the inferred component.
 4. When `target` is used with a file, Taro must write the generated test next to the supplied component.
 5. When `target` is used with a directory, Taro must run directory-loop mode, write a tracker under `.taro/directory-loop/`, and skip non-component `.ts` or `.tsx` files.
-6. `generate`, `generate-i`, and `target` accept `--min-score <0-100>` to require a minimum Taro score for the selected output.
-7. If no render target can be inferred, the fallback boundary draft is written next to the recording. Existing generated outputs are never overwritten.
-8. Draft-quality output is reported explicitly through score, blockers, and boundary warnings.
+6. Single-file `generate`, `generate-i`, and `target` runs may trigger one automatic mock-review repair pass when Taro emits mock-review findings such as `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`.
+7. That repair pass is limited to mock-scoped edits, regrades with `__regrade`, and keeps changes only when syntax, score, flow coverage, and blocking findings do not regress.
+8. `generate`, `generate-i`, and `target` accept `--min-score <0-100>` to require a minimum Taro score for the selected output. For single-file generation, the installed runtime entrypoint treats that as the final post-review gate instead of the first-pass gate.
+9. `target --directory-loop` stays review-only in v1 and keeps the existing direct `--min-score` behavior.
+10. If no render target can be inferred, the fallback boundary draft is written next to the recording. Existing generated outputs are never overwritten.
+11. Draft-quality output is reported explicitly through score, blockers, and boundary warnings.
 
 ## Grading Rules
 

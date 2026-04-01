@@ -3,14 +3,33 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTargetCommand } from "#cli/commands/target.ts";
 import { TARGET_OUTPUT_SCORE_GATE } from "#core/state.constants.ts";
 import { appendGeneratedTestRecord } from "#core/state.ts";
 import type { ScoreResult } from "#types/score.ts";
 
+const { maybeAnalyzeMocksMock } = vi.hoisted(() => ({
+  maybeAnalyzeMocksMock: vi.fn(async () => null),
+}));
+
+vi.mock("#cli/commands/generate-postprocess.ts", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("#cli/commands/generate-postprocess.ts")>();
+
+  return {
+    ...actual,
+    maybeAnalyzeMocks: maybeAnalyzeMocksMock,
+  };
+});
+
 const sandboxes: string[] = [];
+
+beforeEach(() => {
+  maybeAnalyzeMocksMock.mockReset();
+  maybeAnalyzeMocksMock.mockResolvedValue(null);
+});
 
 afterEach(async () => {
   await Promise.all(
@@ -569,6 +588,71 @@ describe("createTargetCommand", () => {
     expect(result.stdout).toContain("opaque child components");
   });
 
+  it("emits stable mock-review findings for single-file target output", async () => {
+    const root = await createSandbox("target-mock-review");
+    const componentPath = join(root, "src", "CheckoutMutation.tsx");
+    await mkdir(dirname(componentPath), { recursive: true });
+    await writeFile(
+      componentPath,
+      [
+        "export default function CheckoutMutation() {",
+        "  return (",
+        "    <form>",
+        "      <button type='submit'>Save order</button>",
+        "    </form>",
+        "  )",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+    maybeAnalyzeMocksMock.mockResolvedValueOnce({
+      source: "package-profile",
+      packagePath: ".",
+      conventions: null,
+      recommendations: [],
+      repeatedTargets: [],
+      mutationLifecycles: [
+        {
+          file: "src/CheckoutMutation.test.tsx",
+          stages: ["loading", "success"],
+          evidence: [],
+        },
+      ],
+      interactionContracts: [
+        {
+          file: "src/CheckoutMutation.test.tsx",
+          kind: "mutation-form",
+          states: ["loading", "success"],
+          supportTargets: [],
+          overrideStyle: "stable-handles",
+          confidence: "high",
+          evidence: [],
+        },
+      ],
+      instabilityWarnings: [],
+      sharedMockFactories: [],
+      boundaryProfiles: [],
+      inlineSafeMockTargets: [],
+      preferredSharedMocks: {},
+      forbidMocks: [],
+      preferredBoundaryImplementations: {},
+      forbidBoundaryTargets: [],
+      queryHookPolicy: "avoid",
+      companionPolicy: "heuristic",
+      enabledContractFamilies: ["mutation-form"],
+    });
+
+    const result = await runTarget([componentPath], root);
+
+    expect(result.thrown).toBeUndefined();
+    expect(result.stdout).toContain("=== taro:findings:start ===");
+    expect(result.stdout).toContain("[ADVISORY] mock-lifecycle");
+    expect(result.stdout).toContain(
+      "may need loading or failure companion coverage before final acceptance"
+    );
+  });
+
   it("accepts an existing output when component inference is blocked but the current test is already valid", async () => {
     const root = await createSandbox("opaque-component-existing-output");
     const componentPath = join(root, "src", "DashboardShell.tsx");
@@ -747,7 +831,7 @@ describe("createTargetCommand", () => {
       "| Status | Path | Output | Current score | Updated score | Follow-up | Kind |"
     );
     expect(tracker).toContain(
-      "| completed | src/Footer.tsx | src/Footer.test.tsx | - | - | - | target |"
+      `| completed | src/Footer.tsx | src/Footer.test.tsx | - | ${TARGET_OUTPUT_SCORE_GATE * 100}% | No follow-up required. | target |`
     );
     expect(tracker).toContain("| completed | src/Footer.tsx |");
     expect(tracker).toContain("| completed | src/Header.tsx |");
@@ -935,7 +1019,7 @@ describe("createTargetCommand", () => {
     );
   });
 
-  it("stops the directory loop on the current component when no test file is produced", async () => {
+  it("marks missing outputs as failed and continues through the remaining pending components", async () => {
     const root = await createSandbox("dir-loop-stop");
     const srcDir = join(root, "src");
     const calls: string[] = [];
@@ -954,23 +1038,36 @@ describe("createTargetCommand", () => {
     const result = await runTarget([srcDir, "--directory-loop"], root, {
       runDirectoryLoopComponent: async ({ componentPath }) => {
         calls.push(componentPath);
+        if (componentPath === "src/Beta.tsx") {
+          const outputPath = join(srcDir, "Beta.test.tsx");
+          await writeFile(outputPath, "describe('Beta', () => {})\n", "utf-8");
+          await seedGeneratedTestRecord(root, outputPath);
+          return { exitCode: 0 };
+        }
+
         return { exitCode: 1 };
       },
     });
     const tracker = await readDirectoryTracker(result.logs);
 
     expect(result.exitCode).toBe(1);
-    expect(calls).toEqual(["src/Alpha.tsx"]);
-    expect(tracker).toContain(
-      "| in-progress | src/Alpha.tsx | src/Alpha.test.tsx |"
+    expect(calls).toEqual(["src/Alpha.tsx", "src/Beta.tsx"]);
+    expect(result.logs).toContain(
+      "Directory loop completed with 1 failed component file."
     );
-    expect(tracker).toContain("| pending | src/Beta.tsx | src/Beta.test.tsx |");
+    expect(result.logs).toContain("Failed: src/Alpha.tsx");
+    expect(tracker).toContain(
+      "| failed | src/Alpha.tsx | src/Alpha.test.tsx | - | - | No generated test output was produced.<br>Per-file target run exited with code 1. | target |"
+    );
+    expect(tracker).toContain(
+      `| completed | src/Beta.tsx | src/Beta.test.tsx | - | ${TARGET_OUTPUT_SCORE_GATE * 100}% | No follow-up required. | target |`
+    );
   });
 
-  it("retries the current directory-loop component when output exists but the run exits non-zero", async () => {
+  it("marks low-quality outputs as failed, continues, and requeues failed entries on rerun", async () => {
     const root = await createSandbox("dir-loop-retry-gated");
     const srcDir = join(root, "src");
-    const calls: string[] = [];
+    const firstRunCalls: string[] = [];
     await mkdir(srcDir, { recursive: true });
     await writeFile(
       join(srcDir, "Alpha.tsx"),
@@ -985,37 +1082,54 @@ describe("createTargetCommand", () => {
 
     const firstRun = await runTarget([srcDir, "--directory-loop"], root, {
       runDirectoryLoopComponent: async ({ componentPath }) => {
-        calls.push(componentPath);
-        await writeFile(
-          join(srcDir, "Alpha.test.tsx"),
-          "describe('Alpha', () => {})\n",
-          "utf-8"
-        );
-        return { exitCode: 1 };
+        firstRunCalls.push(componentPath);
+
+        if (componentPath === "src/Alpha.tsx") {
+          const outputPath = join(srcDir, "Alpha.test.tsx");
+          await writeFile(outputPath, "describe('Alpha', () => {})\n", "utf-8");
+          await seedGeneratedTestRecord(root, outputPath, {
+            requiresReview: true,
+            total: 64,
+          });
+          return { exitCode: 1 };
+        }
+
+        const outputPath = join(srcDir, "Beta.test.tsx");
+        await writeFile(outputPath, "describe('Beta', () => {})\n", "utf-8");
+        await seedGeneratedTestRecord(root, outputPath);
+        return { exitCode: 0 };
       },
     });
     const firstTracker = await readDirectoryTracker(firstRun.logs);
 
     expect(firstRun.exitCode).toBe(1);
-    expect(calls).toEqual(["src/Alpha.tsx"]);
+    expect(firstRunCalls).toEqual(["src/Alpha.tsx", "src/Beta.tsx"]);
     expect(firstTracker).toContain(
-      "| in-progress | src/Alpha.tsx | src/Alpha.test.tsx |"
+      "| failed | src/Alpha.tsx | src/Alpha.test.tsx | - | 64% | Generated output did not clear the target gate (64/100, D).<br>Manual review required (64/100, D).<br>Per-file target run exited with code 1. | target |"
     );
     expect(firstTracker).toContain(
-      "| pending | src/Beta.tsx | src/Beta.test.tsx |"
+      `| completed | src/Beta.tsx | src/Beta.test.tsx | - | ${TARGET_OUTPUT_SCORE_GATE * 100}% | No follow-up required. | target |`
     );
 
-    calls.length = 0;
+    const secondRunCalls: string[] = [];
 
     const secondRun = await runTarget([srcDir, "--directory-loop"], root, {
       runDirectoryLoopComponent: async ({ componentPath }) => {
-        calls.push(componentPath);
-        return { exitCode: 1 };
+        secondRunCalls.push(componentPath);
+        const outputPath = join(srcDir, "Alpha.test.tsx");
+        await writeFile(outputPath, "describe('Alpha', () => {})\n", "utf-8");
+        await seedGeneratedTestRecord(root, outputPath);
+        return { exitCode: 0 };
       },
     });
+    const secondTracker = await readDirectoryTracker(secondRun.logs);
 
-    expect(secondRun.exitCode).toBe(1);
-    expect(calls[0]).toBe("src/Alpha.tsx");
+    expect(secondRun.exitCode).toBe(0);
+    expect(secondRunCalls).toEqual(["src/Alpha.tsx"]);
+    expect(secondTracker).toContain(
+      `| completed | src/Alpha.tsx | src/Alpha.test.tsx | 64% | ${TARGET_OUTPUT_SCORE_GATE * 100}% | No follow-up required. | target |`
+    );
+    expect(secondTracker).toContain("| completed | src/Beta.tsx |");
   });
 
   it("resumes directory-loop work from existing completed outputs", async () => {

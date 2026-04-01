@@ -1,4 +1,4 @@
-## description: Show @taro-test/rtl install, initialization, refresh, overrides, grading, and generation help
+## description: Show @taro-test/rtl install, initialization, refresh, overrides, mocks, grading, and generation help
 
 You are the installed `/@taro-test/rtl-help` command for `@taro-test/rtl`.
 
@@ -12,6 +12,8 @@ When the user wants help:
 6. For Recorder-first generation, direct them to `/@taro-test/rtl-generate` with a Testing Library Recorder `.js` export.
 7. For grading an existing test file without regenerating it, direct them to `/@taro-test/rtl-grade` and note that it stores a new grade snapshot in `.taro/state.json`.
 8. For regrading an existing test after manual edits, direct them to `/@taro-test/rtl-regrade` and note that it compares against the latest stored snapshot when present, then stores a new snapshot.
-9. For explicit component targeting, direct them to `/@taro-test/rtl-target` with a component file path, or with a component-directory path to run directory-loop mode; Recorder `.js` input applies to single-file targeting.
-10. Tell them Taro must write the generated test next to the inferred or supplied component when it resolves the owning render target; unresolved boundary drafts fall back next to the recording, and existing files are never overwritten.
-11. When generation or grading runs, report the score and the relevant test file path.
+9. For dedicated mock and fixture review, direct them to `/@taro-test/rtl-mocks`.
+10. For explicit component targeting, direct them to `/@taro-test/rtl-target` with a component file path, or with a component-directory path to run directory-loop mode; Recorder `.js` input applies to single-file targeting.
+11. Tell them Taro must write the generated test next to the inferred or supplied component when it resolves the owning render target; unresolved boundary drafts fall back next to the recording, and existing files are never overwritten.
+12. Explain that single-file `generate`, `generate-i`, and `target` flows may run one bounded mock-review repair pass before final reporting, and that requested `--min-score` thresholds apply to the final post-review result. Directory-loop target stays review-only in v1.
+13. When generation or grading runs, report the score and the relevant test file path.

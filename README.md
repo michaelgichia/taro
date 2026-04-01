@@ -1,8 +1,8 @@
 # Taro
 
-Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex, run the runtime-native `init` entrypoint as the recommended first step, then generate, grade, and regrade React Testing Library tests.
+Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex, run the runtime-native `init` entrypoint as the recommended first step, then generate, review mocks, grade, and regrade React Testing Library tests.
 
-Taro ships as an installer-first package. The package entrypoint bootstraps runtime-native commands or skills into your agent environment, and those runtime entrypoints cover init, refresh, generation, and AI-driven grading workflows.
+Taro ships as an installer-first package. The package entrypoint bootstraps runtime-native commands or skills into your agent environment, and those runtime entrypoints cover init, refresh, generation, bounded mock review, and AI-driven grading workflows.
 
 For the current strict-order runtime generation path, see [docs/PIPELINE.md](./docs/PIPELINE.md).
 
@@ -32,6 +32,13 @@ Use the runtime-native help entrypoint when you want routing guidance:
 - Gemini CLI: `/@taro-test/rtl:help`
 - OpenCode: `/@taro-test/rtl-help`
 - Codex: `$@taro-test/rtl-help`
+
+Use the runtime-native mock review entrypoint when you want standalone mock and fixture guidance:
+
+- Claude Code: `/@taro-test/rtl:mocks`
+- Gemini CLI: `/@taro-test/rtl:mocks`
+- OpenCode: `/@taro-test/rtl-mocks`
+- Codex: `$@taro-test/rtl-mocks`
 
 > [!NOTE] Codex installation uses skills under `skills/@taro-test/rtl-*/SKILL.md`, not prompt files.
 
@@ -158,21 +165,25 @@ After installation and a first `init` run, use the runtime-native installed gene
 - Claude Code: `/@taro-test/rtl:grade`
 - Claude Code: `/@taro-test/rtl:regrade`
 - Claude Code: `/@taro-test/rtl:target`
+- Claude Code: `/@taro-test/rtl:mocks`
 - Gemini CLI: `/@taro-test/rtl:generate`
 - Gemini CLI: `/@taro-test/rtl:generate-i`
 - Gemini CLI: `/@taro-test/rtl:grade`
 - Gemini CLI: `/@taro-test/rtl:regrade`
 - Gemini CLI: `/@taro-test/rtl:target`
+- Gemini CLI: `/@taro-test/rtl:mocks`
 - OpenCode: `/@taro-test/rtl-generate`
 - OpenCode: `/@taro-test/rtl-generate-i`
 - OpenCode: `/@taro-test/rtl-grade`
 - OpenCode: `/@taro-test/rtl-regrade`
 - OpenCode: `/@taro-test/rtl-target`
+- OpenCode: `/@taro-test/rtl-mocks`
 - Codex: `$@taro-test/rtl-generate`
 - Codex: `$@taro-test/rtl-generate-i`
 - Codex: `$@taro-test/rtl-grade`
 - Codex: `$@taro-test/rtl-regrade`
 - Codex: `$@taro-test/rtl-target`
+- Codex: `$@taro-test/rtl-mocks`
 
 ### Prerequisites
 
@@ -194,7 +205,9 @@ Run your runtime-native generate entrypoint against `recording.js`. When Taro in
 
 If you already know the component under test, use the runtime-native `target` entrypoint with a component file path or a component-directory path. File mode writes next to the supplied component and can optionally take a Recorder `.js` file to preserve concrete interaction flow while forcing the component render target. Directory mode runs with `--directory-loop`, writes a tracker under `.taro/directory-loop/`, and skips non-component source files so mixed directories only queue files that export JSX components.
 
-When you need a score gate, append `--min-score <0-100>` to `__generate` or `__target` (including `--directory-loop`). Taro still writes the preferred output, then exits blocking when the selected output score is below the requested threshold.
+Single-file `generate`, `generate-i`, and `target` flows may run one automatic mock-review repair pass when Taro emits mock-review findings such as `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`. That second pass is limited to mock-scoped edits, regrades with `__regrade`, and keeps changes only when syntax, score, flow coverage, and blocking findings do not regress.
+
+When you need a score gate, append `--min-score <0-100>` to `__generate` or `__target`. For single-file generation flows, the installed runtime entrypoint treats that as the final post-review gate, not the first-pass gate. `target --directory-loop` keeps the existing review-only behavior in v1 and still applies `--min-score` directly to the runtime command.
 
 Expected output:
 
@@ -327,7 +340,7 @@ describe('login flow', () => {
 
 ## Agent Usage
 
-After installation, each runtime gets a namespaced help entrypoint plus `init`, `refresh`, `generate`, `grade`, `regrade`, and `target` entrypoints. Use `init` first, `refresh` for maintenance, `generate` for Recorder-to-RTL output, `grade` for existing-test evaluation with a stored snapshot, `regrade` when you want a delta-focused re-evaluation plus a new stored snapshot after edits, and `target` when you want to force a specific component path.
+After installation, each runtime gets a namespaced help entrypoint plus `init`, `refresh`, `generate`, `mocks`, `grade`, `regrade`, and `target` entrypoints. Use `init` first, `refresh` for maintenance, `generate` for Recorder-to-RTL output, `mocks` for standalone mock or fixture review, `grade` for existing-test evaluation with a stored snapshot, `regrade` when you want a delta-focused re-evaluation plus a new stored snapshot after edits, and `target` when you want to force a specific component path.
 
 ### Tips
 

@@ -32,6 +32,7 @@ import {
 import type { GenerateMachineActors } from "#cli/commands/generate.machine.ts";
 import { createGenerateMachine } from "#cli/commands/generate.machine.ts";
 import { flushFindings } from "#cli/commands/generate-findings.ts";
+import { buildMockReviewFindings } from "#cli/commands/mock-review-findings.ts";
 import type { GenerateMachineContext } from "#cli/commands/generate-runtime-types.ts";
 import { type SelectorDebugReporter } from "#cli/commands/generate-runtime-types.ts";
 import { logToStderr as log } from "#cli/commands/log.ts";
@@ -398,7 +399,19 @@ export function createGenerateCommand(
       await debugReporter.persist();
 
       if (finalState.value === "done") {
-        const findings = [...finalState.context.findings];
+        const findings = [
+          ...finalState.context.findings,
+          ...buildMockReviewFindings({
+            boundaryPolicyWarnings: finalState.context.boundaryPolicyWarnings,
+            candidateSelected: Boolean(
+              finalState.context.outputResolution?.shouldWrite
+            ),
+            mockAnalysis: finalState.context.mockAnalysis ?? null,
+            outputPath: finalState.context.outputPath ?? filePath,
+            selectedCode: finalState.context.generatedCode ?? "",
+            suiteWarnings: finalState.context.hydratedSuitePlan?.warnings ?? [],
+          }),
+        ];
         const selectedScore =
           finalState.context.scoreResult?.total ??
           finalState.context.outputResolution?.outputAssessment?.scoreResult

@@ -149,6 +149,9 @@ describe("buildCodexOperations", () => {
       "$@taro-test/rtl-target"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
+      "$@taro-test/rtl-mocks"
+    );
+    expect(operations.map((operation) => operation.entrypoint)).toContain(
       "$@taro-test/rtl-refresh"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
@@ -189,6 +192,7 @@ describe("buildCodexOperations", () => {
     expect(helpSkill).toContain(
       "Invoke this skill with `$@taro-test/rtl-help`."
     );
+    expect(helpSkill).toContain("$@taro-test/rtl-mocks");
     expect(helpSkill).toContain("Return:");
     expect(helpSkill).toContain("--directory-loop");
     expect(helpSkill).toContain(".taro/directory-loop/");
@@ -316,6 +320,7 @@ describe("buildCodexOperations", () => {
     await access(mocksSkillPath);
     const mocksSkill = await readFile(mocksSkillPath, "utf8");
     expect(mocksSkill).toContain("## Boundary Review Workflow");
+    expect(mocksSkill).toContain("MockReviewFeedback");
 
     const initSkill = await readFile(
       join(

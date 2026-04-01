@@ -3,7 +3,7 @@ import {
   type GradePersistenceContext,
   runGradeForTestFile,
 } from "#cli/commands/grade-runner.ts";
-import type { ExistingTestGradeResult } from "#types/existing-test-grade.ts";
+import type { ScoreResult } from "#types/score.ts";
 import type { TaroState } from "#types/state.ts";
 
 export interface RegradeRunnerResult {
@@ -14,12 +14,12 @@ export interface RegradeRunnerResult {
     | null;
   matchedHistorySource: "graded" | "generated" | null;
   persistenceContext: GradePersistenceContext;
-  scoreResult: ExistingTestGradeResult;
+  scoreResult: ScoreResult;
   testFile: string;
 }
 
 export function buildRegradeFollowUpComments(
-  scoreResult: ExistingTestGradeResult
+  scoreResult: ScoreResult
 ): string[] {
   return buildGradeFollowUpComments(scoreResult);
 }

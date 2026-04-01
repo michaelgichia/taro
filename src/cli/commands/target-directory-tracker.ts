@@ -3,7 +3,11 @@ import { dirname, relative, resolve } from "node:path";
 
 import { getProjectStatePath } from "#project-state.ts";
 
-export type DirectoryLoopStatus = "pending" | "in-progress" | "completed";
+export type DirectoryLoopStatus =
+  | "pending"
+  | "in-progress"
+  | "completed"
+  | "failed";
 export type DirectoryLoopEntryKind = "target" | "regrade";
 
 export interface DirectoryLoopTrackerEntry {
@@ -207,12 +211,14 @@ export function renderDirectoryLoopTrackerMarkdown(
         accumulator.pending += 1;
       } else if (entry.status === "in-progress") {
         accumulator.inProgress += 1;
+      } else if (entry.status === "failed") {
+        accumulator.failed += 1;
       } else {
         accumulator.completed += 1;
       }
       return accumulator;
     },
-    { completed: 0, inProgress: 0, pending: 0, total: 0 }
+    { completed: 0, failed: 0, inProgress: 0, pending: 0, total: 0 }
   );
 
   const rows =
@@ -232,6 +238,7 @@ export function renderDirectoryLoopTrackerMarkdown(
     `- Pending: ${counts.pending}`,
     `- In progress: ${counts.inProgress}`,
     `- Completed: ${counts.completed}`,
+    `- Failed: ${counts.failed}`,
     "",
     "| Status | Path | Output | Current score | Updated score | Follow-up | Kind |",
     "| --- | --- | --- | --- | --- | --- | --- |",
@@ -261,13 +268,13 @@ function parseDirectoryLoopTrackerMarkdown(params: {
 
   for (const line of lines) {
     const completeMatch = line.match(
-      /^\| (pending|in-progress|completed) \| (.+) \| (.+) \| (.+) \| (.+) \| (.+) \| (target|regrade) \|$/u
+      /^\| (pending|in-progress|completed|failed) \| (.+) \| (.+) \| (.+) \| (.+) \| (.+) \| (target|regrade) \|$/u
     );
     const extendedMatch = line.match(
-      /^\| (pending|in-progress|completed) \| (.+) \| (.+) \| (.+) \| (target|regrade) \|$/u
+      /^\| (pending|in-progress|completed|failed) \| (.+) \| (.+) \| (.+) \| (target|regrade) \|$/u
     );
     const legacyMatch = line.match(
-      /^\| (pending|in-progress|completed) \| (.+) \| (.+) \|$/u
+      /^\| (pending|in-progress|completed|failed) \| (.+) \| (.+) \|$/u
     );
     const match = completeMatch ?? extendedMatch ?? legacyMatch;
     if (!match) {

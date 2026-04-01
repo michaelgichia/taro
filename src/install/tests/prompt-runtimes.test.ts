@@ -112,6 +112,9 @@ describe("prompt runtime install builders", () => {
     const regradeContent = await expectFile(
       join(home, ".claude", "commands", "@taro-test", "rtl", "regrade.md")
     );
+    const mocksContent = await expectFile(
+      join(home, ".claude", "commands", "@taro-test", "rtl", "mocks.md")
+    );
     const overridesContent = await expectFile(
       join(home, ".claude", "commands", "@taro-test", "rtl", "overrides.md")
     );
@@ -135,12 +138,16 @@ describe("prompt runtime install builders", () => {
       "/@taro-test/rtl:target"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
+      "/@taro-test/rtl:mocks"
+    );
+    expect(operations.map((operation) => operation.entrypoint)).toContain(
       "/@taro-test/rtl:refresh"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
       "/@taro-test/rtl:overrides"
     );
     expect(helpContent).toContain("/@taro-test/rtl:help");
+    expect(helpContent).toContain("/@taro-test/rtl:mocks");
     expect(initContent).toContain(`${target.runtimeCommand} __init`);
     expect(refreshContent).toContain(`${target.runtimeCommand} __refresh`);
     expect(gradeContent).toContain(
@@ -155,6 +162,7 @@ describe("prompt runtime install builders", () => {
     expect(regradeContent).toContain(".taro/directory-loop/");
     expect(regradeContent).toContain("pending");
     expect(regradeContent).toContain("completed");
+    expect(mocksContent).toContain("MockReviewFeedback");
     expect(overridesContent).toContain(`${target.runtimeCommand} __overrides`);
     expect(
       operations.map((operation) => operation.relativeDestinationPath)
@@ -176,6 +184,9 @@ describe("prompt runtime install builders", () => {
     const targetContent = await expectFile(
       join(cwd, ".claude", "commands", "@taro-test", "rtl", "target.md")
     );
+    const mocksContent = await expectFile(
+      join(cwd, ".claude", "commands", "@taro-test", "rtl", "mocks.md")
+    );
     const gradeContent = await expectFile(
       join(cwd, ".claude", "commands", "@taro-test", "rtl", "grade.md")
     );
@@ -196,6 +207,8 @@ describe("prompt runtime install builders", () => {
     expect(targetContent).toContain(
       `${target.runtimeCommand} __target <component-directory> --directory-loop`
     );
+    expect(generateContent).toContain("final post-review gate");
+    expect(targetContent).toContain("skip the automatic mock-review loop in v1");
     expect(gradeContent).toContain("Strong `B` example");
     expect(regradeContent).toContain("latest 5 snapshots");
     expect(regradeContent).toContain(
@@ -206,6 +219,7 @@ describe("prompt runtime install builders", () => {
     );
     expect(regradeContent).toContain(".taro/directory-loop/");
     expect(regradeContent).toContain("current score threshold");
+    expect(mocksContent).toContain("MockReviewFeedback");
     expect(overridesContent).toContain(`${target.runtimeCommand} __overrides`);
 
     const installedGenerateReferences = (
@@ -238,6 +252,9 @@ describe("prompt runtime install builders", () => {
     const regradeContent = await expectFile(
       join(home, ".gemini", "commands", "@taro-test", "rtl", "regrade.toml")
     );
+    const mocksContent = await expectFile(
+      join(home, ".gemini", "commands", "@taro-test", "rtl", "mocks.toml")
+    );
     const overridesContent = await expectFile(
       join(home, ".gemini", "commands", "@taro-test", "rtl", "overrides.toml")
     );
@@ -261,12 +278,16 @@ describe("prompt runtime install builders", () => {
       "/@taro-test/rtl:target"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
+      "/@taro-test/rtl:mocks"
+    );
+    expect(operations.map((operation) => operation.entrypoint)).toContain(
       "/@taro-test/rtl:refresh"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
       "/@taro-test/rtl:overrides"
     );
     expect(helpContent).toContain("/@taro-test/rtl:help");
+    expect(helpContent).toContain("/@taro-test/rtl:mocks");
     expect(initContent).toContain(`\`${target.runtimeCommand} __init\``);
     expect(refreshContent).toContain(`\`${target.runtimeCommand} __refresh\``);
     expect(gradeContent).toContain(
@@ -281,6 +302,7 @@ describe("prompt runtime install builders", () => {
     expect(regradeContent).toContain(".taro/directory-loop/");
     expect(regradeContent).toContain("pending");
     expect(regradeContent).toContain("completed");
+    expect(mocksContent).toContain("MockReviewFeedback");
     expect(overridesContent).toContain(
       `\`${target.runtimeCommand} __overrides\``
     );
@@ -300,6 +322,9 @@ describe("prompt runtime install builders", () => {
     );
     const targetContent = await expectFile(
       join(cwd, ".gemini", "commands", "@taro-test", "rtl", "target.toml")
+    );
+    const mocksContent = await expectFile(
+      join(cwd, ".gemini", "commands", "@taro-test", "rtl", "mocks.toml")
     );
     const gradeContent = await expectFile(
       join(cwd, ".gemini", "commands", "@taro-test", "rtl", "grade.toml")
@@ -322,6 +347,8 @@ describe("prompt runtime install builders", () => {
     expect(targetContent).toContain(
       `\`${target.runtimeCommand} __target <component-directory> --directory-loop\``
     );
+    expect(generateContent).toContain("final post-review gate");
+    expect(targetContent).toContain("skip the automatic mock-review loop in v1");
     expect(gradeContent).toContain("Strong B");
     expect(regradeContent).toContain("latest 5 snapshots");
     expect(regradeContent).toContain(
@@ -332,6 +359,7 @@ describe("prompt runtime install builders", () => {
     );
     expect(regradeContent).toContain(".taro/directory-loop/");
     expect(regradeContent).toContain("current score threshold");
+    expect(mocksContent).toContain("MockReviewFeedback");
     expect(overridesContent).toContain(
       `\`${target.runtimeCommand} __overrides\``
     );
@@ -381,6 +409,16 @@ describe("prompt runtime install builders", () => {
         "rtl-regrade.md"
       )
     );
+    const mocksContent = await expectFile(
+      join(
+        home,
+        ".config",
+        "opencode",
+        "commands",
+        "@taro-test",
+        "rtl-mocks.md"
+      )
+    );
     const overridesContent = await expectFile(
       join(
         home,
@@ -411,12 +449,16 @@ describe("prompt runtime install builders", () => {
       "/@taro-test/rtl-target"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
+      "/@taro-test/rtl-mocks"
+    );
+    expect(operations.map((operation) => operation.entrypoint)).toContain(
       "/@taro-test/rtl-refresh"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
       "/@taro-test/rtl-overrides"
     );
     expect(helpContent).toContain("/@taro-test/rtl-help");
+    expect(helpContent).toContain("/@taro-test/rtl-mocks");
     expect(initContent).toContain(`${target.runtimeCommand} __init`);
     expect(refreshContent).toContain(`${target.runtimeCommand} __refresh`);
     expect(gradeContent).toContain(
@@ -428,6 +470,7 @@ describe("prompt runtime install builders", () => {
     expect(regradeContent).toContain(".taro/directory-loop/");
     expect(regradeContent).toContain("pending");
     expect(regradeContent).toContain("completed");
+    expect(mocksContent).toContain("MockReviewFeedback");
     expect(overridesContent).toContain(
       `\`${target.runtimeCommand} __overrides\``
     );
@@ -447,6 +490,9 @@ describe("prompt runtime install builders", () => {
     );
     const targetContent = await expectFile(
       join(cwd, ".opencode", "commands", "@taro-test", "rtl-target.md")
+    );
+    const mocksContent = await expectFile(
+      join(cwd, ".opencode", "commands", "@taro-test", "rtl-mocks.md")
     );
     const gradeContent = await expectFile(
       join(cwd, ".opencode", "commands", "@taro-test", "rtl-grade.md")
@@ -469,6 +515,8 @@ describe("prompt runtime install builders", () => {
     expect(targetContent).toContain(
       `\`${target.runtimeCommand} __target <component-directory> --directory-loop\``
     );
+    expect(generateContent).toContain("final post-review gate");
+    expect(targetContent).toContain("skip the automatic mock-review loop in v1");
     expect(gradeContent).toContain("Strong `B`");
     expect(regradeContent).toContain("latest 5 snapshots");
     expect(regradeContent).toContain(
@@ -479,6 +527,7 @@ describe("prompt runtime install builders", () => {
     );
     expect(regradeContent).toContain(".taro/directory-loop/");
     expect(regradeContent).toContain("current score threshold");
+    expect(mocksContent).toContain("MockReviewFeedback");
     expect(overridesContent).toContain(
       `\`${target.runtimeCommand} __overrides\``
     );

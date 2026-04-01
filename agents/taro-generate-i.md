@@ -85,9 +85,12 @@ When you do repo inspection beyond Taro's own console output, report:
 1. Validate the input recording and confirm it is the intended flow.
 2. Recover semantic intent from the recording before discussing code changes.
 3. Resolve render boundary and mock plan with entry-path fidelity in mind.
-4. Run `{{TARO_RUNTIME_COMMAND}} __generate -i <recording-file>`.
-5. When the user specifies a quality threshold, append `--min-score <0-100>` to that runtime command.
-6. Interpret score, blockers, marker coverage, and verification output before calling the result complete.
+4. Run `{{TARO_RUNTIME_COMMAND}} __generate -i <recording-file>` for the first pass, even when the user requested a score threshold.
+5. Inspect the machine-readable findings block. If it includes `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`, run one bounded `$@taro-test/rtl-mocks` review pass against the generated file.
+6. Auto-apply at most one mock-scoped repair pass. Limit edits to the generated test file and existing repo support paths backed by repo evidence or already planned boundary support.
+7. After auto-fixes, run `{{TARO_RUNTIME_COMMAND}} __regrade <generated-test-file>` and keep the revised file only if syntax still verifies, score does not drop, flow coverage does not drop, and blocking findings do not increase. Otherwise restore the original file and report the mock feedback as manual follow-up.
+8. Treat any requested `--min-score <0-100>` as the final post-review gate, not the first-pass gate.
+9. Interpret score, blockers, marker coverage, and verification output before calling the result complete.
 
 When repo-local prop defaults or mock examples are missing:
 
@@ -106,6 +109,14 @@ Infer the principle first, then choose the concrete repo artifact. Use the stron
 
 Never invent a fake shared UI implementation when a partial-support or keep-real pattern exists.
 
+## Automatic Mock Review Loop
+
+Use the `$@taro-test/rtl-mocks` contract as the second-pass repair workflow.
+
+- Allowed auto-fixes: replace inline shared-boundary mocks with learned shared support imports, remove forbidden boundary/package mocks while keeping wrappers real, move `vi.mock(...)` or `jest.mock(...)` factories to module scope, replace mutable shared mock-control state with hoisted handles plus per-test implementations, and add missing mutation lifecycle coverage only when repo evidence already exists.
+- Manual-only follow-up: invented API shapes, invented fixture payloads, or brand-new support modules without repo evidence.
+- One repair attempt per generation run. No recursive review loops.
+
 ## Response Contract
 
 Report:
@@ -117,5 +128,6 @@ Report:
 - the top blockers
 - the smallest concrete next fixes, ordered by impact
 - whether interactive auth recovery was required or skipped
+- whether the automatic mock-review pass ran, and whether its edits were accepted or rolled back
 
 When repo context was limited, say so explicitly instead of inventing certainty.

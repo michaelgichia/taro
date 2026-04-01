@@ -86,15 +86,6 @@ export function findLatestExistingTestHistoryRecord(
   | { source: "graded"; record: TaroGradedTestRecord }
   | { source: "generated"; record: TaroGeneratedTestRecord }
   | null {
-  const gradedRecord = findLatestGradedTestRecord(
-    state.gradedTests,
-    projectRoot,
-    testFile
-  );
-  if (gradedRecord) {
-    return { source: "graded", record: gradedRecord };
-  }
-
   const generatedRecord = findLatestGeneratedTestRecordFallback(
     state.generatedTests,
     projectRoot,
@@ -102,6 +93,15 @@ export function findLatestExistingTestHistoryRecord(
   );
   if (generatedRecord) {
     return { source: "generated", record: generatedRecord };
+  }
+
+  const gradedRecord = findLatestGradedTestRecord(
+    state.gradedTests,
+    projectRoot,
+    testFile
+  );
+  if (gradedRecord) {
+    return { source: "graded", record: gradedRecord };
   }
 
   return null;

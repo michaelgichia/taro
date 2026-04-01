@@ -13,11 +13,13 @@ Generate a React Testing Library test for a specific component file or component
 3. Run `{{TARO_RUNTIME_COMMAND}} __target <component-file>` for component-only inference.
 4. Run `{{TARO_RUNTIME_COMMAND}} __target <component-file> --recording <recording-file>` when both single-file inputs are present.
 5. Run `{{TARO_RUNTIME_COMMAND}} __target <component-directory> --directory-loop` when a directory is supplied.
-6. When the user specifies a quality threshold, append `--min-score <0-100>` to the chosen runtime command (including directory-loop runs).
-7. Treat the supplied target path as the authoritative output location.
-8. In directory mode, Taro should skip non-component source files and only queue files that export JSX components.
-9. If Taro emits blocking findings because the component is too opaque, report them plainly instead of pretending the output is finished.
+6. For single-file runs, keep any requested `--min-score <0-100>` as a final post-review gate instead of passing it to the first `__target` call.
+7. If the single-file findings block includes `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`, run one bounded mock-review repair pass using the `/@taro-test/rtl-mocks` contract, then `{{TARO_RUNTIME_COMMAND}} __regrade <generated-test-file>`, and keep edits only when syntax, score, flow coverage, and blocking findings do not regress.
+8. In directory-loop mode, skip the automatic mock-review loop in v1 and keep existing `--min-score` behavior.
+9. Treat the supplied target path as the authoritative output location.
+10. In directory mode, Taro should skip non-component source files and only queue files that export JSX components.
+11. If Taro emits blocking findings because the component is too opaque, report them plainly instead of pretending the output is finished.
 
 ## Response
 
-Report: command run, component path, optional recording path, generated file path, score + grade, manual review status, and top blockers or advisories.
+Report: command run, component path, optional recording path, generated file path, score + grade, manual review status, top blockers or advisories, and whether the mock-review pass ran and was accepted or rolled back.

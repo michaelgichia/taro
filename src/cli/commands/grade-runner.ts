@@ -1,17 +1,21 @@
 import { readFile } from "node:fs/promises";
-import { relative, resolve } from "node:path";
+import { dirname, relative, resolve } from "node:path";
 
-import { gradeExistingTest } from "#core/existing-test-grader.ts";
+import { toImportPath } from "#cli/commands/generate-paths.ts";
+import { loadComponentScoreContext } from "#core/component-score-context.ts";
 import {
-  appendGradedTestRecord,
   findLatestExistingTestHistoryRecord,
 } from "#core/graded-test-history.ts";
-import { runLoadOrBootstrapStateWorkflow } from "#core/state.ts";
+import {
+  appendGeneratedTestRecord,
+  runLoadOrBootstrapStateWorkflow,
+} from "#core/state.ts";
 import {
   findBestPackageProfile,
   normalizeGeneratedTestHistoryPath,
 } from "#core/state-paths.ts";
-import type { ExistingTestGradeResult } from "#types/existing-test-grade.ts";
+import { scoreGeneratedTest } from "#core/scorer.ts";
+import type { ComponentScoreContext, ScoreResult } from "#types/score.ts";
 import type { TaroState } from "#types/state.ts";
 
 export interface GradePersistenceContext {
@@ -27,7 +31,7 @@ export interface GradeRunnerResult {
     | null;
   matchedHistorySource: "graded" | "generated" | null;
   persistenceContext: GradePersistenceContext;
-  gradeResult: ExistingTestGradeResult;
+  gradeResult: ScoreResult;
   testFile: string;
 }
 
@@ -49,7 +53,7 @@ function buildFallbackPersistenceContext(params: {
 }
 
 export function buildGradeFollowUpComments(
-  gradeResult: ExistingTestGradeResult
+  gradeResult: ScoreResult
 ): string[] {
   const comments = gradeResult.blockers.length
     ? [...gradeResult.blockers]
@@ -75,6 +79,59 @@ export function buildGradeFollowUpComments(
   return [...new Set(comments)];
 }
 
+function normalizeComponentScoreContextForOutput(params: {
+  componentPath: string;
+  componentScoreContext: ComponentScoreContext | null;
+  outputPath: string;
+}): ComponentScoreContext | null {
+  const { componentPath, componentScoreContext, outputPath } = params;
+  if (!componentScoreContext) {
+    return componentScoreContext;
+  }
+
+  const componentDir = dirname(componentPath);
+  const outputDir = dirname(outputPath);
+  const normalizeImportTarget = (target: string) =>
+    target.startsWith("./") || target.startsWith("../")
+      ? toImportPath(outputDir, resolve(componentDir, target))
+      : target;
+
+  return {
+    ...componentScoreContext,
+    componentImportReferences:
+      componentScoreContext.componentImportReferences?.map((reference) => ({
+        ...reference,
+        target: normalizeImportTarget(reference.target),
+      })) ?? [],
+    dynamicImportTargets:
+      componentScoreContext.dynamicImportTargets?.map(normalizeImportTarget) ??
+      [],
+  };
+}
+
+async function resolveRecordedComponentScoreContext(params: {
+  projectRoot: string;
+  recordingFile: string | null;
+  testFile: string;
+}): Promise<ComponentScoreContext | null> {
+  if (!params.recordingFile) {
+    return null;
+  }
+
+  const resolvedRecordingFile = resolve(
+    params.projectRoot,
+    params.recordingFile
+  );
+  const componentScoreContext =
+    await loadComponentScoreContext(resolvedRecordingFile);
+
+  return normalizeComponentScoreContextForOutput({
+    componentPath: resolvedRecordingFile,
+    componentScoreContext,
+    outputPath: params.testFile,
+  });
+}
+
 export async function runGradeForTestFile(params: {
   projectRoot: string;
   testFile: string;
@@ -97,17 +154,25 @@ export async function runGradeForTestFile(params: {
         state: bootstrap.state,
         testFile: resolvedTestFile,
       });
-  const gradeResult = gradeExistingTest(code);
+  const componentScoreContext = await resolveRecordedComponentScoreContext({
+    projectRoot: params.projectRoot,
+    recordingFile: persistenceContext.recordingFile,
+    testFile: resolvedTestFile,
+  });
+  const gradeResult = scoreGeneratedTest(code, {
+    ...(componentScoreContext ?? {}),
+    queryResults: [],
+  });
   const normalizedTestFile = normalizeGeneratedTestHistoryPath(
     params.projectRoot,
     resolvedTestFile
   );
 
-  await appendGradedTestRecord(params.projectRoot, {
+  await appendGeneratedTestRecord(params.projectRoot, {
     packagePath: persistenceContext.packagePath,
     recordingFile: persistenceContext.recordingFile,
     testFile: normalizedTestFile,
-    gradeResult,
+    scoreResult: gradeResult,
   });
 
   return {

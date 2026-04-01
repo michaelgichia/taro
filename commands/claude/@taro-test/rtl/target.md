@@ -33,9 +33,11 @@ Output: a generated test written next to the supplied component, plus a report c
 3. Run `{{TARO_RUNTIME_COMMAND}} __target <component-file>` for component-only generation.
 4. Run `{{TARO_RUNTIME_COMMAND}} __target <component-file> --recording <recording-file>` when both single-file inputs are present.
 5. Run `{{TARO_RUNTIME_COMMAND}} __target <component-directory> --directory-loop` when the target path is a directory.
-6. When the user specifies a quality threshold, append `--min-score <0-100>` to the chosen runtime command (including directory-loop runs).
-7. The supplied path is authoritative for output placement.
-8. In directory mode, skip non-component `.ts` or `.tsx` files and report the tracker path.
-9. If the component surface is too opaque for safe inference, report the blocking finding instead of improvising a weak draft.
-10. Report the generated file path or tracker path, score and grade, whether manual review is required, and the top blockers or advisories.
+6. For single-file runs, keep any requested `--min-score <0-100>` as a final post-review gate instead of passing it to the first `__target` call.
+7. If the single-file findings block includes `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`, run one bounded mock-review repair pass using the `/@taro-test/rtl:mocks` contract, then `{{TARO_RUNTIME_COMMAND}} __regrade <generated-test-file>`, and keep edits only when syntax, score, flow coverage, and blocking findings do not regress.
+8. In directory-loop mode, skip the automatic mock-review loop in v1 and keep existing `--min-score` behavior.
+9. The supplied path is authoritative for output placement.
+10. In directory mode, skip non-component `.ts` or `.tsx` files and report the tracker path.
+11. If the component surface is too opaque for safe inference, report the blocking finding instead of improvising a weak draft.
+12. Report the generated file path or tracker path, score and grade, whether manual review is required, and the top blockers or advisories.
 </process>

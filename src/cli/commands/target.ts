@@ -14,6 +14,7 @@ import {
   finalizeGeneratedOutput,
   maybeAnalyzeMocks,
 } from "#cli/commands/generate-postprocess.ts";
+import { buildMockReviewFindings } from "#cli/commands/mock-review-findings.ts";
 import { getPrimarySelector } from "#cli/commands/generate-recording.ts";
 import {
   emitLowConfidenceBanner,
@@ -41,6 +42,7 @@ import {
   createDirectoryLoopTracker,
   type DirectoryLoopTracker,
   readDirectoryLoopTracker,
+  updateDirectoryLoopTrackerEntry,
   updateDirectoryLoopTrackerStatus,
   writeDirectoryLoopTracker,
 } from "#cli/commands/target-directory-tracker.ts";
@@ -115,6 +117,7 @@ interface DirectoryLoopComponentParams {
 }
 
 interface LatestGeneratedOutputStatus {
+  grade: ScoreResult["grade"];
   overall: number;
   requiresReview: boolean;
 }
@@ -132,6 +135,89 @@ function passesTargetOutputGate(scoreResult: {
   total: number;
 }, scoreGate: ScoreGateConfig): boolean {
   return passesScoreGate(scoreResult, scoreGate);
+}
+
+function resolveTargetTrackerEntryStatus(params: {
+  hasAcceptedExistingOutput: boolean;
+  previousStatus:
+    | DirectoryLoopTracker["entries"][number]["status"]
+    | undefined;
+}): DirectoryLoopTracker["entries"][number]["status"] {
+  if (params.hasAcceptedExistingOutput) {
+    return "completed";
+  }
+
+  if (params.previousStatus === "in-progress") {
+    return "in-progress";
+  }
+
+  return "pending";
+}
+
+function selectNextTargetTrackerEntry(tracker: DirectoryLoopTracker): {
+  entry: DirectoryLoopTracker["entries"][number] | null;
+  pendingCount: number;
+} {
+  const inProgressEntry = tracker.entries.find(
+    (entry) => entry.status === "in-progress"
+  );
+  const pendingEntries = tracker.entries.filter(
+    (entry) => entry.status === "pending"
+  );
+
+  return {
+    entry: inProgressEntry ?? pendingEntries[0] ?? null,
+    pendingCount: pendingEntries.length + (inProgressEntry ? 1 : 0),
+  };
+}
+
+function buildTargetTrackerFollowUpComments(params: {
+  executionError?: unknown;
+  exitCode?: number;
+  latestOutputStatus?: LatestGeneratedOutputStatus;
+  outputExists: boolean;
+  scoreGate: ScoreGateConfig;
+}): string[] {
+  const comments: string[] = [];
+
+  if (params.executionError instanceof Error) {
+    comments.push(`Target execution failed: ${params.executionError.message}`);
+  } else if (params.executionError) {
+    comments.push("Target execution failed with an unknown error.");
+  }
+
+  if (!params.outputExists) {
+    comments.push("No generated test output was produced.");
+  }
+
+  if (params.latestOutputStatus && params.outputExists) {
+    if (params.latestOutputStatus.overall < params.scoreGate.minScore) {
+      comments.push(
+        `Generated output did not clear the target gate (${formatScore(params.latestOutputStatus.overall)}/100, ${params.latestOutputStatus.grade}).`
+      );
+    }
+
+    if (
+      params.latestOutputStatus.requiresReview &&
+      params.scoreGate.enforceRequiresReview
+    ) {
+      comments.push(
+        `Manual review required (${formatScore(params.latestOutputStatus.overall)}/100, ${params.latestOutputStatus.grade}).`
+      );
+    }
+
+    if (comments.length === 0) {
+      comments.push("No follow-up required.");
+    }
+  } else if (params.outputExists) {
+    comments.push("Generated output exists, but no latest score record was found.");
+  }
+
+  if (params.exitCode && params.exitCode !== 0) {
+    comments.push(`Per-file target run exited with code ${params.exitCode}.`);
+  }
+
+  return [...new Set(comments)];
 }
 
 function buildFallbackConventions(projectRoot: string) {
@@ -466,6 +552,7 @@ async function readLatestGeneratedOutputStatuses(
     ) {
       latestStatuses.set(normalizedPath, {
         createdAtMs,
+        grade: record.quality.grade,
         overall: record.quality.overall,
         requiresReview: record.requiresReview,
       });
@@ -475,9 +562,35 @@ async function readLatestGeneratedOutputStatuses(
   return new Map(
     [...latestStatuses.entries()].map(([path, status]) => [
       path,
-      { overall: status.overall, requiresReview: status.requiresReview },
+      {
+        grade: status.grade,
+        overall: status.overall,
+        requiresReview: status.requiresReview,
+      },
     ])
   );
+}
+
+async function readTargetDirectoryLoopEntryOutcome(params: {
+  outputPath: string;
+  projectRoot: string;
+}): Promise<{
+  latestOutputStatus: LatestGeneratedOutputStatus | undefined;
+  outputExists: boolean;
+}> {
+  const outputExists = await access(params.outputPath)
+    .then(() => true)
+    .catch(() => false);
+  const latestOutputStatuses = await readLatestGeneratedOutputStatuses(
+    params.projectRoot
+  );
+
+  return {
+    latestOutputStatus: latestOutputStatuses.get(
+      normalizeGeneratedTestHistoryPath(params.projectRoot, params.outputPath)
+    ),
+    outputExists,
+  };
 }
 
 async function maybeAcceptExistingOutputForBlockedTarget(params: {
@@ -751,9 +864,15 @@ async function generateForFile(params: {
       }
     );
     let code = applyBoundarySupport(generated.code, boundarySupportPlan);
+    const boundaryPolicyWarnings = await auditBoundaryPolicy(
+      code,
+      packageProfile ?? null,
+      null
+    );
+    const suiteWarnings = [...jsSuitePlan.warnings];
     code = prependBoundaryWarnings(code, [
       ...jsSuitePlan.warnings,
-      ...(await auditBoundaryPolicy(code, packageProfile ?? null, null)),
+      ...boundaryPolicyWarnings,
     ]);
 
     const candidateParsed = await parseJsRecording(code);
@@ -842,6 +961,15 @@ async function generateForFile(params: {
 
     return normalizeFindings([
       ...findings,
+      ...buildMockReviewFindings({
+        boundaryPolicyWarnings,
+        candidateSelected:
+          outputResolution.shouldWrite && commandOptions.directoryLoop !== true,
+        mockAnalysis: mockAnalysis ?? null,
+        outputPath,
+        selectedCode: outputResolution.outputCode,
+        suiteWarnings,
+      }),
       ...buildPostWriteGateFindings({
         failedHealthCommands,
         outputPath,
@@ -903,10 +1031,12 @@ async function generateForFile(params: {
     }
   );
   let code = applyBoundarySupport(generated.code, boundarySupportPlan);
-  code = prependBoundaryWarnings(
+  const boundaryPolicyWarnings = await auditBoundaryPolicy(
     code,
-    await auditBoundaryPolicy(code, packageProfile ?? null, null)
+    packageProfile ?? null,
+    null
   );
+  code = prependBoundaryWarnings(code, boundaryPolicyWarnings);
   const scoreResult = scoreGeneratedTest(code, {
     ...(normalizedComponentScoreContext ?? {}),
     queryResults,
@@ -987,6 +1117,15 @@ async function generateForFile(params: {
 
   return normalizeFindings([
     ...findings,
+    ...buildMockReviewFindings({
+      boundaryPolicyWarnings,
+      candidateSelected:
+        outputResolution.shouldWrite && commandOptions.directoryLoop !== true,
+      mockAnalysis: mockAnalysis ?? null,
+      outputPath,
+      selectedCode: outputResolution.outputCode,
+      suiteWarnings: [],
+    }),
     ...buildPostWriteGateFindings({
       failedHealthCommands,
       outputPath,
@@ -1024,20 +1163,29 @@ async function buildDirectoryLoopTracker(params: {
   componentPath: string;
   projectRoot: string;
   commandOptions: CommandOptions;
+  previousTracker?: DirectoryLoopTracker;
 }): Promise<DirectoryLoopTracker> {
   const scoreGate = resolveTargetScoreGateConfig(params.commandOptions.minScore);
-  const previousTracker = await readDirectoryLoopTracker({
-    directoryPath: params.componentPath,
-    projectRoot: params.projectRoot,
-  });
+  const previousTracker =
+    params.previousTracker ??
+    (await readDirectoryLoopTracker({
+      directoryPath: params.componentPath,
+      projectRoot: params.projectRoot,
+    }));
   const latestOutputStatuses = await readLatestGeneratedOutputStatuses(
     params.projectRoot
   );
   const entries: Array<{
     componentPath: string;
+    currentScoreThreshold: number | null;
+    followUpComments: string[];
     outputPath: string;
-    status: "completed" | "in-progress" | "pending";
+    status: DirectoryLoopTracker["entries"][number]["status"];
+    updatedScoreThreshold: number | null;
   }> = [];
+
+  const preserveCurrentScoreThresholds = params.previousTracker !== undefined;
+
   for (const filePath of params.sourceFiles) {
     const outputPath = await resolveTargetOutputPath({
       componentPath: filePath,
@@ -1063,13 +1211,22 @@ async function buildDirectoryLoopTracker(params: {
 
     entries.push({
       componentPath: filePath,
+      currentScoreThreshold: preserveCurrentScoreThresholds
+        ? previousEntry?.currentScoreThreshold ?? latestOutputStatus?.overall ?? null
+        : latestOutputStatus?.overall ?? null,
+      followUpComments:
+        previousEntry?.followUpComments ??
+        buildTargetTrackerFollowUpComments({
+          latestOutputStatus,
+          outputExists: hasExistingOutput,
+          scoreGate,
+        }),
       outputPath,
-      status:
-        previousEntry?.status === "in-progress"
-          ? "in-progress"
-          : hasAcceptedExistingOutput
-            ? "completed"
-            : "pending",
+      status: resolveTargetTrackerEntryStatus({
+        hasAcceptedExistingOutput,
+        previousStatus: previousEntry?.status,
+      }),
+      updatedScoreThreshold: previousEntry?.updatedScoreThreshold ?? null,
     });
   }
 
@@ -1275,6 +1432,9 @@ export function createTargetCommand(
             projectRoot,
             commandOptions,
           });
+          const directoryLoopScoreGate = resolveTargetScoreGateConfig(
+            commandOptions.minScore
+          );
           await writeDirectoryLoopTracker(tracker);
 
           log(pc.dim("[taro]") + " Directory loop mode enabled");
@@ -1289,19 +1449,37 @@ export function createTargetCommand(
           );
 
           while (true) {
-            const inProgressEntry = tracker.entries.find(
-              (entry) => entry.status === "in-progress"
-            );
-            const pendingEntries = tracker.entries.filter(
-              (entry) => entry.status === "pending"
-            );
+            const { entry, pendingCount } = selectNextTargetTrackerEntry(tracker);
 
-            if (!inProgressEntry && pendingEntries.length === 0) {
+            if (!entry) {
+              const failedEntries = tracker.entries.filter(
+                (candidate) => candidate.status === "failed"
+              );
+
               if (tracker.entries.length > 0) {
-                log(
-                  pc.dim("[taro]") +
-                    " Directory loop tracker is complete; no pending component source files remain."
-                );
+                if (failedEntries.length === 0) {
+                  log(
+                    pc.dim("[taro]") +
+                      " Directory loop tracker is complete; no pending component source files remain."
+                  );
+                } else {
+                  log(
+                    pc.yellow(
+                      `[taro] Directory loop completed with ${failedEntries.length} failed component file${failedEntries.length === 1 ? "" : "s"}.`
+                    )
+                  );
+
+                  for (const failedEntry of failedEntries) {
+                    const reason =
+                      failedEntry.followUpComments[0] ??
+                      "Target output did not clear the accepted-output gate.";
+                    log(
+                      pc.yellow(
+                        `[taro] Failed: ${failedEntry.componentPath} (${reason})`
+                      )
+                    );
+                  }
+                }
               } else {
                 log(
                   pc.yellow(
@@ -1309,68 +1487,80 @@ export function createTargetCommand(
                   )
                 );
               }
-              process.exit(0);
+
+              process.exit(failedEntries.length > 0 ? 1 : 0);
             }
 
-            const pendingCount =
-              pendingEntries.length + (inProgressEntry ? 1 : 0);
             log(
               pc.dim("[taro]") +
                 ` Processing ${pendingCount} pending component file${pendingCount === 1 ? "" : "s"} in ${componentPath}`
             );
 
-            const entry = inProgressEntry ?? pendingEntries[0];
             tracker = updateDirectoryLoopTrackerStatus(tracker, {
-              componentPath: entry.componentPath,
+              componentPath: resolve(projectRoot, entry.componentPath),
               projectRoot,
               status: "in-progress",
             });
             await writeDirectoryLoopTracker(tracker);
 
-            const runResult = await runDirectoryLoopComponent({
-              commandOptions,
-              componentPath: entry.componentPath,
-              projectRoot,
-            });
-
-            const outputExists = await access(
-              resolve(projectRoot, entry.outputPath)
-            )
-              .then(() => true)
-              .catch(() => false);
-            if (outputExists) {
-              tracker = updateDirectoryLoopTrackerStatus(tracker, {
+            let runResult: { error?: unknown; exitCode: number };
+            try {
+              const result = await runDirectoryLoopComponent({
+                commandOptions,
                 componentPath: entry.componentPath,
                 projectRoot,
-                status: "completed",
               });
-              await writeDirectoryLoopTracker(tracker);
+              runResult = { exitCode: result.exitCode };
+            } catch (error) {
+              runResult = { error, exitCode: 1 };
             }
 
-            tracker = await buildDirectoryLoopTracker({
-              sourceFiles,
-              componentPath,
-              projectRoot,
-              commandOptions,
-            });
-            const refreshedEntry = tracker.entries.find(
-              (candidate) => candidate.componentPath === entry.componentPath
-            );
-
-            if (
-              runResult.exitCode !== 0 ||
-              refreshedEntry?.status !== "completed"
-            ) {
-              tracker = updateDirectoryLoopTrackerStatus(tracker, {
-                componentPath: entry.componentPath,
+            const outputPath = resolve(projectRoot, entry.outputPath);
+            const { latestOutputStatus, outputExists } =
+              await readTargetDirectoryLoopEntryOutcome({
+                outputPath,
                 projectRoot,
-                status: "in-progress",
               });
-              await writeDirectoryLoopTracker(tracker);
-              process.exit(1);
-            }
+            const hasAcceptedOutput =
+              outputExists &&
+              latestOutputStatus !== undefined &&
+              passesTargetOutputGate(
+                {
+                  requiresReview: latestOutputStatus.requiresReview,
+                  total: latestOutputStatus.overall,
+                },
+                directoryLoopScoreGate
+              );
+            const followUpComments = buildTargetTrackerFollowUpComments({
+              executionError: runResult.error,
+              exitCode: runResult.exitCode,
+              latestOutputStatus,
+              outputExists,
+              scoreGate: directoryLoopScoreGate,
+            });
 
+            tracker = updateDirectoryLoopTrackerEntry(tracker, {
+              componentPath: resolve(projectRoot, entry.componentPath),
+              followUpComments,
+              projectRoot,
+              status:
+                runResult.exitCode === 0 && hasAcceptedOutput
+                  ? "completed"
+                  : "failed",
+              updatedScoreThreshold: latestOutputStatus?.overall,
+            });
             await writeDirectoryLoopTracker(tracker);
+
+            if (runResult.exitCode !== 0 || !hasAcceptedOutput) {
+              const continuationReason =
+                followUpComments[0] ??
+                "Target output did not clear the accepted-output gate.";
+              log(
+                pc.yellow(
+                  `[taro] Directory loop marked ${entry.componentPath} as failed (${continuationReason}). Continuing.`
+                )
+              );
+            }
           }
         }
 

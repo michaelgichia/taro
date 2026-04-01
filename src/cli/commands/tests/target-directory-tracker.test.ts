@@ -102,6 +102,7 @@ describe("target directory tracker", () => {
     ).toBe("in-progress");
     expect(markdown).toContain("- Pending: 1");
     expect(markdown).toContain("- In progress: 1");
+    expect(markdown).toContain("- Failed: 0");
   });
 
   it("round-trips a completed regrade tracker row with score changes and follow-up comments", async () => {
@@ -155,6 +156,55 @@ describe("target directory tracker", () => {
         outputPath: "src/tests/CheckoutFlow.test.tsx",
         status: "completed",
         updatedScoreThreshold: 74,
+      })
+    );
+  });
+
+  it("renders and parses failed target rows with counts and follow-up metadata", async () => {
+    const root = await createSandbox("failed-roundtrip");
+    const srcDir = join(root, "src");
+    const tracker = createDirectoryLoopTracker({
+      directoryPath: srcDir,
+      entries: [
+        {
+          componentPath: join(srcDir, "Alpha.tsx"),
+          currentScoreThreshold: 91,
+          followUpComments: [
+            "Generated output did not clear the target gate (64/100, D).",
+            "Manual review required (64/100, D).",
+          ],
+          outputPath: join(srcDir, "Alpha.test.tsx"),
+          status: "failed",
+          updatedScoreThreshold: 64,
+        },
+      ],
+      projectRoot: root,
+    });
+
+    await writeDirectoryLoopTracker(tracker);
+
+    const content = await readFile(tracker.trackerPath, "utf-8");
+    const parsed = await readDirectoryLoopTracker({
+      directoryPath: srcDir,
+      projectRoot: root,
+    });
+
+    expect(content).toContain("- Failed: 1");
+    expect(content).toContain(
+      "| failed | src/Alpha.tsx | src/Alpha.test.tsx | 91% | 64% | Generated output did not clear the target gate (64/100, D).<br>Manual review required (64/100, D). | target |"
+    );
+    expect(parsed?.entries[0]).toEqual(
+      expect.objectContaining({
+        componentPath: "src/Alpha.tsx",
+        currentScoreThreshold: 91,
+        followUpComments: [
+          "Generated output did not clear the target gate (64/100, D).",
+          "Manual review required (64/100, D).",
+        ],
+        kind: "target",
+        outputPath: "src/Alpha.test.tsx",
+        status: "failed",
+        updatedScoreThreshold: 64,
       })
     );
   });

@@ -4,7 +4,7 @@ description: "Show @taro-test/rtl install, initialization, refresh, overrides, a
 ---
 
 <objective>
-Help the user install, initialize, refresh, scaffold overrides, grade existing tests, and use @taro-test/rtl from Claude Code.
+Help the user install, initialize, refresh, scaffold overrides, review mocks, grade existing tests, and use @taro-test/rtl from Claude Code.
 </objective>
 
 <process>
@@ -16,7 +16,9 @@ Help the user install, initialize, refresh, scaffold overrides, grade existing t
 6. For Recorder-first generation, use `/@taro-test/rtl:generate` with a Testing Library Recorder `.js` export.
 7. For grading an existing test file without regenerating it, use `/@taro-test/rtl:grade` and note that it stores a new grade snapshot in `.taro/state.json`.
 8. For regrading an existing test after manual edits, use `/@taro-test/rtl:regrade` and note that it compares against the latest stored snapshot when present, then stores a new snapshot.
-9. For explicit component targeting, use `/@taro-test/rtl:target` with a component file path, or with a component-directory path to run directory-loop mode; Recorder `.js` input applies to single-file targeting.
-10. Tell the user Taro must write the generated test next to the inferred or supplied component when it resolves the owning render target; unresolved boundary drafts fall back next to the recording, and existing files are never overwritten.
-11. When generation or grading runs, report the score and the relevant test file path.
+9. For dedicated mock and fixture review, use `/@taro-test/rtl:mocks`.
+10. For explicit component targeting, use `/@taro-test/rtl:target` with a component file path, or with a component-directory path to run directory-loop mode; Recorder `.js` input applies to single-file targeting.
+11. Tell the user Taro must write the generated test next to the inferred or supplied component when it resolves the owning render target; unresolved boundary drafts fall back next to the recording, and existing files are never overwritten.
+12. Explain that single-file `generate`, `generate-i`, and `target` flows may run one bounded mock-review repair pass before final reporting, and that requested `--min-score` thresholds apply to the final post-review result. Directory-loop target stays review-only in v1.
+13. When generation or grading runs, report the score and the relevant test file path.
 </process>
