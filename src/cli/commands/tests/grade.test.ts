@@ -135,6 +135,7 @@ function makeGradeResult(
       visibilityAssertionCount: 0,
       mockCallAssertionCount: 0,
       sharedMockImportCount: 1,
+      passthroughModuleMockCount: 0,
       setupHelperCount: 1,
       renderHelperImportCount: 1,
       beforeEachCount: 1,

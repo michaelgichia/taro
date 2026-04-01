@@ -107,4 +107,46 @@ describe("gradeExistingTest", () => {
     expect(after.grade).toBe("B");
     expect(after.total).toBeGreaterThan(before.total);
   });
+
+  it("adds a mock-fidelity bonus for passthrough module mocks", () => {
+    const withoutPassthrough = gradeExistingTest(`
+      import { describe, expect, it, vi } from 'vitest';
+
+      vi.mock('@digitax/data-layer', () => ({
+        useInvoicesQuery: vi.fn(),
+      }));
+
+      describe('InvoiceModule', () => {
+        it('renders the invoice heading', () => {
+          expect(screen.getByRole('heading', { name: 'Invoices' })).toBeInTheDocument();
+        });
+      });
+    `);
+
+    const withPassthrough = gradeExistingTest(`
+      import { describe, expect, it, vi } from 'vitest';
+
+      vi.mock('@digitax/data-layer', async (importOriginal) => {
+        const actual = await importOriginal<typeof import('@digitax/data-layer')>();
+
+        return {
+          ...actual,
+          useInvoicesQuery: vi.fn(),
+        };
+      });
+
+      describe('InvoiceModule', () => {
+        it('renders the invoice heading', () => {
+          expect(screen.getByRole('heading', { name: 'Invoices' })).toBeInTheDocument();
+        });
+      });
+    `);
+
+    expect(withPassthrough.signals.passthroughModuleMockCount).toBeGreaterThan(
+      0
+    );
+    expect(withPassthrough.dimensions.mockFidelity).toBe(
+      withoutPassthrough.dimensions.mockFidelity + 2
+    );
+  });
 });

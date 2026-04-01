@@ -24,6 +24,8 @@ const POSITIONAL_ROLE_QUERY_REGEX =
   /\b(?:getAllByRole|queryAllByRole|findAllByRole)\s*\([^\n]*\)\s*\[\s*\d+\s*\]/g;
 const SHARED_MOCK_IMPORT_REGEX =
   /from\s+["'][^"']*(?:tests\/mocks|__mocks__)[^"']*["']/g;
+const PASSTHROUGH_MODULE_MOCK_REGEX =
+  /\b(?:vi|jest)\.mock\s*\([\s\S]*?\bimportOriginal\b[\s\S]*?\bconst\s+actual\s*=\s*await\s+importOriginal(?:<[^>]+>)?\s*\([\s\S]*?\)\s*;[\s\S]*?\breturn\s*\{[\s\S]*?\.\.\.\s*actual\b[\s\S]*?\}/g;
 const RENDER_HELPER_IMPORT_REGEX =
   /(?:renderWith[A-Z]\w*|from\s+["'][^"']*tests\/render[^"']*["'])/g;
 const SETUP_HELPER_REGEX =
@@ -156,6 +158,10 @@ function collectSignals(code: string): ExistingTestGradeSignals {
     visibilityAssertionCount: countMatches(code, VISIBILITY_ASSERTION_REGEX),
     mockCallAssertionCount: countMatches(code, MOCK_CALL_ASSERTION_REGEX),
     sharedMockImportCount: countMatches(code, SHARED_MOCK_IMPORT_REGEX),
+    passthroughModuleMockCount: countMatches(
+      code,
+      PASSTHROUGH_MODULE_MOCK_REGEX
+    ),
     setupHelperCount:
       countMatches(code, SETUP_HELPER_REGEX) +
       countMatches(code, BASE_PROPS_REGEX),
@@ -278,7 +284,7 @@ function scoreReadability(
   issues: ReturnType<typeof detectRepoContractIssues>,
   reasons: ExistingTestGradeReason[]
 ): number {
-  let score = 7;
+  let score = 8;
 
   if (signals.setupHelperCount > 0) {
     score += Math.min(4, signals.setupHelperCount);
@@ -307,8 +313,6 @@ function scoreReadability(
         "The test file is large enough that the intent becomes harder to scan quickly.",
       severity: "advisory",
     });
-  } else if (signals.lineCount > 180) {
-    score -= 1;
   }
 
   if (issues.some((issue) => issue.code === "generic-component-contract")) {
@@ -419,6 +423,18 @@ function scoreMockFidelity(
       weight: 4,
       message:
         "The suite reuses repo-local shared mock support instead of rebuilding those boundaries inline.",
+    });
+  }
+
+  if (signals.passthroughModuleMockCount > 0) {
+    score += 2;
+    pushReason(reasons, {
+      code: "passthrough-module-mock",
+      dimension: "mockFidelity",
+      impact: "positive",
+      weight: 2,
+      message:
+        "Module mocks preserve upstream contract shape by spreading importOriginal() output before local overrides.",
     });
   }
 

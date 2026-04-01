@@ -31,6 +31,7 @@ export interface ExistingTestGradeSignals {
   visibilityAssertionCount: number;
   mockCallAssertionCount: number;
   sharedMockImportCount: number;
+  passthroughModuleMockCount: number;
   setupHelperCount: number;
   renderHelperImportCount: number;
   beforeEachCount: number;

@@ -179,6 +179,7 @@ function makeExistingTestGradeResult(
       visibilityAssertionCount: 0,
       mockCallAssertionCount: 0,
       sharedMockImportCount: 0,
+      passthroughModuleMockCount: 0,
       setupHelperCount: 1,
       renderHelperImportCount: 0,
       beforeEachCount: 1,

@@ -311,6 +311,7 @@ const existingTestGradeSignalsSchema = z.object({
   visibilityAssertionCount: z.number(),
   mockCallAssertionCount: z.number(),
   sharedMockImportCount: z.number(),
+  passthroughModuleMockCount: z.number().optional().default(0),
   setupHelperCount: z.number(),
   renderHelperImportCount: z.number(),
   beforeEachCount: z.number(),
