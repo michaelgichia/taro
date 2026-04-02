@@ -19,6 +19,12 @@ import {
   resolveTaroPackageProfile,
   writeTaroState,
 } from "#core/state.ts";
+import {
+  makeGeneratedTestRecord,
+  makeHybridScoreResult,
+  makeScoreDimensions,
+  makeScoreSignals,
+} from "#tests/score-fixtures.ts";
 
 let projectRoot: string;
 
@@ -35,42 +41,6 @@ beforeEach(async () => {
 afterEach(async () => {
   await rm(projectRoot, { recursive: true, force: true });
 });
-
-function makeScoreSignals(overrides: Record<string, unknown> = {}) {
-  return {
-    queryCheckpointCount: 0,
-    roleQueryCount: 0,
-    testIdQueryCount: 0,
-    strongAssertionCount: 0,
-    presenceAssertionCount: 0,
-    visibilityAssertionCount: 0,
-    visibilityOnlyTestCount: 0,
-    presenceOnlyTestCount: 0,
-    boundaryWarningCount: 0,
-    boundaryIssueCount: 0,
-    placeholderRenderTarget: false,
-    multipleTestBlocks: false,
-    minimumExpectedTestCount: 0,
-    branchCoverageRatio: 1,
-    missingMockCount: 0,
-    fireEventCount: 0,
-    hasBasePropsConstant: false,
-    hasOverrideRenderHelper: false,
-    duplicatedInlineRenderCount: 0,
-    hasStandaloneUtilityDescribe: false,
-    ...overrides,
-  };
-}
-
-function makeScoreDimensions(overrides: Record<string, number> = {}) {
-  return {
-    queryQuality: 80,
-    assertionSpecificity: 80,
-    testStructure: 80,
-    boundaryIsolation: 80,
-    ...overrides,
-  };
-}
 
 describe("initTaroState", () => {
   it("writes .taro/state.json with no package profiles when the repo has no tests", async () => {
@@ -1175,24 +1145,26 @@ describe("appendGeneratedTestRecord", () => {
       packagePath: ".",
       recordingFile: "/tmp/recording.js",
       testFile: "/tmp/recording.test.tsx",
-      scoreResult: {
-        total: 85,
-        grade: "B",
-        dimensions: {
-          queryQuality: 90,
-          assertionSpecificity: 80,
-          testStructure: 85,
-          boundaryIsolation: 85,
+      scoreResult: makeHybridScoreResult({
+        overall: 85,
+        generation: {
+          total: 85,
+          dimensions: {
+            queryQuality: 90,
+            assertionSpecificity: 80,
+            testStructure: 85,
+            boundaryIsolation: 85,
+          },
+          signals: makeScoreSignals({
+            queryCheckpointCount: 2,
+            roleQueryCount: 3,
+            strongAssertionCount: 4,
+            presenceAssertionCount: 1,
+          }),
         },
-        signals: makeScoreSignals({
-          queryCheckpointCount: 2,
-          roleQueryCount: 3,
-          strongAssertionCount: 4,
-          presenceAssertionCount: 1,
-        }),
-        reasons: [],
+        grading: { total: 85 },
         requiresReview: false,
-      },
+      }),
     });
 
     const state = await readTaroState(projectRoot);
@@ -1215,14 +1187,16 @@ describe("appendGeneratedTestRecord", () => {
     await appendGeneratedTestRecord(projectRoot, {
       packagePath: ".",
       testFile: "/tmp/existing.test.tsx",
-      scoreResult: {
-        total: 91,
-        grade: "A",
-        dimensions: makeScoreDimensions({ queryQuality: 95 }),
-        signals: makeScoreSignals({ roleQueryCount: 6 }),
-        reasons: [],
+      scoreResult: makeHybridScoreResult({
+        overall: 91,
+        generation: {
+          total: 91,
+          dimensions: makeScoreDimensions({ queryQuality: 95 }),
+          signals: makeScoreSignals({ roleQueryCount: 6 }),
+        },
+        grading: { total: 91 },
         requiresReview: false,
-      },
+      }),
     });
 
     const state = await readTaroState(projectRoot);
@@ -1247,19 +1221,21 @@ describe("appendGeneratedTestRecord", () => {
         packagePath: ".",
         recordingFile: `/tmp/recording-${i}.js`,
         testFile: `/tmp/recording-${i}.test.tsx`,
-        scoreResult: {
-          total: 70 + i,
-          grade: "C",
-          dimensions: {
-            queryQuality: 70,
-            assertionSpecificity: 70,
-            testStructure: 70,
-            boundaryIsolation: 70,
+        scoreResult: makeHybridScoreResult({
+          overall: 70 + i,
+          generation: {
+            total: 70 + i,
+            dimensions: {
+              queryQuality: 70,
+              assertionSpecificity: 70,
+              testStructure: 70,
+              boundaryIsolation: 70,
+            },
+            signals: makeScoreSignals(),
           },
-          signals: makeScoreSignals(),
-          reasons: [],
+          grading: { total: 70 + i },
           requiresReview: true,
-        },
+        }),
       });
     }
 
@@ -1271,33 +1247,42 @@ describe("appendGeneratedTestRecord", () => {
   it("keeps only the latest five history records per test file", () => {
     const trimmed = __stateTestUtils.trimGeneratedTestHistory(projectRoot, [
       ...Array.from({ length: 7 }, (_, index) => ({
-        createdAt: `2026-03-20T0${index}:00:00.000Z`,
-        packagePath: ".",
-        recordingFile: index % 2 === 0 ? `/tmp/recording-${index}.js` : null,
-        testFile: join(projectRoot, "src", "feature.test.tsx"),
-        quality: {
-          overall: 70 + index,
-          grade: "C" as const,
-          dimensions: makeScoreDimensions(),
-          signals: makeScoreSignals(),
-          reasons: [],
-        },
-        requiresReview: index < 4,
+        ...makeGeneratedTestRecord({
+          createdAt: `2026-03-20T0${index}:00:00.000Z`,
+          packagePath: ".",
+          recordingFile:
+            index % 2 === 0 ? `/tmp/recording-${index}.js` : null,
+          requiresReview: index < 4,
+          scoreResult: makeHybridScoreResult({
+            overall: 70 + index,
+            generation: {
+              total: 70 + index,
+              dimensions: makeScoreDimensions(),
+              signals: makeScoreSignals(),
+            },
+            grading: { total: 70 + index },
+            requiresReview: index < 4,
+          }),
+          testFile: join(projectRoot, "src", "feature.test.tsx"),
+        }),
       })),
-      {
+      makeGeneratedTestRecord({
         createdAt: "2026-03-20T07:00:00.000Z",
         packagePath: ".",
         recordingFile: null,
-        testFile: join(projectRoot, "src", "other.test.tsx"),
-        quality: {
-          overall: 88,
-          grade: "B",
-          dimensions: makeScoreDimensions(),
-          signals: makeScoreSignals(),
-          reasons: [],
-        },
         requiresReview: false,
-      },
+        scoreResult: makeHybridScoreResult({
+          overall: 88,
+          generation: {
+            total: 88,
+            dimensions: makeScoreDimensions(),
+            signals: makeScoreSignals(),
+          },
+          grading: { total: 88 },
+          requiresReview: false,
+        }),
+        testFile: join(projectRoot, "src", "other.test.tsx"),
+      }),
     ]);
 
     expect(
@@ -1319,14 +1304,16 @@ describe("appendGeneratedTestRecord", () => {
     await appendGeneratedTestRecord(projectRoot, {
       packagePath: ".",
       testFile: join(projectRoot, "src", "other.test.tsx"),
-      scoreResult: {
-        total: 88,
-        grade: "B",
-        dimensions: makeScoreDimensions({ queryQuality: 88 }),
-        signals: makeScoreSignals({ roleQueryCount: 4 }),
-        reasons: [],
+      scoreResult: makeHybridScoreResult({
+        overall: 88,
+        generation: {
+          total: 88,
+          dimensions: makeScoreDimensions({ queryQuality: 88 }),
+          signals: makeScoreSignals({ roleQueryCount: 4 }),
+        },
+        grading: { total: 88 },
         requiresReview: false,
-      },
+      }),
     });
 
     for (let index = 0; index < 6; index += 1) {
@@ -1334,14 +1321,16 @@ describe("appendGeneratedTestRecord", () => {
         packagePath: ".",
         recordingFile: index % 2 === 0 ? `/tmp/regrade-${index}.js` : null,
         testFile: join(projectRoot, "src", "feature.test.tsx"),
-        scoreResult: {
-          total: 70 + index,
-          grade: index >= 5 ? "B" : "C",
-          dimensions: makeScoreDimensions({ queryQuality: 70 + index }),
-          signals: makeScoreSignals({ roleQueryCount: index + 1 }),
-          reasons: [],
+        scoreResult: makeHybridScoreResult({
+          overall: 70 + index,
+          generation: {
+            total: 70 + index,
+            dimensions: makeScoreDimensions({ queryQuality: 70 + index }),
+            signals: makeScoreSignals({ roleQueryCount: index + 1 }),
+          },
+          grading: { total: 70 + index },
           requiresReview: index < 5,
-        },
+        }),
       });
     }
 
@@ -1360,18 +1349,15 @@ describe("appendGeneratedTestRecord", () => {
       71, 72, 73, 74, 75,
     ]);
     expect(otherHistory).toHaveLength(1);
-    expect(otherHistory[0]).toEqual(
-      expect.objectContaining({
-        testFile: join(projectRoot, "src", "other.test.tsx"),
-        quality: expect.objectContaining({ overall: 88 }),
-      })
-    );
+    expect(otherHistory[0]?.testFile).toBe("src/other.test.tsx");
+    expect(otherHistory[0]?.quality.overall).toBe(88);
   });
 
   it("backfills legacy scorer signals when reading generated test history", async () => {
     const initialized = await initTaroState(projectRoot);
     const legacyState = {
       ...initialized.state,
+      version: 1 as const,
       generatedTests: [
         {
           createdAt: new Date().toISOString(),
@@ -1421,13 +1407,13 @@ describe("appendGeneratedTestRecord", () => {
     );
 
     const state = await readTaroState(projectRoot);
-    const signals = state?.generatedTests[0]?.quality.signals;
+    const signals = state?.generatedTests[0]?.quality.families.generation?.signals;
 
     expect(signals?.presenceAssertionCount).toBe(2);
     expect(signals?.visibilityAssertionCount).toBe(0);
     expect(signals?.minimumExpectedTestCount).toBe(0);
     expect(
-      state?.generatedTests[0]?.quality.reasons[0]?.severity
+      state?.generatedTests[0]?.quality.families.generation?.reasons[0]?.severity
     ).toBeUndefined();
   });
 });
@@ -1437,34 +1423,40 @@ describe("score-weighted learning", () => {
     const qualityIndex = __stateTestUtils.buildGeneratedTestQualityIndex(
       projectRoot,
       [
-        {
+        makeGeneratedTestRecord({
           createdAt: "2026-03-20T08:00:00.000Z",
           packagePath: ".",
           recordingFile: "/tmp/app.js",
-          testFile: join(projectRoot, "src", "app.test.tsx"),
-          quality: {
-            overall: 95,
-            grade: "A",
-            dimensions: makeScoreDimensions(),
-            signals: makeScoreSignals(),
-            reasons: [],
-          },
           requiresReview: false,
-        },
-        {
+          scoreResult: makeHybridScoreResult({
+            overall: 95,
+            generation: {
+              total: 95,
+              dimensions: makeScoreDimensions(),
+              signals: makeScoreSignals(),
+            },
+            grading: { total: 95 },
+            requiresReview: false,
+          }),
+          testFile: join(projectRoot, "src", "app.test.tsx"),
+        }),
+        makeGeneratedTestRecord({
           createdAt: "2026-03-20T09:00:00.000Z",
           packagePath: ".",
           recordingFile: "/tmp/app-edited.js",
-          testFile: join(projectRoot, "src", "app.test.tsx"),
-          quality: {
-            overall: 92,
-            grade: "A",
-            dimensions: makeScoreDimensions(),
-            signals: makeScoreSignals(),
-            reasons: [],
-          },
           requiresReview: true,
-        },
+          scoreResult: makeHybridScoreResult({
+            overall: 92,
+            generation: {
+              total: 92,
+              dimensions: makeScoreDimensions(),
+              signals: makeScoreSignals(),
+            },
+            grading: { total: 92 },
+            requiresReview: true,
+          }),
+          testFile: join(projectRoot, "src", "app.test.tsx"),
+        }),
       ]
     );
 
@@ -1477,13 +1469,19 @@ describe("score-weighted learning", () => {
     );
     expect(
       __stateTestUtils.calculateGeneratedTestQualityWeight({
-        quality: {
-          overall: 65,
-          grade: "D",
-          dimensions: makeScoreDimensions(),
-          signals: makeScoreSignals(),
-          reasons: [],
-        },
+        quality: makeGeneratedTestRecord({
+          scoreResult: makeHybridScoreResult({
+            overall: 65,
+            generation: {
+              total: 65,
+              dimensions: makeScoreDimensions(),
+              signals: makeScoreSignals(),
+            },
+            grading: { total: 65 },
+            requiresReview: false,
+          }),
+          testFile: join(projectRoot, "src", "quality-weight.test.tsx"),
+        }).quality,
         requiresReview: false,
       })
     ).toBe(0.95);
@@ -1513,40 +1511,46 @@ describe("score-weighted learning", () => {
       packagePath: ".",
       recordingFile: "/tmp/high-a.js",
       testFile: join(projectRoot, "src", "tests", "high-a.test.js"),
-      scoreResult: {
-        total: 92,
-        grade: "A",
-        dimensions: makeScoreDimensions(),
-        signals: makeScoreSignals(),
-        reasons: [],
+      scoreResult: makeHybridScoreResult({
+        overall: 92,
+        generation: {
+          total: 92,
+          dimensions: makeScoreDimensions(),
+          signals: makeScoreSignals(),
+        },
+        grading: { total: 92 },
         requiresReview: false,
-      },
+      }),
     });
     await appendGeneratedTestRecord(projectRoot, {
       packagePath: ".",
       recordingFile: "/tmp/high-b.js",
       testFile: join(projectRoot, "src", "tests", "high-b.test.js"),
-      scoreResult: {
-        total: 90,
-        grade: "A",
-        dimensions: makeScoreDimensions(),
-        signals: makeScoreSignals(),
-        reasons: [],
+      scoreResult: makeHybridScoreResult({
+        overall: 90,
+        generation: {
+          total: 90,
+          dimensions: makeScoreDimensions(),
+          signals: makeScoreSignals(),
+        },
+        grading: { total: 90 },
         requiresReview: false,
-      },
+      }),
     });
     await appendGeneratedTestRecord(projectRoot, {
       packagePath: ".",
       recordingFile: "/tmp/low.js",
       testFile: join(projectRoot, "src", "low.test.tsx"),
-      scoreResult: {
-        total: 30,
-        grade: "F",
-        dimensions: makeScoreDimensions(),
-        signals: makeScoreSignals(),
-        reasons: [],
+      scoreResult: makeHybridScoreResult({
+        overall: 30,
+        generation: {
+          total: 30,
+          dimensions: makeScoreDimensions(),
+          signals: makeScoreSignals(),
+        },
+        grading: { total: 30 },
         requiresReview: true,
-      },
+      }),
     });
 
     const state = await readTaroState(projectRoot);
@@ -1568,7 +1572,7 @@ describe("score-weighted learning", () => {
       expect.objectContaining({ value: "js", confidence: "high" })
     );
     expect(summary).toContain(
-      "Score-aware learning: active (3 scored, 0 unscored, source=gradedTests, fallback=generatedTests, mode=weighted-bias)"
+      "Score-aware learning: active (3 scored, 0 unscored, source=generatedTests, legacy=gradedTests, mode=weighted-bias)"
     );
   });
 
@@ -1588,20 +1592,23 @@ describe("score-weighted learning", () => {
         ".": { ...initialized.state.packages["."]!, scannedAt: staleScannedAt },
       },
       generatedTests: [
-        {
+        makeGeneratedTestRecord({
           createdAt: "2020-03-20T09:00:00.000Z",
           packagePath: ".",
           recordingFile: "/tmp/app.js",
-          testFile: join(projectRoot, "src", "app.test.tsx"),
-          quality: {
-            overall: 88,
-            grade: "B",
-            dimensions: makeScoreDimensions(),
-            signals: makeScoreSignals(),
-            reasons: [],
-          },
           requiresReview: false,
-        },
+          scoreResult: makeHybridScoreResult({
+            overall: 88,
+            generation: {
+              total: 88,
+              dimensions: makeScoreDimensions(),
+              signals: makeScoreSignals(),
+            },
+            grading: { total: 88 },
+            requiresReview: false,
+          }),
+          testFile: join(projectRoot, "src", "app.test.tsx"),
+        }),
       ],
     };
 
@@ -2755,19 +2762,21 @@ describe("state scanning - additional coverage", () => {
       packagePath: ".",
       recordingFile: "/tmp/recording.js",
       testFile: "/tmp/recording.test.tsx",
-      scoreResult: {
-        total: 80,
-        grade: "B",
-        dimensions: {
-          queryQuality: 80,
-          assertionSpecificity: 80,
-          testStructure: 80,
-          boundaryIsolation: 80,
+      scoreResult: makeHybridScoreResult({
+        overall: 80,
+        generation: {
+          total: 80,
+          dimensions: {
+            queryQuality: 80,
+            assertionSpecificity: 80,
+            testStructure: 80,
+            boundaryIsolation: 80,
+          },
+          signals: makeScoreSignals(),
         },
-        signals: makeScoreSignals(),
-        reasons: [],
+        grading: { total: 80 },
         requiresReview: false,
-      },
+      }),
     });
 
     const stateBefore = await readTaroState(projectRoot);
@@ -2788,19 +2797,21 @@ describe("state scanning - additional coverage", () => {
       packagePath: ".",
       recordingFile: "/tmp/recording.js",
       testFile: "/tmp/recording.test.tsx",
-      scoreResult: {
-        total: 80,
-        grade: "B",
-        dimensions: {
-          queryQuality: 80,
-          assertionSpecificity: 80,
-          testStructure: 80,
-          boundaryIsolation: 80,
+      scoreResult: makeHybridScoreResult({
+        overall: 80,
+        generation: {
+          total: 80,
+          dimensions: {
+            queryQuality: 80,
+            assertionSpecificity: 80,
+            testStructure: 80,
+            boundaryIsolation: 80,
+          },
+          signals: makeScoreSignals(),
         },
-        signals: makeScoreSignals(),
-        reasons: [],
+        grading: { total: 80 },
         requiresReview: false,
-      },
+      }),
     });
 
     const existingState = await readTaroState(projectRoot);
@@ -3058,34 +3069,40 @@ describe("state scanning - additional coverage", () => {
     const qualityIndex = __stateTestUtils.buildGeneratedTestQualityIndex(
       projectRoot,
       [
-        {
+        makeGeneratedTestRecord({
           createdAt: "2026-03-20T08:00:00.000Z",
           packagePath: ".",
           recordingFile: "/tmp/high.js",
-          testFile: join(projectRoot, "src", "high.test.tsx"),
-          quality: {
-            overall: 95,
-            grade: "A",
-            dimensions: makeScoreDimensions(),
-            signals: makeScoreSignals(),
-            reasons: [],
-          },
           requiresReview: false,
-        },
-        {
+          scoreResult: makeHybridScoreResult({
+            overall: 95,
+            generation: {
+              total: 95,
+              dimensions: makeScoreDimensions(),
+              signals: makeScoreSignals(),
+            },
+            grading: { total: 95 },
+            requiresReview: false,
+          }),
+          testFile: join(projectRoot, "src", "high.test.tsx"),
+        }),
+        makeGeneratedTestRecord({
           createdAt: "2026-03-20T08:00:00.000Z",
           packagePath: ".",
           recordingFile: "/tmp/low.js",
-          testFile: join(projectRoot, "src", "low.test.tsx"),
-          quality: {
-            overall: 20,
-            grade: "F",
-            dimensions: makeScoreDimensions(),
-            signals: makeScoreSignals(),
-            reasons: [],
-          },
           requiresReview: true,
-        },
+          scoreResult: makeHybridScoreResult({
+            overall: 20,
+            generation: {
+              total: 20,
+              dimensions: makeScoreDimensions(),
+              signals: makeScoreSignals(),
+            },
+            grading: { total: 20 },
+            requiresReview: true,
+          }),
+          testFile: join(projectRoot, "src", "low.test.tsx"),
+        }),
       ]
     );
     const testFiles = [
@@ -3124,7 +3141,7 @@ describe("state scanning - additional coverage", () => {
     );
     const rescanned = await __stateTestUtils.scanProjectState(projectRoot, {
       existingState: {
-        version: 1,
+        version: 2,
         meta: {
           createdAt: "2026-03-20T08:00:00.000Z",
           updatedAt: "2026-03-20T08:00:00.000Z",
@@ -3133,34 +3150,40 @@ describe("state scanning - additional coverage", () => {
         packages: {},
         mockStore: { rootDir: null, importHint: null, resources: [] },
         generatedTests: [
-          {
+          makeGeneratedTestRecord({
             createdAt: "2026-03-20T08:00:00.000Z",
             packagePath: ".",
             recordingFile: "/tmp/high.js",
-            testFile: join(projectRoot, "src", "high.test.tsx"),
-            quality: {
-              overall: 95,
-              grade: "A",
-              dimensions: makeScoreDimensions(),
-              signals: makeScoreSignals(),
-              reasons: [],
-            },
             requiresReview: false,
-          },
-          {
+            scoreResult: makeHybridScoreResult({
+              overall: 95,
+              generation: {
+                total: 95,
+                dimensions: makeScoreDimensions(),
+                signals: makeScoreSignals(),
+              },
+              grading: { total: 95 },
+              requiresReview: false,
+            }),
+            testFile: join(projectRoot, "src", "high.test.tsx"),
+          }),
+          makeGeneratedTestRecord({
             createdAt: "2026-03-20T08:00:00.000Z",
             packagePath: ".",
             recordingFile: "/tmp/low.js",
-            testFile: join(projectRoot, "src", "low.test.tsx"),
-            quality: {
-              overall: 20,
-              grade: "F",
-              dimensions: makeScoreDimensions(),
-              signals: makeScoreSignals(),
-              reasons: [],
-            },
             requiresReview: true,
-          },
+            scoreResult: makeHybridScoreResult({
+              overall: 20,
+              generation: {
+                total: 20,
+                dimensions: makeScoreDimensions(),
+                signals: makeScoreSignals(),
+              },
+              grading: { total: 20 },
+              requiresReview: true,
+            }),
+            testFile: join(projectRoot, "src", "low.test.tsx"),
+          }),
         ],
       },
     });
@@ -3319,48 +3342,57 @@ describe("state scanning - additional coverage", () => {
     const qualityIndex = __stateTestUtils.buildGeneratedTestQualityIndex(
       projectRoot,
       [
-        {
+        makeGeneratedTestRecord({
           createdAt: "2026-03-20T08:00:00.000Z",
           packagePath: ".",
           recordingFile: "/tmp/high-one.js",
-          testFile: highOne,
-          quality: {
-            overall: 95,
-            grade: "A",
-            dimensions: makeScoreDimensions(),
-            signals: makeScoreSignals(),
-            reasons: [],
-          },
           requiresReview: false,
-        },
-        {
+          scoreResult: makeHybridScoreResult({
+            overall: 95,
+            generation: {
+              total: 95,
+              dimensions: makeScoreDimensions(),
+              signals: makeScoreSignals(),
+            },
+            grading: { total: 95 },
+            requiresReview: false,
+          }),
+          testFile: highOne,
+        }),
+        makeGeneratedTestRecord({
           createdAt: "2026-03-20T08:00:00.000Z",
           packagePath: ".",
           recordingFile: "/tmp/high-two.js",
-          testFile: highTwo,
-          quality: {
-            overall: 92,
-            grade: "A",
-            dimensions: makeScoreDimensions(),
-            signals: makeScoreSignals(),
-            reasons: [],
-          },
           requiresReview: false,
-        },
-        {
+          scoreResult: makeHybridScoreResult({
+            overall: 92,
+            generation: {
+              total: 92,
+              dimensions: makeScoreDimensions(),
+              signals: makeScoreSignals(),
+            },
+            grading: { total: 92 },
+            requiresReview: false,
+          }),
+          testFile: highTwo,
+        }),
+        makeGeneratedTestRecord({
           createdAt: "2026-03-20T08:00:00.000Z",
           packagePath: ".",
           recordingFile: "/tmp/legacy.js",
-          testFile: lowOutlier,
-          quality: {
-            overall: 20,
-            grade: "F",
-            dimensions: makeScoreDimensions(),
-            signals: makeScoreSignals(),
-            reasons: [],
-          },
           requiresReview: true,
-        },
+          scoreResult: makeHybridScoreResult({
+            overall: 20,
+            generation: {
+              total: 20,
+              dimensions: makeScoreDimensions(),
+              signals: makeScoreSignals(),
+            },
+            grading: { total: 20 },
+            requiresReview: true,
+          }),
+          testFile: lowOutlier,
+        }),
       ]
     );
     const conventionFiles = [
@@ -3535,7 +3567,7 @@ describe("state scanning - additional coverage", () => {
     // Second call - state.json already exists, so it should return existing state directly
     const result = await runLoadOrBootstrapStateWorkflow(projectRoot);
 
-    expect(result.state.version).toBe(1);
+    expect(result.state.version).toBe(2);
     expect(result.summary).toBeDefined();
   });
 
@@ -4247,7 +4279,7 @@ describe("state scanning - additional coverage", () => {
     await initTaroState(projectRoot);
     const refreshed = await refreshTaroState(projectRoot);
 
-    expect(refreshed.state.version).toBe(1);
+    expect(refreshed.state.version).toBe(2);
     expect(refreshed.state.packages["packages/example-app"]).toBeDefined();
   });
 

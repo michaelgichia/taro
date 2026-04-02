@@ -11,10 +11,12 @@ import {
   createDirectoryLoopTracker,
   writeDirectoryLoopTracker,
 } from "#cli/commands/target-directory-tracker.ts";
-import { appendGradedTestRecord } from "#core/graded-test-history.ts";
-import { appendGeneratedTestRecord } from "#core/state.ts";
-import type { ExistingTestGradeResult } from "#types/existing-test-grade.ts";
-import type { ScoreResult } from "#types/score.ts";
+import { appendGeneratedTestRecord, runLoadOrBootstrapStateWorkflow, writeTaroState } from "#core/state.ts";
+import {
+  makeExistingTestGradeResult,
+  makeGeneratedTestRecord,
+  makeHybridScoreResult,
+} from "#tests/score-fixtures.ts";
 
 const sandboxes: string[] = [];
 
@@ -133,122 +135,37 @@ function makeRunnerResult(params: {
   };
 }
 
-function makeExistingTestGradeResult(
-  overrides: Partial<ExistingTestGradeResult> & {
-    dimensions?: Partial<ExistingTestGradeResult["dimensions"]>;
-    signals?: Partial<ExistingTestGradeResult["signals"]>;
-  } = {}
-): ExistingTestGradeResult {
-  const total = overrides.total ?? 80;
-
-  return {
-    total,
-    grade:
-      overrides.grade ??
-      (total >= 90
-        ? "A"
-        : total >= 80
-          ? "B"
-          : total >= 70
-            ? "C"
-            : total >= 60
-              ? "D"
-              : "F"),
-    dimensions: {
-      robustness: 20,
-      readability: 12,
-      assertionStrength: 16,
-      mockFidelity: 16,
-      maintainability: 16,
-      ...overrides.dimensions,
-    },
-    signals: {
-      roleQueryCount: 1,
-      labelQueryCount: 0,
-      placeholderQueryCount: 0,
-      textQueryCount: 0,
-      testIdQueryCount: 0,
-      querySelectorCount: 0,
-      positionalRoleQueryCount: 0,
-      payloadAssertionCount: 1,
-      strongAssertionCount: 1,
-      presenceAssertionCount: 1,
-      visibilityAssertionCount: 0,
-      mockCallAssertionCount: 0,
-      sharedMockImportCount: 0,
-      passthroughModuleMockCount: 0,
-      setupHelperCount: 1,
-      renderHelperImportCount: 0,
-      beforeEachCount: 1,
-      mockResetCount: 1,
-      lineCount: 20,
-      ...overrides.signals,
-    },
-    reasons: overrides.reasons ?? [],
-    blockers: overrides.blockers ?? [],
-    requiresReview: overrides.requiresReview ?? total < 80,
+function makeScoreResult(overrides: Record<string, unknown> = {}) {
+  const typedOverrides = overrides as {
+    blockers?: string[];
+    dimensions?: Record<string, number>;
+    grade?: "A" | "B" | "C" | "D" | "F";
+    markerCoverage?: Record<string, number>;
+    markerDiagnostics?: Record<string, number>;
+    markerQualityGate?: Record<string, unknown>;
+    reasons?: unknown[];
+    requiresReview?: boolean;
+    signals?: Record<string, unknown>;
+    total?: number;
   };
-}
+  const total = typedOverrides.total ?? 80;
 
-function makeScoreResult(overrides: Partial<ScoreResult> = {}): ScoreResult {
-  const total = overrides.total ?? 80;
-
-  return {
-    total,
-    grade: total >= 90 ? "A" : total >= 80 ? "B" : total >= 70 ? "C" : "D",
-    dimensions: {
-      assertionSpecificity: 100,
-      boundaryIsolation: 100,
-      queryQuality: 100,
-      testStructure: 100,
-      ...overrides.dimensions,
+  return makeHybridScoreResult({
+    overall: total,
+    grade: typedOverrides.grade,
+    blockers: typedOverrides.blockers,
+    dimensions: typedOverrides.dimensions as any,
+    reasons: typedOverrides.reasons as any,
+    requiresReview: typedOverrides.requiresReview,
+    signals: typedOverrides.signals as any,
+    generation: {
+      total,
+      markerCoverage: typedOverrides.markerCoverage as any,
+      markerDiagnostics: typedOverrides.markerDiagnostics as any,
+      markerQualityGate: typedOverrides.markerQualityGate as any,
     },
-    signals: {
-      boundaryIssueCount: 0,
-      boundaryWarningCount: 0,
-      branchCoverageRatio: 1,
-      duplicatedInlineRenderCount: 0,
-      fireEventCount: 0,
-      hasBasePropsConstant: true,
-      hasOverrideRenderHelper: true,
-      hasStandaloneUtilityDescribe: false,
-      minimumExpectedTestCount: 1,
-      missingMockCount: 0,
-      multipleTestBlocks: true,
-      placeholderRenderTarget: false,
-      presenceAssertionCount: 1,
-      presenceOnlyTestCount: 0,
-      queryCheckpointCount: 0,
-      roleQueryCount: 1,
-      strongAssertionCount: 1,
-      testIdQueryCount: 0,
-      visibilityAssertionCount: 0,
-      visibilityOnlyTestCount: 0,
-      ...overrides.signals,
-    },
-    reasons: overrides.reasons ?? [],
-    blockers: overrides.blockers ?? [],
-    requiresReview: overrides.requiresReview ?? total < 80,
-    markerCoverage: {
-      detected: 0,
-      emitted: 0,
-      unresolved: 0,
-      ...overrides.markerCoverage,
-    },
-    markerDiagnostics: {
-      canonicalRecoveries: 0,
-      placementConflicts: 0,
-      placementCorrections: 0,
-      ...overrides.markerDiagnostics,
-    },
-    markerQualityGate: {
-      status: "pass",
-      reason: "no-markers-detected",
-      failing: false,
-      message: "No assertion markers detected.",
-      ...overrides.markerQualityGate,
-    },
-  };
+    grading: { total },
+  });
 }
 
 async function seedGeneratedTestRecord(
@@ -553,25 +470,14 @@ describe("createRegradeCommand", () => {
     await mkdir(dirname(testFile), { recursive: true });
     await writeFile(testFile, "describe('CheckoutFlow', () => {})\n", "utf-8");
 
-    const previousRecord = {
+    const previousRecord = makeGeneratedTestRecord({
       createdAt: "2026-03-31T09:00:00.000Z",
       packagePath: ".",
       recordingFile: "recordings/checkout-flow.js",
-      testFile,
-      quality: {
-        overall: 72,
-        grade: "C" as const,
-        dimensions: {
-          queryQuality: 72,
-          assertionSpecificity: 72,
-          testStructure: 72,
-          boundaryIsolation: 72,
-        },
-        signals: makeScoreResult({ total: 72 }).signals,
-        reasons: [],
-      },
       requiresReview: true,
-    };
+      scoreResult: makeScoreResult({ total: 72, requiresReview: true }),
+      testFile,
+    });
 
     const result = await runRegrade([testFile], root, {
       runRegradeTestFile: async ({ testFile }) =>
@@ -605,11 +511,27 @@ describe("createRegradeCommand", () => {
       "utf-8"
     );
     await seedGeneratedTestRecord(root, checkoutTest, { total: 67 });
-    await appendGradedTestRecord(root, {
-      packagePath: ".",
-      recordingFile: null,
-      testFile: checkoutTest,
-      gradeResult: makeExistingTestGradeResult({ total: 91 }),
+    const bootstrap = await runLoadOrBootstrapStateWorkflow(root);
+    const legacyGrade = makeExistingTestGradeResult({ total: 91 });
+    await writeTaroState(root, {
+      ...bootstrap.state,
+      gradedTests: [
+        {
+          createdAt: "2026-03-31T09:00:00.000Z",
+          packagePath: ".",
+          recordingFile: null,
+          testFile: checkoutTest,
+          quality: {
+            overall: legacyGrade.total,
+            grade: legacyGrade.grade,
+            dimensions: legacyGrade.dimensions,
+            signals: legacyGrade.signals,
+            reasons: legacyGrade.reasons,
+            blockers: legacyGrade.blockers,
+          },
+          requiresReview: legacyGrade.requiresReview,
+        },
+      ],
     });
 
     const result = await runRegrade([testsDir, "--directory-loop"], root, {

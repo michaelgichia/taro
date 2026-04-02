@@ -9,6 +9,7 @@ import {
   appendGeneratedTestRecord,
   runLoadOrBootstrapStateWorkflow,
 } from "#core/state.ts";
+import { makeHybridScoreResult } from "#tests/score-fixtures.ts";
 
 const sandboxes: string[] = [];
 
@@ -33,53 +34,25 @@ async function createSandbox(label: string) {
 }
 
 function makeStoredScoreResult(total: number) {
-  return {
-    total,
-    grade: total >= 90 ? "A" : total >= 80 ? "B" : total >= 70 ? "C" : "D",
-    dimensions: {
-      queryQuality: total,
-      assertionSpecificity: total,
-      testStructure: total,
-      boundaryIsolation: total,
+  return makeHybridScoreResult({
+    overall: total,
+    generation: {
+      total,
+      dimensions: {
+        queryQuality: total,
+        assertionSpecificity: total,
+        testStructure: total,
+        boundaryIsolation: total,
+      },
+      signals: {
+        roleQueryCount: 1,
+        strongAssertionCount: 1,
+        presenceAssertionCount: 1,
+        minimumExpectedTestCount: 1,
+      },
     },
-    signals: {
-      queryCheckpointCount: 0,
-      roleQueryCount: 1,
-      testIdQueryCount: 0,
-      strongAssertionCount: 1,
-      presenceAssertionCount: 1,
-      visibilityAssertionCount: 0,
-      visibilityOnlyTestCount: 0,
-      presenceOnlyTestCount: 0,
-      boundaryWarningCount: 0,
-      boundaryIssueCount: 0,
-      placeholderRenderTarget: false,
-      multipleTestBlocks: false,
-      minimumExpectedTestCount: 1,
-      branchCoverageRatio: 1,
-      missingMockCount: 0,
-      fireEventCount: 0,
-      hasBasePropsConstant: false,
-      hasOverrideRenderHelper: false,
-      duplicatedInlineRenderCount: 0,
-      hasStandaloneUtilityDescribe: false,
-    },
-    reasons: [],
-    blockers: [],
-    requiresReview: total < 80,
-    markerCoverage: { detected: 0, emitted: 0, unresolved: 0 },
-    markerDiagnostics: {
-      canonicalRecoveries: 0,
-      placementConflicts: 0,
-      placementCorrections: 0,
-    },
-    markerQualityGate: {
-      status: "pass" as const,
-      reason: "no-markers-detected" as const,
-      failing: false,
-      message: "No assertion markers detected.",
-    },
-  };
+    grading: { total },
+  });
 }
 
 async function writeTestFile(root: string, relativePath: string) {

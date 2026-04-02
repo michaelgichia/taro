@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTargetCommand } from "#cli/commands/target.ts";
 import { TARGET_OUTPUT_SCORE_GATE } from "#core/state.constants.ts";
 import { appendGeneratedTestRecord } from "#core/state.ts";
-import type { ScoreResult } from "#types/score.ts";
+import { makeHybridScoreResult } from "#tests/score-fixtures.ts";
 
 const { maybeAnalyzeMocksMock } = vi.hoisted(() => ({
   maybeAnalyzeMocksMock: vi.fn(async () => null),
@@ -141,65 +141,37 @@ async function runTarget(
   };
 }
 
-function makeScoreResult(overrides: Partial<ScoreResult> = {}): ScoreResult {
-  const total = overrides.total ?? TARGET_OUTPUT_SCORE_GATE * 100;
-
-  return {
-    total,
-    grade: total >= 90 ? "A" : total >= 80 ? "B" : total >= 70 ? "C" : "D",
-    dimensions: {
-      assertionSpecificity: 100,
-      boundaryIsolation: 100,
-      queryQuality: 100,
-      testStructure: 100,
-      ...overrides.dimensions,
-    },
-    signals: {
-      boundaryIssueCount: 0,
-      boundaryWarningCount: 0,
-      branchCoverageRatio: 1,
-      duplicatedInlineRenderCount: 0,
-      fireEventCount: 0,
-      hasBasePropsConstant: true,
-      hasOverrideRenderHelper: true,
-      hasStandaloneUtilityDescribe: false,
-      minimumExpectedTestCount: 1,
-      missingMockCount: 0,
-      multipleTestBlocks: true,
-      placeholderRenderTarget: false,
-      presenceAssertionCount: 1,
-      presenceOnlyTestCount: 0,
-      queryCheckpointCount: 0,
-      roleQueryCount: 1,
-      strongAssertionCount: 1,
-      testIdQueryCount: 0,
-      visibilityAssertionCount: 0,
-      visibilityOnlyTestCount: 0,
-      ...overrides.signals,
-    },
-    reasons: overrides.reasons ?? [],
-    blockers: overrides.blockers ?? [],
-    requiresReview: overrides.requiresReview ?? false,
-    markerCoverage: {
-      detected: 0,
-      emitted: 0,
-      unresolved: 0,
-      ...overrides.markerCoverage,
-    },
-    markerDiagnostics: {
-      canonicalRecoveries: 0,
-      placementConflicts: 0,
-      placementCorrections: 0,
-      ...overrides.markerDiagnostics,
-    },
-    markerQualityGate: {
-      status: "pass",
-      reason: "no-markers-detected",
-      failing: false,
-      message: "No assertion markers detected.",
-      ...overrides.markerQualityGate,
-    },
+function makeScoreResult(overrides: Record<string, unknown> = {}) {
+  const typedOverrides = overrides as {
+    blockers?: string[];
+    dimensions?: Record<string, number>;
+    grade?: "A" | "B" | "C" | "D" | "F";
+    markerCoverage?: Record<string, number>;
+    markerDiagnostics?: Record<string, number>;
+    markerQualityGate?: Record<string, unknown>;
+    reasons?: unknown[];
+    requiresReview?: boolean;
+    signals?: Record<string, unknown>;
+    total?: number;
   };
+  const total = typedOverrides.total ?? TARGET_OUTPUT_SCORE_GATE * 100;
+
+  return makeHybridScoreResult({
+    overall: total,
+    grade: typedOverrides.grade,
+    blockers: typedOverrides.blockers,
+    dimensions: typedOverrides.dimensions as any,
+    reasons: typedOverrides.reasons as any,
+    requiresReview: typedOverrides.requiresReview ?? false,
+    signals: typedOverrides.signals as any,
+    generation: {
+      total,
+      markerCoverage: typedOverrides.markerCoverage as any,
+      markerDiagnostics: typedOverrides.markerDiagnostics as any,
+      markerQualityGate: typedOverrides.markerQualityGate as any,
+    },
+    grading: { total },
+  });
 }
 
 async function seedGeneratedTestRecord(
@@ -238,7 +210,7 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
 
-    const result = await runTarget([componentPath], root);
+    const result = await runTarget([componentPath, "--min-score", "70"], root);
     const outputPath = join(root, "src", "CheckoutForm.test.tsx");
     const written = await readFile(outputPath, "utf-8");
 
@@ -276,7 +248,7 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
 
-    const result = await runTarget([componentPath], root);
+    const result = await runTarget([componentPath, "--min-score", "70"], root);
     const outputPath = join(testsDir, "Button.test.tsx");
     const written = await readFile(outputPath, "utf-8");
 
@@ -312,7 +284,7 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
 
-    const result = await runTarget([componentPath], root);
+    const result = await runTarget([componentPath, "--min-score", "60"], root);
     const outputPath = join(root, "src", "ProfileCard.test.tsx");
     const written = await readFile(outputPath, "utf-8");
 
@@ -436,7 +408,7 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
 
-    const result = await runTarget([componentPath], root);
+    const result = await runTarget([componentPath, "--min-score", "85"], root);
 
     expect(result.exitCode).toBe(0);
     expect(result.logs).toContain(
@@ -475,7 +447,7 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
 
-    const result = await runTarget([componentPath], root);
+    const result = await runTarget([componentPath, "--min-score", "85"], root);
     const outputPath = join(root, "src", "CheckoutForm.test.tsx");
     const written = await readFile(outputPath, "utf-8");
 
@@ -580,7 +552,7 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
 
-    const result = await runTarget([componentPath], root);
+    const result = await runTarget([componentPath, "--min-score", "85"], root);
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toContain("=== taro:findings:start ===");
@@ -643,7 +615,7 @@ describe("createTargetCommand", () => {
       enabledContractFamilies: ["mutation-form"],
     });
 
-    const result = await runTarget([componentPath], root);
+    const result = await runTarget([componentPath, "--min-score", "85"], root);
 
     expect(result.thrown).toBeUndefined();
     expect(result.stdout).toContain("=== taro:findings:start ===");
@@ -653,7 +625,7 @@ describe("createTargetCommand", () => {
     );
   });
 
-  it("accepts an existing output when component inference is blocked but the current test is already valid", async () => {
+  it("accepts an existing output when component inference is blocked but the current test already clears a custom merged gate", async () => {
     const root = await createSandbox("opaque-component-existing-output");
     const componentPath = join(root, "src", "DashboardShell.tsx");
     const outputPath = join(root, "src", "tests", "DashboardShell.test.tsx");
@@ -731,7 +703,7 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
 
-    const result = await runTarget([componentPath], root);
+    const result = await runTarget([componentPath, "--min-score", "60"], root);
 
     expect(result.exitCode).toBe(0);
     expect(result.logs).toContain(

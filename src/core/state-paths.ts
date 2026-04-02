@@ -69,11 +69,12 @@ export function normalizeRepoRelativePath(
   projectRoot: string,
   filePath: string
 ): string | null {
+  const normalizedProjectRoot = normalizeComparableAbsolutePath(projectRoot);
+  const normalizedFilePath = normalizeComparableAbsolutePath(
+    resolve(projectRoot, filePath)
+  );
   const relativePath = toPosixPath(
-    relative(
-      normalizeComparableAbsolutePath(projectRoot),
-      normalizeComparableAbsolutePath(filePath)
-    )
+    relative(normalizedProjectRoot, normalizedFilePath)
   );
 
   if (

@@ -118,6 +118,10 @@ export async function appendGradedTestRecord(
 ): Promise<void> {
   const bootstrap = await runLoadOrBootstrapStateWorkflow(projectRoot);
   const createdAt = new Date().toISOString();
+  const normalizedTestFile = normalizeGeneratedTestHistoryPath(
+    projectRoot,
+    record.testFile
+  );
   const nextState: TaroState = {
     ...bootstrap.state,
     meta: {
@@ -125,20 +129,22 @@ export async function appendGradedTestRecord(
       updatedAt: createdAt,
       taroVersion: TARO_VERSION,
     },
-    gradedTests: trimGradedTestHistory(projectRoot, [
-      ...bootstrap.state.gradedTests,
+    generatedTests: trimGeneratedTestHistory(projectRoot, [
+      ...bootstrap.state.generatedTests,
       {
         createdAt,
         packagePath: record.packagePath,
         recordingFile: record.recordingFile ?? null,
-        testFile: record.testFile,
+        testFile: normalizedTestFile,
         quality: {
           overall: record.gradeResult.total,
           grade: record.gradeResult.grade,
-          dimensions: record.gradeResult.dimensions,
-          signals: record.gradeResult.signals,
-          reasons: record.gradeResult.reasons,
+          overallSource: "legacy-graded",
           blockers: record.gradeResult.blockers,
+          families: {
+            generation: null,
+            grading: record.gradeResult,
+          },
         },
         requiresReview: record.gradeResult.requiresReview,
       },

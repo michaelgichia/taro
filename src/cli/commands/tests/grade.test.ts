@@ -7,7 +7,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createGradeCommand } from "#cli/commands/grade.ts";
 import type { GradeRunnerResult } from "#cli/commands/grade-runner.ts";
-import type { ScoreResult } from "#types/score.ts";
+import {
+  makeGeneratedTestRecord,
+  makeHybridScoreResult,
+} from "#tests/score-fixtures.ts";
 
 const sandboxes: string[] = [];
 
@@ -92,84 +95,34 @@ async function runGrade(
   };
 }
 
-function makeScoreResult(overrides: Partial<ScoreResult> = {}): ScoreResult {
-  const total = overrides.total ?? 84;
-
-  return {
-    total,
-    grade:
-      overrides.grade ??
-      (total >= 90
-        ? "A"
-        : total >= 80
-          ? "B"
-          : total >= 70
-            ? "C"
-            : total >= 60
-              ? "D"
-              : "F"),
-    dimensions: {
-      queryQuality: 100,
-      assertionSpecificity: 84,
-      testStructure: 76,
-      boundaryIsolation: 76,
-      ...overrides.dimensions,
-    },
-    signals: {
-      queryCheckpointCount: 0,
-      roleQueryCount: 1,
-      testIdQueryCount: 0,
-      strongAssertionCount: 1,
-      presenceAssertionCount: 1,
-      visibilityAssertionCount: 0,
-      visibilityOnlyTestCount: 0,
-      presenceOnlyTestCount: 0,
-      boundaryWarningCount: 0,
-      boundaryIssueCount: 0,
-      placeholderRenderTarget: false,
-      multipleTestBlocks: true,
-      minimumExpectedTestCount: 1,
-      branchCoverageRatio: 1,
-      missingMockCount: 0,
-      fireEventCount: 0,
-      hasBasePropsConstant: true,
-      hasOverrideRenderHelper: true,
-      duplicatedInlineRenderCount: 0,
-      hasStandaloneUtilityDescribe: false,
-      ...overrides.signals,
-    },
-    reasons: overrides.reasons ?? [],
-    blockers: overrides.blockers ?? [],
-    requiresReview: overrides.requiresReview ?? total < 80,
-    markerCoverage: {
-      detected: 0,
-      emitted: 0,
-      unresolved: 0,
-      ...overrides.markerCoverage,
-    },
-    markerDiagnostics: {
-      canonicalRecoveries: 0,
-      placementConflicts: 0,
-      placementCorrections: 0,
-      ...overrides.markerDiagnostics,
-    },
-    markerQualityGate: {
-      status: "pass",
-      reason: "no-markers-detected",
-      failing: false,
-      message: "No assertion markers detected.",
-      ...overrides.markerQualityGate,
-    },
-  };
-}
-
 function makeRunnerResult(params: {
   followUpComments?: string[];
   matchedHistoryRecord?: GradeRunnerResult["matchedHistoryRecord"];
   matchedHistorySource?: GradeRunnerResult["matchedHistorySource"];
   testFile: string;
 }): GradeRunnerResult {
-  const gradeResult = makeScoreResult();
+  const gradeResult = makeHybridScoreResult({
+    overall: 84,
+    generation: {
+      total: 84,
+      dimensions: {
+        queryQuality: 100,
+        assertionSpecificity: 84,
+        testStructure: 76,
+        boundaryIsolation: 76,
+      },
+      signals: {
+        roleQueryCount: 1,
+        strongAssertionCount: 1,
+        presenceAssertionCount: 1,
+        multipleTestBlocks: true,
+        minimumExpectedTestCount: 1,
+        hasBasePropsConstant: true,
+        hasOverrideRenderHelper: true,
+      },
+    },
+    grading: { total: 84 },
+  });
 
   return {
     followUpComments: params.followUpComments ?? ["No follow-up required."],
@@ -201,46 +154,18 @@ describe("createGradeCommand", () => {
     await mkdir(dirname(testFile), { recursive: true });
     await writeFile(testFile, "describe('CheckoutFlow', () => {})\n", "utf-8");
 
-    const previousRecord = {
+    const previousRecord = makeGeneratedTestRecord({
       createdAt: "2026-03-31T09:00:00.000Z",
       packagePath: ".",
       recordingFile: "recordings/checkout-flow.js",
-      testFile,
-      quality: {
+      scoreResult: makeHybridScoreResult({
         overall: 72,
-        grade: "C" as const,
-        dimensions: {
-          queryQuality: 72,
-          assertionSpecificity: 72,
-          testStructure: 72,
-          boundaryIsolation: 72,
-        },
-        signals: {
-          queryCheckpointCount: 0,
-          roleQueryCount: 1,
-          testIdQueryCount: 0,
-          strongAssertionCount: 1,
-          presenceAssertionCount: 1,
-          visibilityAssertionCount: 0,
-          visibilityOnlyTestCount: 0,
-          presenceOnlyTestCount: 0,
-          boundaryWarningCount: 0,
-          boundaryIssueCount: 0,
-          placeholderRenderTarget: false,
-          multipleTestBlocks: false,
-          minimumExpectedTestCount: 1,
-          branchCoverageRatio: 1,
-          missingMockCount: 0,
-          fireEventCount: 0,
-          hasBasePropsConstant: false,
-          hasOverrideRenderHelper: false,
-          duplicatedInlineRenderCount: 0,
-          hasStandaloneUtilityDescribe: false,
-        },
-        reasons: [],
-      },
-      requiresReview: true,
-    };
+        generation: { total: 72 },
+        grading: { total: 72 },
+        requiresReview: true,
+      }),
+      testFile,
+    });
 
     const result = await runGrade([testFile], root, {
       runGradeTestFile: async ({ testFile }) =>
