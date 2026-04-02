@@ -1,6 +1,6 @@
 import type { MutationLifecycleStage } from "#types/conventions.ts";
 
-export const STATE_VERSION = 1;
+export const STATE_VERSION = 2;
 export const GENERATED_TEST_HISTORY_LIMIT_PER_TEST = 5;
 export const MAX_EVIDENCE = 50;
 export const MAX_EXEMPLARS = 5;
@@ -75,6 +75,7 @@ export const SCORE_WEIGHT_MIN = 0.6;
 export const SCORE_WEIGHT_MAX = 1.3;
 export const SCORE_WEIGHT_BASE = 0.3;
 export const SCORE_REVIEW_CAP = 0.85;
+export const TARGET_OUTPUT_SCORE_GATE = 0.99;
 export const MIXED_CONVENTION_THRESHOLD = 0.8;
 
 export const SCAN_STATE_MACHINE_ID = "scanState";

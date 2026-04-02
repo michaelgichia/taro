@@ -10,9 +10,15 @@ import type {
   MutationLifecyclePattern,
 } from "#types/conventions.ts";
 import type {
-  ScoreDimensions,
-  ScoreReason,
-  ScoreSignals,
+  ExistingTestGradeResult,
+  ExistingTestGradeDimensions,
+  ExistingTestGradeLetter,
+  ExistingTestGradeReason,
+  ExistingTestGradeSignals,
+} from "#types/existing-test-grade.ts";
+import type {
+  GenerationScoreResult,
+  ScoreOverallSource,
 } from "#types/score.ts";
 
 export type TaroStateConfidence = "low" | "medium" | "high";
@@ -232,15 +238,34 @@ export interface TaroGeneratedTestRecord {
   quality: {
     overall: number;
     grade: "A" | "B" | "C" | "D" | "F";
-    dimensions: ScoreDimensions;
-    signals: ScoreSignals;
-    reasons: ScoreReason[];
+    overallSource: ScoreOverallSource;
+    blockers: string[];
+    families: {
+      generation: GenerationScoreResult | null;
+      grading: ExistingTestGradeResult | null;
+    };
+  };
+  requiresReview: boolean;
+}
+
+export interface TaroGradedTestRecord {
+  createdAt: string;
+  packagePath: string;
+  recordingFile: string | null;
+  testFile: string;
+  quality: {
+    overall: number;
+    grade: ExistingTestGradeLetter;
+    dimensions: ExistingTestGradeDimensions;
+    signals: ExistingTestGradeSignals;
+    reasons: ExistingTestGradeReason[];
+    blockers: string[];
   };
   requiresReview: boolean;
 }
 
 export interface TaroState {
-  version: 1;
+  version: 2;
   meta: { createdAt: string; updatedAt: string; taroVersion: string };
   packages: Record<string, TaroPackageProfile>;
   mockStore: {
@@ -249,6 +274,7 @@ export interface TaroState {
     resources: TaroMockStoreResource[];
   };
   generatedTests: TaroGeneratedTestRecord[];
+  gradedTests: TaroGradedTestRecord[];
 }
 
 export interface TaroPackageOverrides {

@@ -195,7 +195,7 @@ describe("runInstallCommand", () => {
         ),
         "utf8"
       )
-    ).resolves.toContain("Do not invent or invoke `__regrade`.");
+    ).resolves.toContain(`${runtimeCommand} __regrade <test-file>`);
   });
 
   it("reports update results on rerun in non-interactive mode", async () => {

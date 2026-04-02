@@ -51,7 +51,7 @@ vi.mock("#core/mock-intelligence.ts", () => ({
 }));
 
 const {
-  loadOrBootstrapTaroStateMock,
+  runLoadOrBootstrapStateWorkflowMock,
   detectPackageProfileStalenessMock,
   resolveTaroPackageProfileMock,
   appendGeneratedTestRecordMock,
@@ -59,7 +59,7 @@ const {
   readTaroOverridesMock,
   refreshTaroStateMock,
 } = vi.hoisted(() => ({
-  loadOrBootstrapTaroStateMock: vi.fn(),
+  runLoadOrBootstrapStateWorkflowMock: vi.fn(),
   detectPackageProfileStalenessMock: vi.fn(),
   resolveTaroPackageProfileMock: vi.fn(),
   appendGeneratedTestRecordMock: vi.fn(),
@@ -196,7 +196,7 @@ vi.mock("#core/state.ts", async (importOriginal) => {
   return {
     ...actual,
     appendGeneratedTestRecord: appendGeneratedTestRecordMock,
-    loadOrBootstrapTaroState: loadOrBootstrapTaroStateMock,
+    runLoadOrBootstrapStateWorkflow: runLoadOrBootstrapStateWorkflowMock,
     detectPackageProfileStaleness: detectPackageProfileStalenessMock,
     persistPlaywrightAuthProfile: persistPlaywrightAuthProfileMock,
     readTaroOverrides: readTaroOverridesMock,
@@ -446,7 +446,7 @@ beforeEach(() => {
     browser: { close: vi.fn(async () => undefined) },
     page: {},
   });
-  loadOrBootstrapTaroStateMock.mockResolvedValue(createDefaultTaroState());
+  runLoadOrBootstrapStateWorkflowMock.mockResolvedValue(createDefaultTaroState());
   detectPackageProfileStalenessMock.mockResolvedValue({
     stale: false,
     reason: null,
@@ -832,7 +832,7 @@ test('Example flow', async () => {
       ".": defaultProfile,
       "packages/example-app": exampleProfile,
     };
-    loadOrBootstrapTaroStateMock.mockResolvedValue(
+    runLoadOrBootstrapStateWorkflowMock.mockResolvedValue(
       createDefaultTaroState(packages)
     );
     resolveTaroPackageProfileMock.mockImplementation(
@@ -953,7 +953,7 @@ test('Example flow', async () => {
       ".": defaultProfile,
       "packages/example-app": exampleProfile,
     };
-    loadOrBootstrapTaroStateMock.mockResolvedValue(
+    runLoadOrBootstrapStateWorkflowMock.mockResolvedValue(
       createDefaultTaroState(packages)
     );
     resolveTaroPackageProfileMock.mockImplementation(
@@ -1067,7 +1067,7 @@ test('Example flow', async () => {
       ".": defaultProfile,
       "packages/example-app": exampleProfile,
     };
-    loadOrBootstrapTaroStateMock.mockResolvedValue(
+    runLoadOrBootstrapStateWorkflowMock.mockResolvedValue(
       createDefaultTaroState(packages)
     );
     resolveTaroPackageProfileMock.mockImplementation(
@@ -1205,7 +1205,7 @@ test('Example flow', async () => {
       ".": defaultProfile,
       "packages/example-app": exampleProfile,
     };
-    loadOrBootstrapTaroStateMock.mockResolvedValue(
+    runLoadOrBootstrapStateWorkflowMock.mockResolvedValue(
       createDefaultTaroState(packages)
     );
     resolveTaroPackageProfileMock.mockImplementation(
@@ -1307,7 +1307,7 @@ test('Example flow', async () => {
       ".": defaultProfile,
       "packages/example-app": exampleProfile,
     };
-    loadOrBootstrapTaroStateMock.mockResolvedValue(
+    runLoadOrBootstrapStateWorkflowMock.mockResolvedValue(
       createDefaultTaroState(packages)
     );
     resolveTaroPackageProfileMock.mockImplementation(
@@ -1567,7 +1567,7 @@ test('Example flow', async () => {
       ".": defaultProfile,
       "packages/example-app": exampleProfile,
     };
-    loadOrBootstrapTaroStateMock.mockResolvedValue(
+    runLoadOrBootstrapStateWorkflowMock.mockResolvedValue(
       createDefaultTaroState(packages)
     );
     resolveTaroPackageProfileMock.mockImplementation(
@@ -2243,7 +2243,7 @@ describe('Example flow', () => {
 
   it("warns when state bootstrap has warnings", async () => {
     const fixture = await createRecordingFixture("state-warnings");
-    loadOrBootstrapTaroStateMock.mockResolvedValue({
+    runLoadOrBootstrapStateWorkflowMock.mockResolvedValue({
       ...createDefaultTaroState(),
       summary: {
         ...createDefaultTaroState().summary,
@@ -2932,6 +2932,61 @@ describe('Example flow', () => {
     );
   });
 
+  it("emits stable mock-review findings when generated output needs mutation lifecycle follow-up", async () => {
+    const fixture = await createRecordingFixture("mock-review-lifecycle");
+    const { analyzeMocks: analyzeMocksModule } =
+      await import("#core/mock-intelligence.ts");
+    vi.mocked(analyzeMocksModule).mockResolvedValueOnce({
+      source: "package-profile",
+      packagePath: ".",
+      repeatedTargets: [],
+      mutationLifecycles: [
+        {
+          file: "src/orders.test.tsx",
+          stages: ["loading", "success"],
+          evidence: [],
+        },
+      ],
+      interactionContracts: [
+        {
+          file: "src/orders.test.tsx",
+          kind: "mutation-form",
+          states: ["loading", "success"],
+          supportTargets: [],
+          overrideStyle: "stable-handles",
+          confidence: "high",
+          evidence: [],
+        },
+      ],
+      instabilityWarnings: [],
+      boundaryProfiles: [],
+      recommendations: [],
+      conventions: null,
+      inlineSafeMockTargets: [],
+      sharedMockFactories: [],
+      preferredSharedMocks: {},
+      forbidMocks: [],
+      preferredBoundaryImplementations: {},
+      forbidBoundaryTargets: [],
+      queryHookPolicy: "avoid",
+      companionPolicy: "heuristic",
+      enabledContractFamilies: ["mutation-form"],
+    } as never);
+
+    const result = await runGenerate(
+      [fixture.recordingPath],
+      fixture.outputDir
+    );
+
+    expect(result.thrown).toBeUndefined();
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("=== taro:findings:start ===");
+    expect(result.stdout).toContain("[ADVISORY] mock-lifecycle");
+    expect(result.stdout).toContain(
+      "may need loading or failure companion coverage before final acceptance"
+    );
+  });
+
   it("emits existing-output assessment error warning when reading existing output fails", async () => {
     const fixture = await createInlineJsFixture(
       "existing-output-error",
@@ -3189,7 +3244,7 @@ test('Example flow', async () => {
       ".": defaultProfile,
       "packages/example-app": exampleProfile,
     };
-    loadOrBootstrapTaroStateMock.mockResolvedValue(
+    runLoadOrBootstrapStateWorkflowMock.mockResolvedValue(
       createDefaultTaroState(packages)
     );
     resolveTaroPackageProfileMock.mockImplementation(
@@ -3377,7 +3432,7 @@ export default function FeatureFlow() { useOrders(); return <div>Flow</div> }`,
       ".": defaultProfile,
       "packages/example-app": exampleProfile,
     };
-    loadOrBootstrapTaroStateMock.mockResolvedValue(
+    runLoadOrBootstrapStateWorkflowMock.mockResolvedValue(
       createDefaultTaroState(packages)
     );
     // Return exampleProfile for all paths so planBoundarySupport receives
@@ -3460,5 +3515,63 @@ test('baseline', () => { render(<FeatureFlow />) })`,
 
     expect(result.thrown).toBeUndefined();
     expect(written).toContain("import FeatureFlow from './FeatureFlow'");
+  });
+
+  it("rejects invalid --min-score values before generation starts", async () => {
+    const fixture = await createRecordingFixture("min-score-invalid");
+
+    const result = await runGenerate(
+      [fixture.recordingPath, "--min-score", "101"],
+      fixture.outputDir
+    );
+
+    expect(result.exitCode).toBe(2);
+    expect(result.logs).toContain("Invalid --min-score value");
+  });
+
+  it("emits a blocking quality finding when --min-score is not met", async () => {
+    const fixture = await createRecordingFixture("min-score-blocking");
+
+    const result = await runGenerate(
+      [fixture.recordingPath, "--min-score", "100"],
+      fixture.outputDir
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("[BLOCKING] quality");
+    expect(result.stdout).toContain("--min-score 100/100");
+  });
+
+  it("does not block on requiresReview when --min-score is satisfied", async () => {
+    const fixture = await createRecordingFixture("min-score-review-warning");
+
+    const result = await runGenerate(
+      [fixture.recordingPath, "--min-score", "0"],
+      fixture.outputDir
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.warnings).toContain("Manual review required");
+    expect(result.stdout).not.toContain("[BLOCKING] follow-up");
+    expect(result.stdout).not.toContain("[BLOCKING] quality");
+  });
+
+  it("applies --min-score to the selected existing output after reconciliation", async () => {
+    const fixture = await createRecordingFixture("min-score-existing-output");
+
+    const firstRun = await runGenerate([fixture.recordingPath], fixture.outputDir);
+    expect(firstRun.exitCode).toBe(0);
+
+    const secondRun = await runGenerate(
+      [fixture.recordingPath, "--min-score", "100"],
+      fixture.outputDir
+    );
+
+    expect(secondRun.exitCode).toBe(1);
+    expect(secondRun.logs).toContain("Existing output detected:");
+    expect(secondRun.logs).toContain(
+      "Keeping the existing test because it remains the preferred suite"
+    );
+    expect(secondRun.stdout).toContain("[BLOCKING] quality");
   });
 });

@@ -4,6 +4,7 @@ import { createActor, fromPromise } from "xstate";
 
 import { createGenerateMachine } from "#cli/commands/generate.machine.ts";
 import type { GenerateMachineContext } from "#cli/commands/generate-runtime-types.ts";
+import { makeHybridScoreResult } from "#tests/score-fixtures.ts";
 
 const noop = fromPromise(async () => {});
 const noopReturn = <T>(value: T) => fromPromise(async () => value);
@@ -51,39 +52,21 @@ const makeAllActors = (
   assessOutputActor: noopReturn({
     existingCode: null,
     existingAssessment: null,
-    outputResolution: {
-      mergeApplied: false,
-      mergedTestCount: 0,
-      outputAssessment: {
-        flowCoverage: {
-          totalSteps: 1,
-          coveredSteps: 1,
-          coveredStepIds: ["0"],
-          uncoveredStepIds: [],
-        },
-        scoreResult: {
-          total: 80,
-          grade: "B",
-          requiresReview: false,
-          blockers: [],
-          dimensions: {
-            queryQuality: 80,
-            assertionSpecificity: 80,
-            testStructure: 80,
-            boundaryIsolation: 80,
+      outputResolution: {
+        mergeApplied: false,
+        mergedTestCount: 0,
+        outputAssessment: {
+          flowCoverage: {
+            totalSteps: 1,
+            coveredSteps: 1,
+            coveredStepIds: ["0"],
+            uncoveredStepIds: [],
           },
-          markerCoverage: { detected: 0, emitted: 0, unresolved: 0 },
-          markerQualityGate: {
-            status: "pass",
-            failing: false,
-            reason: "",
-            message: "",
-          },
+          scoreResult: makeScore(80, "B"),
         },
-      },
-      outputCode: "generated()",
-      preferredSource: "candidate",
-      shouldWrite: true,
+        outputCode: "generated()",
+        preferredSource: "candidate",
+        shouldWrite: true,
     },
   }),
   writeOutputActor: noop,
@@ -117,25 +100,32 @@ function runCollectingStates(actor: ReturnType<typeof createActor>): {
 }
 
 function makeScore(total: number, grade: "A" | "B" | "C") {
-  return {
-    total,
+  return makeHybridScoreResult({
+    overall: total,
     grade,
+    generation: {
+      total,
+      dimensions: {
+        queryQuality: total,
+        assertionSpecificity: total,
+        testStructure: total,
+        boundaryIsolation: total,
+      },
+      markerCoverage: { detected: 0, emitted: 0, unresolved: 0 },
+      markerQualityGate: {
+        status: "pass",
+        failing: false,
+        reason: "no-markers-detected",
+        message: "",
+      },
+      requiresReview: total < 70,
+    },
+    grading: {
+      total,
+      requiresReview: total < 70,
+    },
     requiresReview: total < 70,
-    blockers: [] as string[],
-    dimensions: {
-      queryQuality: total,
-      assertionSpecificity: total,
-      testStructure: total,
-      boundaryIsolation: total,
-    },
-    markerCoverage: { detected: 0, emitted: 0, unresolved: 0 },
-    markerQualityGate: {
-      status: "pass" as const,
-      failing: false,
-      reason: "",
-      message: "",
-    },
-  };
+  });
 }
 
 function makePackageProfile(

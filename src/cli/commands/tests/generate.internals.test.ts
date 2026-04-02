@@ -62,6 +62,7 @@ import type {
   QueryResult,
   SelectorResolutionResult,
 } from "#types/recording.ts";
+import { makeHybridScoreResult } from "#tests/score-fixtures.ts";
 
 const generateCommandInternals = {
   applyRepoRenderTarget,
@@ -245,24 +246,44 @@ function makeSuitePlan(overrides: Record<string, unknown> = {}) {
 }
 
 function makeScoreResult(overrides: Record<string, unknown> = {}) {
-  return {
-    blockers: [],
-    dimensions: {
-      assertionSpecificity: 80,
-      boundaryIsolation: 80,
-      queryQuality: 80,
-      testStructure: 80,
+  const typedOverrides = overrides as {
+    blockers?: string[];
+    dimensions?: Record<string, number>;
+    grade?: "A" | "B" | "C" | "D" | "F";
+    markerQualityGate?: Record<string, unknown>;
+    reasons?: unknown[];
+    requiresReview?: boolean;
+    signals?: Record<string, unknown>;
+    total?: number;
+  };
+  const total = typedOverrides.total ?? 80;
+
+  return makeHybridScoreResult({
+    overall: total,
+    grade: typedOverrides.grade,
+    blockers: typedOverrides.blockers,
+    dimensions:
+      (typedOverrides.dimensions as Partial<
+        ReturnType<typeof makeHybridScoreResult>["dimensions"]
+      > | undefined) ?? undefined,
+    reasons: typedOverrides.reasons as any,
+    requiresReview: typedOverrides.requiresReview,
+    signals:
+      (typedOverrides.signals as Partial<
+        ReturnType<typeof makeHybridScoreResult>["signals"]
+      > | undefined) ?? undefined,
+    generation: {
+      total,
+      markerQualityGate: {
+        status: "pass",
+        reason: "no-markers-detected",
+        failing: false,
+        message: "markers look good",
+        ...(typedOverrides.markerQualityGate as Record<string, unknown>),
+      } as any,
     },
-    grade: "B",
-    markerQualityGate: {
-      failing: false,
-      message: "markers look good",
-      reason: "ok",
-    },
-    requiresReview: false,
-    total: 80,
-    ...overrides,
-  } as any;
+    grading: { total },
+  });
 }
 
 async function createTempDir(label: string): Promise<string> {

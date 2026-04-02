@@ -17,10 +17,10 @@ Invoke this skill with `$@taro-test/rtl-help`.
 - `$@taro-test/rtl-generate` for Recorder-to-RTL generation
 - `$@taro-test/rtl-generate-i` for Recorder-to-RTL generation that forces interactive auth recovery
 - `$@taro-test/rtl-grade` for grading an existing test file and storing a new grade snapshot in `.taro/state.json`
-- `$@taro-test/rtl-regrade` for regrading an existing test file, comparing it to the latest stored snapshot, and storing a new grade snapshot
-- `$@taro-test/rtl-target` for component-targeted RTL generation with an optional Recorder file
+- `$@taro-test/rtl-regrade` for regrading an existing test file, or regrading every test in one directory with `--directory-loop`, while tracking progress in `.taro/state.json` or `.taro/directory-loop/`
+- `$@taro-test/rtl-target` for component-targeted or directory-loop RTL generation, with an optional Recorder file for single-file flows
+- `$@taro-test/rtl-mocks` for standalone mock and fixture review, and as the bounded second-pass review contract used by single-file generation
 - `$@taro-test/rtl-conventions` for convention-aware generation guidance
-- `$@taro-test/rtl-mocks` for mock and fixture review
 
 ## Routing guide
 
@@ -30,10 +30,10 @@ Invoke this skill with `$@taro-test/rtl-help`.
 - Use `$@taro-test/rtl-generate` when the user already has a Testing Library Recorder `.js` export and wants a test generated.
 - Use `$@taro-test/rtl-generate-i` when the user wants the same generation flow but needs interactive auth recovery forced for that run.
 - Use `$@taro-test/rtl-grade` when the user wants a score for an existing `*.test.*` file and wants that score tracked in `.taro/state.json`.
-- Use `$@taro-test/rtl-regrade` when the user wants to compare a changed test against its latest stored snapshot and append a new stored snapshot.
-- Use `$@taro-test/rtl-target` when the user wants to point Taro at a specific component file and optionally also provide a Recorder file.
+- Use `$@taro-test/rtl-regrade` when the user wants to compare a changed test against its latest stored snapshot and append a new stored snapshot, or when they want to batch regrade one test directory with `--directory-loop` and follow progress in `.taro/directory-loop/`.
+- Use `$@taro-test/rtl-target` when the user wants to point Taro at a specific component file, or at a component directory for directory-loop mode, and optionally also provide a Recorder file for single-file targeting.
+- Use `$@taro-test/rtl-mocks` when the user wants dedicated mock repair guidance, or when a generated test still has mock-related findings after a single-file generation run.
 - Use `$@taro-test/rtl-conventions` when the user asks why generated output follows a certain style, file location, import pattern, or helper setup.
-- Use `$@taro-test/rtl-mocks` when the generated test needs API, router, auth, fixture, or provider boundary guidance.
 
 ## Default workflow
 
@@ -43,8 +43,9 @@ Invoke this skill with `$@taro-test/rtl-help`.
 4. For first-time setup after install or reinstall, use `$@taro-test/rtl-init`.
 5. For maintenance, resync, or repair, use `$@taro-test/rtl-refresh`.
 6. For manual policy scaffolding, use `$@taro-test/rtl-overrides`.
-7. For Recorder-first generation, use `$@taro-test/rtl-generate`. For forced interactive auth recovery, use `$@taro-test/rtl-generate-i`. For existing-test grading, use `$@taro-test/rtl-grade` or `$@taro-test/rtl-regrade`. For explicit component targeting, use `$@taro-test/rtl-target`.
-8. Report the generated file path if generation ran, or the scored file path if grading ran, plus the score and blockers that still require manual cleanup.
+7. For Recorder-first generation, use `$@taro-test/rtl-generate`. For forced interactive auth recovery, use `$@taro-test/rtl-generate-i`. For existing-test grading, use `$@taro-test/rtl-grade` or `$@taro-test/rtl-regrade`. Use `$@taro-test/rtl-regrade` with `--directory-loop` when the request is to regrade every test in one directory. For explicit component targeting, use `$@taro-test/rtl-target`.
+8. Single-file `generate`, `generate-i`, and `target` flows may run one bounded `$@taro-test/rtl-mocks` repair pass after Taro emits mock-review findings. Requested `--min-score` gates apply to the final post-review result, not the first pass. Directory-loop target stays review-only in v1.
+9. Report the generated file path if generation ran, the scored file path if single-file grading ran, or the `.taro/directory-loop/` tracker path if batch regrade ran, plus the score and blockers that still require manual cleanup.
 
 ## Response contract
 

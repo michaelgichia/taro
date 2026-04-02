@@ -564,20 +564,36 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
               guard: "shouldKeepExisting",
               target: "done",
 
-              actions: ({ context, event }: any) => {
-                if (
-                  event.output?.existingCode &&
-                  event.output?.existingAssessment
-                ) {
-                  logExistingOutputDecision({
-                    outputPath: context.outputPath!,
-                    candidate: context.candidateAssessment!,
-                    existing: event.output.existingAssessment,
-                    overwrite: false,
-                    resolution: event.output?.outputResolution ?? null,
-                  });
-                }
-              },
+              actions: [
+                assign(({ context, event }) => {
+                  const out = (event as any).output;
+                  return {
+                    existingCode: out?.existingCode,
+                    existingAssessment: out?.existingAssessment,
+                    outputResolution: out?.outputResolution,
+                    generatedCode:
+                      out?.outputResolution?.outputCode ?? context.generatedCode,
+                    scoreResult:
+                      out?.outputResolution?.outputAssessment?.scoreResult ??
+                      context.scoreResult,
+                    shouldOverwrite: false,
+                  };
+                }),
+                ({ context, event }: any) => {
+                  if (
+                    event.output?.existingCode &&
+                    event.output?.existingAssessment
+                  ) {
+                    logExistingOutputDecision({
+                      outputPath: context.outputPath!,
+                      candidate: context.candidateAssessment!,
+                      existing: event.output.existingAssessment,
+                      overwrite: false,
+                      resolution: event.output?.outputResolution ?? null,
+                    });
+                  }
+                },
+              ],
             },
           ],
           // intentional: preserve existing on assessment error

@@ -3,11 +3,33 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTargetCommand } from "#cli/commands/target.ts";
+import { TARGET_OUTPUT_SCORE_GATE } from "#core/state.constants.ts";
+import { appendGeneratedTestRecord } from "#core/state.ts";
+import { makeHybridScoreResult } from "#tests/score-fixtures.ts";
+
+const { maybeAnalyzeMocksMock } = vi.hoisted(() => ({
+  maybeAnalyzeMocksMock: vi.fn(async () => null),
+}));
+
+vi.mock("#cli/commands/generate-postprocess.ts", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("#cli/commands/generate-postprocess.ts")>();
+
+  return {
+    ...actual,
+    maybeAnalyzeMocks: maybeAnalyzeMocksMock,
+  };
+});
 
 const sandboxes: string[] = [];
+
+beforeEach(() => {
+  maybeAnalyzeMocksMock.mockReset();
+  maybeAnalyzeMocksMock.mockResolvedValue(null);
+});
 
 afterEach(async () => {
   await Promise.all(
@@ -28,12 +50,41 @@ async function createSandbox(label: string) {
   return root;
 }
 
+async function readDirectoryTracker(logs: string) {
+  const trackerPathMatch = logs.match(/Directory loop tracker: (.+)/u);
+  if (!trackerPathMatch) {
+    throw new Error(`Could not find tracker path in logs:\n${logs}`);
+  }
+
+  return readFile(trackerPathMatch[1].trim(), "utf-8");
+}
+
 async function runTarget(
   args: string[],
   cwdPath: string,
   context?: Parameters<typeof createTargetCommand>[0]
 ) {
-  const command = createTargetCommand(context);
+  const effectiveContext = {
+    ...context,
+    runDirectoryLoopComponent:
+      context?.runDirectoryLoopComponent ??
+      (async ({ componentPath }: { componentPath: string }) => {
+        try {
+          await createTargetCommand({
+            input: context?.input,
+            output: context?.output,
+          }).parseAsync([componentPath], { from: "user" });
+          return { exitCode: 0 };
+        } catch (error) {
+          if (error instanceof ProcessExitSignal) {
+            return { exitCode: error.code };
+          }
+
+          throw error;
+        }
+      }),
+  };
+  const command = createTargetCommand(effectiveContext);
   const stderrChunks: string[] = [];
   const stdoutChunks: string[] = [];
   const stderrSpy = vi
@@ -90,6 +141,52 @@ async function runTarget(
   };
 }
 
+function makeScoreResult(overrides: Record<string, unknown> = {}) {
+  const typedOverrides = overrides as {
+    blockers?: string[];
+    dimensions?: Record<string, number>;
+    grade?: "A" | "B" | "C" | "D" | "F";
+    markerCoverage?: Record<string, number>;
+    markerDiagnostics?: Record<string, number>;
+    markerQualityGate?: Record<string, unknown>;
+    reasons?: unknown[];
+    requiresReview?: boolean;
+    signals?: Record<string, unknown>;
+    total?: number;
+  };
+  const total = typedOverrides.total ?? TARGET_OUTPUT_SCORE_GATE * 100;
+
+  return makeHybridScoreResult({
+    overall: total,
+    grade: typedOverrides.grade,
+    blockers: typedOverrides.blockers,
+    dimensions: typedOverrides.dimensions as any,
+    reasons: typedOverrides.reasons as any,
+    requiresReview: typedOverrides.requiresReview ?? false,
+    signals: typedOverrides.signals as any,
+    generation: {
+      total,
+      markerCoverage: typedOverrides.markerCoverage as any,
+      markerDiagnostics: typedOverrides.markerDiagnostics as any,
+      markerQualityGate: typedOverrides.markerQualityGate as any,
+    },
+    grading: { total },
+  });
+}
+
+async function seedGeneratedTestRecord(
+  root: string,
+  outputPath: string,
+  overrides: Partial<ScoreResult> = {}
+) {
+  await appendGeneratedTestRecord(root, {
+    packagePath: ".",
+    recordingFile: outputPath,
+    testFile: outputPath,
+    scoreResult: makeScoreResult(overrides),
+  });
+}
+
 describe("createTargetCommand", () => {
   it("generates a colocated test from a default-export component file", async () => {
     const root = await createSandbox("component-only");
@@ -113,12 +210,12 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
 
-    const result = await runTarget([componentPath], root);
+    const result = await runTarget([componentPath, "--min-score", "70"], root);
     const outputPath = join(root, "src", "CheckoutForm.test.tsx");
     const written = await readFile(outputPath, "utf-8");
 
     expect(result.thrown).toBeUndefined();
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(1);
     expect(written).toContain("import CheckoutForm from './CheckoutForm'");
     expect(written).toContain("render(<CheckoutForm />)");
     expect(written).toContain(
@@ -151,12 +248,12 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
 
-    const result = await runTarget([componentPath], root);
+    const result = await runTarget([componentPath, "--min-score", "70"], root);
     const outputPath = join(testsDir, "Button.test.tsx");
     const written = await readFile(outputPath, "utf-8");
 
     expect(result.thrown).toBeUndefined();
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(1);
     expect(written).toContain("import Button from '../Button'");
     expect(written).toContain("render(<Button />)");
   });
@@ -187,7 +284,7 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
 
-    const result = await runTarget([componentPath], root);
+    const result = await runTarget([componentPath, "--min-score", "60"], root);
     const outputPath = join(root, "src", "ProfileCard.test.tsx");
     const written = await readFile(outputPath, "utf-8");
 
@@ -210,6 +307,187 @@ describe("createTargetCommand", () => {
     expect(result.logs + result.stdout).toContain(
       "could not find explicit repo-local defaults or fixtures to reuse"
     );
+  });
+
+  it("accepts an existing output for prop-backed targets when the current test already clears the quality gate", async () => {
+    const root = await createSandbox("prop-backed-existing-output");
+    const componentPath = join(root, "src", "ProfileCard.tsx");
+    const outputPath = join(root, "src", "ProfileCard.test.tsx");
+    await mkdir(dirname(componentPath), { recursive: true });
+    await writeFile(
+      componentPath,
+      [
+        'import { Status } from "@repo/data-layer"',
+        'import { formatLabel } from "@/helpers"',
+        "",
+        "export default function ProfileCard({ active, name }) {",
+        "  const formattedName = formatLabel(name)",
+        "",
+        "  return (",
+        "    <section aria-label={formattedName}>",
+        "      <h1>{formattedName}</h1>",
+        "      <p>{active ? Status.Active : Status.Inactive}</p>",
+        "    </section>",
+        "  )",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+    await writeFile(
+      outputPath,
+      [
+        "import '@testing-library/jest-dom/vitest'",
+        "",
+        'import { Status } from "@repo/data-layer"',
+        'import { formatLabel } from "@/helpers"',
+        "",
+        "import { render, screen } from '@testing-library/react'",
+        "import { beforeEach, describe, expect, it, vi } from 'vitest'",
+        "",
+        "import ProfileCard from './ProfileCard'",
+        "",
+        'vi.mock("@repo/data-layer", () => ({',
+        "  Status: {",
+        '    Active: "Active",',
+        '    Inactive: "Inactive",',
+        "  },",
+        "}))",
+        "",
+        'vi.mock("@/helpers", () => ({',
+        "  formatLabel: vi.fn(),",
+        "}))",
+        "",
+        "const BASE_PROPS = {",
+        "  active: true,",
+        '  name: "Ada Lovelace",',
+        "}",
+        "",
+        "beforeEach(() => {",
+        "  vi.mocked(formatLabel).mockReset()",
+        "  vi.mocked(formatLabel).mockImplementation(",
+        "    (value: string) => `formatted:${value}`",
+        "  )",
+        "})",
+        "",
+        "function renderProfileCard(overrides: Partial<typeof BASE_PROPS> = {}) {",
+        "  return render(<ProfileCard {...BASE_PROPS} {...overrides} />)",
+        "}",
+        "",
+        "describe('ProfileCard', () => {",
+        "  it('formats and renders the active profile name', () => {",
+        "    renderProfileCard()",
+        "    const heading = screen.getByRole('heading', { name: 'formatted:Ada Lovelace' })",
+        "    const status = screen.getByText(Status.Active)",
+        "",
+        "    expect(heading).toHaveTextContent('formatted:Ada Lovelace')",
+        "    expect(status).toHaveTextContent(Status.Active)",
+        "    expect(formatLabel).toHaveBeenCalledWith('Ada Lovelace')",
+        "  })",
+        "",
+        "  it('renders the inactive status when active is false', () => {",
+        "    renderProfileCard({ active: false, name: 'Grace Hopper' })",
+        "    const heading = screen.getByRole('heading', { name: 'formatted:Grace Hopper' })",
+        "    const status = screen.getByText(Status.Inactive)",
+        "",
+        "    expect(heading).toHaveTextContent('formatted:Grace Hopper')",
+        "    expect(status).toHaveTextContent(Status.Inactive)",
+        "    expect(formatLabel).toHaveBeenCalledWith('Grace Hopper')",
+        "  })",
+        "",
+        "  it('keeps the status copy inside the profile section', () => {",
+        "    renderProfileCard()",
+        "    const section = screen.getByRole('region', { name: 'formatted:Ada Lovelace' })",
+        "",
+        "    expect(section).toHaveTextContent('formatted:Ada Lovelace')",
+        "    expect(section).toHaveTextContent(Status.Active)",
+        "  })",
+        "})",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+
+    const result = await runTarget([componentPath, "--min-score", "85"], root);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.logs).toContain(
+      "Reusing existing target output because component inference is blocked"
+    );
+    expect(result.stdout).not.toContain("[BLOCKING] component-target");
+    expect(result.stdout).not.toContain("[BLOCKING] quality");
+    expect(result.stdout).not.toContain("[BLOCKING] follow-up");
+  });
+
+  it("runs post-write health commands and blocks when one fails", async () => {
+    const root = await createSandbox("health-gate");
+    const componentPath = join(root, "src", "CheckoutForm.tsx");
+    const failCommand = `${JSON.stringify(process.execPath)} -e "process.exit(1)"`;
+    await mkdir(join(root, ".taro"), { recursive: true });
+    await mkdir(dirname(componentPath), { recursive: true });
+    await writeFile(
+      join(root, ".taro", "overrides.json"),
+      JSON.stringify({ healthCommands: [failCommand] }, null, 2) + "\n",
+      "utf-8"
+    );
+    await writeFile(
+      componentPath,
+      [
+        "export default function CheckoutForm() {",
+        "  return (",
+        "    <form>",
+        "      <label htmlFor='email'>Email</label>",
+        "      <input id='email' type='email' />",
+        "      <button type='submit'>Submit order</button>",
+        "    </form>",
+        "  )",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+
+    const result = await runTarget([componentPath, "--min-score", "85"], root);
+    const outputPath = join(root, "src", "CheckoutForm.test.tsx");
+    const written = await readFile(outputPath, "utf-8");
+
+    expect(result.thrown).toBeUndefined();
+    expect(result.exitCode).toBe(1);
+    expect(written).toContain("render(<CheckoutForm />)");
+    expect(result.logs).toContain("Running health checks...");
+    expect(result.logs).toContain(`[taro:health] $ ${failCommand}`);
+    expect(result.logs).toContain(`'${failCommand}' exited with code 1`);
+    expect(result.stdout).toContain("[BLOCKING] health");
+  });
+
+  it("keeps existing low-confidence output blocked on rerun", async () => {
+    const root = await createSandbox("rerun-low-confidence");
+    const componentPath = join(root, "src", "CheckoutForm.tsx");
+    await mkdir(dirname(componentPath), { recursive: true });
+    await writeFile(
+      componentPath,
+      [
+        "export default function CheckoutForm() {",
+        "  return (",
+        "    <form>",
+        "      <label htmlFor='email'>Email</label>",
+        "      <input id='email' type='email' />",
+        "      <button type='submit'>Submit order</button>",
+        "    </form>",
+        "  )",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+
+    const firstRun = await runTarget([componentPath], root);
+    const secondRun = await runTarget([componentPath], root);
+
+    expect(firstRun.exitCode).toBe(1);
+    expect(secondRun.exitCode).toBe(1);
+    expect(secondRun.stdout).toContain("[BLOCKING] quality");
+    expect(secondRun.stdout).toContain("[BLOCKING] follow-up");
   });
 
   it("uses the provided component path as the output target even when a recording is supplied", async () => {
@@ -250,7 +528,7 @@ describe("createTargetCommand", () => {
     const written = await readFile(outputPath, "utf-8");
 
     expect(result.thrown).toBeUndefined();
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(1);
     expect(written).toContain("import { CheckoutForm } from './CheckoutForm'");
     expect(written).toContain("render(<CheckoutForm />)");
     expect(written).toContain("await user.click(screen.getByText('Continue'))");
@@ -274,12 +552,188 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
 
-    const result = await runTarget([componentPath], root);
+    const result = await runTarget([componentPath, "--min-score", "85"], root);
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toContain("=== taro:findings:start ===");
     expect(result.stdout).toContain("[BLOCKING] component-target");
     expect(result.stdout).toContain("opaque child components");
+  });
+
+  it("emits stable mock-review findings for single-file target output", async () => {
+    const root = await createSandbox("target-mock-review");
+    const componentPath = join(root, "src", "CheckoutMutation.tsx");
+    await mkdir(dirname(componentPath), { recursive: true });
+    await writeFile(
+      componentPath,
+      [
+        "export default function CheckoutMutation() {",
+        "  return (",
+        "    <form>",
+        "      <button type='submit'>Save order</button>",
+        "    </form>",
+        "  )",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+    maybeAnalyzeMocksMock.mockResolvedValueOnce({
+      source: "package-profile",
+      packagePath: ".",
+      conventions: null,
+      recommendations: [],
+      repeatedTargets: [],
+      mutationLifecycles: [
+        {
+          file: "src/CheckoutMutation.test.tsx",
+          stages: ["loading", "success"],
+          evidence: [],
+        },
+      ],
+      interactionContracts: [
+        {
+          file: "src/CheckoutMutation.test.tsx",
+          kind: "mutation-form",
+          states: ["loading", "success"],
+          supportTargets: [],
+          overrideStyle: "stable-handles",
+          confidence: "high",
+          evidence: [],
+        },
+      ],
+      instabilityWarnings: [],
+      sharedMockFactories: [],
+      boundaryProfiles: [],
+      inlineSafeMockTargets: [],
+      preferredSharedMocks: {},
+      forbidMocks: [],
+      preferredBoundaryImplementations: {},
+      forbidBoundaryTargets: [],
+      queryHookPolicy: "avoid",
+      companionPolicy: "heuristic",
+      enabledContractFamilies: ["mutation-form"],
+    });
+
+    const result = await runTarget([componentPath, "--min-score", "85"], root);
+
+    expect(result.thrown).toBeUndefined();
+    expect(result.stdout).toContain("=== taro:findings:start ===");
+    expect(result.stdout).toContain("[ADVISORY] mock-lifecycle");
+    expect(result.stdout).toContain(
+      "may need loading or failure companion coverage before final acceptance"
+    );
+  });
+
+  it("accepts an existing output when component inference is blocked but the current test already clears a custom merged gate", async () => {
+    const root = await createSandbox("opaque-component-existing-output");
+    const componentPath = join(root, "src", "DashboardShell.tsx");
+    const outputPath = join(root, "src", "tests", "DashboardShell.test.tsx");
+    await mkdir(dirname(componentPath), { recursive: true });
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(
+      componentPath,
+      [
+        'import { LayoutShell } from "./LayoutShell"',
+        "",
+        "export default function DashboardShell() {",
+        "  return <LayoutShell />",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+    await writeFile(
+      join(root, "src", "LayoutShell.tsx"),
+      [
+        "export function LayoutShell() {",
+        "  return (",
+        "    <main aria-label='Dashboard layout'>",
+        "      <h1>Operations dashboard</h1>",
+        "      <p>Layout shell</p>",
+        "    </main>",
+        "  )",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+    await writeFile(
+      outputPath,
+      [
+        "import '@testing-library/jest-dom/vitest'",
+        "",
+        "import { render, screen } from '@testing-library/react'",
+        "import { describe, expect, it } from 'vitest'",
+        "",
+        "import DashboardShell from '../DashboardShell'",
+        "",
+        "describe('DashboardShell', () => {",
+        "  it('renders the dashboard layout shell heading and copy', () => {",
+        "    render(<DashboardShell />)",
+        "    const layout = screen.getByRole('main', { name: 'Dashboard layout' })",
+        "",
+        "    expect(layout).toHaveAttribute('aria-label', 'Dashboard layout')",
+        "    expect(layout).toBeInTheDocument()",
+        "    expect(layout).toHaveTextContent('Layout shell')",
+        "    expect(screen.getByRole('heading', { name: 'Operations dashboard' })).toBeInTheDocument()",
+        "    expect(screen.getByRole('heading', { name: 'Operations dashboard' })).toHaveTextContent('Operations dashboard')",
+        "    expect(layout).toHaveTextContent('Operations dashboard')",
+        "    expect(layout).toHaveTextContent('Layout shell')",
+        "  })",
+        "",
+        "  it('exposes the layout as the dashboard main landmark', () => {",
+        "    render(<DashboardShell />)",
+        "",
+        "    expect(screen.getByRole('main', { name: 'Dashboard layout' })).toBeInTheDocument()",
+        "    expect(screen.getByText('Layout shell')).toBeInTheDocument()",
+        "  })",
+        "",
+        "  it('keeps the dashboard heading inside the named layout landmark', () => {",
+        "    render(<DashboardShell />)",
+        "    const layout = screen.getByRole('main', { name: 'Dashboard layout' })",
+        "    const heading = screen.getByRole('heading', { name: 'Operations dashboard' })",
+        "",
+        "    expect(layout).toContainElement(heading)",
+        "    expect(heading).toHaveTextContent('Operations dashboard')",
+        "  })",
+        "})",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+
+    const result = await runTarget([componentPath, "--min-score", "60"], root);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.logs).toContain(
+      "Reusing existing target output because component inference is blocked"
+    );
+    expect(result.stdout).not.toContain("[BLOCKING] component-target");
+  });
+
+  it("blocks single-file targets that do not export a JSX component", async () => {
+    const root = await createSandbox("non-component-file");
+    const modulePath = join(root, "src", "reviewTotals.ts");
+    await mkdir(dirname(modulePath), { recursive: true });
+    await writeFile(
+      modulePath,
+      [
+        "export function reviewTotals(values: number[]) {",
+        "  return values.reduce((total, value) => total + value, 0)",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+
+    const result = await runTarget([modulePath], root);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("[BLOCKING] component-target");
+    expect(result.stdout).toContain(
+      "could not resolve an exported JSX component"
+    );
   });
 
   it("rejects test files as target inputs", async () => {
@@ -324,18 +778,41 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
 
-    const result = await runTarget([srcDir], root);
+    const result = await runTarget([srcDir, "--directory-loop"], root, {
+      runDirectoryLoopComponent: async ({ componentPath }) => {
+        const componentName = componentPath
+          .replace(/^src\//u, "")
+          .replace(/\.tsx$/u, "");
+        const outputPath = join(srcDir, `${componentName}.test.tsx`);
+        await writeFile(
+          outputPath,
+          `describe('${componentName}', () => {})\n`,
+          "utf-8"
+        );
+        await seedGeneratedTestRecord(root, outputPath);
+        return { exitCode: 0 };
+      },
+    });
+    const tracker = await readDirectoryTracker(result.logs);
 
     expect(result.thrown).toBeUndefined();
     expect(result.exitCode).toBe(0);
+    expect(result.logs).toContain("Directory loop mode enabled");
+    expect(result.logs).toContain("Directory loop tracker:");
+    expect(tracker).toContain(
+      "| Status | Path | Output | Current score | Updated score | Follow-up | Kind |"
+    );
+    expect(tracker).toContain(
+      `| completed | src/Footer.tsx | src/Footer.test.tsx | - | ${TARGET_OUTPUT_SCORE_GATE * 100}% | No follow-up required. | target |`
+    );
+    expect(tracker).toContain("| completed | src/Footer.tsx |");
+    expect(tracker).toContain("| completed | src/Header.tsx |");
 
     const headerTest = await readFile(join(srcDir, "Header.test.tsx"), "utf-8");
-    expect(headerTest).toContain("import Header from './Header'");
-    expect(headerTest).toContain("render(<Header />)");
+    expect(headerTest).toContain("describe('Header'");
 
     const footerTest = await readFile(join(srcDir, "Footer.test.tsx"), "utf-8");
-    expect(footerTest).toContain("import Footer from './Footer'");
-    expect(footerTest).toContain("render(<Footer />)");
+    expect(footerTest).toContain("describe('Footer'");
   });
 
   it("skips test files when scanning a directory", async () => {
@@ -354,16 +831,327 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
     await writeFile(
-      join(srcDir, "Button.test.tsx"),
+      join(srcDir, "Existing.test.tsx"),
       "import { render } from '@testing-library/react'\n",
       "utf-8"
     );
 
-    const result = await runTarget([srcDir], root);
+    const result = await runTarget([srcDir, "--directory-loop"], root, {
+      runDirectoryLoopComponent: async () => {
+        const outputPath = join(srcDir, "Button.test.tsx");
+        await writeFile(outputPath, "describe('Button', () => {})\n", "utf-8");
+        await seedGeneratedTestRecord(root, outputPath);
+        return { exitCode: 0 };
+      },
+    });
 
     expect(result.thrown).toBeUndefined();
     expect(result.exitCode).toBe(0);
-    expect(result.logs).toContain("Processing 1 component file");
+    expect(result.logs).toContain("Processing 1 pending component file");
+  });
+
+  it("skips non-component source files when scanning a directory", async () => {
+    const root = await createSandbox("dir-skip-non-components");
+    const srcDir = join(root, "src");
+    const calls: string[] = [];
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "Button.tsx"),
+      [
+        "export default function Button() {",
+        "  return <button>Click me</button>",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+    await writeFile(
+      join(srcDir, "constants.ts"),
+      "export const TAX_RATE = 0.05\n",
+      "utf-8"
+    );
+
+    const result = await runTarget([srcDir, "--directory-loop"], root, {
+      runDirectoryLoopComponent: async ({ componentPath }) => {
+        calls.push(componentPath);
+        const outputPath = join(srcDir, "Button.test.tsx");
+        await writeFile(outputPath, "describe('Button', () => {})\n", "utf-8");
+        await seedGeneratedTestRecord(root, outputPath);
+        return { exitCode: 0 };
+      },
+    });
+    const tracker = await readDirectoryTracker(result.logs);
+
+    expect(result.exitCode).toBe(0);
+    expect(calls).toEqual(["src/Button.tsx"]);
+    expect(result.logs).toContain("Skipping 1 non-component source file");
+    expect(tracker).toContain(
+      "| completed | src/Button.tsx | src/Button.test.tsx |"
+    );
+    expect(tracker).not.toContain("constants.ts");
+  });
+
+  it("skips already-cleared components when building the directory loop tracker", async () => {
+    const root = await createSandbox("dir-existing-test");
+    const srcDir = join(root, "src");
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "Header.tsx"),
+      "export default function Header() { return <h1>Site Header</h1> }\n",
+      "utf-8"
+    );
+    await writeFile(
+      join(srcDir, "Header.test.tsx"),
+      "describe('Header', () => {})\n",
+      "utf-8"
+    );
+    await seedGeneratedTestRecord(root, join(srcDir, "Header.test.tsx"));
+    await writeFile(
+      join(srcDir, "Footer.tsx"),
+      "export default function Footer() { return <p>Site Footer</p> }\n",
+      "utf-8"
+    );
+
+    const result = await runTarget([srcDir, "--directory-loop"], root, {
+      runDirectoryLoopComponent: async ({ componentPath }) => {
+        const componentName = componentPath
+          .replace(/^src\//u, "")
+          .replace(/\.tsx$/u, "");
+        const outputPath = join(srcDir, `${componentName}.test.tsx`);
+        await writeFile(
+          outputPath,
+          `describe('${componentName}', () => {})\n`,
+          "utf-8"
+        );
+        await seedGeneratedTestRecord(root, outputPath);
+        return { exitCode: 0 };
+      },
+    });
+    const tracker = await readDirectoryTracker(result.logs);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.logs).toContain("Processing 1 pending component file");
+    expect(tracker).toContain(
+      "| completed | src/Header.tsx | src/Header.test.tsx |"
+    );
+    expect(tracker).toContain(
+      "| completed | src/Footer.tsx | src/Footer.test.tsx |"
+    );
+  });
+
+  it("requeues existing outputs when their latest stored score is below the target gate", async () => {
+    const root = await createSandbox("dir-existing-low-score");
+    const srcDir = join(root, "src");
+    const calls: string[] = [];
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "Alpha.tsx"),
+      "export default function Alpha() { return <h1>Alpha</h1> }\n",
+      "utf-8"
+    );
+    await writeFile(
+      join(srcDir, "Alpha.test.tsx"),
+      "describe('Alpha', () => {})\n",
+      "utf-8"
+    );
+    await seedGeneratedTestRecord(root, join(srcDir, "Alpha.test.tsx"), {
+      total: TARGET_OUTPUT_SCORE_GATE * 100 - 1,
+    });
+    await writeFile(
+      join(srcDir, "Beta.tsx"),
+      "export default function Beta() { return <h1>Beta</h1> }\n",
+      "utf-8"
+    );
+
+    const result = await runTarget([srcDir, "--directory-loop"], root, {
+      runDirectoryLoopComponent: async ({ componentPath }) => {
+        calls.push(componentPath);
+        const componentName = componentPath
+          .replace(/^src\//u, "")
+          .replace(/\.tsx$/u, "");
+        const outputPath = join(srcDir, `${componentName}.test.tsx`);
+        await writeFile(
+          outputPath,
+          `describe('${componentName}', () => {})\n`,
+          "utf-8"
+        );
+        await seedGeneratedTestRecord(root, outputPath);
+        return { exitCode: 0 };
+      },
+    });
+    const tracker = await readDirectoryTracker(result.logs);
+
+    expect(result.exitCode).toBe(0);
+    expect(calls[0]).toBe("src/Alpha.tsx");
+    expect(tracker).toContain(
+      "| completed | src/Alpha.tsx | src/Alpha.test.tsx |"
+    );
+    expect(tracker).toContain(
+      "| completed | src/Beta.tsx | src/Beta.test.tsx |"
+    );
+  });
+
+  it("marks missing outputs as failed and continues through the remaining pending components", async () => {
+    const root = await createSandbox("dir-loop-stop");
+    const srcDir = join(root, "src");
+    const calls: string[] = [];
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "Alpha.tsx"),
+      "export default function Alpha() { return <h1>Alpha</h1> }\n",
+      "utf-8"
+    );
+    await writeFile(
+      join(srcDir, "Beta.tsx"),
+      "export default function Beta() { return <h1>Beta</h1> }\n",
+      "utf-8"
+    );
+
+    const result = await runTarget([srcDir, "--directory-loop"], root, {
+      runDirectoryLoopComponent: async ({ componentPath }) => {
+        calls.push(componentPath);
+        if (componentPath === "src/Beta.tsx") {
+          const outputPath = join(srcDir, "Beta.test.tsx");
+          await writeFile(outputPath, "describe('Beta', () => {})\n", "utf-8");
+          await seedGeneratedTestRecord(root, outputPath);
+          return { exitCode: 0 };
+        }
+
+        return { exitCode: 1 };
+      },
+    });
+    const tracker = await readDirectoryTracker(result.logs);
+
+    expect(result.exitCode).toBe(1);
+    expect(calls).toEqual(["src/Alpha.tsx", "src/Beta.tsx"]);
+    expect(result.logs).toContain(
+      "Directory loop completed with 1 failed component file."
+    );
+    expect(result.logs).toContain("Failed: src/Alpha.tsx");
+    expect(tracker).toContain(
+      "| failed | src/Alpha.tsx | src/Alpha.test.tsx | - | - | No generated test output was produced.<br>Per-file target run exited with code 1. | target |"
+    );
+    expect(tracker).toContain(
+      `| completed | src/Beta.tsx | src/Beta.test.tsx | - | ${TARGET_OUTPUT_SCORE_GATE * 100}% | No follow-up required. | target |`
+    );
+  });
+
+  it("marks low-quality outputs as failed, continues, and requeues failed entries on rerun", async () => {
+    const root = await createSandbox("dir-loop-retry-gated");
+    const srcDir = join(root, "src");
+    const firstRunCalls: string[] = [];
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "Alpha.tsx"),
+      "export default function Alpha() { return <h1>Alpha</h1> }\n",
+      "utf-8"
+    );
+    await writeFile(
+      join(srcDir, "Beta.tsx"),
+      "export default function Beta() { return <h1>Beta</h1> }\n",
+      "utf-8"
+    );
+
+    const firstRun = await runTarget([srcDir, "--directory-loop"], root, {
+      runDirectoryLoopComponent: async ({ componentPath }) => {
+        firstRunCalls.push(componentPath);
+
+        if (componentPath === "src/Alpha.tsx") {
+          const outputPath = join(srcDir, "Alpha.test.tsx");
+          await writeFile(outputPath, "describe('Alpha', () => {})\n", "utf-8");
+          await seedGeneratedTestRecord(root, outputPath, {
+            requiresReview: true,
+            total: 64,
+          });
+          return { exitCode: 1 };
+        }
+
+        const outputPath = join(srcDir, "Beta.test.tsx");
+        await writeFile(outputPath, "describe('Beta', () => {})\n", "utf-8");
+        await seedGeneratedTestRecord(root, outputPath);
+        return { exitCode: 0 };
+      },
+    });
+    const firstTracker = await readDirectoryTracker(firstRun.logs);
+
+    expect(firstRun.exitCode).toBe(1);
+    expect(firstRunCalls).toEqual(["src/Alpha.tsx", "src/Beta.tsx"]);
+    expect(firstTracker).toContain(
+      "| failed | src/Alpha.tsx | src/Alpha.test.tsx | - | 64% | Generated output did not clear the target gate (64/100, D).<br>Manual review required (64/100, D).<br>Per-file target run exited with code 1. | target |"
+    );
+    expect(firstTracker).toContain(
+      `| completed | src/Beta.tsx | src/Beta.test.tsx | - | ${TARGET_OUTPUT_SCORE_GATE * 100}% | No follow-up required. | target |`
+    );
+
+    const secondRunCalls: string[] = [];
+
+    const secondRun = await runTarget([srcDir, "--directory-loop"], root, {
+      runDirectoryLoopComponent: async ({ componentPath }) => {
+        secondRunCalls.push(componentPath);
+        const outputPath = join(srcDir, "Alpha.test.tsx");
+        await writeFile(outputPath, "describe('Alpha', () => {})\n", "utf-8");
+        await seedGeneratedTestRecord(root, outputPath);
+        return { exitCode: 0 };
+      },
+    });
+    const secondTracker = await readDirectoryTracker(secondRun.logs);
+
+    expect(secondRun.exitCode).toBe(0);
+    expect(secondRunCalls).toEqual(["src/Alpha.tsx"]);
+    expect(secondTracker).toContain(
+      `| completed | src/Alpha.tsx | src/Alpha.test.tsx | 64% | ${TARGET_OUTPUT_SCORE_GATE * 100}% | No follow-up required. | target |`
+    );
+    expect(secondTracker).toContain("| completed | src/Beta.tsx |");
+  });
+
+  it("resumes directory-loop work from existing completed outputs", async () => {
+    const root = await createSandbox("dir-loop-resume");
+    const srcDir = join(root, "src");
+    const calls: string[] = [];
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "Alpha.tsx"),
+      "export default function Alpha() { return <h1>Alpha</h1> }\n",
+      "utf-8"
+    );
+    await writeFile(
+      join(srcDir, "Alpha.test.tsx"),
+      "describe('Alpha', () => {})\n",
+      "utf-8"
+    );
+    await seedGeneratedTestRecord(root, join(srcDir, "Alpha.test.tsx"));
+    await writeFile(
+      join(srcDir, "Beta.tsx"),
+      "export default function Beta() { return <h1>Beta</h1> }\n",
+      "utf-8"
+    );
+
+    const result = await runTarget([srcDir, "--directory-loop"], root, {
+      runDirectoryLoopComponent: async ({ componentPath }) => {
+        calls.push(componentPath);
+        const componentName = componentPath
+          .replace(/^src\//u, "")
+          .replace(/\.tsx$/u, "");
+        const outputPath = join(srcDir, `${componentName}.test.tsx`);
+        await writeFile(
+          outputPath,
+          `describe('${componentName}', () => {})\n`,
+          "utf-8"
+        );
+        await seedGeneratedTestRecord(root, outputPath);
+        return { exitCode: 0 };
+      },
+    });
+    const tracker = await readDirectoryTracker(result.logs);
+
+    expect(result.exitCode).toBe(0);
+    expect(calls).toEqual(["src/Beta.tsx"]);
+    expect(tracker).toContain(
+      "| completed | src/Alpha.tsx | src/Alpha.test.tsx |"
+    );
+    expect(tracker).toContain(
+      "| completed | src/Beta.tsx | src/Beta.test.tsx |"
+    );
   });
 
   it("reports no files found when the directory has no component source files", async () => {
@@ -376,10 +1164,26 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
 
-    const result = await runTarget([srcDir], root);
+    const result = await runTarget([srcDir, "--directory-loop"], root);
 
     expect(result.exitCode).toBe(0);
-    expect(result.logs).toContain("No component source files found");
+    expect(result.logs).toContain("No JSX component source files found");
+  });
+
+  it("rejects directory input unless --directory-loop is passed", async () => {
+    const root = await createSandbox("dir-requires-flag");
+    const srcDir = join(root, "src");
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "Header.tsx"),
+      "export default function Header() { return <h1>Site Header</h1> }\n",
+      "utf-8"
+    );
+
+    const result = await runTarget([srcDir], root);
+
+    expect(result.exitCode).toBe(2);
+    expect(result.logs).toContain("Directory input requires --directory-loop");
   });
 
   it("rejects --recording when a directory is passed", async () => {
@@ -390,7 +1194,7 @@ describe("createTargetCommand", () => {
     await writeFile(recordingPath, "test('foo', () => {})\n", "utf-8");
 
     const result = await runTarget(
-      [srcDir, "--recording", recordingPath],
+      [srcDir, "--directory-loop", "--recording", recordingPath],
       root
     );
 
@@ -398,5 +1202,166 @@ describe("createTargetCommand", () => {
     expect(result.logs).toContain(
       "--recording is not compatible with directory input"
     );
+  });
+
+  it("rejects --directory-loop when the target is a single file", async () => {
+    const root = await createSandbox("file-rejects-dir-flag");
+    const componentPath = join(root, "src", "Button.tsx");
+    await mkdir(dirname(componentPath), { recursive: true });
+    await writeFile(
+      componentPath,
+      "export default function Button() { return <button>Click me</button> }\n",
+      "utf-8"
+    );
+
+    const result = await runTarget([componentPath, "--directory-loop"], root);
+
+    expect(result.exitCode).toBe(2);
+    expect(result.logs).toContain(
+      "--directory-loop is only valid when the target path is a directory"
+    );
+  });
+
+  it("rejects invalid --min-score values", async () => {
+    const root = await createSandbox("invalid-min-score");
+    const componentPath = join(root, "src", "Button.tsx");
+    await mkdir(dirname(componentPath), { recursive: true });
+    await writeFile(
+      componentPath,
+      "export default function Button() { return <button>Click me</button> }\n",
+      "utf-8"
+    );
+
+    const result = await runTarget([componentPath, "--min-score", "101"], root);
+
+    expect(result.exitCode).toBe(2);
+    expect(result.logs).toContain("Invalid --min-score value");
+  });
+
+  it("emits a blocking quality finding when --min-score is not met", async () => {
+    const root = await createSandbox("custom-min-score-blocking");
+    const componentPath = join(root, "src", "CheckoutForm.tsx");
+    await mkdir(dirname(componentPath), { recursive: true });
+    await writeFile(
+      componentPath,
+      [
+        "export default function CheckoutForm() {",
+        "  return (",
+        "    <form>",
+        "      <label htmlFor='email'>Email</label>",
+        "      <input id='email' type='email' />",
+        "      <button type='submit'>Submit order</button>",
+        "    </form>",
+        "  )",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+
+    const result = await runTarget([componentPath, "--min-score", "100"], root);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("[BLOCKING] quality");
+    expect(result.stdout).toContain("--min-score 100/100");
+  });
+
+  it("forwards --min-score through directory-loop subprocess parameters", async () => {
+    const root = await createSandbox("dir-loop-forward-min-score");
+    const srcDir = join(root, "src");
+    const seenMinScores: Array<number | undefined> = [];
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "Alpha.tsx"),
+      "export default function Alpha() { return <h1>Alpha</h1> }\n",
+      "utf-8"
+    );
+
+    const result = await runTarget([srcDir, "--directory-loop", "--min-score", "88"], root, {
+      runDirectoryLoopComponent: async ({ commandOptions }) => {
+        seenMinScores.push(commandOptions.minScore);
+        const outputPath = join(srcDir, "Alpha.test.tsx");
+        await writeFile(outputPath, "describe('Alpha', () => {})\n", "utf-8");
+        await seedGeneratedTestRecord(root, outputPath, {
+          total: 90,
+          requiresReview: false,
+        });
+        return { exitCode: 0 };
+      },
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(seenMinScores).toEqual([88]);
+  });
+
+  it("marks existing outputs as completed when they meet a custom --min-score even if requiresReview is true", async () => {
+    const root = await createSandbox("dir-loop-custom-min-score-complete");
+    const srcDir = join(root, "src");
+    const calls: string[] = [];
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "Alpha.tsx"),
+      "export default function Alpha() { return <h1>Alpha</h1> }\n",
+      "utf-8"
+    );
+    await writeFile(
+      join(srcDir, "Alpha.test.tsx"),
+      "describe('Alpha', () => {})\n",
+      "utf-8"
+    );
+    await seedGeneratedTestRecord(root, join(srcDir, "Alpha.test.tsx"), {
+      total: 90,
+      requiresReview: true,
+    });
+
+    const result = await runTarget([srcDir, "--directory-loop", "--min-score", "85"], root, {
+      runDirectoryLoopComponent: async ({ componentPath }) => {
+        calls.push(componentPath);
+        return { exitCode: 0 };
+      },
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(calls).toEqual([]);
+    expect(result.logs).toContain(
+      "Directory loop tracker is complete; no pending component source files remain."
+    );
+  });
+
+  it("requeues existing outputs when they fall below a custom --min-score", async () => {
+    const root = await createSandbox("dir-loop-custom-min-score-requeue");
+    const srcDir = join(root, "src");
+    const calls: string[] = [];
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "Alpha.tsx"),
+      "export default function Alpha() { return <h1>Alpha</h1> }\n",
+      "utf-8"
+    );
+    await writeFile(
+      join(srcDir, "Alpha.test.tsx"),
+      "describe('Alpha', () => {})\n",
+      "utf-8"
+    );
+    await seedGeneratedTestRecord(root, join(srcDir, "Alpha.test.tsx"), {
+      total: 85,
+      requiresReview: false,
+    });
+
+    const result = await runTarget([srcDir, "--directory-loop", "--min-score", "90"], root, {
+      runDirectoryLoopComponent: async ({ componentPath }) => {
+        calls.push(componentPath);
+        const outputPath = join(srcDir, "Alpha.test.tsx");
+        await writeFile(outputPath, "describe('Alpha', () => {})\n", "utf-8");
+        await seedGeneratedTestRecord(root, outputPath, {
+          total: 92,
+          requiresReview: false,
+        });
+        return { exitCode: 0 };
+      },
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(calls).toEqual(["src/Alpha.tsx"]);
   });
 });

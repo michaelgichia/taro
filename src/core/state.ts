@@ -88,6 +88,7 @@ import {
   safeParseTaroOverrides,
   safeParseTaroState,
 } from "#core/state.validation.ts";
+import { normalizeGeneratedTestHistoryPath } from "#core/state-paths.ts";
 import type {
   LoadedLegacyStateResult,
   PackageDescriptor,
@@ -1099,6 +1100,7 @@ async function finalizeScanResult(
   const generatedTests = params.preserveGeneratedTests
     ? trimGeneratedTestHistory(projectRoot, existingState?.generatedTests ?? [])
     : [];
+  const gradedTests: TaroState["gradedTests"] = [];
   const state: TaroState = {
     version: STATE_VERSION,
     meta: {
@@ -1109,6 +1111,7 @@ async function finalizeScanResult(
     packages: params.packages,
     mockStore: await collectMockStoreResources(projectRoot, params.packages),
     generatedTests,
+    gradedTests,
   };
   const summaryPackages = buildSummaryPackages(
     projectRoot,
@@ -1182,7 +1185,7 @@ async function runScanStateWorkflow(
   throw finalState.context.error ?? new Error(SCAN_STATE_FAILURE_MESSAGE);
 }
 
-async function runLoadOrBootstrapStateWorkflow(
+export async function runLoadOrBootstrapStateWorkflow(
   projectRoot: string
 ): Promise<ScanStateResult> {
   const actor = createActor(createLoadOrBootstrapStateMachine(stateActors), {
@@ -1228,12 +1231,6 @@ export async function refreshTaroState(
   });
   await writeTaroState(projectRoot, result.state);
   return result;
-}
-
-export async function loadOrBootstrapTaroState(
-  projectRoot: string
-): Promise<ScanStateResult> {
-  return runLoadOrBootstrapStateWorkflow(projectRoot);
 }
 
 export { findRepoFallbackPackageProfile } from "#core/state.utils.ts";
@@ -1568,7 +1565,7 @@ export async function persistPlaywrightAuthProfile(
   packagePath: string,
   playwrightAuth: TaroPlaywrightAuthProfile | null
 ): Promise<boolean> {
-  const bootstrap = await loadOrBootstrapTaroState(projectRoot);
+  const bootstrap = await runLoadOrBootstrapStateWorkflow(projectRoot);
   const profile = bootstrap.state.packages[packagePath];
 
   if (!profile) {
@@ -1592,6 +1589,43 @@ export async function persistPlaywrightAuthProfile(
   return true;
 }
 
+export function findLatestGeneratedTestRecord(
+  generatedTests: TaroState["generatedTests"],
+  projectRoot: string,
+  testFile: string
+): TaroState["generatedTests"][number] | null {
+  const normalizedTarget = normalizeGeneratedTestHistoryPath(
+    projectRoot,
+    testFile
+  );
+  let latestRecord: TaroState["generatedTests"][number] | null = null;
+  let latestRecordCreatedAtMs = -1;
+
+  for (const record of generatedTests) {
+    if (
+      normalizeGeneratedTestHistoryPath(projectRoot, record.testFile) !==
+      normalizedTarget
+    ) {
+      continue;
+    }
+
+    const createdAtMs = Number.isFinite(Date.parse(record.createdAt))
+      ? Date.parse(record.createdAt)
+      : 0;
+    if (
+      latestRecord === null ||
+      createdAtMs > latestRecordCreatedAtMs ||
+      (createdAtMs === latestRecordCreatedAtMs &&
+        record.quality.overall >= latestRecord.quality.overall)
+    ) {
+      latestRecord = record;
+      latestRecordCreatedAtMs = createdAtMs;
+    }
+  }
+
+  return latestRecord;
+}
+
 export async function appendGeneratedTestRecord(
   projectRoot: string,
   record: {
@@ -1601,8 +1635,12 @@ export async function appendGeneratedTestRecord(
     scoreResult: ScoreResult;
   }
 ): Promise<void> {
-  const bootstrap = await loadOrBootstrapTaroState(projectRoot);
+  const bootstrap = await runLoadOrBootstrapStateWorkflow(projectRoot);
   const createdAt = new Date().toISOString();
+  const normalizedTestFile = normalizeGeneratedTestHistoryPath(
+    projectRoot,
+    record.testFile
+  );
   const nextState: TaroState = {
     ...bootstrap.state,
     meta: {
@@ -1616,13 +1654,16 @@ export async function appendGeneratedTestRecord(
         createdAt,
         packagePath: record.packagePath,
         recordingFile: record.recordingFile ?? null,
-        testFile: record.testFile,
+        testFile: normalizedTestFile,
         quality: {
-          overall: record.scoreResult.total,
+          overall: record.scoreResult.overall,
           grade: record.scoreResult.grade,
-          dimensions: record.scoreResult.dimensions,
-          signals: record.scoreResult.signals,
-          reasons: record.scoreResult.reasons,
+          overallSource: "hybrid",
+          blockers: record.scoreResult.blockers,
+          families: {
+            generation: record.scoreResult.families.generation,
+            grading: record.scoreResult.families.grading,
+          },
         },
         requiresReview: record.scoreResult.requiresReview,
       },

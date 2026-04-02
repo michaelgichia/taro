@@ -7,6 +7,8 @@ description: "Review mock targets, provider boundaries, fixture shape, and post-
 
 Invoke this skill with `$@taro-test/rtl-mocks`.
 
+Use this as a standalone mock-review entrypoint or as the bounded second-pass repair workflow for single-file `generate`, `generate-i`, and `target` runs.
+
 ## Boundary Review Workflow
 
 1. Identify the external boundaries the generated test crosses.
@@ -61,6 +63,13 @@ If only one or two stages are present in the generated output, explain what the 
 - call out provider requirements separately from pure data mocks
 - separate blocking mock requirements from optional cleanup
 
+## Safe Auto-Apply Scope
+
+- allowed files: the generated test file, plus existing repo-owned support files only when the path already exists in learned support or was already planned by boundary support
+- allowed changes: replace inline shared-boundary mocks with learned shared support imports, remove forbidden boundary/package mocks while keeping wrappers real, move `vi.mock(...)` or `jest.mock(...)` factories to module scope, replace mutable shared mock-control state with hoisted handles plus per-test implementations, and add missing mutation lifecycle setup or assertions only when repo evidence already exists
+- manual-only changes: invented API shapes, invented fixture payloads, or brand-new support modules without repo evidence
+- one repair attempt only; do not recurse
+
 ## Output Contract
 
 Summarize:
@@ -70,3 +79,21 @@ Summarize:
 - whether mutation lifecycle coverage is complete or which stages are missing
 - the fixture shape or shared helper to reuse
 - any manual follow-up still required after generation
+
+End every response with exactly one fenced `json` block using this shape:
+
+```json
+{
+  "MockReviewFeedback": {
+    "should_apply": true,
+    "auto_apply": [
+      "Replace inline @/api/orders mock with the learned shared support import."
+    ],
+    "manual_follow_up": [
+      "Confirm the repo fixture payload still covers the error state copy."
+    ],
+    "blocking_reasons": [],
+    "quality_expectation": "Expected to improve mock stability without lowering score or flow coverage."
+  }
+}
+```

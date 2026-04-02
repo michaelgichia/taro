@@ -1,6 +1,6 @@
 ---
 name: "@taro-test/rtl:grade"
-description: Grade an existing RTL test file using Taro's published scoring shape and persist a grade snapshot in `.taro/state.json`.
+description: Grade an existing RTL test file using Taro's shared ScoreResult rubric and persist a score snapshot in `.taro/state.json`.
 argument-hint: "<path/to/test-file>"
 allowed-tools:
   - Read
@@ -13,15 +13,15 @@ argument-instructions: |
 ---
 
 <objective>
-Grade an existing React Testing Library test file without inventing a hidden Taro runtime scorer.
+Grade an existing React Testing Library test file using the same ScoreResult scorer used by `generate`, `generate-i`, and `target`.
 
 This command is example-driven:
 
 - read the target test directly
 - use minimal repo context
 - score each dimension explicitly
-- persist a new grade snapshot so progress can be tracked over time
-- explain the grade in the open </objective>
+- persist a new score snapshot so progress can be tracked over time
+- explain the score in the open </objective>
 
 <context>
 Target test file: $ARGUMENTS
@@ -29,22 +29,26 @@ Target test file: $ARGUMENTS
 
 <process>
 1. Accept exactly one argument: a path to an existing `*.test.*` or `*.spec.*` file.
-2. Do not invent or invoke `__grade`.
+2. Run `{{TARO_RUNTIME_COMMAND}} __grade <test-file>` and use its output as the scoring source of truth.
 3. Read the target test first. Read `.taro/state.json` if present. Inspect at most 4 additional nearby files only when they materially affect provider wrappers, fixtures, or boundary support.
 4. Score these dimensions explicitly:
-   - `robustness` out of 25
-   - `readability` out of 15
-   - `assertionStrength` out of 20
-   - `mockFidelity` out of 20
-   - `maintainability` out of 20
-5. Grade mapping:
+   - `queryQuality` out of 100
+   - `assertionSpecificity` out of 100
+   - `testStructure` out of 100
+   - `boundaryIsolation` out of 100
+5. Compute the final `overall` score as:
+   - `queryQuality * 0.30`
+   - `assertionSpecificity * 0.25`
+   - `testStructure * 0.20`
+   - `boundaryIsolation * 0.25`
+6. Grade mapping:
    - `A`: 90-100
    - `B`: 80-89
    - `C`: 70-79
    - `D`: 60-69
    - `F`: 0-59
-6. Manual review is still required when blockers remain or the result is below `80`.
-7. Calibrate the grade with these worked examples:
+7. Manual review is still required when blockers remain or the result is below `80`.
+8. Calibrate the score with these worked examples:
    - Strong `B` example:
      - uses `renderWithProviders(...)`
      - main interactions use `getByRole(...)`
@@ -59,10 +63,11 @@ Target test file: $ARGUMENTS
      - role queries stay the same
      - exact payload and visible success assertions are added
      - a low `C` often becomes a mid/high `B`
-8. Persist a new `generatedTests` snapshot in `.taro/state.json`:
+9. Persist a new `generatedTests` snapshot in `.taro/state.json`:
    - if state is missing, initialize a valid minimal state object first
    - match prior history by normalized `generatedTests[].testFile`
    - reuse the latest matching `packagePath` and `recordingFile` when present
+   - when no generated match exists, allow legacy `gradedTests` only as metadata fallback
    - otherwise use the best matching package profile or `"."`, and store `recordingFile: null`
    - append a fresh snapshot instead of overwriting older grades
    - keep only the latest 5 snapshots for that normalized `testFile`

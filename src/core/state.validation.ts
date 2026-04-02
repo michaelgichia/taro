@@ -290,7 +290,91 @@ const packageProfileSchema = z.object({
   playwrightAuth: playwrightAuthProfileSchema.nullable().default(null),
   warnings: z.array(z.string()),
 });
-const generatedTestRecordSchema = z.object({
+const existingTestGradeDimensionsSchema = z.object({
+  robustness: z.number(),
+  readability: z.number(),
+  assertionStrength: z.number(),
+  mockFidelity: z.number(),
+  maintainability: z.number(),
+});
+const existingTestGradeSignalsSchema = z.object({
+  roleQueryCount: z.number(),
+  labelQueryCount: z.number(),
+  placeholderQueryCount: z.number(),
+  textQueryCount: z.number(),
+  testIdQueryCount: z.number(),
+  querySelectorCount: z.number(),
+  positionalRoleQueryCount: z.number(),
+  payloadAssertionCount: z.number(),
+  strongAssertionCount: z.number(),
+  presenceAssertionCount: z.number(),
+  visibilityAssertionCount: z.number(),
+  mockCallAssertionCount: z.number(),
+  sharedMockImportCount: z.number(),
+  passthroughModuleMockCount: z.number().optional().default(0),
+  setupHelperCount: z.number(),
+  renderHelperImportCount: z.number(),
+  beforeEachCount: z.number(),
+  mockResetCount: z.number(),
+  lineCount: z.number(),
+});
+const existingTestGradeReasonSchema = z.object({
+  code: z.string(),
+  dimension: z.enum([
+    "robustness",
+    "readability",
+    "assertionStrength",
+    "mockFidelity",
+    "maintainability",
+  ]),
+  impact: z.enum(["positive", "negative"]),
+  weight: z.number(),
+  message: z.string(),
+  severity: z.enum(["advisory", "blocker"]).optional(),
+});
+const markerCoverageTotalsSchema = z.object({
+  detected: z.number(),
+  emitted: z.number(),
+  unresolved: z.number(),
+});
+const markerReviewDiagnosticsSchema = z.object({
+  canonicalRecoveries: z.number(),
+  placementConflicts: z.number(),
+  placementCorrections: z.number(),
+});
+const markerQualityGateSchema = z.object({
+  status: z.enum(["pass", "warn"]),
+  reason: z.enum([
+    "no-markers-detected",
+    "markers-fully-converted",
+    "markers-partially-converted",
+    "zero-marker-conversion",
+  ]),
+  failing: z.boolean(),
+  message: z.string(),
+});
+const generationScoreResultSchema = z.object({
+  total: z.number(),
+  grade: z.enum(["A", "B", "C", "D", "F"]),
+  dimensions: scoreDimensionsSchema,
+  signals: scoreSignalsSchema,
+  reasons: z.array(scoreReasonSchema),
+  blockers: z.array(z.string()).default([]),
+  requiresReview: z.boolean(),
+  markerCoverage: markerCoverageTotalsSchema,
+  markerDiagnostics: markerReviewDiagnosticsSchema,
+  markerQualityGate: markerQualityGateSchema,
+});
+const gradingScoreResultSchema = z.object({
+  total: z.number(),
+  grade: z.enum(["A", "B", "C", "D", "F"]),
+  dimensions: existingTestGradeDimensionsSchema,
+  signals: existingTestGradeSignalsSchema,
+  reasons: z.array(existingTestGradeReasonSchema),
+  blockers: z.array(z.string()).default([]),
+  requiresReview: z.boolean(),
+});
+const generatedTestRecordSchemaV1 = z.object({
   createdAt: z.string(),
   packagePath: z.string(),
   recordingFile: z.string().nullable().optional().default(null),
@@ -304,9 +388,41 @@ const generatedTestRecordSchema = z.object({
   }),
   requiresReview: z.boolean(),
 });
+const gradedTestRecordSchemaV1 = z.object({
+  createdAt: z.string(),
+  packagePath: z.string(),
+  recordingFile: z.string().nullable().optional().default(null),
+  testFile: z.string(),
+  quality: z.object({
+    overall: z.number(),
+    grade: z.enum(["A", "B", "C", "D", "F"]),
+    dimensions: existingTestGradeDimensionsSchema,
+    signals: existingTestGradeSignalsSchema,
+    reasons: z.array(existingTestGradeReasonSchema),
+    blockers: z.array(z.string()).default([]),
+  }),
+  requiresReview: z.boolean(),
+});
+const generatedTestRecordSchema = z.object({
+  createdAt: z.string(),
+  packagePath: z.string(),
+  recordingFile: z.string().nullable().optional().default(null),
+  testFile: z.string(),
+  quality: z.object({
+    overall: z.number(),
+    grade: z.enum(["A", "B", "C", "D", "F"]),
+    overallSource: z.enum(["hybrid", "legacy-generated", "legacy-graded"]),
+    blockers: z.array(z.string()).default([]),
+    families: z.object({
+      generation: generationScoreResultSchema.nullable().default(null),
+      grading: gradingScoreResultSchema.nullable().default(null),
+    }),
+  }),
+  requiresReview: z.boolean(),
+});
 
-export const taroStateSchema = z.object({
-  version: z.literal(1),
+const taroStateSchemaV2 = z.object({
+  version: z.literal(2),
   meta: z.object({
     createdAt: z.string(),
     updatedAt: z.string(),
@@ -326,7 +442,33 @@ export const taroStateSchema = z.object({
     ),
   }),
   generatedTests: z.array(generatedTestRecordSchema),
+  gradedTests: z.array(gradedTestRecordSchemaV1).default([]),
 });
+const taroStateSchemaV1 = z.object({
+  version: z.literal(1),
+  meta: z.object({
+    createdAt: z.string(),
+    updatedAt: z.string(),
+    taroVersion: z.string(),
+  }),
+  packages: z.record(z.string(), packageProfileSchema),
+  mockStore: z.object({
+    rootDir: z.string().nullable(),
+    importHint: z.string().nullable(),
+    resources: z.array(
+      z.object({
+        name: z.string(),
+        file: z.string(),
+        exports: z.array(z.string()),
+        updatedAt: z.string(),
+      })
+    ),
+  }),
+  generatedTests: z.array(generatedTestRecordSchemaV1),
+  gradedTests: z.array(gradedTestRecordSchemaV1).default([]),
+});
+
+export const taroStateSchema = taroStateSchemaV2;
 
 export const taroOverridesSchema = z.object({
   packages: z
@@ -355,8 +497,120 @@ export const taroOverridesSchema = z.object({
   healthCommands: z.array(z.string()).optional(),
 });
 
+function migrateGeneratedRecordV1(
+  record: z.infer<typeof generatedTestRecordSchemaV1>
+): z.infer<typeof generatedTestRecordSchema> {
+  return {
+    createdAt: record.createdAt,
+    packagePath: record.packagePath,
+    recordingFile: record.recordingFile ?? null,
+    testFile: record.testFile,
+    quality: {
+      overall: record.quality.overall,
+      grade: record.quality.grade,
+      overallSource: "legacy-generated",
+      blockers: [],
+      families: {
+        generation: {
+          total: record.quality.overall,
+          grade: record.quality.grade,
+          dimensions: record.quality.dimensions,
+          signals: record.quality.signals,
+          reasons: record.quality.reasons,
+          blockers: [],
+          requiresReview: record.requiresReview,
+          markerCoverage: {
+            detected: 0,
+            emitted: 0,
+            unresolved: 0,
+          },
+          markerDiagnostics: {
+            canonicalRecoveries: 0,
+            placementConflicts: 0,
+            placementCorrections: 0,
+          },
+          markerQualityGate: {
+            status: "pass",
+            reason: "no-markers-detected",
+            failing: false,
+            message: "No semantic markers were detected in this run.",
+          },
+        },
+        grading: null,
+      },
+    },
+    requiresReview: record.requiresReview,
+  };
+}
+
+function migrateGradedRecordV1(
+  record: z.infer<typeof gradedTestRecordSchemaV1>
+): z.infer<typeof generatedTestRecordSchema> {
+  return {
+    createdAt: record.createdAt,
+    packagePath: record.packagePath,
+    recordingFile: record.recordingFile ?? null,
+    testFile: record.testFile,
+    quality: {
+      overall: record.quality.overall,
+      grade: record.quality.grade,
+      overallSource: "legacy-graded",
+      blockers: record.quality.blockers,
+      families: {
+        generation: null,
+        grading: {
+          total: record.quality.overall,
+          grade: record.quality.grade,
+          dimensions: record.quality.dimensions,
+          signals: record.quality.signals,
+          reasons: record.quality.reasons,
+          blockers: record.quality.blockers,
+          requiresReview: record.requiresReview,
+        },
+      },
+    },
+    requiresReview: record.requiresReview,
+  };
+}
+
+function migrateStateV1ToV2(
+  state: z.infer<typeof taroStateSchemaV1>
+): z.infer<typeof taroStateSchemaV2> {
+  const migratedGenerated = state.generatedTests.map(migrateGeneratedRecordV1);
+  const existingKeys = new Set(
+    migratedGenerated.map((record) => `${record.createdAt}::${record.testFile}`)
+  );
+  const migratedGraded = state.gradedTests
+    .filter(
+      (record) => !existingKeys.has(`${record.createdAt}::${record.testFile}`)
+    )
+    .map(migrateGradedRecordV1);
+
+  return {
+    version: 2,
+    meta: state.meta,
+    packages: state.packages,
+    mockStore: state.mockStore,
+    generatedTests: [...migratedGenerated, ...migratedGraded],
+    gradedTests: [],
+  };
+}
+
 export function safeParseTaroState(value: unknown) {
-  return taroStateSchema.safeParse(value);
+  const current = taroStateSchemaV2.safeParse(value);
+  if (current.success) {
+    return current;
+  }
+
+  const legacy = taroStateSchemaV1.safeParse(value);
+  if (!legacy.success) {
+    return current;
+  }
+
+  return {
+    success: true as const,
+    data: migrateStateV1ToV2(legacy.data),
+  };
 }
 
 export function safeParseTaroOverrides(value: unknown) {

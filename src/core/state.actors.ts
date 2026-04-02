@@ -34,7 +34,8 @@ export interface StateActorDependencies {
   ): ScanStateResult;
   buildGeneratedTestQualityIndex(
     projectRoot: string,
-    generatedTests: TaroState["generatedTests"]
+    generatedTests: TaroState["generatedTests"],
+    gradedTests?: TaroState["gradedTests"]
   ): Map<
     string,
     {

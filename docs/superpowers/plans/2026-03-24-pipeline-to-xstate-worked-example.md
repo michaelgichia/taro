@@ -93,7 +93,7 @@ export interface GenerateMachineContext {
   findings: Finding[];
 
   normalizedRecording?: NormalizedRecording;
-  bootstrappedState?: Awaited<ReturnType<typeof loadOrBootstrapTaroState>>;
+  bootstrappedState?: Awaited<ReturnType<typeof runLoadOrBootstrapStateWorkflow>>;
   packageProfile?: ResolvedTaroPackageProfile | null;
   visualAuth?: TaroPlaywrightAuthProfile | null;
   visualState?: VisualState | null;

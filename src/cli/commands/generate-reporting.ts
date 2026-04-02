@@ -42,40 +42,55 @@ const UNRESOLVED_MARKER_REASON_GUIDANCE: Record<
 };
 
 export function logScore(scoreResult: ScoreResult): void {
+  const generation = scoreResult.families.generation;
+  const grading = scoreResult.families.grading;
   const markerCoverageSummary =
-    `markers: detected=${scoreResult.markerCoverage.detected}, ` +
-    `emitted=${scoreResult.markerCoverage.emitted}, ` +
-    `unresolved=${scoreResult.markerCoverage.unresolved}`;
+    `markers: detected=${generation.markerCoverage.detected}, ` +
+    `emitted=${generation.markerCoverage.emitted}, ` +
+    `unresolved=${generation.markerCoverage.unresolved}`;
   log(
     pc.dim("[taro]") +
-      ` Score: ${scoreResult.total}/100 (${scoreResult.grade}) — ` +
-      `query: ${scoreResult.dimensions.queryQuality}, ` +
-      `assertions: ${scoreResult.dimensions.assertionSpecificity}, ` +
-      `structure: ${scoreResult.dimensions.testStructure}, ` +
-      `boundary: ${scoreResult.dimensions.boundaryIsolation}, ` +
+      ` Score: ${scoreResult.overall}/100 (${scoreResult.grade}) — ` +
+      `generation: ${generation.total}, grading: ${grading.total}`
+  );
+  log(
+    pc.dim("[taro]") +
+      ` Generation — query: ${generation.dimensions.queryQuality}, ` +
+      `assertions: ${generation.dimensions.assertionSpecificity}, ` +
+      `structure: ${generation.dimensions.testStructure}, ` +
+      `boundary: ${generation.dimensions.boundaryIsolation}, ` +
       markerCoverageSummary
+  );
+  log(
+    pc.dim("[taro]") +
+      ` Grading — robustness: ${grading.dimensions.robustness}, ` +
+      `readability: ${grading.dimensions.readability}, ` +
+      `assertionStrength: ${grading.dimensions.assertionStrength}, ` +
+      `mockFidelity: ${grading.dimensions.mockFidelity}, ` +
+      `maintainability: ${grading.dimensions.maintainability}`
   );
 }
 
 export function emitMarkerCoverageSection(scoreResult: ScoreResult): void {
+  const generation = scoreResult.families.generation;
   const gateStatus =
-    scoreResult.markerQualityGate.status === "warn"
+    generation.markerQualityGate.status === "warn"
       ? pc.yellow("WARN")
       : pc.green("PASS");
   log(pc.dim("[taro]") + " Marker coverage:");
-  log(pc.dim("[taro]") + `   detected: ${scoreResult.markerCoverage.detected}`);
-  log(pc.dim("[taro]") + `   emitted: ${scoreResult.markerCoverage.emitted}`);
+  log(pc.dim("[taro]") + `   detected: ${generation.markerCoverage.detected}`);
+  log(pc.dim("[taro]") + `   emitted: ${generation.markerCoverage.emitted}`);
   log(
-    pc.dim("[taro]") + `   unresolved: ${scoreResult.markerCoverage.unresolved}`
+    pc.dim("[taro]") + `   unresolved: ${generation.markerCoverage.unresolved}`
   );
   log(
     pc.dim("[taro]") +
-      `   QUAL-02 gate: ${gateStatus} (${scoreResult.markerQualityGate.reason})`
+      `   QUAL-02 gate: ${gateStatus} (${generation.markerQualityGate.reason})`
   );
 
-  if (scoreResult.markerQualityGate.failing) {
+  if (generation.markerQualityGate.failing) {
     console.warn(
-      pc.yellow(`[taro] QUAL-02 WARN: ${scoreResult.markerQualityGate.message}`)
+      pc.yellow(`[taro] QUAL-02 WARN: ${generation.markerQualityGate.message}`)
     );
   }
 }
@@ -200,7 +215,7 @@ export function emitLowConfidenceBanner(scoreResult: ScoreResult): void {
 
   console.warn(
     pc.yellow(
-      `[taro] Manual review required — this generated test is still a draft (${scoreResult.total}/100, ${scoreResult.grade}).`
+      `[taro] Manual review required — this generated test is still a draft (${scoreResult.overall}/100, ${scoreResult.grade}).`
     )
   );
 
@@ -218,9 +233,10 @@ export function emitScoreHints(
     typeof analyzeBoundaryIsolation
   > = analyzeBoundaryIsolation("")
 ): void {
-  const reasons = scoreResult.reasons ?? [];
+  const generation = scoreResult.families.generation;
+  const reasons = generation.reasons ?? [];
 
-  if (scoreResult.dimensions.queryQuality < 60) {
+  if (generation.dimensions.queryQuality < 60) {
     const testIdCount = queryResults.filter((queryResult) => {
       return isTestIdQueryMethod(queryResult.method);
     }).length;
@@ -231,7 +247,7 @@ export function emitScoreHints(
     );
   }
 
-  if (scoreResult.dimensions.assertionSpecificity < 60) {
+  if (generation.dimensions.assertionSpecificity < 60) {
     log(
       pc.yellow(
         "[taro] Tip: Add specific matchers like toHaveValue() for better assertions"
@@ -239,7 +255,7 @@ export function emitScoreHints(
     );
   }
 
-  if (scoreResult.dimensions.testStructure < 60) {
+  if (generation.dimensions.testStructure < 60) {
     if (reasons.some((reason) => reason.code === "source-branch-family-gap")) {
       const missingFamilies =
         reasons
@@ -259,7 +275,7 @@ export function emitScoreHints(
     ) {
       log(
         pc.yellow(
-          `[taro] Tip: Consider whether the component's alternate branches or handlers need separate tests here (surface signal: ${scoreResult.signals.minimumExpectedTestCount} possible cases).`
+          `[taro] Tip: Consider whether the component's alternate branches or handlers need separate tests here (surface signal: ${generation.signals.minimumExpectedTestCount} possible cases).`
         )
       );
     } else if (reasons.some((reason) => reason.code === "hardcoded-fixture")) {
@@ -283,7 +299,7 @@ export function emitScoreHints(
     }
   }
 
-  if (scoreResult.dimensions.boundaryIsolation < 60) {
+  if (generation.dimensions.boundaryIsolation < 60) {
     for (const issue of boundaryIssues) {
       console.warn(pc.yellow(`[taro] Boundary: ${issue.message}`));
       console.warn(pc.yellow(`[taro] Tip: ${issue.suggestion}`));

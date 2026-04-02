@@ -129,7 +129,7 @@ export function buildStateSummaryMarkdown(
     lines.push("");
     lines.push(`- Runner: \`${profile.runner.value}\``);
     lines.push(
-      `- Score-aware learning: ${learningSummary.scoredTestFileCount > 0 ? "active" : "inactive"} (${learningSummary.scoredTestFileCount} scored, ${learningSummary.unscoredTestFileCount} unscored, source=generatedTests, mode=weighted-bias)`
+      `- Score-aware learning: ${learningSummary.scoredTestFileCount > 0 ? "active" : "inactive"} (${learningSummary.scoredTestFileCount} scored, ${learningSummary.unscoredTestFileCount} unscored, source=generatedTests, legacy=gradedTests, mode=weighted-bias)`
     );
     lines.push(
       `- Preferred render boundary: \`${summarizeRenderBoundaryPreference(profile)}\``

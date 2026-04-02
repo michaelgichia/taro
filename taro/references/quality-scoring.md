@@ -1,202 +1,177 @@
 # Test Quality Scoring (Taro)
 
-Purpose: Provide a deterministic, explainable score for each generated test file so Taro can:
+Purpose: provide one deterministic, explainable score for every stored RTL test file so Taro can:
 
+- compare `generate`, `generate-i`, `target`, `grade`, and `regrade` on the same scale,
 - measure whether changes improve quality,
 - avoid regressions,
-- bias future package learning toward stronger stored exemplars when score history exists,
-- and prioritize upgrades (rewrite suggestions) over time.
+- bias future package learning toward stronger stored exemplars,
+- and prioritize rewrite or repair work over time.
 
 Scoring must be:
 
 - project-agnostic,
-- deterministic (same input => same score),
-- explainable (every point has a reason),
-- bounded and comparable across runs.
+- deterministic,
+- explainable,
+- bounded,
+- comparable across runs and commands.
 
 ---
 
 ## Output
 
-Each generated test must produce:
+Each scored test file produces one shared `ScoreResult`:
 
 ```jsonc
 {
-  "overall": 0, // 0-100
+  "overall": 0, // 0-100 weighted aggregate
   "grade": "F|D|C|B|A",
   "dimensions": {
-    "robustness": 0, // 0-25
-    "readability": 0, // 0-15
-    "assertionStrength": 0, // 0-20
-    "mockFidelity": 0, // 0-20
-    "maintainability": 0, // 0-20
+    "queryQuality": 0, // 0-100
+    "assertionSpecificity": 0, // 0-100
+    "testStructure": 0, // 0-100
+    "boundaryIsolation": 0, // 0-100
   },
   "signals": {
-    "usesCssSelectors": false,
-    "usesTestId": false,
-    "usesRoleQueries": true,
-    "hasMeaningfulAssertions": true,
-    "hasMarkerDerivedAssertions": true,
-    "hasDeterministicFixtures": true,
-    "hasProviderWrapper": true,
-    "hasUiLibraryReimplementation": false,
+    "queryCheckpointCount": 0,
+    "roleQueryCount": 0,
+    "testIdQueryCount": 0,
+    "strongAssertionCount": 0,
+    "presenceAssertionCount": 0,
+    "visibilityAssertionCount": 0,
+    "visibilityOnlyTestCount": 0,
+    "presenceOnlyTestCount": 0,
+    "boundaryWarningCount": 0,
+    "boundaryIssueCount": 0,
+    "placeholderRenderTarget": false,
+    "multipleTestBlocks": false,
+    "minimumExpectedTestCount": 1,
+    "branchCoverageRatio": 1,
+    "missingMockCount": 0,
+    "fireEventCount": 0,
+    "hasBasePropsConstant": false,
+    "hasOverrideRenderHelper": false,
+    "duplicatedInlineRenderCount": 0,
+    "hasStandaloneUtilityDescribe": false,
   },
   "reasons": [
     {
-      "dimension": "robustness",
-      "delta": -8,
-      "reason": "Uses brittle CSS selectors for primary queries.",
-    },
-    {
-      "dimension": "assertionStrength",
-      "delta": +6,
-      "reason": "Asserts user-visible success outcome (toast/dialog close).",
+      "code": "helper-assertions",
+      "dimension": "testStructure",
+      "impact": "negative",
+      "weight": 16,
+      "message": "Shared helpers contain assertions, obscuring which contract actually failed.",
+      "severity": "advisory",
     },
   ],
+  "blockers": [],
+  "requiresReview": false,
 }
 ```
 
 ---
 
-## Dimension Scoring Rubric
+## Shared Dimensions
 
-### A) Robustness (0–25)
+### A) Query Quality (0-100)
 
-Start at 25. Subtract:
+Measures how robustly the test locates the UI under test.
 
-- -10: uses CSS selectors for user interactions or assertions
-- -6: primary queries use text-only selectors where role/label exists
-- -6: heavy reliance on exact, fragile UI text (not regex or role-based name)
-- -3: missing `findBy*` / waits where async UI is expected (flakiness risk)
-- -15: reimplements UI-library components in test mocks
+Signals include:
 
-Add back (up to cap 25):
+- role and label-based queries for primary interactions,
+- penalties for brittle text-only recovery or `data-testid` overuse,
+- penalties for unresolved `taro-query-checkpoint` markers,
+- penalties for query patterns that imply weak accessibility alignment.
 
-- +5: uses getByRole with accessible names for main interactions
-- +3: uses getByLabelText for form fields
-- +2: avoids querying implementation details
+### B) Assertion Specificity (0-100)
 
-### B) Readability (0–15)
+Measures whether the test proves the right user or contract outcome.
 
-Start at 10. Adjust:
+Signals include:
 
-- +3: helper functions are used for repeated flows (setup/fill/submit)
-- +2: test names align with domain behavior (create organisation, etc.)
-- +2: clear Arrange/Act/Assert separation
-- +2: each test isolates a single behavior or contract instead of bundling multiple concerns
-- -4: confusing naming mismatch ("profile" vs "organisation")
-- -3: large monolithic tests with repeated code
-- -4: test name describes user actions instead of the behavior under protection
-- -4: setup helpers contain assertions, obscuring which contract actually failed
+- strong matcher use such as `toHaveTextContent`, `toHaveValue`, and payload-specific assertions,
+- visible outcome assertions,
+- marker-derived assertions,
+- penalties for `toBeDefined()` wrappers, loose payload matchers, or split async assertions.
 
-Cap 15.
+### C) Test Structure (0-100)
 
-### C) Assertion Strength (0–20)
+Measures whether the test is readable, convention-aligned, and behavior-focused.
 
-Start at 8. Add:
+Signals include:
 
-- +6: asserts user-visible success outcome (toast, navigation, dialog close, list update)
-- +6: asserts correct error outcome (validation message, error toast)
-- +4: asserts API call was made with expected payload shape
-- +3: includes marker-derived assertions from non-technical checkpoints (semantic dblClick markers)
-- +2: asserts disabled state / loading state when relevant
+- multiple focused test blocks when component complexity calls for them,
+- stable helpers that do not hide assertions,
+- alignment with component branches and high-signal branch hints,
+- penalties for generic contracts, duplicated constants, repeated inline renders, or helper assertions.
 
-Subtract:
+### D) Boundary Isolation (0-100)
 
-- -8: only asserts mock called (no user-visible assertion)
-- -6: asserts internal implementation details only
-- -4: wraps RTL query results in `.toBeDefined()` instead of relying on query throws or explicit DOM matchers
-- -4: splits related async call assertions across `waitFor` and non-`waitFor` boundaries
-- -4: uses `expect.any(...)` or `expect.anything()` for deterministic payload fields
+Measures whether the render boundary and mocks match real repo contracts.
 
-Cap 20.
+Signals include:
 
-### D) Mock Fidelity (0–20)
+- correct mock coverage for imported collaborators,
+- stable reset behavior,
+- faithful boundary handling for local children, hooks, assets, and data modules,
+- penalties for missing mocks, shared mutable mock state, incomplete asset mocks, or component mock reimplementation.
 
-Start at 10. Add:
+---
 
-- +6: mocks match real API hook signature (callbacks/args)
-- +4: uses persistent deterministic fixtures (mock-store)
-- +3: covers both success and error branches with realistic responses
-- +2: clears mocks properly between tests
+## Aggregate Score
 
-Subtract:
+Taro computes one final `overall` score from the shared dimensions:
 
-- -8: random/inline fixtures created ad hoc each run
-- -6: mocks don’t reflect actual dependency contract (false positives)
-- -4: mocks rely on global state without reset
-- -3: mixes shared reset utilities with additional ad hoc `.mockClear()` calls in the same suite
-- -4: uses mutable shared state in `beforeEach` to steer mock behavior across tests (a hoisted object's fields are reset in `beforeEach` and mutated in test bodies — the mock's behavior is no longer co-located with the test that depends on it, and missed resets cause cross-test state leakage)
-- -20: UI-library component reimplementation detected (policy violation)
+- `queryQuality * 0.30`
+- `assertionSpecificity * 0.25`
+- `testStructure * 0.20`
+- `boundaryIsolation * 0.25`
 
-Cap 20.
-
-### E) Maintainability (0–20)
-
-Start at 10. Add:
-
-- +5: uses centralized fixtures (mock-store)
-- +4: minimal coupling to UI structure (role/label-based)
-- +3: test file structure matches project conventions (imports, cleanup)
-- +2: avoids duplicated test generation (indexed in state)
-
-Subtract:
-
-- -6: hardcoded selectors tied to layout/CSS
-- -4: missing shared fixtures; repeated data creation
-- -4: reruns regenerate different data or duplicate files
-- -3: generates redundant manual DOM cleanup that conflicts with RTL lifecycle management
-- -3: uses regex text matchers where an exact user-visible contract should be asserted
-- -4: patches leaked `document.body` state in `afterEach` instead of relying on component unmount cleanup
-- -10: replaces design-system/UI-library modules with custom stand-ins
-
-Cap 20.
+The result is clamped to `0-100`.
 
 ---
 
 ## Grade Mapping
 
-- A: 90–100
-- B: 80–89
-- C: 70–79
-- D: 60–69
-- F: 0–59
+- A: 90-100
+- B: 80-89
+- C: 70-79
+- D: 60-69
+- F: 0-59
 
-Hard fail cap:
+Manual review is still required when:
 
-- If `hasUiLibraryReimplementation` is true, cap final `overall` at 59 and `grade` at `F`.
-- Always add reason:
-  - `Reimplemented UI library components; behavioral fidelity reduced.`
+- `overall < 80`,
+- blocker-level reasons are present,
+- repo contract issues were detected,
+- marker quality gates fail,
+- or marker placement conflicts or corrections were required.
 
 ---
 
 ## Deterministic Extraction Rules
 
-To score, Taro inspects the generated test file text and checks for patterns:
+To score, Taro inspects the generated or regraded test file text and checks for patterns such as:
 
-- CSS selectors: `container.querySelector`, `document.querySelector`, or `screen.*` calls using selectors (should be absent)
-- Role queries: `getByRole`, `findByRole`
-- Label queries: `getByLabelText`, `findByLabelText`
-- TestId queries: `getByTestId`
-- User-visible assertions: `toBeInTheDocument` on toast/dialog/message; `queryByRole('dialog')` absence; route change assertions if present
-- Marker-derived assertions: inline marker comments or explicit checkpoint assertion helpers
-- Mock store usage: imports from detected mock-store path
-- Mock reset: `beforeEach`, `afterEach`, `cleanup`, `vi.clearAllMocks`, etc.
-- Helper assertions: shared `setup`/`plan*` helpers containing `expect(...)` calls
-- Loose payloads: `toHaveBeenCalledWith(...)` combined with `expect.any(...)` or `expect.anything()` for deterministic fields
-- UI-library reimplementation:
-  - `vi.mock`/`jest.mock` targeting known UI-library modules and returning replacement component objects/functions.
+- query family choice and query checkpoints,
+- role and label query coverage,
+- strong vs weak assertions,
+- visible outcome assertions,
+- helper assertions,
+- payload looseness such as `expect.any(...)`,
+- boundary warnings and boundary issue counts,
+- mock completeness and mock contract fidelity,
+- marker conversion coverage,
+- repeated inline renders and generic component contracts.
 
-This scoring is heuristic but deterministic.
+This scoring is heuristic, but deterministic.
 
 ---
 
 ## Evolution Rules
 
-- Every run stores a score snapshot in `.taro/state.json`.
-- When Taro changes its generation logic, compare:
-  - latest score vs previous score for same component (or same recording)
-
-- If score drops by >= 5 points:
-  - warn about regression
-  - keep old test unless user explicitly opts in to overwrite
+- Every scoring run stores a snapshot in `.taro/state.json`.
+- `generatedTests` is the canonical score ledger for `generate`, `generate-i`, `target`, `grade`, and `regrade`.
+- `gradedTests` remains legacy fallback history only when no canonical generated snapshot exists yet for a test.
+- When Taro changes generation or repair logic, compare the latest score to the previous score for the same test path and flag meaningful regressions.

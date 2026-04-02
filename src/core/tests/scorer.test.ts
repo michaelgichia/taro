@@ -265,6 +265,45 @@ describe('OrgCard', () => {
     expect(score.dimensions.boundaryIsolation).toBeLessThan(100);
   });
 
+  it("penalizes mocked child components that reimplement prop-driven rendering logic", () => {
+    const generated = `
+vi.mock('../TaxBreakdownTable', () => ({
+  default: vi.fn(({ currencyCode, rows, subtotal, taxAmount, total }) => (
+    <section aria-label="Tax breakdown table">
+      <p>{rows.map((row) => row.taxCategoryLabel).join(' ; ')}</p>
+      <p>{\`\${subtotal} | \${taxAmount} | \${total} | \${currencyCode}\`}</p>
+    </section>
+  )),
+}))
+
+describe('InvoiceTaxBreakdownSection', () => {
+  it('passes the mapped tax rows and totals into the breakdown table', () => {
+    render(<InvoiceTaxBreakdownSection />)
+    expect(screen.getByRole('region', { name: 'Tax breakdown table' })).toBeInTheDocument()
+  })
+})
+`;
+
+    const score = scoreGeneratedTest(generated, [
+      {
+        method: "getByRole",
+        query: "screen.getByRole('region', { name: 'Tax breakdown table' })",
+        quality: "good",
+      },
+    ]);
+
+    expect(score.requiresReview).toBe(true);
+    expect(score.reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "component-mock-reimplementation",
+          severity: "blocker",
+        }),
+      ])
+    );
+    expect(score.dimensions.boundaryIsolation).toBeLessThanOrEqual(75);
+  });
+
   it("keeps branch coverage expectations as advisory telemetry when component context implies more cases", () => {
     const code = `
 describe('feature module', () => {
@@ -615,6 +654,85 @@ describe('profile card', () => {
         expect.objectContaining({
           message: expect.stringContaining("@/ui/PortalShell"),
         }),
+      ])
+    );
+  });
+
+  it("treats equivalent relative mock targets as satisfying local helper coverage", () => {
+    const code = `
+vi.mock('../TaxBreakdownTable', () => ({
+  default: vi.fn(() => <section aria-label="Tax breakdown table">Tax breakdown table</section>),
+}))
+
+describe('InvoiceTaxBreakdownSection', () => {
+  it('renders the breakdown table placeholder', () => {
+    render(<InvoiceTaxBreakdownSection />)
+    expect(screen.getByRole('region', { name: 'Tax breakdown table' })).toHaveTextContent('Tax breakdown table')
+  })
+})
+`;
+
+    const score = scoreGeneratedTest(code, {
+      ...makeComponentContext({
+        componentImportReferences: [
+          {
+            target: "./TaxBreakdownTable.tsx",
+            importedNames: ["default"],
+            kind: "helper",
+            guardrailReason: null,
+          },
+        ],
+      }),
+      queryResults: [
+        {
+          method: "getByRole",
+          query: "screen.getByRole('region', { name: 'Tax breakdown table' })",
+          quality: "good",
+        },
+      ],
+    });
+
+    expect(score.reasons).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "missing-helper-mock" }),
+      ])
+    );
+  });
+
+  it("does not require separate mocks for relative sibling helpers that stay real", () => {
+    const code = `
+describe('InvoiceAllowancesChargesSection', () => {
+  it('renders the editor headings', () => {
+    render(<InvoiceAllowancesChargesSection />)
+    expect(screen.getByRole('heading', { name: 'Invoice allowances & charges' })).toHaveTextContent('Invoice allowances & charges')
+  })
+})
+`;
+
+    const score = scoreGeneratedTest(code, {
+      ...makeComponentContext({
+        componentImportReferences: [
+          {
+            target: "./itemHelpers",
+            importedNames: ["createAllowanceChargeWithClientID"],
+            kind: "helper",
+            guardrailReason: null,
+          },
+        ],
+      }),
+      queryResults: [
+        {
+          method: "getByRole",
+          query:
+            "screen.getByRole('heading', { name: 'Invoice allowances & charges' })",
+          quality: "good",
+        },
+      ],
+    });
+
+    expect(score.reasons).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "missing-helper-mock" }),
       ])
     );
   });

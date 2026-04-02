@@ -32,9 +32,12 @@ import {
 import type { GenerateMachineActors } from "#cli/commands/generate.machine.ts";
 import { createGenerateMachine } from "#cli/commands/generate.machine.ts";
 import { flushFindings } from "#cli/commands/generate-findings.ts";
+import { buildMockReviewFindings } from "#cli/commands/mock-review-findings.ts";
 import type { GenerateMachineContext } from "#cli/commands/generate-runtime-types.ts";
 import { type SelectorDebugReporter } from "#cli/commands/generate-runtime-types.ts";
 import { logToStderr as log } from "#cli/commands/log.ts";
+import { formatScore, parseMinScoreOption } from "#cli/commands/min-score.ts";
+import type { Finding } from "#core/findings-reporter.ts";
 import type { ReplayStepDebugTrace } from "#core/resolver.ts";
 import type { SelectorResolutionResult } from "#types/recording.ts";
 
@@ -266,6 +269,20 @@ function createSelectorDebugReporter(options: {
   };
 }
 
+function buildMinScoreFinding(params: {
+  minScore: number;
+  outputPath: string;
+  selectedScoreTotal: number;
+}): Finding {
+  return {
+    severity: "BLOCKING",
+    category: "quality",
+    message:
+      `Generated test scored ${formatScore(params.selectedScoreTotal)}/100, below the required ` +
+      `--min-score ${formatScore(params.minScore)}/100: ${params.outputPath}`,
+  };
+}
+
 /**
  * Creates the internal `__generate` CLI command for recorder-to-RTL generation.
  *
@@ -309,17 +326,37 @@ export function createGenerateCommand(
       "--debug-selectors-json <file>",
       "Write selector resolution and Playwright replay diagnostics as JSONL"
     )
+    .option(
+      "--min-score <number>",
+      "Minimum accepted Taro score (0-100). When provided, Taro gates on score only."
+    )
     .action(async (file: string) => {
       const filePath = resolve(file);
       const projectRoot = cwd();
-      const commandOptions = generate.opts<{
+      const rawCommandOptions = generate.opts<{
         auth?: string;
         debugSelectors?: boolean;
         debugSelectorsJson?: string;
         interactiveAuth?: boolean;
         instructions?: string;
+        minScore?: string;
         screenshots?: boolean;
       }>();
+      let minScore: number | null = null;
+      try {
+        minScore = parseMinScoreOption(rawCommandOptions.minScore);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Invalid --min-score value.";
+        const formattedMessage = pc.red("Error:") + ` ${message}`;
+        console.error(formattedMessage);
+        process.stderr.write(formattedMessage + "\n");
+        process.exit(2);
+      }
+      const commandOptions = {
+        ...rawCommandOptions,
+        minScore: minScore ?? undefined,
+      };
       const debugReporter = createSelectorDebugReporter({
         enabled: Boolean(
           commandOptions.debugSelectors || commandOptions.debugSelectorsJson
@@ -362,7 +399,49 @@ export function createGenerateCommand(
       await debugReporter.persist();
 
       if (finalState.value === "done") {
-        flushFindings(finalState.context.findings);
+        const findings = [
+          ...finalState.context.findings,
+          ...buildMockReviewFindings({
+            boundaryPolicyWarnings: finalState.context.boundaryPolicyWarnings,
+            candidateSelected: Boolean(
+              finalState.context.outputResolution?.shouldWrite
+            ),
+            mockAnalysis: finalState.context.mockAnalysis ?? null,
+            outputPath: finalState.context.outputPath ?? filePath,
+            selectedCode: finalState.context.generatedCode ?? "",
+            suiteWarnings: finalState.context.hydratedSuitePlan?.warnings ?? [],
+          }),
+        ];
+        const selectedScore =
+          finalState.context.scoreResult?.total ??
+          finalState.context.outputResolution?.outputAssessment?.scoreResult
+            .total;
+        if (
+          typeof commandOptions.minScore === "number" &&
+          typeof selectedScore === "number" &&
+          selectedScore < commandOptions.minScore
+        ) {
+          findings.push(
+            buildMinScoreFinding({
+              minScore: commandOptions.minScore,
+              outputPath: finalState.context.outputPath ?? filePath,
+              selectedScoreTotal: selectedScore,
+            })
+          );
+        }
+        if (
+          typeof commandOptions.minScore === "number" &&
+          typeof selectedScore !== "number"
+        ) {
+          findings.push({
+            severity: "BLOCKING",
+            category: "quality",
+            message:
+              `Could not evaluate --min-score ${formatScore(commandOptions.minScore)}/100 because the final output score was unavailable: ` +
+              `${finalState.context.outputPath ?? filePath}`,
+          });
+        }
+        flushFindings(findings);
       } else {
         const err = finalState.context.error;
         if (err) {

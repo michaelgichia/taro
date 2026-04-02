@@ -1,8 +1,8 @@
 # Taro
 
-Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex, run the runtime-native `init` entrypoint as the recommended first step, then generate, grade, and regrade React Testing Library tests.
+Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex, run the runtime-native `init` entrypoint as the recommended first step, then generate, review mocks, grade, and regrade React Testing Library tests.
 
-Taro ships as an installer-first package. The package entrypoint bootstraps runtime-native commands or skills into your agent environment, and those runtime entrypoints cover init, refresh, generation, and AI-driven grading workflows.
+Taro ships as an installer-first package. The package entrypoint bootstraps runtime-native commands or skills into your agent environment, and those runtime entrypoints cover init, refresh, generation, bounded mock review, and AI-driven grading workflows.
 
 For the current strict-order runtime generation path, see [docs/PIPELINE.md](./docs/PIPELINE.md).
 
@@ -32,6 +32,13 @@ Use the runtime-native help entrypoint when you want routing guidance:
 - Gemini CLI: `/@taro-test/rtl:help`
 - OpenCode: `/@taro-test/rtl-help`
 - Codex: `$@taro-test/rtl-help`
+
+Use the runtime-native mock review entrypoint when you want standalone mock and fixture guidance:
+
+- Claude Code: `/@taro-test/rtl:mocks`
+- Gemini CLI: `/@taro-test/rtl:mocks`
+- OpenCode: `/@taro-test/rtl-mocks`
+- Codex: `$@taro-test/rtl-mocks`
 
 > [!NOTE] Codex installation uses skills under `skills/@taro-test/rtl-*/SKILL.md`, not prompt files.
 
@@ -158,21 +165,25 @@ After installation and a first `init` run, use the runtime-native installed gene
 - Claude Code: `/@taro-test/rtl:grade`
 - Claude Code: `/@taro-test/rtl:regrade`
 - Claude Code: `/@taro-test/rtl:target`
+- Claude Code: `/@taro-test/rtl:mocks`
 - Gemini CLI: `/@taro-test/rtl:generate`
 - Gemini CLI: `/@taro-test/rtl:generate-i`
 - Gemini CLI: `/@taro-test/rtl:grade`
 - Gemini CLI: `/@taro-test/rtl:regrade`
 - Gemini CLI: `/@taro-test/rtl:target`
+- Gemini CLI: `/@taro-test/rtl:mocks`
 - OpenCode: `/@taro-test/rtl-generate`
 - OpenCode: `/@taro-test/rtl-generate-i`
 - OpenCode: `/@taro-test/rtl-grade`
 - OpenCode: `/@taro-test/rtl-regrade`
 - OpenCode: `/@taro-test/rtl-target`
+- OpenCode: `/@taro-test/rtl-mocks`
 - Codex: `$@taro-test/rtl-generate`
 - Codex: `$@taro-test/rtl-generate-i`
 - Codex: `$@taro-test/rtl-grade`
 - Codex: `$@taro-test/rtl-regrade`
 - Codex: `$@taro-test/rtl-target`
+- Codex: `$@taro-test/rtl-mocks`
 
 ### Prerequisites
 
@@ -192,13 +203,17 @@ Taro supports one export path:
 
 Run your runtime-native generate entrypoint against `recording.js`. When Taro infers the owning render target, it must write the generated test next to the inferred component and refuses to overwrite an existing file. If it cannot infer a render target, the fallback boundary-draft output is written next to the recording instead.
 
-If you already know the component under test, use the runtime-native `target` entrypoint with a component file path. `target` writes next to that supplied component and can optionally take a Recorder `.js` file to preserve concrete interaction flow while forcing the component render target.
+If you already know the component under test, use the runtime-native `target` entrypoint with a component file path or a component-directory path. File mode writes next to the supplied component and can optionally take a Recorder `.js` file to preserve concrete interaction flow while forcing the component render target. Directory mode runs with `--directory-loop`, writes a tracker under `.taro/directory-loop/`, and skips non-component source files so mixed directories only queue files that export JSX components.
+
+Single-file `generate`, `generate-i`, and `target` flows may run one automatic mock-review repair pass when Taro emits mock-review findings such as `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`. That second pass is limited to mock-scoped edits, regrades with `__regrade`, and keeps changes only when syntax, score, flow coverage, and blocking findings do not regress.
+
+When you need a score gate, append `--min-score <0-100>` to `__generate` or `__target`. For single-file generation flows, the installed runtime entrypoint treats that as the final post-review gate, not the first-pass gate. `target --directory-loop` keeps the existing review-only behavior in v1 and still applies `--min-score` directly to the runtime command.
 
 Expected output:
 
 ```text
-Parsed: my user flow — 8 steps
-[taro] Score: 78/100 (B) — query: 80, assertions: 70, structure: 85
+Parsed: my user flow - 8 steps
+[taro] Score: 78/100 (B) — query: 80, assertions: 70, structure: 85, boundary: 76
 Created: src/components/MyComponent.test.tsx
 [taro] ✓ post-write verified
 ```
@@ -209,24 +224,41 @@ For the exact module execution order behind `__generate`, see [docs/PIPELINE.md]
 
 ## Grade Existing Tests
 
-Use the runtime-native grading entrypoints when you want an AI-facing review of an existing test file without rerunning generation:
+Use the runtime-native grading entrypoints when you want an AI-facing review of existing RTL tests without rerunning generation:
 
 - Claude Code: `/@taro-test/rtl:grade path/to/test-file`
 - Claude Code: `/@taro-test/rtl:regrade path/to/test-file`
+- Claude Code: `/@taro-test/rtl:regrade path/to/test-directory --directory-loop`
 - Gemini CLI: `/@taro-test/rtl:grade path/to/test-file`
 - Gemini CLI: `/@taro-test/rtl:regrade path/to/test-file`
+- Gemini CLI: `/@taro-test/rtl:regrade path/to/test-directory --directory-loop`
 - OpenCode: `/@taro-test/rtl-grade path/to/test-file`
 - OpenCode: `/@taro-test/rtl-regrade path/to/test-file`
+- OpenCode: `/@taro-test/rtl-regrade path/to/test-directory --directory-loop`
 - Codex: `$@taro-test/rtl-grade`
 - Codex: `$@taro-test/rtl-regrade`
 
-`grade` scores the current file using the published Taro scoring shape and worked examples, then appends a new `generatedTests` snapshot into `.taro/state.json`.
+`grade` scores the current file with the same `ScoreResult` scorer used by `generate`, `generate-i`, and `target`, then appends a new `generatedTests` snapshot into `.taro/state.json`.
 
-`regrade` re-scores the current file, compares it to the latest stored `generatedTests` snapshot for the same `testFile` when one exists, and appends a new snapshot into `.taro/state.json`.
+`regrade` supports two modes:
+
+- Single-file mode re-scores the current test file, compares it to the latest stored `generatedTests` snapshot for the same `testFile` when one exists, and appends a new snapshot into `.taro/state.json`.
+- Directory-loop mode runs `regrade <test-directory> --directory-loop`, discovers `*.test.*` and `*.spec.*` files in that directory tree, and writes a tracker under `.taro/directory-loop/` while reusing the same file-grade runner as single-file regrade.
 
 For both commands, Taro keeps only the latest 5 stored snapshots per `generatedTests[].testFile` so score movement stays visible over time without unbounded per-test history growth.
 
-Stored `generatedTests` grades now bias future package learning during `init`, `refresh`, and stale-state bootstrap. Higher-scored stored tests count more strongly when Taro relearns conventions, helpers, exemplars, and boundary patterns; unscored tests remain neutral.
+Stored `generatedTests` scores bias existing-test learning during `init`, `refresh`, and stale-state bootstrap. Legacy `gradedTests` history is only used as fallback when no canonical `generatedTests` snapshot exists yet for a test. Higher-scored stored tests count more strongly when Taro relearns conventions, helpers, exemplars, and boundary patterns; unscored tests remain neutral.
+
+Across `target`, `grade`, `regrade`, `generate`, and `generate-i`, Taro reports the same score shape:
+
+- `queryQuality` /100
+- `assertionSpecificity` /100
+- `testStructure` /100
+- `boundaryIsolation` /100
+
+Taro then computes the final `overall` score as a weighted aggregate of those four dimensions: query `30%`, assertions `25%`, structure `20%`, boundary `25%`.
+
+In directory-loop mode, each tracker row starts as `pending`, moves to `in-progress` when Taro picks that test, and ends as `completed` after the regrade succeeds. Completed rows keep the current score threshold from the latest `generatedTests` snapshot, the updated score threshold, and any follow-up comments returned by the regrade run.
 
 ### Draft-quality output is explicit
 
@@ -274,8 +306,8 @@ Run your installed runtime-native generate entrypoint with `./login-flow.js`.
 ### Terminal output
 
 ```
-Parsed: login flow — 7 steps
-[taro] Score: 82/100 (B) — query: 90, assertions: 75, structure: 80
+Parsed: login flow - 7 steps
+[taro] Score: 82/100 (B) — query: 90, assertions: 75, structure: 80, boundary: 85
 Created: login-flow.test.tsx
 [taro] ✓ post-write verified
 ```
@@ -317,7 +349,7 @@ describe('login flow', () => {
 
 ## Agent Usage
 
-After installation, each runtime gets a namespaced help entrypoint plus `init`, `refresh`, `generate`, `grade`, `regrade`, and `target` entrypoints. Use `init` first, `refresh` for maintenance, `generate` for Recorder-to-RTL output, `grade` for existing-test evaluation with a stored snapshot, `regrade` when you want a delta-focused re-evaluation plus a new stored snapshot after edits, and `target` when you want to force a specific component path.
+After installation, each runtime gets a namespaced help entrypoint plus `init`, `refresh`, `generate`, `mocks`, `grade`, `regrade`, and `target` entrypoints. Use `init` first, `refresh` for maintenance, `generate` for Recorder-to-RTL output, `mocks` for standalone mock or fixture review, `grade` for existing-test evaluation with a stored snapshot, `regrade` when you want a delta-focused re-evaluation plus a new stored snapshot after edits, and `target` when you want to force a specific component path.
 
 ### Tips
 

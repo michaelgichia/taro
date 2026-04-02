@@ -15,6 +15,7 @@ type RepoContractIssueCode =
   | "mixed-reset-boundary"
   | "generic-component-contract"
   | "incomplete-asset-mock"
+  | "component-mock-reimplementation"
   | "dynamic-prop-shape-dispatcher"
   | "duplicate-const-source"
   | "overloaded-hoisted-state";
@@ -45,6 +46,8 @@ const ISSUE_MESSAGES: Record<RepoContractIssueCode, string> = {
     'Avoid umbrella component-only buckets like "renders the primary UI contract" or "exposes the main interactive controls" - emit one behavior per it(...) block.',
   "incomplete-asset-mock":
     "Asset mocks should expose a stable queryable identity and forward props; anonymous <svg /> mocks hide which branch rendered.",
+  "component-mock-reimplementation":
+    "Avoid reimplementing mocked child components with prop-driven rendering logic. Use a minimal placeholder and assert the props passed to the child instead.",
   "dynamic-prop-shape-dispatcher":
     "Avoid dispatching next/dynamic mocks by prop shape - use module-identity placeholders or per-module mocks instead of guessing the child from props.",
   "duplicate-const-source":
@@ -64,7 +67,7 @@ const DETECTORS: Array<[RepoContractIssueCode, RegExp]> = [
   ],
   [
     "shared-mutable-mock-state",
-    /(?:const\s+\w+\s*=\s*\{[\s\S]*?\bbeforeEach\s*\([\s\S]*?\b\w+\.\w+\s*=|vi\.hoisted\s*\(\s*\(\)\s*=>[\s\S]*?(?::\s*(?:false|true|null|"|'|\d)|(?:outcome|control|state|shouldFail)\s*:))/,
+    /const\s+\w+\s*=\s*\{[\s\S]*?\bbeforeEach\s*\([\s\S]*?\b\w+\.\w+\s*=/,
   ],
   [
     "split-async-mock-assertions",
@@ -92,7 +95,7 @@ const DETECTORS: Array<[RepoContractIssueCode, RegExp]> = [
   ],
   [
     "dynamic-prop-shape-dispatcher",
-    /(?:vi|jest)\.mock\s*\(\s*['"]next\/dynamic['"][\s\S]*?\bprops\b[\s\S]*?(?:\bin\b|\.\w+)/,
+    /(?:vi|jest)\.mock\s*\(\s*['"]next\/dynamic['"][\s\S]{0,800}?(?:=>\s*\(\s*props\s*\)|function\s*\(\s*props\s*\)|\(\s*props\s*\)\s*=>)[\s\S]{0,400}?(?:\bin\s+props\b|props\.\w+)/,
   ],
 ];
 
@@ -114,6 +117,328 @@ function parseCode(code: string): t.File | null {
   } catch {
     return null;
   }
+}
+
+function getMockTarget(node: t.CallExpression): string | null {
+  if (
+    !t.isMemberExpression(node.callee) ||
+    node.callee.computed ||
+    !t.isIdentifier(node.callee.property, { name: "mock" }) ||
+    !t.isIdentifier(node.callee.object) ||
+    !["vi", "jest"].includes(node.callee.object.name)
+  ) {
+    return null;
+  }
+
+  const [firstArg] = node.arguments;
+  return t.isStringLiteral(firstArg) ? firstArg.value : null;
+}
+
+function getMockFactory(
+  node: t.CallExpression
+):
+  | t.FunctionDeclaration
+  | t.FunctionExpression
+  | t.ArrowFunctionExpression
+  | null {
+  return (node.arguments.find((argument) => {
+    return (
+      t.isFunctionDeclaration(argument) ||
+      t.isFunctionExpression(argument) ||
+      t.isArrowFunctionExpression(argument)
+    );
+  }) ?? null) as
+    | t.FunctionDeclaration
+    | t.FunctionExpression
+    | t.ArrowFunctionExpression
+    | null;
+}
+
+function getReturnedExpression(
+  factory:
+    | t.FunctionDeclaration
+    | t.FunctionExpression
+    | t.ArrowFunctionExpression
+): t.Expression | null {
+  if (!t.isBlockStatement(factory.body)) {
+    return t.isExpression(factory.body) ? factory.body : null;
+  }
+
+  for (const statement of factory.body.body) {
+    if (t.isReturnStatement(statement) && statement.argument) {
+      return t.isExpression(statement.argument) ? statement.argument : null;
+    }
+  }
+
+  return null;
+}
+
+function collectBindingNames(
+  pattern: t.LVal | t.VoidPattern | t.Identifier | null | undefined,
+  names: Set<string>
+) {
+  if (!pattern) {
+    return;
+  }
+
+  if (t.isIdentifier(pattern)) {
+    names.add(pattern.name);
+    return;
+  }
+
+  if (t.isVoidPattern(pattern)) {
+    return;
+  }
+
+  if (t.isAssignmentPattern(pattern)) {
+    collectBindingNames(pattern.left, names);
+    return;
+  }
+
+  if (t.isObjectPattern(pattern)) {
+    for (const property of pattern.properties) {
+      if (t.isRestElement(property)) {
+        collectBindingNames(property.argument, names);
+        continue;
+      }
+
+      if (t.isObjectProperty(property)) {
+        collectBindingNames(property.value as t.LVal | t.VoidPattern, names);
+      }
+    }
+    return;
+  }
+
+  if (t.isArrayPattern(pattern)) {
+    for (const element of pattern.elements) {
+      if (!element) {
+        continue;
+      }
+
+      if (t.isRestElement(element)) {
+        collectBindingNames(element.argument, names);
+        continue;
+      }
+
+      collectBindingNames(element as t.LVal | t.VoidPattern, names);
+    }
+  }
+}
+
+function expressionReferencesBindings(
+  expression: t.Node | null | undefined,
+  bindingNames: Set<string>
+): boolean {
+  if (!expression || bindingNames.size === 0) {
+    return false;
+  }
+
+  let found = false;
+  walk(expression, (candidate) => {
+    if (
+      found ||
+      !t.isIdentifier(candidate) ||
+      !bindingNames.has(candidate.name)
+    ) {
+      return;
+    }
+
+    found = true;
+  });
+
+  return found;
+}
+
+function countBindingReferences(
+  expression: t.Node | null | undefined,
+  bindingNames: Set<string>
+): number {
+  if (!expression || bindingNames.size === 0) {
+    return 0;
+  }
+
+  let count = 0;
+  walk(expression, (candidate) => {
+    if (t.isIdentifier(candidate) && bindingNames.has(candidate.name)) {
+      count += 1;
+    }
+  });
+
+  return count;
+}
+
+function unwrapMockedComponentImplementation(
+  value: t.Expression | null | undefined
+): t.FunctionExpression | t.ArrowFunctionExpression | null {
+  if (!value) {
+    return null;
+  }
+
+  if (t.isFunctionExpression(value) || t.isArrowFunctionExpression(value)) {
+    return value;
+  }
+
+  if (
+    t.isCallExpression(value) &&
+    t.isMemberExpression(value.callee) &&
+    !value.callee.computed &&
+    t.isIdentifier(value.callee.property, { name: "fn" }) &&
+    t.isIdentifier(value.callee.object) &&
+    ["vi", "jest"].includes(value.callee.object.name)
+  ) {
+    const [firstArg] = value.arguments;
+    if (
+      t.isFunctionExpression(firstArg) ||
+      t.isArrowFunctionExpression(firstArg)
+    ) {
+      return firstArg;
+    }
+  }
+
+  return null;
+}
+
+function getMockedComponentImplementations(
+  expression: t.Expression | null
+): Array<t.FunctionExpression | t.ArrowFunctionExpression> {
+  if (!expression) {
+    return [];
+  }
+
+  const directImplementation = unwrapMockedComponentImplementation(expression);
+  if (directImplementation) {
+    return [directImplementation];
+  }
+
+  if (!t.isObjectExpression(expression)) {
+    return [];
+  }
+
+  const implementations: Array<
+    t.FunctionExpression | t.ArrowFunctionExpression
+  > = [];
+
+  for (const property of expression.properties) {
+    if (!t.isObjectProperty(property) || !t.isExpression(property.value)) {
+      continue;
+    }
+
+    const implementation = unwrapMockedComponentImplementation(property.value);
+    if (implementation) {
+      implementations.push(implementation);
+    }
+  }
+
+  return implementations;
+}
+
+const PROP_DRIVEN_TRANSFORM_METHODS = new Set([
+  "every",
+  "filter",
+  "find",
+  "flatMap",
+  "join",
+  "map",
+  "reduce",
+  "some",
+  "sort",
+]);
+
+function isPropDrivenComponentReimplementation(
+  implementation: t.FunctionExpression | t.ArrowFunctionExpression
+): boolean {
+  const bindingNames = new Set<string>();
+  for (const param of implementation.params) {
+    collectBindingNames(param as t.LVal | t.VoidPattern, bindingNames);
+  }
+
+  if (bindingNames.size === 0) {
+    return false;
+  }
+
+  let hasTransformingCall = false;
+  let hasPropDrivenCondition = false;
+  let hasCompositePropText = false;
+
+  walk(
+    t.isBlockStatement(implementation.body)
+      ? implementation.body
+      : implementation.body,
+    (candidate) => {
+      if (
+        !hasTransformingCall &&
+        t.isCallExpression(candidate) &&
+        t.isMemberExpression(candidate.callee) &&
+        !candidate.callee.computed &&
+        t.isIdentifier(candidate.callee.property) &&
+        PROP_DRIVEN_TRANSFORM_METHODS.has(candidate.callee.property.name) &&
+        expressionReferencesBindings(candidate.callee.object, bindingNames)
+      ) {
+        hasTransformingCall = true;
+      }
+
+      if (
+        !hasPropDrivenCondition &&
+        ((t.isIfStatement(candidate) &&
+          expressionReferencesBindings(candidate.test, bindingNames)) ||
+          (t.isConditionalExpression(candidate) &&
+            expressionReferencesBindings(candidate.test, bindingNames)) ||
+          (t.isLogicalExpression(candidate) &&
+            expressionReferencesBindings(candidate, bindingNames)))
+      ) {
+        hasPropDrivenCondition = true;
+      }
+
+      if (
+        !hasCompositePropText &&
+        ((t.isTemplateLiteral(candidate) &&
+          countBindingReferences(candidate, bindingNames) >= 2) ||
+          (t.isBinaryExpression(candidate) &&
+            countBindingReferences(candidate, bindingNames) >= 2))
+      ) {
+        hasCompositePropText = true;
+      }
+    }
+  );
+
+  return hasTransformingCall || hasPropDrivenCondition || hasCompositePropText;
+}
+
+function hasComponentMockReimplementation(ast: t.File | null): boolean {
+  if (!ast) {
+    return false;
+  }
+
+  let found = false;
+  walk(ast, (candidate) => {
+    if (found || !t.isCallExpression(candidate)) {
+      return;
+    }
+
+    const mockTarget = getMockTarget(candidate);
+    if (!mockTarget || !/^\.\.?\//u.test(mockTarget)) {
+      return;
+    }
+
+    const factory = getMockFactory(candidate);
+    if (!factory) {
+      return;
+    }
+
+    const returnedExpression = getReturnedExpression(factory);
+    const implementations =
+      getMockedComponentImplementations(returnedExpression);
+
+    if (
+      implementations.some((implementation) =>
+        isPropDrivenComponentReimplementation(implementation)
+      )
+    ) {
+      found = true;
+    }
+  });
+
+  return found;
 }
 
 function hasDuplicateConstSource(code: string, ast: t.File | null): boolean {
@@ -299,6 +624,13 @@ export function detectRepoContractIssues(code: string): RepoContractIssue[] {
     issues.push({
       code: "overloaded-hoisted-state",
       message: ISSUE_MESSAGES["overloaded-hoisted-state"],
+    });
+  }
+
+  if (hasComponentMockReimplementation(ast)) {
+    issues.push({
+      code: "component-mock-reimplementation",
+      message: ISSUE_MESSAGES["component-mock-reimplementation"],
     });
   }
 

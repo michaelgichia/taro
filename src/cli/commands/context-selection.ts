@@ -12,7 +12,7 @@ import { logToStderr as log } from "#cli/commands/log.ts";
 import { looksLikeSelectorLikeString } from "#cli/commands/selector-string-utils.ts";
 import type { MockAnalysis } from "#core/mock-intelligence.ts";
 import { readTaroOverrides, resolveTaroPackageProfile } from "#core/state.ts";
-import { loadOrBootstrapTaroState } from "#core/state.ts";
+import { runLoadOrBootstrapStateWorkflow } from "#core/state.ts";
 import type { JsSuitePlan } from "#core/suite-planner.ts";
 import type {
   AnalyzedRecording,
@@ -315,7 +315,7 @@ export function formatContextMatchesSummary(
 }
 
 export function resolvePackageProfileFromContextMatches(params: {
-  state: Awaited<ReturnType<typeof loadOrBootstrapTaroState>>["state"];
+  state: Awaited<ReturnType<typeof runLoadOrBootstrapStateWorkflow>>["state"];
   currentProfile: ResolvedTaroPackageProfile | null;
   projectRoot: string;
   overrides: Awaited<ReturnType<typeof readTaroOverrides>>;

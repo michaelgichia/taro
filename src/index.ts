@@ -9,6 +9,7 @@ import { Command } from "commander";
 import pc from "picocolors";
 
 import { createGenerateCommand } from "#cli/commands/generate.ts";
+import { createGradeCommand } from "#cli/commands/grade.ts";
 import { createInitCommand } from "#cli/commands/init.ts";
 import {
   applyInstallOptions,
@@ -17,6 +18,7 @@ import {
 } from "#cli/commands/install.ts";
 import { createOverridesCommand } from "#cli/commands/overrides.ts";
 import { createRefreshCommand } from "#cli/commands/refresh.ts";
+import { createRegradeCommand } from "#cli/commands/regrade.ts";
 import { createTargetCommand } from "#cli/commands/target.ts";
 import { createVersionCommand } from "#cli/commands/version.ts";
 import type { InstallCommandOptions } from "#install/types.ts";
@@ -28,6 +30,10 @@ if (process.argv[2] === "__generate") {
   await createGenerateCommand().parseAsync(process.argv.slice(3), {
     from: "user",
   });
+} else if (process.argv[2] === "__grade") {
+  await createGradeCommand().parseAsync(process.argv.slice(3), {
+    from: "user",
+  });
 } else if (process.argv[2] === "__init") {
   await createInitCommand().parseAsync(process.argv.slice(3), { from: "user" });
 } else if (process.argv[2] === "__overrides") {
@@ -36,6 +42,10 @@ if (process.argv[2] === "__generate") {
   });
 } else if (process.argv[2] === "__refresh") {
   await createRefreshCommand().parseAsync(process.argv.slice(3), {
+    from: "user",
+  });
+} else if (process.argv[2] === "__regrade") {
+  await createRegradeCommand().parseAsync(process.argv.slice(3), {
     from: "user",
   });
 } else if (process.argv[2] === "__target") {

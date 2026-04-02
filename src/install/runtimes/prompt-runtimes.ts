@@ -79,6 +79,13 @@ const PROMPT_RUNTIME_ASSETS: Record<
       entrypoint: "/@taro-test/rtl:target",
     },
     {
+      id: "mocks",
+      kind: "command",
+      sourceSegments: ["commands", "claude", "@taro-test", "rtl", "mocks.md"],
+      destinationSegments: ["commands", "@taro-test", "rtl", "mocks.md"],
+      entrypoint: "/@taro-test/rtl:mocks",
+    },
+    {
       id: "refresh",
       kind: "command",
       sourceSegments: ["commands", "claude", "@taro-test", "rtl", "refresh.md"],
@@ -186,6 +193,13 @@ const PROMPT_RUNTIME_ASSETS: Record<
       entrypoint: "/@taro-test/rtl:target",
     },
     {
+      id: "mocks",
+      kind: "command",
+      sourceSegments: ["commands", "gemini", "@taro-test", "rtl", "mocks.toml"],
+      destinationSegments: ["commands", "@taro-test", "rtl", "mocks.toml"],
+      entrypoint: "/@taro-test/rtl:mocks",
+    },
+    {
       id: "refresh",
       kind: "command",
       sourceSegments: [
@@ -266,6 +280,13 @@ const PROMPT_RUNTIME_ASSETS: Record<
       sourceSegments: ["commands", "opencode", "@taro-test", "rtl-target.md"],
       destinationSegments: ["commands", "@taro-test", "rtl-target.md"],
       entrypoint: "/@taro-test/rtl-target",
+    },
+    {
+      id: "mocks",
+      kind: "command",
+      sourceSegments: ["commands", "opencode", "@taro-test", "rtl-mocks.md"],
+      destinationSegments: ["commands", "@taro-test", "rtl-mocks.md"],
+      entrypoint: "/@taro-test/rtl-mocks",
     },
     {
       id: "refresh",

@@ -63,13 +63,12 @@ export function calculateGeneratedTestQualityWeight(
     : baseWeight;
 }
 
-export function buildGeneratedTestQualityIndex(
+function appendQualityIndexRecords(
+  qualityIndex: GeneratedTestQualityIndex,
   projectRoot: string,
-  generatedTests: TaroGeneratedTestRecord[]
-): GeneratedTestQualityIndex {
-  const qualityIndex: GeneratedTestQualityIndex = new Map();
-
-  for (const record of generatedTests) {
+  records: TaroGeneratedTestRecord[]
+) {
+  for (const record of records) {
     const normalizedPath = normalizeRepoRelativePath(
       projectRoot,
       record.testFile
@@ -89,13 +88,22 @@ export function buildGeneratedTestQualityIndex(
 
     if (
       !existing ||
-      nextEntry.createdAtMs >= existing.createdAtMs ||
+      nextEntry.createdAtMs > existing.createdAtMs ||
       (nextEntry.createdAtMs === existing.createdAtMs &&
         nextEntry.overall >= existing.overall)
     ) {
       qualityIndex.set(normalizedPath, nextEntry);
     }
   }
+}
+
+export function buildGeneratedTestQualityIndex(
+  projectRoot: string,
+  generatedTests: TaroGeneratedTestRecord[]
+): GeneratedTestQualityIndex {
+  const qualityIndex: GeneratedTestQualityIndex = new Map();
+
+  appendQualityIndexRecords(qualityIndex, projectRoot, generatedTests);
 
   return qualityIndex;
 }
@@ -232,12 +240,15 @@ export function summarizePackageScoreLearning(
 }
 
 function getLatestGeneratedTestRecordTimestamp(state: TaroState): number {
-  return state.generatedTests.reduce((latest, record) => {
-    const createdAtMs = Date.parse(record.createdAt);
-    return Number.isFinite(createdAtMs)
-      ? Math.max(latest, createdAtMs)
-      : latest;
-  }, 0);
+  return state.generatedTests.reduce(
+    (latest, record) => {
+      const createdAtMs = Date.parse(record.createdAt);
+      return Number.isFinite(createdAtMs)
+        ? Math.max(latest, createdAtMs)
+        : latest;
+    },
+    0
+  );
 }
 
 function getLatestPackageScanTimestamp(state: TaroState): number {
@@ -478,10 +489,7 @@ export function buildSummaryPackages(
   packages: Record<string, TaroPackageProfile>,
   generatedTests: TaroState["generatedTests"]
 ): TaroStateSummaryPackage[] {
-  const qualityIndex = buildGeneratedTestQualityIndex(
-    projectRoot,
-    generatedTests
-  );
+  const qualityIndex = buildGeneratedTestQualityIndex(projectRoot, generatedTests);
 
   return orderBy(
     Object.values(packages).map((profile) => ({
