@@ -1,0 +1,59 @@
+{
+  "packageName": "@taro-test/rtl",
+  "runtime": "opencode",
+  "location": "local",
+  "manifestVersion": 1,
+  "generatedAt": "2026-04-18T13:30:14.107Z",
+  "files": [
+    {
+      "relativePath": "commands/@taro-test/rtl-help.md",
+      "kind": "command",
+      "checksum": "35d627dee305c66a5f09784cec478bb4c12bd34bc70bf2c091df8f10d7176170"
+    },
+    {
+      "relativePath": "commands/@taro-test/rtl-init.md",
+      "kind": "command",
+      "checksum": "2721a5f9eabc5ac9c3d67716d5f982d4b83a0dc68a9c3752d9cf84e3922e1a68"
+    },
+    {
+      "relativePath": "commands/@taro-test/rtl-generate.md",
+      "kind": "command",
+      "checksum": "dab707f13ef0a691a1d092b015d8367f496d58abdaca26c053dcec59ff8fc0fb"
+    },
+    {
+      "relativePath": "commands/@taro-test/rtl-generate-i.md",
+      "kind": "command",
+      "checksum": "28f69967e5cf1653d9e68ad6d82227727889cf00c32aed1b81d9b13be4ddbdad"
+    },
+    {
+      "relativePath": "commands/@taro-test/rtl-grade.md",
+      "kind": "command",
+      "checksum": "0466a061a0c2f57def7c168d86849da11073bc466f6fe447c143c42bc69a917a"
+    },
+    {
+      "relativePath": "commands/@taro-test/rtl-regrade.md",
+      "kind": "command",
+      "checksum": "cebfdb32eccc9c0c9e9c5e6e9ffe4aadcff1e2cd1ce542e77e6daca00d13e6a0"
+    },
+    {
+      "relativePath": "commands/@taro-test/rtl-target.md",
+      "kind": "command",
+      "checksum": "bae974c0d43e69e0227db44052a4553ff48365dcf3c530b21f8c8d4c790e624f"
+    },
+    {
+      "relativePath": "commands/@taro-test/rtl-mocks.md",
+      "kind": "command",
+      "checksum": "511af80683996c482c106100711ec3853ad156e9689d321ff801e1d11d5729c4"
+    },
+    {
+      "relativePath": "commands/@taro-test/rtl-refresh.md",
+      "kind": "command",
+      "checksum": "41ce7ec2760c3886eb31a1077e0d7ebf3d7755f0203b060eeabc46a7c5742635"
+    },
+    {
+      "relativePath": "commands/@taro-test/rtl-overrides.md",
+      "kind": "command",
+      "checksum": "46f2967e16e2a62f93eeccbb34f4593509461a0554fe8634deca6ba444c72481"
+    }
+  ]
+}

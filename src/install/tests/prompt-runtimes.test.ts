@@ -506,9 +506,17 @@ describe("prompt runtime install builders", () => {
     expect(generateContent).toContain(
       `\`${target.runtimeCommand} __generate <recording-file>\``
     );
+    expect(generateContent).toContain("/@taro-test/rtl-target");
+    expect(generateContent).toContain(
+      "/@taro-test/rtl-target <component-directory> --directory-loop"
+    );
+    expect(generateContent).toContain(
+      "Do not inspect repo contents before making this routing decision."
+    );
     expect(interactiveGenerateContent).toContain(
       `\`${target.runtimeCommand} __generate -i <recording-file>\``
     );
+    expect(interactiveGenerateContent).toContain("/@taro-test/rtl-target");
     expect(targetContent).toContain(
       `\`${target.runtimeCommand} __target <component-file>\``
     );
