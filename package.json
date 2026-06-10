@@ -24,6 +24,7 @@
     "build": "node scripts/build-hooks.js && tsc -p tsconfig.build.json",
     "build:claude": "pnpm run build && node scripts/build-claude.js",
     "build:codex": "pnpm run build && node scripts/build-codex.js",
+    "build:opencode": "pnpm run build && node scripts/build-opencode.js",
     "changelog": "node scripts/generate-changelog.cjs",
     "format": "prettier . --write",
     "format:check": "prettier . --check",

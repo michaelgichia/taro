@@ -23,6 +23,12 @@ import {
   main as buildHooksMain,
   scaffoldDirectories,
 } from "../../../scripts/build-hooks.js";
+import {
+  getOpenCodeBuildPaths,
+  runInstallOrExit as runOpenCodeInstallOrExit,
+  runOpenCodeBuild,
+  shouldRunAsMain as shouldRunOpenCodeBuildAsMain,
+} from "../../../scripts/build-opencode.js";
 
 const require = createRequire(import.meta.url);
 const Module = require("node:module");
@@ -529,6 +535,233 @@ describe("build-codex.js", () => {
     });
 
     expect(log).toHaveBeenCalledWith("[taro] Codex build/install complete.");
+  });
+});
+
+describe("build-opencode.js", () => {
+  it("uses the OS home directory when OpenCode build paths are resolved without an override", () => {
+    const paths = getOpenCodeBuildPaths("/repo");
+
+    expect(paths.localOpenCodeCommandNamespaceDir).toEqual(
+      "/repo/.opencode/commands/@taro-test"
+    );
+    expect(paths.globalOpenCodeCommandNamespaceDir).toContain(
+      "/.config/opencode/commands/@taro-test"
+    );
+    expect(paths.localOpenCodeManifestPath).toBe(
+      "/repo/.opencode/install-manifest.json"
+    );
+    expect(paths.globalOpenCodeManifestPath).toContain(
+      "/.config/opencode/install-manifest.json"
+    );
+  });
+
+  it("removes local/global OpenCode assets and runs local then global installs", async () => {
+    const rmImpl = vi.fn(async () => undefined);
+    const spawnImpl = vi.fn(() => ({ status: 0 }));
+    const log = vi.fn();
+    const exit = vi.fn();
+
+    await runOpenCodeBuild({
+      rootDir: "/repo",
+      homeDir: "/home/tester",
+      installEntrypoint: "/repo/bin/install.js",
+      nodeBin: "/node",
+      env: { TEST: "1" },
+      rmImpl,
+      spawnImpl,
+      log,
+      exit,
+    });
+
+    const paths = getOpenCodeBuildPaths("/repo", "/home/tester");
+    expect(rmImpl).toHaveBeenCalledWith(paths.localOpenCodeCommandNamespaceDir, {
+      recursive: true,
+      force: true,
+    });
+    expect(rmImpl).toHaveBeenCalledWith(paths.localOpenCodeManifestPath, {
+      force: true,
+    });
+    expect(rmImpl).toHaveBeenCalledWith(
+      paths.globalOpenCodeCommandNamespaceDir,
+      {
+        recursive: true,
+        force: true,
+      }
+    );
+    expect(rmImpl).toHaveBeenCalledWith(paths.globalOpenCodeManifestPath, {
+      force: true,
+    });
+    expect(spawnImpl).toHaveBeenNthCalledWith(
+      1,
+      "/node",
+      ["/repo/bin/install.js", "--opencode", "--local"],
+      expect.objectContaining({
+        cwd: "/repo",
+        env: { TEST: "1" },
+        stdio: "inherit",
+      })
+    );
+    expect(spawnImpl).toHaveBeenNthCalledWith(
+      2,
+      "/node",
+      ["/repo/bin/install.js", "--opencode", "--global"],
+      expect.objectContaining({
+        cwd: "/repo",
+        env: { TEST: "1" },
+        stdio: "inherit",
+      })
+    );
+    expect(exit).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith("[taro] OpenCode build/install complete.");
+  });
+
+  it("exits when an install step fails", async () => {
+    const exitError = new Error("exit:9");
+    const exit = vi.fn(() => {
+      throw exitError;
+    });
+
+    await expect(
+      runOpenCodeBuild({
+        rootDir: "/repo",
+        homeDir: "/home/tester",
+        installEntrypoint: "/repo/bin/install.js",
+        nodeBin: "/node",
+        rmImpl: vi.fn(async () => undefined),
+        spawnImpl: vi.fn(() => ({ status: 9 })),
+        log: vi.fn(),
+        exit,
+      })
+    ).rejects.toBe(exitError);
+    expect(exit).toHaveBeenCalledWith(9);
+  });
+
+  it("falls back to exit code 1 when an install step returns no status code", () => {
+    const exit = vi.fn();
+
+    runOpenCodeInstallOrExit(["--opencode", "--local"], {
+      spawnImpl: vi.fn(() => ({ status: null })),
+      nodeBin: "/node",
+      installEntrypoint: "/repo/bin/install.js",
+      rootDir: "/repo",
+      env: {},
+      exit,
+    });
+
+    expect(exit).toHaveBeenCalledWith(1);
+  });
+
+  it("runs the build through the module entrypoint using default option branches", async () => {
+    const rmImpl = vi.fn(async () => undefined);
+    const spawnImpl = vi.fn(() => ({ status: 0 }));
+    const homedirImpl = vi.fn(() => "/home/default-opencode");
+    const scriptUrl = new URL(
+      "../../../scripts/build-opencode.js",
+      import.meta.url
+    );
+    const scriptPath = fileURLToPath(scriptUrl);
+    const rootDir = join(fileURLToPath(new URL(".", scriptUrl)), "..");
+    const originalArgv1 = process.argv[1];
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    vi.resetModules();
+    vi.doMock("node:child_process", () => ({ spawnSync: spawnImpl }));
+    vi.doMock("node:fs/promises", async () => {
+      const actual =
+        await vi.importActual<typeof import("node:fs/promises")>(
+          "node:fs/promises"
+        );
+      return { ...actual, rm: rmImpl };
+    });
+    vi.doMock("node:os", async () => {
+      const actual = await vi.importActual<typeof import("node:os")>("node:os");
+      return { ...actual, homedir: homedirImpl };
+    });
+
+    try {
+      process.argv[1] = scriptPath;
+
+      await import(scriptUrl.href);
+
+      expect(spawnImpl).toHaveBeenNthCalledWith(
+        1,
+        process.execPath,
+        [join(rootDir, "bin", "install.js"), "--opencode", "--local"],
+        expect.objectContaining({
+          cwd: rootDir,
+          env: process.env,
+          stdio: "inherit",
+        })
+      );
+      expect(spawnImpl).toHaveBeenNthCalledWith(
+        2,
+        process.execPath,
+        [join(rootDir, "bin", "install.js"), "--opencode", "--global"],
+        expect.objectContaining({
+          cwd: rootDir,
+          env: process.env,
+          stdio: "inherit",
+        })
+      );
+
+      const paths = getOpenCodeBuildPaths(rootDir, "/home/default-opencode");
+      expect(rmImpl).toHaveBeenCalledWith(
+        paths.localOpenCodeCommandNamespaceDir,
+        {
+          recursive: true,
+          force: true,
+        }
+      );
+      expect(rmImpl).toHaveBeenCalledWith(paths.localOpenCodeManifestPath, {
+        force: true,
+      });
+      expect(rmImpl).toHaveBeenCalledWith(
+        paths.globalOpenCodeCommandNamespaceDir,
+        {
+          recursive: true,
+          force: true,
+        }
+      );
+      expect(rmImpl).toHaveBeenCalledWith(paths.globalOpenCodeManifestPath, {
+        force: true,
+      });
+      expect(log).toHaveBeenCalledWith(
+        "[taro] OpenCode build/install complete."
+      );
+      expect(homedirImpl).toHaveBeenCalled();
+    } finally {
+      process.argv[1] = originalArgv1;
+      log.mockRestore();
+      vi.resetModules();
+      vi.unmock("node:child_process");
+      vi.unmock("node:fs/promises");
+      vi.unmock("node:os");
+    }
+  });
+
+  it("detects when the OpenCode build script is the active entrypoint", () => {
+    expect(
+      shouldRunOpenCodeBuildAsMain(
+        "/repo/scripts/build-opencode.js",
+        "file:///repo/scripts/build-opencode.js"
+      )
+    ).toBe(true);
+    expect(
+      shouldRunOpenCodeBuildAsMain(
+        "/repo/scripts/other.js",
+        "file:///repo/scripts/build-opencode.js"
+      )
+    ).toBe(false);
+  });
+
+  it("treats a missing argv[1] as not running as the main module", () => {
+    expect(
+      shouldRunOpenCodeBuildAsMain(
+        undefined,
+        "file:///repo/scripts/build-opencode.js"
+      )
+    ).toBe(false);
   });
 });
 

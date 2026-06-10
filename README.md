@@ -103,6 +103,9 @@ pnpm run build
 # Build, install locally for this repo, then reinstall the global Claude surface cleanly
 pnpm run build:claude
 
+# Build, install locally for this repo, then reinstall the global OpenCode surface cleanly
+pnpm run build:opencode
+
 # Build, install locally for this repo, then reinstall the global Codex surface cleanly
 pnpm run build:codex
 
@@ -121,6 +124,13 @@ The tarball flow is the closest match to what end users get from npm.
 1. builds the package
 2. installs Claude commands into this repo's `./.claude/`
 3. deletes the existing global Taro Claude command directory at `~/.claude/commands/@taro-test/rtl` and reinstalls it cleanly
+
+`pnpm run build:opencode` performs the OpenCode equivalent:
+
+1. builds the package
+2. installs OpenCode commands into this repo's `./.opencode/`
+3. deletes the existing global Taro OpenCode command namespace at `~/.config/opencode/commands/@taro-test` plus `~/.config/opencode/install-manifest.json`
+4. reinstalls the global OpenCode surface cleanly
 
 `pnpm run build:codex` performs the Codex equivalent:
 
