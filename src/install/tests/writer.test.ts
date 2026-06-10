@@ -48,8 +48,8 @@ function createTarget(): PlannedInstallTarget {
         location: "global",
         kind: "skill",
         sourcePath: "/repo/package/skill.md",
-        relativeDestinationPath: "skills/@tr/rtl-help/SKILL.md",
-        targetPath: "/repo/.codex/skills/@tr/rtl-help/SKILL.md",
+        relativeDestinationPath: "skills/@tr-rtl/cli-help/SKILL.md",
+        targetPath: "/repo/.codex/skills/@tr-rtl/cli-help/SKILL.md",
         renderedContent: "# skill\n",
       },
     ],
@@ -85,7 +85,7 @@ describe("writeInstallPlan", () => {
     );
     expect(writeFileMock).toHaveBeenCalledWith(
       manifestPath,
-      expect.stringContaining('"packageName": "@tr/rtl"')
+      expect.stringContaining('"packageName": "@tr-rtl/cli"')
     );
   });
 

@@ -1,11 +1,11 @@
 ---
-name: "@tr/rtl-grade"
+name: "@tr-rtl/cli-grade"
 description: "Grade an existing React Testing Library test file using Taro's shared ScoreResult rubric, then persist a score snapshot in `.taro/state.json`. Use when a user wants a score for an existing test without regenerating it."
 ---
 
 # Taro Grade
 
-Invoke this skill with `$@tr/rtl-grade`.
+Invoke this skill with `$@tr-rtl/cli-grade`.
 
 ## Purpose
 
