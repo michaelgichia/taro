@@ -60,16 +60,16 @@ describe("executeInstallPlan", () => {
 
     await expect(
       readFile(
-        join(home, ".claude", "commands", "@taro-test", "rtl", "help.md"),
+        join(home, ".claude", "commands", "@tr", "rtl", "help.md"),
         "utf8"
       )
-    ).resolves.toContain("/@taro-test/rtl:help");
+    ).resolves.toContain("/@tr/rtl:help");
     await expect(
       readFile(
-        join(home, ".gemini", "commands", "@taro-test", "rtl", "help.toml"),
+        join(home, ".gemini", "commands", "@tr", "rtl", "help.toml"),
         "utf8"
       )
-    ).resolves.toContain("/@taro-test/rtl:help");
+    ).resolves.toContain("/@tr/rtl:help");
     await expect(
       readFile(
         join(
@@ -77,18 +77,18 @@ describe("executeInstallPlan", () => {
           ".config",
           "opencode",
           "commands",
-          "@taro-test",
+          "@tr",
           "rtl-help.md"
         ),
         "utf8"
       )
-    ).resolves.toContain("/@taro-test/rtl-help");
+    ).resolves.toContain("/@tr/rtl-help");
     await expect(
       readFile(
-        join(home, ".codex", "skills", "@taro-test", "rtl-help", "SKILL.md"),
+        join(home, ".codex", "skills", "@tr", "rtl-help", "SKILL.md"),
         "utf8"
       )
-    ).resolves.toContain("$@taro-test/rtl-help");
+    ).resolves.toContain("$@tr/rtl-help");
 
     await expect(
       readFile(join(home, ".claude", "install-manifest.json"), "utf8")
@@ -103,7 +103,7 @@ describe("executeInstallPlan", () => {
       )
     ).resolves.toContain(FIXED_GENERATED_AT);
     await expect(
-      readFile(join(home, ".codex", "@taro-test-rtl-manifest.json"), "utf8")
+      readFile(join(home, ".codex", "@tr-rtl-manifest.json"), "utf8")
     ).resolves.toContain(FIXED_GENERATED_AT);
   });
 });
@@ -138,7 +138,7 @@ describe("writeInstallPlan conflict handling", () => {
       home,
       ".gemini",
       "commands",
-      "@taro-test",
+      "@tr",
       "rtl",
       "help.toml"
     );
@@ -152,7 +152,7 @@ describe("writeInstallPlan conflict handling", () => {
 
     expect(result.status).toBe("repaired");
     await expect(readFile(helpPath, "utf8")).resolves.toContain(
-      "/@taro-test/rtl:help"
+      "/@tr/rtl:help"
     );
   });
 
@@ -168,7 +168,7 @@ describe("writeInstallPlan conflict handling", () => {
       home,
       ".claude",
       "commands",
-      "@taro-test",
+      "@tr",
       "rtl",
       "help.md"
     );
@@ -201,11 +201,11 @@ describe("writeInstallPlan conflict handling", () => {
       ".config",
       "opencode",
       "commands",
-      "@taro-test",
+      "@tr",
       "rtl-help.md"
     );
 
-    await mkdir(join(home, ".config", "opencode", "commands", "@taro-test"), {
+    await mkdir(join(home, ".config", "opencode", "commands", "@tr"), {
       recursive: true,
     });
     await writeFile(helpPath, "external file\n");

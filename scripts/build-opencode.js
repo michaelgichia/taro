@@ -18,12 +18,12 @@ export function getOpenCodeBuildPaths(rootDir, homeDirectory = homedir()) {
     localOpenCodeCommandNamespaceDir: join(
       localOpenCodeRoot,
       "commands",
-      "@taro-test"
+      "@tr"
     ),
     globalOpenCodeCommandNamespaceDir: join(
       globalOpenCodeRoot,
       "commands",
-      "@taro-test"
+      "@tr"
     ),
     localOpenCodeManifestPath: join(localOpenCodeRoot, "install-manifest.json"),
     globalOpenCodeManifestPath: join(

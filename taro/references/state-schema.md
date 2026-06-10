@@ -9,7 +9,7 @@ Optional companion file:
 
 - `.taro/overrides.json`
 
-Purpose: Persist bounded, package-scoped test knowledge that Taro can reuse across `init`, `refresh`, and `generate`.
+Purpose: Persist bounded, package-scoped test knowledge that Taro can reuse across `init`, `refresh`, and `gen`.
 
 ## Rules
 
@@ -232,7 +232,7 @@ Purpose: Persist bounded, package-scoped test knowledge that Taro can reuse acro
 }
 ```
 
-`generatedTests` is an append-only score history used by `generate`, `grade`, and `regrade`. Taro keeps only the latest 5 snapshots per `testFile`.
+`generatedTests` is an append-only score history used by `gen`, `grade`, and `regrade`. Taro keeps only the latest 5 snapshots per `testFile`.
 
 ## Override File
 

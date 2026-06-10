@@ -398,7 +398,7 @@ describe("build-codex.js", () => {
 
   it("resolves global skill directories from local installed skill names", async () => {
     const readdirImpl = vi.fn(async () => [
-      { name: "rtl-generate", isDirectory: () => true },
+      { name: "rtl-gen", isDirectory: () => true },
       { name: "rtl-help", isDirectory: () => true },
       { name: "notes", isDirectory: () => false },
       { name: "other-skill", isDirectory: () => true },
@@ -407,12 +407,12 @@ describe("build-codex.js", () => {
     await expect(
       resolveGlobalCodexSkillDirs({
         readdirImpl,
-        localCodexSkillNamespaceDir: "/repo/.codex/skills/@taro-test",
-        globalCodexSkillNamespaceDir: "/home/.codex/skills/@taro-test",
+        localCodexSkillNamespaceDir: "/repo/.codex/skills/@tr",
+        globalCodexSkillNamespaceDir: "/home/.codex/skills/@tr",
       })
     ).resolves.toEqual([
-      "/home/.codex/skills/@taro-test/rtl-generate",
-      "/home/.codex/skills/@taro-test/rtl-help",
+      "/home/.codex/skills/@tr/rtl-gen",
+      "/home/.codex/skills/@tr/rtl-help",
     ]);
   });
 
@@ -425,8 +425,8 @@ describe("build-codex.js", () => {
     await expect(
       resolveGlobalCodexSkillDirs({
         readdirImpl,
-        localCodexSkillNamespaceDir: "/repo/.codex/skills/@taro-test",
-        globalCodexSkillNamespaceDir: "/home/.codex/skills/@taro-test",
+        localCodexSkillNamespaceDir: "/repo/.codex/skills/@tr",
+        globalCodexSkillNamespaceDir: "/home/.codex/skills/@tr",
       })
     ).resolves.toEqual([]);
   });
@@ -439,8 +439,8 @@ describe("build-codex.js", () => {
         readdirImpl: vi.fn(async () => {
           throw error;
         }),
-        localCodexSkillNamespaceDir: "/repo/.codex/skills/@taro-test",
-        globalCodexSkillNamespaceDir: "/home/.codex/skills/@taro-test",
+        localCodexSkillNamespaceDir: "/repo/.codex/skills/@tr",
+        globalCodexSkillNamespaceDir: "/home/.codex/skills/@tr",
       })
     ).rejects.toBe(error);
   });
@@ -451,7 +451,7 @@ describe("build-codex.js", () => {
     const log = vi.fn();
     const exit = vi.fn();
     const readdirImpl = vi.fn(async () => [
-      { name: "rtl-generate", isDirectory: () => true },
+      { name: "rtl-gen", isDirectory: () => true },
     ]);
 
     await runCodexBuild({
@@ -476,7 +476,7 @@ describe("build-codex.js", () => {
       force: true,
     });
     expect(rmImpl).toHaveBeenCalledWith(
-      "/home/tester/.codex/skills/@taro-test/rtl-generate",
+      "/home/tester/.codex/skills/@tr/rtl-gen",
       { recursive: true, force: true }
     );
     expect(spawnImpl).toHaveBeenNthCalledWith(
@@ -543,10 +543,10 @@ describe("build-opencode.js", () => {
     const paths = getOpenCodeBuildPaths("/repo");
 
     expect(paths.localOpenCodeCommandNamespaceDir).toEqual(
-      "/repo/.opencode/commands/@taro-test"
+      "/repo/.opencode/commands/@tr"
     );
     expect(paths.globalOpenCodeCommandNamespaceDir).toContain(
-      "/.config/opencode/commands/@taro-test"
+      "/.config/opencode/commands/@tr"
     );
     expect(paths.localOpenCodeManifestPath).toBe(
       "/repo/.opencode/install-manifest.json"

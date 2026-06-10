@@ -7,7 +7,7 @@ Important: Authentication must never block test generation. Secrets are never st
 Current v1 status: Taro can persist non-secret Playwright auth metadata in `.taro/state.json`. Today this supports:
 
 - detected Playwright `storageState` files from common repo patterns and Playwright config
-- explicit `--auth <storageState.json>` paths provided during `generate`
+- explicit `--auth <storageState.json>` paths provided during `gen`
 - explicit `--instructions <auth.md>` references for manual auth runbooks
 
 Stored metadata must stay non-secret:

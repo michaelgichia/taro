@@ -7,24 +7,24 @@ For the current strict-order runtime pipeline, see [PIPELINE.md](./PIPELINE.md).
 ## Install
 
 ```bash
-pnpm dlx @taro-test/rtl@latest
+pnpm dlx @tr/rtl@latest
 ```
 
 Use runtime flags plus one location flag to skip prompts:
 
 ```bash
-pnpm dlx @taro-test/rtl@latest --codex --local
-pnpm dlx @taro-test/rtl@latest --all --global
+pnpm dlx @tr/rtl@latest --codex --local
+pnpm dlx @tr/rtl@latest --all --global
 ```
 
 After install or reinstall, run the runtime-native `init` entrypoint:
 
-- Claude Code: `/@taro-test/rtl:init`
-- Gemini CLI: `/@taro-test/rtl:init`
-- OpenCode: `/@taro-test/rtl-init`
-- Codex: `$@taro-test/rtl-init`
+- Claude Code: `/@tr/rtl:init`
+- Gemini CLI: `/@tr/rtl:init`
+- OpenCode: `/@tr/rtl-init`
+- Codex: `$@tr/rtl-init`
 
-The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `pnpm dlx @taro-test/rtl@latest --version`.
+The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `pnpm dlx @tr/rtl@latest --version`.
 
 For Claude Code local testing from this repo, run:
 
@@ -44,32 +44,32 @@ That command builds Taro, installs the Codex skill surface into this repo's `./.
 
 ## Runtime Entrypoints
 
-- Claude Code: `/@taro-test/rtl:help`, `/@taro-test/rtl:init`, `/@taro-test/rtl:refresh`, `/@taro-test/rtl:generate`, `/@taro-test/rtl:generate-i`, `/@taro-test/rtl:target`, `/@taro-test/rtl:mocks`, `/@taro-test/rtl:grade`, `/@taro-test/rtl:regrade`
-- Gemini CLI: `/@taro-test/rtl:help`, `/@taro-test/rtl:init`, `/@taro-test/rtl:refresh`, `/@taro-test/rtl:generate`, `/@taro-test/rtl:generate-i`, `/@taro-test/rtl:target`, `/@taro-test/rtl:mocks`, `/@taro-test/rtl:grade`, `/@taro-test/rtl:regrade`
-- OpenCode: `/@taro-test/rtl-help`, `/@taro-test/rtl-init`, `/@taro-test/rtl-refresh`, `/@taro-test/rtl-generate`, `/@taro-test/rtl-generate-i`, `/@taro-test/rtl-target`, `/@taro-test/rtl-mocks`, `/@taro-test/rtl-grade`, `/@taro-test/rtl-regrade`
-- Codex: `$@taro-test/rtl-help`, `$@taro-test/rtl-init`, `$@taro-test/rtl-refresh`, `$@taro-test/rtl-generate`, `$@taro-test/rtl-generate-i`, `$@taro-test/rtl-target`, `$@taro-test/rtl-mocks`, `$@taro-test/rtl-grade`, `$@taro-test/rtl-regrade`
+- Claude Code: `/@tr/rtl:help`, `/@tr/rtl:init`, `/@tr/rtl:refresh`, `/@tr/rtl:gen`, `/@tr/rtl:geni`, `/@tr/rtl:target`, `/@tr/rtl:mocks`, `/@tr/rtl:grade`, `/@tr/rtl:regrade`
+- Gemini CLI: `/@tr/rtl:help`, `/@tr/rtl:init`, `/@tr/rtl:refresh`, `/@tr/rtl:gen`, `/@tr/rtl:geni`, `/@tr/rtl:target`, `/@tr/rtl:mocks`, `/@tr/rtl:grade`, `/@tr/rtl:regrade`
+- OpenCode: `/@tr/rtl-help`, `/@tr/rtl-init`, `/@tr/rtl-refresh`, `/@tr/rtl-gen`, `/@tr/rtl-geni`, `/@tr/rtl-target`, `/@tr/rtl-mocks`, `/@tr/rtl-grade`, `/@tr/rtl-regrade`
+- Codex: `$@tr/rtl-help`, `$@tr/rtl-init`, `$@tr/rtl-refresh`, `$@tr/rtl-gen`, `$@tr/rtl-geni`, `$@tr/rtl-target`, `$@tr/rtl-mocks`, `$@tr/rtl-grade`, `$@tr/rtl-regrade`
 
 ## Refresh Maintenance
 
 Use the runtime-native `refresh` entrypoint when Taro is already installed and you want to refresh owned assets or repair missing ones:
 
-- Claude Code: `/@taro-test/rtl:refresh`
-- Gemini CLI: `/@taro-test/rtl:refresh`
-- OpenCode: `/@taro-test/rtl-refresh`
-- Codex: `$@taro-test/rtl-refresh`
+- Claude Code: `/@tr/rtl:refresh`
+- Gemini CLI: `/@tr/rtl:refresh`
+- OpenCode: `/@tr/rtl-refresh`
+- Codex: `$@tr/rtl-refresh`
 
-If you need a newer package version first, rerun `pnpm dlx @taro-test/rtl@latest` and then run the runtime-native `refresh` entrypoint.
+If you need a newer package version first, rerun `pnpm dlx @tr/rtl@latest` and then run the runtime-native `refresh` entrypoint.
 
 ## Generation Rules
 
-1. Provide a Testing Library Recorder `.js` export for `generate`, or provide a component file path or component-directory path for `target`.
+1. Provide a Testing Library Recorder `.js` export for `gen`, or provide a component file path or component-directory path for `target`.
 2. Run the runtime-native `init` entrypoint first when Taro has just been installed or reinstalled.
 3. When Taro infers the owning render target, it must write the generated test next to the inferred component.
 4. When `target` is used with a file, Taro must write the generated test next to the supplied component.
 5. When `target` is used with a directory, Taro must run directory-loop mode, write a tracker under `.taro/directory-loop/`, and skip non-component `.ts` or `.tsx` files.
-6. Single-file `generate`, `generate-i`, and `target` runs may trigger one automatic mock-review repair pass when Taro emits mock-review findings such as `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`.
+6. Single-file `gen`, `geni`, and `target` runs may trigger one automatic mock-review repair pass when Taro emits mock-review findings such as `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`.
 7. That repair pass is limited to mock-scoped edits, regrades with `__regrade`, and keeps changes only when syntax, score, flow coverage, and blocking findings do not regress.
-8. `generate`, `generate-i`, and `target` accept `--min-score <0-100>` to require a minimum Taro score for the selected output. For single-file generation, the installed runtime entrypoint treats that as the final post-review gate instead of the first-pass gate.
+8. `gen`, `geni`, and `target` accept `--min-score <0-100>` to require a minimum Taro score for the selected output. For single-file generation, the installed runtime entrypoint treats that as the final post-review gate instead of the first-pass gate.
 9. `target --directory-loop` stays review-only in v1 and keeps the existing direct `--min-score` behavior.
 10. If no render target can be inferred, the fallback boundary draft is written next to the recording. Existing generated outputs are never overwritten.
 11. Draft-quality output is reported explicitly through score, blockers, and boundary warnings.

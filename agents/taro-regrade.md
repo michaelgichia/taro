@@ -1,11 +1,11 @@
 ---
-name: "@taro-test/rtl-regrade"
+name: "@tr/rtl-regrade"
 description: "Regrade an existing RTL test against the latest file contents, compare it to the latest stored snapshot when present, and persist new progress either in `.taro/state.json` for a single file or in a directory-loop tracker for a batch run."
 ---
 
 # Taro Regrade
 
-Invoke this skill with `$@taro-test/rtl-regrade`.
+Invoke this skill with `$@tr/rtl-regrade`.
 
 ## Purpose
 

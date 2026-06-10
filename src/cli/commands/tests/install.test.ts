@@ -70,9 +70,9 @@ describe("runInstallCommand", () => {
 
     expect(process.exitCode).toBeUndefined();
     expect(output).toContain("Install complete.");
-    expect(output).toContain("/@taro-test/rtl:help (verified at");
-    expect(output).toContain("/@taro-test/rtl-help (verified at");
-    expect(output).toContain("$@taro-test/rtl-help (verified at");
+    expect(output).toContain("/@tr/rtl:help (verified at");
+    expect(output).toContain("/@tr/rtl-help (verified at");
+    expect(output).toContain("$@tr/rtl-help (verified at");
 
     const runtimeCommand = buildRuntimeCommand(
       process.execPath,
@@ -85,20 +85,20 @@ describe("runInstallCommand", () => {
           sandbox.home,
           ".codex",
           "skills",
-          "@taro-test",
+          "@tr",
           "rtl-help",
           "SKILL.md"
         ),
         "utf8"
       )
-    ).resolves.toContain("$@taro-test/rtl-help");
+    ).resolves.toContain("$@tr/rtl-help");
     await expect(
       readFile(
         join(
           sandbox.home,
           ".claude",
           "commands",
-          "@taro-test",
+          "@tr",
           "rtl",
           "init.md"
         ),
@@ -111,7 +111,7 @@ describe("runInstallCommand", () => {
           sandbox.home,
           ".claude",
           "commands",
-          "@taro-test",
+          "@tr",
           "rtl",
           "refresh.md"
         ),
@@ -124,7 +124,7 @@ describe("runInstallCommand", () => {
           sandbox.home,
           ".claude",
           "commands",
-          "@taro-test",
+          "@tr",
           "rtl",
           "overrides.md"
         ),
@@ -137,59 +137,59 @@ describe("runInstallCommand", () => {
           sandbox.home,
           ".codex",
           "skills",
-          "@taro-test",
+          "@tr",
           "rtl-init",
           "SKILL.md"
         ),
         "utf8"
       )
-    ).resolves.toContain("$@taro-test/rtl-init");
+    ).resolves.toContain("$@tr/rtl-init");
     await expect(
       readFile(
         join(
           sandbox.home,
           ".codex",
           "skills",
-          "@taro-test",
+          "@tr",
           "rtl-refresh",
           "SKILL.md"
         ),
         "utf8"
       )
-    ).resolves.toContain("$@taro-test/rtl-refresh");
+    ).resolves.toContain("$@tr/rtl-refresh");
     await expect(
       readFile(
         join(
           sandbox.home,
           ".codex",
           "skills",
-          "@taro-test",
+          "@tr",
           "rtl-overrides",
           "SKILL.md"
         ),
         "utf8"
       )
-    ).resolves.toContain("$@taro-test/rtl-overrides");
+    ).resolves.toContain("$@tr/rtl-overrides");
     await expect(
       readFile(
         join(
           sandbox.home,
           ".codex",
           "skills",
-          "@taro-test",
+          "@tr",
           "rtl-grade",
           "SKILL.md"
         ),
         "utf8"
       )
-    ).resolves.toContain("$@taro-test/rtl-grade");
+    ).resolves.toContain("$@tr/rtl-grade");
     await expect(
       readFile(
         join(
           sandbox.home,
           ".claude",
           "commands",
-          "@taro-test",
+          "@tr",
           "rtl",
           "regrade.md"
         ),
@@ -251,7 +251,7 @@ describe("runInstallCommand", () => {
         sandbox.home,
         ".gemini",
         "commands",
-        "@taro-test",
+        "@tr",
         "rtl",
         "help.toml"
       ),

@@ -13,13 +13,13 @@ describe("RUNTIME_REGISTRY", () => {
     expect(RUNTIME_REGISTRY.opencode.localDirectoryName).toBe(".opencode");
   });
 
-  it("keeps prompt runtimes fully namespaced to @taro-test/rtl", () => {
+  it("keeps prompt runtimes fully namespaced to @tr/rtl", () => {
     expect(RUNTIME_REGISTRY.claude.packageContainerSegments).toContain(
-      "@taro-test"
+      "@tr"
     );
     expect(RUNTIME_REGISTRY.gemini.packageContainerSegments).toContain("rtl");
     expect(RUNTIME_REGISTRY.opencode.verificationCommand).toBe(
-      "/@taro-test/rtl-help"
+      "/@tr/rtl-help"
     );
   });
 });
@@ -27,7 +27,7 @@ describe("RUNTIME_REGISTRY", () => {
 describe("resolveAssetSource", () => {
   it("resolves authored install sources from the package root", () => {
     expect(
-      resolveAssetSource(["commands", "claude", "@taro-test", "rtl", "help.md"])
-    ).toContain("/commands/claude/@taro-test/rtl/help.md");
+      resolveAssetSource(["commands", "claude", "@tr", "rtl", "help.md"])
+    ).toContain("/commands/claude/@tr/rtl/help.md");
   });
 });

@@ -13,7 +13,7 @@
 
 ## 1. Split the File by Responsibility
 
-The successful `generate` refactor uses four explicit layers.
+The successful `gen` refactor uses four explicit layers.
 
 | File | Responsibility |
 | --- | --- |
@@ -22,7 +22,7 @@ The successful `generate` refactor uses four explicit layers.
 | `generate.actors.ts` | async work in `fromPromise` actors |
 | `generate-runtime-types.ts` | context, actor input, and actor output types |
 
-If a future `state.ts` refactor keeps orchestration, actors, and runtime types in one file, the result will be harder to reason about than the current `generate` split.
+If a future `state.ts` refactor keeps orchestration, actors, and runtime types in one file, the result will be harder to reason about than the current `gen` split.
 
 ---
 
@@ -215,7 +215,7 @@ Do not let actors reach back into machine context.
 
 ## 6. Error Pattern: Old `try/catch` Becomes `onError`
 
-Most `generate` states follow the same error rule:
+Most `gen` states follow the same error rule:
 
 ```ts
 onError: {
@@ -226,7 +226,7 @@ onError: {
 
 This is the default mapping for a `state.ts` refactor.
 
-One exception is allowed only when preserving current CLI behavior is intentional and documented. `generate` keeps one such exception in `assessingOutput`, where an assessment failure preserves the existing file instead of failing the whole command.
+One exception is allowed only when preserving current CLI behavior is intentional and documented. `gen` keeps one such exception in `assessingOutput`, where an assessment failure preserves the existing file instead of failing the whole command.
 
 The lesson is not "special-case errors freely." The lesson is "document the exception when behavior compatibility requires it."
 
@@ -234,7 +234,7 @@ The lesson is not "special-case errors freely." The lesson is "document the exce
 
 ## 7. Branching Pattern: Keep Topology Flat Unless a Branch Is Meaningful
 
-`generate` stays mostly linear:
+`gen` stays mostly linear:
 
 ```text
 idle
@@ -269,7 +269,7 @@ If a future `state.ts` machine starts adding nested statecharts without a real c
 
 ## 8. Terminal Pattern: Final States Are Visible Even When the CLI Exits
 
-`generate` resolves the machine to `done` or `failed`, then the command performs final CLI behavior:
+`gen` resolves the machine to `done` or `failed`, then the command performs final CLI behavior:
 
 - `done` -> `flushFindings(...)`
 - `failed` -> stderr log and `process.exit(2)`
@@ -285,7 +285,7 @@ That keeps the machine testable even in environments that mock `process.exit`.
 
 ## 9. What a Future `state.ts` Refactor Should Copy Exactly
 
-Copy these habits from `generate`:
+Copy these habits from `gen`:
 
 - thin Commander action
 - dedicated runtime types file

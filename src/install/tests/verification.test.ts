@@ -55,10 +55,10 @@ describe("verifyInstalledRuntime", () => {
     );
 
     expect(results.map((result) => result.verificationCommand)).toEqual([
-      "/@taro-test/rtl:help",
-      "/@taro-test/rtl-help",
-      "/@taro-test/rtl:help",
-      "$@taro-test/rtl-help",
+      "/@tr/rtl:help",
+      "/@tr/rtl-help",
+      "/@tr/rtl:help",
+      "$@tr/rtl-help",
     ]);
     expect(results.every((result) => result.status === "verified")).toBe(true);
     expect(results.map((result) => result.checkedPath)).toEqual(
@@ -109,28 +109,28 @@ describe("package smoke proof", () => {
       expect(tarList.stdout).toContain("package/dist/index.js");
       expect(tarList.stdout).toContain("package/bin/install.js");
       expect(tarList.stdout).toContain(
-        "package/commands/claude/@taro-test/rtl/help.md"
+        "package/commands/claude/@tr/rtl/help.md"
       );
       expect(tarList.stdout).toContain(
-        "package/commands/claude/@taro-test/rtl/grade.md"
+        "package/commands/claude/@tr/rtl/grade.md"
       );
       expect(tarList.stdout).toContain(
-        "package/commands/gemini/@taro-test/rtl/help.toml"
+        "package/commands/gemini/@tr/rtl/help.toml"
       );
       expect(tarList.stdout).toContain(
-        "package/commands/gemini/@taro-test/rtl/regrade.toml"
+        "package/commands/gemini/@tr/rtl/regrade.toml"
       );
       expect(tarList.stdout).toContain(
-        "package/commands/claude/@taro-test/rtl/regrade.md"
+        "package/commands/claude/@tr/rtl/regrade.md"
       );
       expect(tarList.stdout).toContain(
-        "package/commands/opencode/@taro-test/rtl-help.md"
+        "package/commands/opencode/@tr/rtl-help.md"
       );
       expect(tarList.stdout).toContain(
-        "package/commands/opencode/@taro-test/rtl-grade.md"
+        "package/commands/opencode/@tr/rtl-grade.md"
       );
       expect(tarList.stdout).toContain(
-        "package/commands/opencode/@taro-test/rtl-regrade.md"
+        "package/commands/opencode/@tr/rtl-regrade.md"
       );
       expect(tarList.stdout).toContain("package/agents/taro-help.md");
       expect(tarList.stdout).toContain("package/agents/taro-grade.md");

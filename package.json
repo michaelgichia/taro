@@ -1,5 +1,5 @@
 {
-  "name": "@taro-test/rtl",
+  "name": "@tr/rtl",
   "version": "1.5.1",
   "description": "Generate high-quality React Testing Library tests from Recorder exports",
   "type": "module",

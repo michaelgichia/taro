@@ -36,7 +36,7 @@ function createTarget(): PlannedInstallTarget {
     runtimeEntrypointPath: "/repo/package/dist/index.js",
     runtimeCommand: "node /repo/package/dist/index.js",
     verificationCommand: "taro --version",
-    ownershipMarkerFileName: "@taro-test-rtl-manifest.json",
+    ownershipMarkerFileName: "@tr-rtl-manifest.json",
     globalDirectorySegments: [".codex"],
     localDirectoryName: ".codex",
     packageContainerSegments: [".codex"],
@@ -48,8 +48,8 @@ function createTarget(): PlannedInstallTarget {
         location: "global",
         kind: "skill",
         sourcePath: "/repo/package/skill.md",
-        relativeDestinationPath: "skills/@taro-test/rtl-help/SKILL.md",
-        targetPath: "/repo/.codex/skills/@taro-test/rtl-help/SKILL.md",
+        relativeDestinationPath: "skills/@tr/rtl-help/SKILL.md",
+        targetPath: "/repo/.codex/skills/@tr/rtl-help/SKILL.md",
         renderedContent: "# skill\n",
       },
     ],
@@ -66,7 +66,7 @@ describe("writeInstallPlan", () => {
 
   it("ignores malformed ownership manifests and proceeds with installation", async () => {
     const target = createTarget();
-    const manifestPath = "/repo/.codex/@taro-test-rtl-manifest.json";
+    const manifestPath = "/repo/.codex/@tr-rtl-manifest.json";
 
     readFileMock.mockImplementation(async (path: string) => {
       if (path === manifestPath) {
@@ -85,13 +85,13 @@ describe("writeInstallPlan", () => {
     );
     expect(writeFileMock).toHaveBeenCalledWith(
       manifestPath,
-      expect.stringContaining('"packageName": "@taro-test/rtl"')
+      expect.stringContaining('"packageName": "@tr/rtl"')
     );
   });
 
   it("rethrows unexpected read errors from existing target files", async () => {
     const target = createTarget();
-    const manifestPath = "/repo/.codex/@taro-test-rtl-manifest.json";
+    const manifestPath = "/repo/.codex/@tr-rtl-manifest.json";
     const targetPath = target.operations[0]!.targetPath;
 
     readFileMock.mockImplementation(async (path: string) => {

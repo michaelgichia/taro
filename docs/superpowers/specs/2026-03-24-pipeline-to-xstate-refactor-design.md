@@ -13,7 +13,7 @@ When a long async pipeline needs to become an XState v5 machine in this repo:
 - keep pure helpers unchanged
 - move orchestration only
 
-The reference implementation is the current `generate` command split:
+The reference implementation is the current `gen` command split:
 
 - `src/cli/commands/generate.ts`
 - `src/cli/commands/generate.machine.ts`
@@ -272,4 +272,4 @@ A refactor is correct when all of these are true:
 - the command file becomes bootstrap-only
 - a new reader can identify the current phase from the machine state alone
 
-Use the `generate` command split as the repo-local gold standard for shape and naming.
+Use the `gen` command split as the repo-local gold standard for shape and naming.
