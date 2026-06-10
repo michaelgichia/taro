@@ -60,16 +60,16 @@ describe("executeInstallPlan", () => {
 
     await expect(
       readFile(
-        join(home, ".claude", "commands", "@tr", "rtl", "help.md"),
+        join(home, ".claude", "commands", "@tr-rtl", "cli", "help.md"),
         "utf8"
       )
-    ).resolves.toContain("/@tr/rtl:help");
+    ).resolves.toContain("/@tr-rtl/cli:help");
     await expect(
       readFile(
-        join(home, ".gemini", "commands", "@tr", "rtl", "help.toml"),
+        join(home, ".gemini", "commands", "@tr-rtl", "cli", "help.toml"),
         "utf8"
       )
-    ).resolves.toContain("/@tr/rtl:help");
+    ).resolves.toContain("/@tr-rtl/cli:help");
     await expect(
       readFile(
         join(
@@ -77,18 +77,18 @@ describe("executeInstallPlan", () => {
           ".config",
           "opencode",
           "commands",
-          "@tr",
-          "rtl-help.md"
+          "@tr-rtl",
+          "cli-help.md"
         ),
         "utf8"
       )
-    ).resolves.toContain("/@tr/rtl-help");
+    ).resolves.toContain("/@tr-rtl/cli-help");
     await expect(
       readFile(
-        join(home, ".codex", "skills", "@tr", "rtl-help", "SKILL.md"),
+        join(home, ".codex", "skills", "@tr-rtl", "cli-help", "SKILL.md"),
         "utf8"
       )
-    ).resolves.toContain("$@tr/rtl-help");
+    ).resolves.toContain("$@tr-rtl/cli-help");
 
     await expect(
       readFile(join(home, ".claude", "install-manifest.json"), "utf8")
@@ -138,7 +138,7 @@ describe("writeInstallPlan conflict handling", () => {
       home,
       ".gemini",
       "commands",
-      "@tr",
+      "@tr-rtl",
       "rtl",
       "help.toml"
     );
@@ -152,7 +152,7 @@ describe("writeInstallPlan conflict handling", () => {
 
     expect(result.status).toBe("repaired");
     await expect(readFile(helpPath, "utf8")).resolves.toContain(
-      "/@tr/rtl:help"
+      "/@tr-rtl/cli:help"
     );
   });
 
@@ -168,7 +168,7 @@ describe("writeInstallPlan conflict handling", () => {
       home,
       ".claude",
       "commands",
-      "@tr",
+      "@tr-rtl",
       "rtl",
       "help.md"
     );
@@ -201,11 +201,11 @@ describe("writeInstallPlan conflict handling", () => {
       ".config",
       "opencode",
       "commands",
-      "@tr",
-      "rtl-help.md"
+      "@tr-rtl",
+      "cli-help.md"
     );
 
-    await mkdir(join(home, ".config", "opencode", "commands", "@tr"), {
+    await mkdir(join(home, ".config", "opencode", "commands", "@tr-rtl"), {
       recursive: true,
     });
     await writeFile(helpPath, "external file\n");

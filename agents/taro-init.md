@@ -1,15 +1,15 @@
 ---
-name: "@tr/rtl-init"
-description: "Initialize the installed Taro runtime surface. Use when the user has just installed or reinstalled @tr/rtl and needs the recommended first runtime-native step before generation."
+name: "@tr-rtl/cli-init"
+description: "Initialize the installed Taro runtime surface. Use when the user has just installed or reinstalled @tr-rtl/cli and needs the recommended first runtime-native step before generation."
 ---
 
 # Taro Init
 
-Invoke this skill with `$@tr/rtl-init`.
+Invoke this skill with `$@tr-rtl/cli-init`.
 
 ## Purpose
 
-Run Taro's initialization entrypoint. This is the recommended first runtime-native step after installing or reinstalling `@tr/rtl`.
+Run Taro's initialization entrypoint. This is the recommended first runtime-native step after installing or reinstalling `@tr-rtl/cli`.
 
 ## Workflow
 
@@ -17,11 +17,11 @@ Run Taro's initialization entrypoint. This is the recommended first runtime-nati
 2. If the installed runtime launcher path is stale or missing before Taro starts:
    - Do not claim the Codex skill install is missing just because the launcher path is stale.
    - For local development from a Taro checkout, tell the user to rerun `npm run build:codex` from that checkout.
-   - For package installs, tell the user to rerun `npx @tr/rtl@latest --codex --global` or the equivalent local install flow.
+   - For package installs, tell the user to rerun `npx @tr-rtl/cli@latest --codex --global` or the equivalent local install flow.
 3. Report the command run and the important output or blocker.
-4. If the user wants maintenance or owned-asset repair later, route them to `$@tr/rtl-refresh`.
-5. If initialization succeeds and the user has a Testing Library Recorder `.js` export, route them to `$@tr/rtl-gen`.
-6. If they only need routing help, use `$@tr/rtl-help`.
+4. If the user wants maintenance or owned-asset repair later, route them to `$@tr-rtl/cli-refresh`.
+5. If initialization succeeds and the user has a Testing Library Recorder `.js` export, route them to `$@tr-rtl/cli-gen`.
+6. If they only need routing help, use `$@tr-rtl/cli-help`.
 
 ## Response Contract
 

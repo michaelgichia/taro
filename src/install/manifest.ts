@@ -40,7 +40,7 @@ export function createOwnershipManifest(
   params: CreateOwnershipManifestParams
 ): InstallOwnershipManifest {
   return {
-    packageName: "@tr/rtl",
+    packageName: "@tr-rtl/cli",
     runtime: params.runtime,
     location: params.location,
     manifestVersion: 1,

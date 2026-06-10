@@ -7,24 +7,24 @@ For the current strict-order runtime pipeline, see [PIPELINE.md](./PIPELINE.md).
 ## Install
 
 ```bash
-pnpm dlx @tr/rtl@latest
+pnpm dlx @tr-rtl/cli@latest
 ```
 
 Use runtime flags plus one location flag to skip prompts:
 
 ```bash
-pnpm dlx @tr/rtl@latest --codex --local
-pnpm dlx @tr/rtl@latest --all --global
+pnpm dlx @tr-rtl/cli@latest --codex --local
+pnpm dlx @tr-rtl/cli@latest --all --global
 ```
 
 After install or reinstall, run the runtime-native `init` entrypoint:
 
-- Claude Code: `/@tr/rtl:init`
-- Gemini CLI: `/@tr/rtl:init`
-- OpenCode: `/@tr/rtl-init`
-- Codex: `$@tr/rtl-init`
+- Claude Code: `/@tr-rtl/cli:init`
+- Gemini CLI: `/@tr-rtl/cli:init`
+- OpenCode: `/@tr-rtl/cli-init`
+- Codex: `$@tr-rtl/cli-init`
 
-The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `pnpm dlx @tr/rtl@latest --version`.
+The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `pnpm dlx @tr-rtl/cli@latest --version`.
 
 For Claude Code local testing from this repo, run:
 
@@ -44,21 +44,21 @@ That command builds Taro, installs the Codex skill surface into this repo's `./.
 
 ## Runtime Entrypoints
 
-- Claude Code: `/@tr/rtl:help`, `/@tr/rtl:init`, `/@tr/rtl:refresh`, `/@tr/rtl:gen`, `/@tr/rtl:geni`, `/@tr/rtl:target`, `/@tr/rtl:mocks`, `/@tr/rtl:grade`, `/@tr/rtl:regrade`
-- Gemini CLI: `/@tr/rtl:help`, `/@tr/rtl:init`, `/@tr/rtl:refresh`, `/@tr/rtl:gen`, `/@tr/rtl:geni`, `/@tr/rtl:target`, `/@tr/rtl:mocks`, `/@tr/rtl:grade`, `/@tr/rtl:regrade`
-- OpenCode: `/@tr/rtl-help`, `/@tr/rtl-init`, `/@tr/rtl-refresh`, `/@tr/rtl-gen`, `/@tr/rtl-geni`, `/@tr/rtl-target`, `/@tr/rtl-mocks`, `/@tr/rtl-grade`, `/@tr/rtl-regrade`
-- Codex: `$@tr/rtl-help`, `$@tr/rtl-init`, `$@tr/rtl-refresh`, `$@tr/rtl-gen`, `$@tr/rtl-geni`, `$@tr/rtl-target`, `$@tr/rtl-mocks`, `$@tr/rtl-grade`, `$@tr/rtl-regrade`
+- Claude Code: `/@tr-rtl/cli:help`, `/@tr-rtl/cli:init`, `/@tr-rtl/cli:refresh`, `/@tr-rtl/cli:gen`, `/@tr-rtl/cli:geni`, `/@tr-rtl/cli:target`, `/@tr-rtl/cli:mocks`, `/@tr-rtl/cli:grade`, `/@tr-rtl/cli:regrade`
+- Gemini CLI: `/@tr-rtl/cli:help`, `/@tr-rtl/cli:init`, `/@tr-rtl/cli:refresh`, `/@tr-rtl/cli:gen`, `/@tr-rtl/cli:geni`, `/@tr-rtl/cli:target`, `/@tr-rtl/cli:mocks`, `/@tr-rtl/cli:grade`, `/@tr-rtl/cli:regrade`
+- OpenCode: `/@tr-rtl/cli-help`, `/@tr-rtl/cli-init`, `/@tr-rtl/cli-refresh`, `/@tr-rtl/cli-gen`, `/@tr-rtl/cli-geni`, `/@tr-rtl/cli-target`, `/@tr-rtl/cli-mocks`, `/@tr-rtl/cli-grade`, `/@tr-rtl/cli-regrade`
+- Codex: `$@tr-rtl/cli-help`, `$@tr-rtl/cli-init`, `$@tr-rtl/cli-refresh`, `$@tr-rtl/cli-gen`, `$@tr-rtl/cli-geni`, `$@tr-rtl/cli-target`, `$@tr-rtl/cli-mocks`, `$@tr-rtl/cli-grade`, `$@tr-rtl/cli-regrade`
 
 ## Refresh Maintenance
 
 Use the runtime-native `refresh` entrypoint when Taro is already installed and you want to refresh owned assets or repair missing ones:
 
-- Claude Code: `/@tr/rtl:refresh`
-- Gemini CLI: `/@tr/rtl:refresh`
-- OpenCode: `/@tr/rtl-refresh`
-- Codex: `$@tr/rtl-refresh`
+- Claude Code: `/@tr-rtl/cli:refresh`
+- Gemini CLI: `/@tr-rtl/cli:refresh`
+- OpenCode: `/@tr-rtl/cli-refresh`
+- Codex: `$@tr-rtl/cli-refresh`
 
-If you need a newer package version first, rerun `pnpm dlx @tr/rtl@latest` and then run the runtime-native `refresh` entrypoint.
+If you need a newer package version first, rerun `pnpm dlx @tr-rtl/cli@latest` and then run the runtime-native `refresh` entrypoint.
 
 ## Generation Rules
 

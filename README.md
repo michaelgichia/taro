@@ -9,7 +9,7 @@ For the current strict-order runtime generation path, see [docs/PIPELINE.md](./d
 ## Getting Started
 
 ```bash
-pnpm dlx @tr/rtl@latest
+pnpm dlx @tr-rtl/cli@latest
 ```
 
 The installer prompts you to choose:
@@ -19,42 +19,42 @@ The installer prompts you to choose:
 
 After installation or reinstall, run the runtime-native `init` entrypoint:
 
-- Claude Code: `/@tr/rtl:init`
-- Gemini CLI: `/@tr/rtl:init`
-- OpenCode: `/@tr/rtl-init`
-- Codex: `$@tr/rtl-init`
+- Claude Code: `/@tr-rtl/cli:init`
+- Gemini CLI: `/@tr-rtl/cli:init`
+- OpenCode: `/@tr-rtl/cli-init`
+- Codex: `$@tr-rtl/cli-init`
 
-The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `pnpm dlx @tr/rtl@latest --version`.
+The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `pnpm dlx @tr-rtl/cli@latest --version`.
 
 Use the runtime-native help entrypoint when you want routing guidance:
 
-- Claude Code: `/@tr/rtl:help`
-- Gemini CLI: `/@tr/rtl:help`
-- OpenCode: `/@tr/rtl-help`
-- Codex: `$@tr/rtl-help`
+- Claude Code: `/@tr-rtl/cli:help`
+- Gemini CLI: `/@tr-rtl/cli:help`
+- OpenCode: `/@tr-rtl/cli-help`
+- Codex: `$@tr-rtl/cli-help`
 
 Use the runtime-native mock review entrypoint when you want standalone mock and fixture guidance:
 
-- Claude Code: `/@tr/rtl:mocks`
-- Gemini CLI: `/@tr/rtl:mocks`
-- OpenCode: `/@tr/rtl-mocks`
-- Codex: `$@tr/rtl-mocks`
+- Claude Code: `/@tr-rtl/cli:mocks`
+- Gemini CLI: `/@tr-rtl/cli:mocks`
+- OpenCode: `/@tr-rtl/cli-mocks`
+- Codex: `$@tr-rtl/cli-mocks`
 
-> [!NOTE] Codex installation uses skills under `skills/@tr/rtl-*/SKILL.md`, not prompt files.
+> [!NOTE] Codex installation uses skills under `skills/@tr-rtl/cli-*/SKILL.md`, not prompt files.
 
 ## Staying Updated
 
 Use the runtime-native `refresh` entrypoint for maintenance after Taro is already installed:
 
-- Claude Code: `/@tr/rtl:refresh`
-- Gemini CLI: `/@tr/rtl:refresh`
-- OpenCode: `/@tr/rtl-refresh`
-- Codex: `$@tr/rtl-refresh`
+- Claude Code: `/@tr-rtl/cli:refresh`
+- Gemini CLI: `/@tr-rtl/cli:refresh`
+- OpenCode: `/@tr-rtl/cli-refresh`
+- Codex: `$@tr-rtl/cli-refresh`
 
 If you need a newer package version first, rerun the installer package:
 
 ```bash
-pnpm dlx @tr/rtl@latest
+pnpm dlx @tr-rtl/cli@latest
 ```
 
 After updating the package, run the runtime-native `refresh` entrypoint. Refresh is the maintenance path for owned assets: it restores missing owned files and protects manual edits instead of overwriting them silently.
@@ -65,24 +65,24 @@ Use runtime flags plus exactly one location flag to skip prompts:
 
 ```bash
 # Claude Code
-pnpm dlx @tr/rtl@latest --claude --global
-pnpm dlx @tr/rtl@latest --claude --local
+pnpm dlx @tr-rtl/cli@latest --claude --global
+pnpm dlx @tr-rtl/cli@latest --claude --local
 
 # OpenCode
-pnpm dlx @tr/rtl@latest --opencode --global
-pnpm dlx @tr/rtl@latest --opencode --local
+pnpm dlx @tr-rtl/cli@latest --opencode --global
+pnpm dlx @tr-rtl/cli@latest --opencode --local
 
 # Gemini CLI
-pnpm dlx @tr/rtl@latest --gemini --global
-pnpm dlx @tr/rtl@latest --gemini --local
+pnpm dlx @tr-rtl/cli@latest --gemini --global
+pnpm dlx @tr-rtl/cli@latest --gemini --local
 
 # Codex
-pnpm dlx @tr/rtl@latest --codex --global
-pnpm dlx @tr/rtl@latest --codex --local
+pnpm dlx @tr-rtl/cli@latest --codex --global
+pnpm dlx @tr-rtl/cli@latest --codex --local
 
 # All runtimes
-pnpm dlx @tr/rtl@latest --all --global
-pnpm dlx @tr/rtl@latest --all --local
+pnpm dlx @tr-rtl/cli@latest --all --global
+pnpm dlx @tr-rtl/cli@latest --all --local
 ```
 
 Local installs write to hidden runtime directories in the current project:
@@ -123,13 +123,13 @@ The tarball flow is the closest match to what end users get from npm.
 
 1. builds the package
 2. installs Claude commands into this repo's `./.claude/`
-3. deletes the existing global Taro Claude command directory at `~/.claude/commands/@tr/rtl` and reinstalls it cleanly
+3. deletes the existing global Taro Claude command directory at `~/.claude/commands/@tr-rtl/cli` and reinstalls it cleanly
 
 `pnpm run build:opencode` performs the OpenCode equivalent:
 
 1. builds the package
 2. installs OpenCode commands into this repo's `./.opencode/`
-3. deletes the existing global Taro OpenCode command namespace at `~/.config/opencode/commands/@tr` plus `~/.config/opencode/install-manifest.json`
+3. deletes the existing global Taro OpenCode command namespace at `~/.config/opencode/commands/@tr-rtl` plus `~/.config/opencode/install-manifest.json`
 4. reinstalls the global OpenCode surface cleanly
 
 `pnpm run build:codex` performs the Codex equivalent:
@@ -157,7 +157,7 @@ Use `minor` or `major` instead of `patch` when needed. `pnpm version` updates `p
 
 One-time setup:
 
-1. In npm package settings for `@tr/rtl`, add GitHub Actions as a Trusted Publisher
+1. In npm package settings for `@tr-rtl/cli`, add GitHub Actions as a Trusted Publisher
 2. Use the GitHub repository `michaelgichia/taro`
 3. Set the workflow filename to `publish.yml`
 4. Leave the environment name blank unless you intentionally protect releases with a GitHub Actions environment
@@ -170,30 +170,30 @@ Because publishing only runs from tagged commits in CI, the package version, git
 
 After installation and a first `init` run, use the runtime-native installed generate command or skill for your agent:
 
-- Claude Code: `/@tr/rtl:gen`
-- Claude Code: `/@tr/rtl:geni`
-- Claude Code: `/@tr/rtl:grade`
-- Claude Code: `/@tr/rtl:regrade`
-- Claude Code: `/@tr/rtl:target`
-- Claude Code: `/@tr/rtl:mocks`
-- Gemini CLI: `/@tr/rtl:gen`
-- Gemini CLI: `/@tr/rtl:geni`
-- Gemini CLI: `/@tr/rtl:grade`
-- Gemini CLI: `/@tr/rtl:regrade`
-- Gemini CLI: `/@tr/rtl:target`
-- Gemini CLI: `/@tr/rtl:mocks`
-- OpenCode: `/@tr/rtl-gen`
-- OpenCode: `/@tr/rtl-geni`
-- OpenCode: `/@tr/rtl-grade`
-- OpenCode: `/@tr/rtl-regrade`
-- OpenCode: `/@tr/rtl-target`
-- OpenCode: `/@tr/rtl-mocks`
-- Codex: `$@tr/rtl-gen`
-- Codex: `$@tr/rtl-geni`
-- Codex: `$@tr/rtl-grade`
-- Codex: `$@tr/rtl-regrade`
-- Codex: `$@tr/rtl-target`
-- Codex: `$@tr/rtl-mocks`
+- Claude Code: `/@tr-rtl/cli:gen`
+- Claude Code: `/@tr-rtl/cli:geni`
+- Claude Code: `/@tr-rtl/cli:grade`
+- Claude Code: `/@tr-rtl/cli:regrade`
+- Claude Code: `/@tr-rtl/cli:target`
+- Claude Code: `/@tr-rtl/cli:mocks`
+- Gemini CLI: `/@tr-rtl/cli:gen`
+- Gemini CLI: `/@tr-rtl/cli:geni`
+- Gemini CLI: `/@tr-rtl/cli:grade`
+- Gemini CLI: `/@tr-rtl/cli:regrade`
+- Gemini CLI: `/@tr-rtl/cli:target`
+- Gemini CLI: `/@tr-rtl/cli:mocks`
+- OpenCode: `/@tr-rtl/cli-gen`
+- OpenCode: `/@tr-rtl/cli-geni`
+- OpenCode: `/@tr-rtl/cli-grade`
+- OpenCode: `/@tr-rtl/cli-regrade`
+- OpenCode: `/@tr-rtl/cli-target`
+- OpenCode: `/@tr-rtl/cli-mocks`
+- Codex: `$@tr-rtl/cli-gen`
+- Codex: `$@tr-rtl/cli-geni`
+- Codex: `$@tr-rtl/cli-grade`
+- Codex: `$@tr-rtl/cli-regrade`
+- Codex: `$@tr-rtl/cli-target`
+- Codex: `$@tr-rtl/cli-mocks`
 
 ### Prerequisites
 
@@ -236,17 +236,17 @@ For the exact module execution order behind `__generate`, see [docs/PIPELINE.md]
 
 Use the runtime-native grading entrypoints when you want an AI-facing review of existing RTL tests without rerunning generation:
 
-- Claude Code: `/@tr/rtl:grade path/to/test-file`
-- Claude Code: `/@tr/rtl:regrade path/to/test-file`
-- Claude Code: `/@tr/rtl:regrade path/to/test-directory --directory-loop`
-- Gemini CLI: `/@tr/rtl:grade path/to/test-file`
-- Gemini CLI: `/@tr/rtl:regrade path/to/test-file`
-- Gemini CLI: `/@tr/rtl:regrade path/to/test-directory --directory-loop`
-- OpenCode: `/@tr/rtl-grade path/to/test-file`
-- OpenCode: `/@tr/rtl-regrade path/to/test-file`
-- OpenCode: `/@tr/rtl-regrade path/to/test-directory --directory-loop`
-- Codex: `$@tr/rtl-grade`
-- Codex: `$@tr/rtl-regrade`
+- Claude Code: `/@tr-rtl/cli:grade path/to/test-file`
+- Claude Code: `/@tr-rtl/cli:regrade path/to/test-file`
+- Claude Code: `/@tr-rtl/cli:regrade path/to/test-directory --directory-loop`
+- Gemini CLI: `/@tr-rtl/cli:grade path/to/test-file`
+- Gemini CLI: `/@tr-rtl/cli:regrade path/to/test-file`
+- Gemini CLI: `/@tr-rtl/cli:regrade path/to/test-directory --directory-loop`
+- OpenCode: `/@tr-rtl/cli-grade path/to/test-file`
+- OpenCode: `/@tr-rtl/cli-regrade path/to/test-file`
+- OpenCode: `/@tr-rtl/cli-regrade path/to/test-directory --directory-loop`
+- Codex: `$@tr-rtl/cli-grade`
+- Codex: `$@tr-rtl/cli-regrade`
 
 `grade` scores the current file with the same `ScoreResult` scorer used by `gen`, `geni`, and `target`, then appends a new `generatedTests` snapshot into `.taro/state.json`.
 

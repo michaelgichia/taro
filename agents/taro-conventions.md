@@ -1,11 +1,11 @@
 ---
-name: "@tr/rtl-conventions"
+name: "@tr-rtl/cli-conventions"
 description: "Explain and stabilize how Taro learns project test conventions from `.taro/state.json`, `.taro/overrides.json`, and nearby repo examples. Use when generated output style, imports, file placement, helpers, or mock structure differ from expectations, or when the user wants Taro to follow local testing conventions more closely."
 ---
 
 # Taro Conventions
 
-Invoke this skill with `$@tr/rtl-conventions`.
+Invoke this skill with `$@tr-rtl/cli-conventions`.
 
 ## What `.taro/state.json` Controls
 
@@ -46,8 +46,8 @@ When repo evidence is ambiguous, `.taro/overrides.json` can pin package-level po
 
 ## How to Correct Convention Drift
 
-- **Missing initial learning** — run `$@tr/rtl-init` so Taro scans the repo before generation.
-- **Wrong import style** — add stronger local examples in the target package, then run `$@tr/rtl-refresh`.
+- **Missing initial learning** — run `$@tr-rtl/cli-init` so Taro scans the repo before generation.
+- **Wrong import style** — add stronger local examples in the target package, then run `$@tr-rtl/cli-refresh`.
 - **Wrong runner import** — set `packages.<path>.runner` in `.taro/overrides.json` when Vitest/Jest evidence is mixed.
 - **Wrong file placement** — move one generated test to the correct location and re-run; Taro picks up placement from the nearest examples.
 - **Missing render wrapper** — if the project uses a custom `renderWithProviders` helper, add one test that uses it, then refresh; or pin it in `.taro/overrides.json`.

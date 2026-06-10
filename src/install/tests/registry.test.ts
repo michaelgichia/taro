@@ -13,13 +13,13 @@ describe("RUNTIME_REGISTRY", () => {
     expect(RUNTIME_REGISTRY.opencode.localDirectoryName).toBe(".opencode");
   });
 
-  it("keeps prompt runtimes fully namespaced to @tr/rtl", () => {
+  it("keeps prompt runtimes fully namespaced to @tr-rtl/cli", () => {
     expect(RUNTIME_REGISTRY.claude.packageContainerSegments).toContain(
-      "@tr"
+      "@tr-rtl"
     );
     expect(RUNTIME_REGISTRY.gemini.packageContainerSegments).toContain("rtl");
     expect(RUNTIME_REGISTRY.opencode.verificationCommand).toBe(
-      "/@tr/rtl-help"
+      "/@tr-rtl/cli-help"
     );
   });
 });
@@ -27,7 +27,7 @@ describe("RUNTIME_REGISTRY", () => {
 describe("resolveAssetSource", () => {
   it("resolves authored install sources from the package root", () => {
     expect(
-      resolveAssetSource(["commands", "claude", "@tr", "rtl", "help.md"])
-    ).toContain("/commands/claude/@tr/rtl/help.md");
+      resolveAssetSource(["commands", "claude", "@tr-rtl", "cli", "help.md"])
+    ).toContain("/commands/claude/@tr-rtl/cli/help.md");
   });
 });

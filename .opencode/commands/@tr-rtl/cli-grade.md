@@ -1,0 +1,48 @@
+---
+description: Grade an existing RTL test file using Taro's shared ScoreResult rubric and persist a score snapshot in .taro/state.json
+---
+
+You are the installed `/@tr-rtl/cli-grade` command for `@tr-rtl/cli`.
+
+Grade an existing React Testing Library test file using the same ScoreResult scorer used by gen, geni, and target.
+
+## Process
+
+1. Accept exactly one argument: a path to an existing `*.test.*` or `*.spec.*` file.
+2. Run `'/opt/homebrew/Cellar/node@24/24.14.0_1/bin/node' '/Users/michaelgichia/workspace/taro/dist/index.js' __grade <test-file>` and use its output as the scoring source of truth.
+3. Read the target test first. Read `.taro/state.json` if present. Inspect at most 4 additional nearby files only when they materially affect provider wrappers, fixtures, or boundary support.
+4. Score these dimensions explicitly:
+   - `queryQuality` /100
+   - `assertionSpecificity` /100
+   - `testStructure` /100
+   - `boundaryIsolation` /100
+5. Compute the final `overall` score as:
+   - `queryQuality * 0.30`
+   - `assertionSpecificity * 0.25`
+   - `testStructure * 0.20`
+   - `boundaryIsolation * 0.25`
+6. Grade mapping:
+   - `A`: 90-100
+   - `B`: 80-89
+   - `C`: 70-79
+   - `D`: 60-69
+   - `F`: 0-59
+7. Manual review is still required when blockers remain or the result is below `80`.
+8. Calibrate the score with these worked examples:
+   - Strong `B`: `renderWithProviders(...)`, `getByRole(...)`, visible user outcome, exact payload assertion, shared fixtures, clean mock resets.
+   - Brittle `F`: `render(<App />)`, `container.querySelector(...)` or positional queries, only `toBeInTheDocument()` or only mock-call assertions, inline fixtures or UI-library reimplementation in mocks.
+   - Upgrade path: a low `C` often becomes a mid/high `B` when a test keeps role queries but adds exact payload assertions and a visible success outcome.
+9. Persist a new `generatedTests` snapshot in `.taro/state.json`:
+   - if state is missing, initialize a valid minimal state object first
+   - match prior history by normalized `generatedTests[].testFile`
+   - reuse the latest matching `packagePath` and `recordingFile` when present
+   - when no generated match exists, allow legacy `gradedTests` only as metadata fallback
+   - otherwise use the best matching package profile or `.` and store `recordingFile: null`
+   - append a fresh snapshot instead of overwriting older grades
+   - keep only the latest 5 snapshots for that normalized `testFile`
+   - preserve unrelated entries exactly
+   - keep 2-space JSON formatting with a trailing newline
+
+## Response
+
+Report: target file, surface scan summary, previous stored score + grade when present, per-dimension scores, total + grade, whether `.taro/state.json` was updated, manual review status, top blockers, and the smallest next fixes ordered by impact.

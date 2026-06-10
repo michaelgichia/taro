@@ -1,5 +1,5 @@
 {
-  "name": "@tr/rtl",
+  "name": "@tr-rtl/cli",
   "version": "1.0.0",
   "description": "Generate high-quality React Testing Library tests from Recorder exports",
   "type": "module",

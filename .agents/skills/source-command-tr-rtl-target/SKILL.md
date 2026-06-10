@@ -29,7 +29,7 @@ Output: a generated test written next to the supplied component, plus a report c
 4. Run `'/opt/homebrew/Cellar/node@24/24.14.0_1/bin/node' '/Users/michaelgichia/workspace/taro/dist/index.js' __target <component-file> --recording <recording-file>` when both single-file inputs are present.
 5. Run `'/opt/homebrew/Cellar/node@24/24.14.0_1/bin/node' '/Users/michaelgichia/workspace/taro/dist/index.js' __target <component-directory> --directory-loop` when the target path is a directory.
 6. For single-file runs, keep any requested `--min-score <0-100>` as a final post-review gate instead of passing it to the first `__target` call.
-7. If the single-file findings block includes `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`, run one bounded mock-review repair pass using the `/@tr/rtl:mocks` contract, then `'/opt/homebrew/Cellar/node@24/24.14.0_1/bin/node' '/Users/michaelgichia/workspace/taro/dist/index.js' __regrade <generated-test-file>`, and keep edits only when syntax, score, flow coverage, and blocking findings do not regress.
+7. If the single-file findings block includes `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`, run one bounded mock-review repair pass using the `/@tr-rtl/cli:mocks` contract, then `'/opt/homebrew/Cellar/node@24/24.14.0_1/bin/node' '/Users/michaelgichia/workspace/taro/dist/index.js' __regrade <generated-test-file>`, and keep edits only when syntax, score, flow coverage, and blocking findings do not regress.
 8. In directory-loop mode, skip the automatic mock-review loop in v1 and keep existing `--min-score` behavior.
 9. The supplied path is authoritative for output placement.
 10. In directory mode, skip non-component `.ts` or `.tsx` files and report the tracker path.

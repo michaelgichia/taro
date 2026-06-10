@@ -20,17 +20,17 @@ import {
 import type { InstallLocation } from "#install/types.ts";
 
 const EXPECTED_SKILLS = [
-  "@tr/rtl-conventions",
-  "@tr/rtl-gen",
-  "@tr/rtl-geni",
-  "@tr/rtl-grade",
-  "@tr/rtl-help",
-  "@tr/rtl-init",
-  "@tr/rtl-mocks",
-  "@tr/rtl-overrides",
-  "@tr/rtl-regrade",
-  "@tr/rtl-refresh",
-  "@tr/rtl-target",
+  "@tr-rtl/cli-conventions",
+  "@tr-rtl/cli-gen",
+  "@tr-rtl/cli-geni",
+  "@tr-rtl/cli-grade",
+  "@tr-rtl/cli-help",
+  "@tr-rtl/cli-init",
+  "@tr-rtl/cli-mocks",
+  "@tr-rtl/cli-overrides",
+  "@tr-rtl/cli-regrade",
+  "@tr-rtl/cli-refresh",
+  "@tr-rtl/cli-target",
 ] as const;
 const EXPECTED_GENERATE_REFERENCES = [
   "assertion-markers.md",
@@ -112,7 +112,7 @@ describe("buildCodexOperations", () => {
     expect(target.destinationDirectory).toBe(join(sandbox.homePath, ".codex"));
 
     const installedSkills = (
-      await readdir(join(target.destinationDirectory, "skills", "@tr"))
+      await readdir(join(target.destinationDirectory, "skills", "@tr-rtl"))
     ).sort();
     expect(installedSkills).toEqual([...EXPECTED_SKILL_DIRECTORIES]);
 
@@ -120,42 +120,42 @@ describe("buildCodexOperations", () => {
       join(
         target.destinationDirectory,
         "skills",
-        "@tr",
-        "rtl-help",
+        "@tr-rtl",
+        "cli-help",
         "SKILL.md"
       ),
       "utf8"
     );
-    expect(helpSkill).toContain("$@tr/rtl-help");
+    expect(helpSkill).toContain("$@tr-rtl/cli-help");
     expect(helpSkill).toContain("## Routing guide");
     expect(helpSkill).toContain("--directory-loop");
     expect(helpSkill).toContain(".taro/directory-loop/");
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "$@tr/rtl-help"
+      "$@tr-rtl/cli-help"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "$@tr/rtl-init"
+      "$@tr-rtl/cli-init"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "$@tr/rtl-geni"
+      "$@tr-rtl/cli-geni"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "$@tr/rtl-grade"
+      "$@tr-rtl/cli-grade"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "$@tr/rtl-regrade"
+      "$@tr-rtl/cli-regrade"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "$@tr/rtl-target"
+      "$@tr-rtl/cli-target"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "$@tr/rtl-mocks"
+      "$@tr-rtl/cli-mocks"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "$@tr/rtl-refresh"
+      "$@tr-rtl/cli-refresh"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "$@tr/rtl-overrides"
+      "$@tr-rtl/cli-overrides"
     );
   });
 
@@ -175,7 +175,7 @@ describe("buildCodexOperations", () => {
     );
 
     const installedSkills = (
-      await readdir(join(target.destinationDirectory, "skills", "@tr"))
+      await readdir(join(target.destinationDirectory, "skills", "@tr-rtl"))
     ).sort();
     expect(installedSkills).toEqual([...EXPECTED_SKILL_DIRECTORIES]);
 
@@ -183,16 +183,16 @@ describe("buildCodexOperations", () => {
       join(
         target.destinationDirectory,
         "skills",
-        "@tr",
-        "rtl-help",
+        "@tr-rtl",
+        "cli-help",
         "SKILL.md"
       ),
       "utf8"
     );
     expect(helpSkill).toContain(
-      "Invoke this skill with `$@tr/rtl-help`."
+      "Invoke this skill with `$@tr-rtl/cli-help`."
     );
-    expect(helpSkill).toContain("$@tr/rtl-mocks");
+    expect(helpSkill).toContain("$@tr-rtl/cli-mocks");
     expect(helpSkill).toContain("Return:");
     expect(helpSkill).toContain("--directory-loop");
     expect(helpSkill).toContain(".taro/directory-loop/");
@@ -201,8 +201,8 @@ describe("buildCodexOperations", () => {
       join(
         target.destinationDirectory,
         "skills",
-        "@tr",
-        "rtl-gen",
+        "@tr-rtl",
+        "cli-gen",
         "SKILL.md"
       ),
       "utf8"
@@ -216,13 +216,13 @@ describe("buildCodexOperations", () => {
       join(
         target.destinationDirectory,
         "skills",
-        "@tr",
-        "rtl-geni",
+        "@tr-rtl",
+        "cli-geni",
         "SKILL.md"
       ),
       "utf8"
     );
-    expect(interactiveGenerateSkill).toContain("$@tr/rtl-geni");
+    expect(interactiveGenerateSkill).toContain("$@tr-rtl/cli-geni");
     expect(interactiveGenerateSkill).toContain(
       `Run \`${target.runtimeCommand} __generate -i <recording-file>\``
     );
@@ -231,13 +231,13 @@ describe("buildCodexOperations", () => {
       join(
         target.destinationDirectory,
         "skills",
-        "@tr",
-        "rtl-grade",
+        "@tr-rtl",
+        "cli-grade",
         "SKILL.md"
       ),
       "utf8"
     );
-    expect(gradeSkill).toContain("$@tr/rtl-grade");
+    expect(gradeSkill).toContain("$@tr-rtl/cli-grade");
     expect(gradeSkill).toContain("## Worked Examples");
     expect(gradeSkill).toContain(
       `${target.runtimeCommand} __grade <test-file>`
@@ -247,13 +247,13 @@ describe("buildCodexOperations", () => {
       join(
         target.destinationDirectory,
         "skills",
-        "@tr",
-        "rtl-regrade",
+        "@tr-rtl",
+        "cli-regrade",
         "SKILL.md"
       ),
       "utf8"
     );
-    expect(regradeSkill).toContain("$@tr/rtl-regrade");
+    expect(regradeSkill).toContain("$@tr-rtl/cli-regrade");
     expect(regradeSkill).toContain("latest 5 snapshots");
     expect(regradeSkill).toContain(
       `${target.runtimeCommand} __regrade <test-directory> --directory-loop`
@@ -269,13 +269,13 @@ describe("buildCodexOperations", () => {
       join(
         target.destinationDirectory,
         "skills",
-        "@tr",
-        "rtl-target",
+        "@tr-rtl",
+        "cli-target",
         "SKILL.md"
       ),
       "utf8"
     );
-    expect(targetSkill).toContain("$@tr/rtl-target");
+    expect(targetSkill).toContain("$@tr-rtl/cli-target");
     expect(targetSkill).toContain(
       `Run \`${target.runtimeCommand} __target <component-file>\``
     );
@@ -288,8 +288,8 @@ describe("buildCodexOperations", () => {
         join(
           target.destinationDirectory,
           "skills",
-          "@tr",
-          "rtl-gen",
+          "@tr-rtl",
+          "cli-gen",
           "references"
         )
       )
@@ -302,8 +302,8 @@ describe("buildCodexOperations", () => {
       join(
         target.destinationDirectory,
         "skills",
-        "@tr",
-        "rtl-conventions",
+        "@tr-rtl",
+        "cli-conventions",
         "SKILL.md"
       ),
       "utf8"
@@ -313,8 +313,8 @@ describe("buildCodexOperations", () => {
     const mocksSkillPath = join(
       target.destinationDirectory,
       "skills",
-      "@tr",
-      "rtl-mocks",
+      "@tr-rtl",
+      "cli-mocks",
       "SKILL.md"
     );
     await access(mocksSkillPath);
@@ -326,37 +326,37 @@ describe("buildCodexOperations", () => {
       join(
         target.destinationDirectory,
         "skills",
-        "@tr",
-        "rtl-init",
+        "@tr-rtl",
+        "cli-init",
         "SKILL.md"
       ),
       "utf8"
     );
-    expect(initSkill).toContain("$@tr/rtl-init");
+    expect(initSkill).toContain("$@tr-rtl/cli-init");
 
     const refreshSkill = await readFile(
       join(
         target.destinationDirectory,
         "skills",
-        "@tr",
-        "rtl-refresh",
+        "@tr-rtl",
+        "cli-refresh",
         "SKILL.md"
       ),
       "utf8"
     );
-    expect(refreshSkill).toContain("$@tr/rtl-refresh");
+    expect(refreshSkill).toContain("$@tr-rtl/cli-refresh");
 
     const overridesSkill = await readFile(
       join(
         target.destinationDirectory,
         "skills",
-        "@tr",
-        "rtl-overrides",
+        "@tr-rtl",
+        "cli-overrides",
         "SKILL.md"
       ),
       "utf8"
     );
-    expect(overridesSkill).toContain("$@tr/rtl-overrides");
+    expect(overridesSkill).toContain("$@tr-rtl/cli-overrides");
     expect(overridesSkill).toContain(
       `Run \`${target.runtimeCommand} __overrides\``
     );

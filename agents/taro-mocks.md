@@ -1,11 +1,11 @@
 ---
-name: "@tr/rtl-mocks"
+name: "@tr-rtl/cli-mocks"
 description: "Review mock targets, provider boundaries, fixture shape, and post-generation follow-up for Taro output. Use when a generated RTL test needs API mocking, router/auth/context setup, fixture guidance, or when the user asks why Taro suggested certain mocks."
 ---
 
 # Taro Mocks
 
-Invoke this skill with `$@tr/rtl-mocks`.
+Invoke this skill with `$@tr-rtl/cli-mocks`.
 
 Use this as a standalone mock-review entrypoint or as the bounded second-pass repair workflow for single-file `gen`, `geni`, and `target` runs.
 

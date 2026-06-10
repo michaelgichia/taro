@@ -315,7 +315,7 @@ describe("build-codex.js", () => {
   it("runs the build through the module entrypoint using default option branches", async () => {
     const rmImpl = vi.fn(async () => undefined);
     const readdirImpl = vi.fn(async () => [
-      { name: "rtl-help", isDirectory: () => true },
+      { name: "cli-help", isDirectory: () => true },
     ]);
     const spawnImpl = vi.fn(() => ({ status: 0 }));
     const homedirImpl = vi.fn(() => "/home/default-codex");
@@ -374,7 +374,7 @@ describe("build-codex.js", () => {
         force: true,
       });
       expect(rmImpl).toHaveBeenCalledWith(
-        join(paths.globalCodexSkillNamespaceDir, "rtl-help"),
+        join(paths.globalCodexSkillNamespaceDir, "cli-help"),
         { recursive: true, force: true }
       );
       expect(rmImpl).toHaveBeenCalledWith(paths.globalCodexManifestPath, {
@@ -398,8 +398,8 @@ describe("build-codex.js", () => {
 
   it("resolves global skill directories from local installed skill names", async () => {
     const readdirImpl = vi.fn(async () => [
-      { name: "rtl-gen", isDirectory: () => true },
-      { name: "rtl-help", isDirectory: () => true },
+      { name: "cli-gen", isDirectory: () => true },
+      { name: "cli-help", isDirectory: () => true },
       { name: "notes", isDirectory: () => false },
       { name: "other-skill", isDirectory: () => true },
     ]);
@@ -407,12 +407,12 @@ describe("build-codex.js", () => {
     await expect(
       resolveGlobalCodexSkillDirs({
         readdirImpl,
-        localCodexSkillNamespaceDir: "/repo/.codex/skills/@tr",
-        globalCodexSkillNamespaceDir: "/home/.codex/skills/@tr",
+        localCodexSkillNamespaceDir: "/repo/.codex/skills/@tr-rtl",
+        globalCodexSkillNamespaceDir: "/home/.codex/skills/@tr-rtl",
       })
     ).resolves.toEqual([
-      "/home/.codex/skills/@tr/rtl-gen",
-      "/home/.codex/skills/@tr/rtl-help",
+      "/home/.codex/skills/@tr-rtl/cli-gen",
+      "/home/.codex/skills/@tr-rtl/cli-help",
     ]);
   });
 
@@ -425,8 +425,8 @@ describe("build-codex.js", () => {
     await expect(
       resolveGlobalCodexSkillDirs({
         readdirImpl,
-        localCodexSkillNamespaceDir: "/repo/.codex/skills/@tr",
-        globalCodexSkillNamespaceDir: "/home/.codex/skills/@tr",
+        localCodexSkillNamespaceDir: "/repo/.codex/skills/@tr-rtl",
+        globalCodexSkillNamespaceDir: "/home/.codex/skills/@tr-rtl",
       })
     ).resolves.toEqual([]);
   });
@@ -439,8 +439,8 @@ describe("build-codex.js", () => {
         readdirImpl: vi.fn(async () => {
           throw error;
         }),
-        localCodexSkillNamespaceDir: "/repo/.codex/skills/@tr",
-        globalCodexSkillNamespaceDir: "/home/.codex/skills/@tr",
+        localCodexSkillNamespaceDir: "/repo/.codex/skills/@tr-rtl",
+        globalCodexSkillNamespaceDir: "/home/.codex/skills/@tr-rtl",
       })
     ).rejects.toBe(error);
   });
@@ -451,7 +451,7 @@ describe("build-codex.js", () => {
     const log = vi.fn();
     const exit = vi.fn();
     const readdirImpl = vi.fn(async () => [
-      { name: "rtl-gen", isDirectory: () => true },
+      { name: "cli-gen", isDirectory: () => true },
     ]);
 
     await runCodexBuild({
@@ -476,7 +476,7 @@ describe("build-codex.js", () => {
       force: true,
     });
     expect(rmImpl).toHaveBeenCalledWith(
-      "/home/tester/.codex/skills/@tr/rtl-gen",
+      "/home/tester/.codex/skills/@tr-rtl/cli-gen",
       { recursive: true, force: true }
     );
     expect(spawnImpl).toHaveBeenNthCalledWith(
@@ -543,10 +543,10 @@ describe("build-opencode.js", () => {
     const paths = getOpenCodeBuildPaths("/repo");
 
     expect(paths.localOpenCodeCommandNamespaceDir).toEqual(
-      "/repo/.opencode/commands/@tr"
+      "/repo/.opencode/commands/@tr-rtl"
     );
     expect(paths.globalOpenCodeCommandNamespaceDir).toContain(
-      "/.config/opencode/commands/@tr"
+      "/.config/opencode/commands/@tr-rtl"
     );
     expect(paths.localOpenCodeManifestPath).toBe(
       "/repo/.opencode/install-manifest.json"
