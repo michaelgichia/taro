@@ -58,7 +58,7 @@ if (process.argv[2] === "__generate") {
   program
     .name("taro")
     .description(
-      `${pc.bold("@taro-test/rtl")} — Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex`
+      `${pc.bold("@tr/rtl")} — Install Taro into Claude Code, OpenCode, Gemini CLI, or Codex`
     )
     .version(TARO_VERSION, "-v, --version", "Output the current version")
     .helpOption("-h, --help", "Display help for command")

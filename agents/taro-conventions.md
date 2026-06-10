@@ -1,11 +1,11 @@
 ---
-name: "@taro-test/rtl-conventions"
+name: "@tr/rtl-conventions"
 description: "Explain and stabilize how Taro learns project test conventions from `.taro/state.json`, `.taro/overrides.json`, and nearby repo examples. Use when generated output style, imports, file placement, helpers, or mock structure differ from expectations, or when the user wants Taro to follow local testing conventions more closely."
 ---
 
 # Taro Conventions
 
-Invoke this skill with `$@taro-test/rtl-conventions`.
+Invoke this skill with `$@tr/rtl-conventions`.
 
 ## What `.taro/state.json` Controls
 
@@ -39,15 +39,15 @@ When repo evidence is ambiguous, `.taro/overrides.json` can pin package-level po
 
 ## Investigation Workflow
 
-1. Check whether `.taro/state.json` exists. If it is missing, the fix is to run `init`. `generate` can bootstrap lightly, but that is a fallback, not the preferred brownfield workflow.
+1. Check whether `.taro/state.json` exists. If it is missing, the fix is to run `init`. `gen` can bootstrap lightly, but that is a fallback, not the preferred brownfield workflow.
 2. Sample nearby existing tests when repo context is available.
 3. Compare generated output against local patterns for runner, imports, render helpers, user-event setup, collaborator boundaries, naming, and file placement.
 4. Explain whether the mismatch comes from learned package state, explicit overrides, missing examples, or a current Taro limitation.
 
 ## How to Correct Convention Drift
 
-- **Missing initial learning** — run `$@taro-test/rtl-init` so Taro scans the repo before generation.
-- **Wrong import style** — add stronger local examples in the target package, then run `$@taro-test/rtl-refresh`.
+- **Missing initial learning** — run `$@tr/rtl-init` so Taro scans the repo before generation.
+- **Wrong import style** — add stronger local examples in the target package, then run `$@tr/rtl-refresh`.
 - **Wrong runner import** — set `packages.<path>.runner` in `.taro/overrides.json` when Vitest/Jest evidence is mixed.
 - **Wrong file placement** — move one generated test to the correct location and re-run; Taro picks up placement from the nearest examples.
 - **Missing render wrapper** — if the project uses a custom `renderWithProviders` helper, add one test that uses it, then refresh; or pin it in `.taro/overrides.json`.

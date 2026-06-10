@@ -16,7 +16,7 @@ vi.mock("#install/writer.ts", () => ({
 import { executeInstallPlan } from "#install/executor.ts";
 
 const basePlan = {
-  packageName: "@taro-test/rtl",
+  packageName: "@tr/rtl",
   targets: [
     {
       id: "claude",

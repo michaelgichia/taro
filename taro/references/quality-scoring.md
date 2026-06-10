@@ -2,7 +2,7 @@
 
 Purpose: provide one deterministic, explainable score for every stored RTL test file so Taro can:
 
-- compare `generate`, `generate-i`, `target`, `grade`, and `regrade` on the same scale,
+- compare `gen`, `geni`, `target`, `grade`, and `regrade` on the same scale,
 - measure whether changes improve quality,
 - avoid regressions,
 - bias future package learning toward stronger stored exemplars,
@@ -172,6 +172,6 @@ This scoring is heuristic, but deterministic.
 ## Evolution Rules
 
 - Every scoring run stores a snapshot in `.taro/state.json`.
-- `generatedTests` is the canonical score ledger for `generate`, `generate-i`, `target`, `grade`, and `regrade`.
+- `generatedTests` is the canonical score ledger for `gen`, `geni`, `target`, `grade`, and `regrade`.
 - `gradedTests` remains legacy fallback history only when no canonical generated snapshot exists yet for a test.
 - When Taro changes generation or repair logic, compare the latest score to the previous score for the same test path and flag meaningful regressions.

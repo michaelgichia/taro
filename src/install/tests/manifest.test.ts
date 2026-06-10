@@ -9,7 +9,7 @@ import {
 describe("createOwnershipManifest", () => {
   it("creates a Taro-owned manifest with hashed files", () => {
     const file = createOwnedFile({
-      relativePath: "commands/@taro-test/rtl/help.md",
+      relativePath: "commands/@tr/rtl/help.md",
       kind: "command",
       content: "help asset",
     });
@@ -20,7 +20,7 @@ describe("createOwnershipManifest", () => {
       generatedAt: "2026-03-07T16:20:00Z",
     });
 
-    expect(manifest.packageName).toBe("@taro-test/rtl");
+    expect(manifest.packageName).toBe("@tr/rtl");
     expect(manifest.files[0]?.checksum).toBeTruthy();
     expect(manifest.generatedAt).toBe("2026-03-07T16:20:00Z");
   });

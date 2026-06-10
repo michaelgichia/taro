@@ -95,59 +95,59 @@ describe("prompt runtime install builders", () => {
       home,
       ".claude",
       "commands",
-      "@taro-test",
+      "@tr",
       "rtl",
       "help.md"
     );
     const helpContent = await expectFile(helpPath);
     const initContent = await expectFile(
-      join(home, ".claude", "commands", "@taro-test", "rtl", "init.md")
+      join(home, ".claude", "commands", "@tr", "rtl", "init.md")
     );
     const refreshContent = await expectFile(
-      join(home, ".claude", "commands", "@taro-test", "rtl", "refresh.md")
+      join(home, ".claude", "commands", "@tr", "rtl", "refresh.md")
     );
     const gradeContent = await expectFile(
-      join(home, ".claude", "commands", "@taro-test", "rtl", "grade.md")
+      join(home, ".claude", "commands", "@tr", "rtl", "grade.md")
     );
     const regradeContent = await expectFile(
-      join(home, ".claude", "commands", "@taro-test", "rtl", "regrade.md")
+      join(home, ".claude", "commands", "@tr", "rtl", "regrade.md")
     );
     const mocksContent = await expectFile(
-      join(home, ".claude", "commands", "@taro-test", "rtl", "mocks.md")
+      join(home, ".claude", "commands", "@tr", "rtl", "mocks.md")
     );
     const overridesContent = await expectFile(
-      join(home, ".claude", "commands", "@taro-test", "rtl", "overrides.md")
+      join(home, ".claude", "commands", "@tr", "rtl", "overrides.md")
     );
 
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl:help"
+      "/@tr/rtl:help"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl:init"
+      "/@tr/rtl:init"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl:generate-i"
+      "/@tr/rtl:geni"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl:grade"
+      "/@tr/rtl:grade"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl:regrade"
+      "/@tr/rtl:regrade"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl:target"
+      "/@tr/rtl:target"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl:mocks"
+      "/@tr/rtl:mocks"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl:refresh"
+      "/@tr/rtl:refresh"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl:overrides"
+      "/@tr/rtl:overrides"
     );
-    expect(helpContent).toContain("/@taro-test/rtl:help");
-    expect(helpContent).toContain("/@taro-test/rtl:mocks");
+    expect(helpContent).toContain("/@tr/rtl:help");
+    expect(helpContent).toContain("/@tr/rtl:mocks");
     expect(initContent).toContain(`${target.runtimeCommand} __init`);
     expect(refreshContent).toContain(`${target.runtimeCommand} __refresh`);
     expect(gradeContent).toContain(
@@ -166,7 +166,7 @@ describe("prompt runtime install builders", () => {
     expect(overridesContent).toContain(`${target.runtimeCommand} __overrides`);
     expect(
       operations.map((operation) => operation.relativeDestinationPath)
-    ).toContain("commands/@taro-test/rtl/references/assertion-markers.md");
+    ).toContain("commands/@tr/rtl/references/assertion-markers.md");
   });
 
   it("installs Claude Code assets into the local .claude command namespace", async () => {
@@ -176,25 +176,25 @@ describe("prompt runtime install builders", () => {
     await materializeOperations(buildClaudeRuntimeOperations(target));
 
     const generateContent = await expectFile(
-      join(cwd, ".claude", "commands", "@taro-test", "rtl", "generate.md")
+      join(cwd, ".claude", "commands", "@tr", "rtl", "gen.md")
     );
     const interactiveGenerateContent = await expectFile(
-      join(cwd, ".claude", "commands", "@taro-test", "rtl", "generate-i.md")
+      join(cwd, ".claude", "commands", "@tr", "rtl", "geni.md")
     );
     const targetContent = await expectFile(
-      join(cwd, ".claude", "commands", "@taro-test", "rtl", "target.md")
+      join(cwd, ".claude", "commands", "@tr", "rtl", "target.md")
     );
     const mocksContent = await expectFile(
-      join(cwd, ".claude", "commands", "@taro-test", "rtl", "mocks.md")
+      join(cwd, ".claude", "commands", "@tr", "rtl", "mocks.md")
     );
     const gradeContent = await expectFile(
-      join(cwd, ".claude", "commands", "@taro-test", "rtl", "grade.md")
+      join(cwd, ".claude", "commands", "@tr", "rtl", "grade.md")
     );
     const regradeContent = await expectFile(
-      join(cwd, ".claude", "commands", "@taro-test", "rtl", "regrade.md")
+      join(cwd, ".claude", "commands", "@tr", "rtl", "regrade.md")
     );
     const overridesContent = await expectFile(
-      join(cwd, ".claude", "commands", "@taro-test", "rtl", "overrides.md")
+      join(cwd, ".claude", "commands", "@tr", "rtl", "overrides.md")
     );
     expect(generateContent).toContain("allowed-tools:");
     expect(generateContent).toContain("references/assertion-markers.md");
@@ -224,7 +224,7 @@ describe("prompt runtime install builders", () => {
 
     const installedGenerateReferences = (
       await readdir(
-        join(cwd, ".claude", "commands", "@taro-test", "rtl", "references")
+        join(cwd, ".claude", "commands", "@tr", "rtl", "references")
       )
     ).sort();
     expect(installedGenerateReferences).toEqual([...TARO_REFERENCE_FILES]);
@@ -238,56 +238,56 @@ describe("prompt runtime install builders", () => {
     await materializeOperations(operations);
 
     const helpContent = await expectFile(
-      join(home, ".gemini", "commands", "@taro-test", "rtl", "help.toml")
+      join(home, ".gemini", "commands", "@tr", "rtl", "help.toml")
     );
     const initContent = await expectFile(
-      join(home, ".gemini", "commands", "@taro-test", "rtl", "init.toml")
+      join(home, ".gemini", "commands", "@tr", "rtl", "init.toml")
     );
     const refreshContent = await expectFile(
-      join(home, ".gemini", "commands", "@taro-test", "rtl", "refresh.toml")
+      join(home, ".gemini", "commands", "@tr", "rtl", "refresh.toml")
     );
     const gradeContent = await expectFile(
-      join(home, ".gemini", "commands", "@taro-test", "rtl", "grade.toml")
+      join(home, ".gemini", "commands", "@tr", "rtl", "grade.toml")
     );
     const regradeContent = await expectFile(
-      join(home, ".gemini", "commands", "@taro-test", "rtl", "regrade.toml")
+      join(home, ".gemini", "commands", "@tr", "rtl", "regrade.toml")
     );
     const mocksContent = await expectFile(
-      join(home, ".gemini", "commands", "@taro-test", "rtl", "mocks.toml")
+      join(home, ".gemini", "commands", "@tr", "rtl", "mocks.toml")
     );
     const overridesContent = await expectFile(
-      join(home, ".gemini", "commands", "@taro-test", "rtl", "overrides.toml")
+      join(home, ".gemini", "commands", "@tr", "rtl", "overrides.toml")
     );
 
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl:help"
+      "/@tr/rtl:help"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl:init"
+      "/@tr/rtl:init"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl:generate-i"
+      "/@tr/rtl:geni"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl:grade"
+      "/@tr/rtl:grade"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl:regrade"
+      "/@tr/rtl:regrade"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl:target"
+      "/@tr/rtl:target"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl:mocks"
+      "/@tr/rtl:mocks"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl:refresh"
+      "/@tr/rtl:refresh"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl:overrides"
+      "/@tr/rtl:overrides"
     );
-    expect(helpContent).toContain("/@taro-test/rtl:help");
-    expect(helpContent).toContain("/@taro-test/rtl:mocks");
+    expect(helpContent).toContain("/@tr/rtl:help");
+    expect(helpContent).toContain("/@tr/rtl:mocks");
     expect(initContent).toContain(`\`${target.runtimeCommand} __init\``);
     expect(refreshContent).toContain(`\`${target.runtimeCommand} __refresh\``);
     expect(gradeContent).toContain(
@@ -315,25 +315,25 @@ describe("prompt runtime install builders", () => {
     await materializeOperations(buildGeminiRuntimeOperations(target));
 
     const generateContent = await expectFile(
-      join(cwd, ".gemini", "commands", "@taro-test", "rtl", "generate.toml")
+      join(cwd, ".gemini", "commands", "@tr", "rtl", "gen.toml")
     );
     const interactiveGenerateContent = await expectFile(
-      join(cwd, ".gemini", "commands", "@taro-test", "rtl", "generate-i.toml")
+      join(cwd, ".gemini", "commands", "@tr", "rtl", "geni.toml")
     );
     const targetContent = await expectFile(
-      join(cwd, ".gemini", "commands", "@taro-test", "rtl", "target.toml")
+      join(cwd, ".gemini", "commands", "@tr", "rtl", "target.toml")
     );
     const mocksContent = await expectFile(
-      join(cwd, ".gemini", "commands", "@taro-test", "rtl", "mocks.toml")
+      join(cwd, ".gemini", "commands", "@tr", "rtl", "mocks.toml")
     );
     const gradeContent = await expectFile(
-      join(cwd, ".gemini", "commands", "@taro-test", "rtl", "grade.toml")
+      join(cwd, ".gemini", "commands", "@tr", "rtl", "grade.toml")
     );
     const regradeContent = await expectFile(
-      join(cwd, ".gemini", "commands", "@taro-test", "rtl", "regrade.toml")
+      join(cwd, ".gemini", "commands", "@tr", "rtl", "regrade.toml")
     );
     const overridesContent = await expectFile(
-      join(cwd, ".gemini", "commands", "@taro-test", "rtl", "overrides.toml")
+      join(cwd, ".gemini", "commands", "@tr", "rtl", "overrides.toml")
     );
     expect(generateContent).toContain(
       `\`${target.runtimeCommand} __generate <recording-file>\``
@@ -374,10 +374,10 @@ describe("prompt runtime install builders", () => {
     await materializeOperations(operations);
 
     const helpContent = await expectFile(
-      join(home, ".config", "opencode", "commands", "@taro-test", "rtl-help.md")
+      join(home, ".config", "opencode", "commands", "@tr", "rtl-help.md")
     );
     const initContent = await expectFile(
-      join(home, ".config", "opencode", "commands", "@taro-test", "rtl-init.md")
+      join(home, ".config", "opencode", "commands", "@tr", "rtl-init.md")
     );
     const refreshContent = await expectFile(
       join(
@@ -385,7 +385,7 @@ describe("prompt runtime install builders", () => {
         ".config",
         "opencode",
         "commands",
-        "@taro-test",
+        "@tr",
         "rtl-refresh.md"
       )
     );
@@ -395,7 +395,7 @@ describe("prompt runtime install builders", () => {
         ".config",
         "opencode",
         "commands",
-        "@taro-test",
+        "@tr",
         "rtl-grade.md"
       )
     );
@@ -405,7 +405,7 @@ describe("prompt runtime install builders", () => {
         ".config",
         "opencode",
         "commands",
-        "@taro-test",
+        "@tr",
         "rtl-regrade.md"
       )
     );
@@ -415,7 +415,7 @@ describe("prompt runtime install builders", () => {
         ".config",
         "opencode",
         "commands",
-        "@taro-test",
+        "@tr",
         "rtl-mocks.md"
       )
     );
@@ -425,40 +425,40 @@ describe("prompt runtime install builders", () => {
         ".config",
         "opencode",
         "commands",
-        "@taro-test",
+        "@tr",
         "rtl-overrides.md"
       )
     );
 
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl-help"
+      "/@tr/rtl-help"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl-init"
+      "/@tr/rtl-init"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl-generate-i"
+      "/@tr/rtl-geni"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl-grade"
+      "/@tr/rtl-grade"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl-regrade"
+      "/@tr/rtl-regrade"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl-target"
+      "/@tr/rtl-target"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl-mocks"
+      "/@tr/rtl-mocks"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl-refresh"
+      "/@tr/rtl-refresh"
     );
     expect(operations.map((operation) => operation.entrypoint)).toContain(
-      "/@taro-test/rtl-overrides"
+      "/@tr/rtl-overrides"
     );
-    expect(helpContent).toContain("/@taro-test/rtl-help");
-    expect(helpContent).toContain("/@taro-test/rtl-mocks");
+    expect(helpContent).toContain("/@tr/rtl-help");
+    expect(helpContent).toContain("/@tr/rtl-mocks");
     expect(initContent).toContain(`${target.runtimeCommand} __init`);
     expect(refreshContent).toContain(`${target.runtimeCommand} __refresh`);
     expect(gradeContent).toContain(
@@ -483,32 +483,32 @@ describe("prompt runtime install builders", () => {
     await materializeOperations(buildOpenCodeRuntimeOperations(target));
 
     const generateContent = await expectFile(
-      join(cwd, ".opencode", "commands", "@taro-test", "rtl-generate.md")
+      join(cwd, ".opencode", "commands", "@tr", "rtl-gen.md")
     );
     const interactiveGenerateContent = await expectFile(
-      join(cwd, ".opencode", "commands", "@taro-test", "rtl-generate-i.md")
+      join(cwd, ".opencode", "commands", "@tr", "rtl-geni.md")
     );
     const targetContent = await expectFile(
-      join(cwd, ".opencode", "commands", "@taro-test", "rtl-target.md")
+      join(cwd, ".opencode", "commands", "@tr", "rtl-target.md")
     );
     const mocksContent = await expectFile(
-      join(cwd, ".opencode", "commands", "@taro-test", "rtl-mocks.md")
+      join(cwd, ".opencode", "commands", "@tr", "rtl-mocks.md")
     );
     const gradeContent = await expectFile(
-      join(cwd, ".opencode", "commands", "@taro-test", "rtl-grade.md")
+      join(cwd, ".opencode", "commands", "@tr", "rtl-grade.md")
     );
     const regradeContent = await expectFile(
-      join(cwd, ".opencode", "commands", "@taro-test", "rtl-regrade.md")
+      join(cwd, ".opencode", "commands", "@tr", "rtl-regrade.md")
     );
     const overridesContent = await expectFile(
-      join(cwd, ".opencode", "commands", "@taro-test", "rtl-overrides.md")
+      join(cwd, ".opencode", "commands", "@tr", "rtl-overrides.md")
     );
     expect(generateContent).toContain(
       `\`${target.runtimeCommand} __generate <recording-file>\``
     );
-    expect(generateContent).toContain("/@taro-test/rtl-target");
+    expect(generateContent).toContain("/@tr/rtl-target");
     expect(generateContent).toContain(
-      "/@taro-test/rtl-target <component-directory> --directory-loop"
+      "/@tr/rtl-target <component-directory> --directory-loop"
     );
     expect(generateContent).toContain(
       "Do not inspect repo contents before making this routing decision."
@@ -516,7 +516,7 @@ describe("prompt runtime install builders", () => {
     expect(interactiveGenerateContent).toContain(
       `\`${target.runtimeCommand} __generate -i <recording-file>\``
     );
-    expect(interactiveGenerateContent).toContain("/@taro-test/rtl-target");
+    expect(interactiveGenerateContent).toContain("/@tr/rtl-target");
     expect(targetContent).toContain(
       `\`${target.runtimeCommand} __target <component-file>\``
     );

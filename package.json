@@ -1,6 +1,6 @@
 {
-  "name": "@taro-test/rtl",
-  "version": "1.5.1",
+  "name": "@tr/rtl",
+  "version": "1.0.0",
   "description": "Generate high-quality React Testing Library tests from Recorder exports",
   "type": "module",
   "bin": {
@@ -12,7 +12,12 @@
     "assets",
     "bin",
     "commands",
-    "docs",
+    "docs/USER-GUIDE.md",
+    "docs/PIPELINE.md",
+    "docs/GENERATION.md",
+    "docs/GRADING.md",
+    "docs/DESIGN.md",
+    "docs/context-monitor.md",
     "taro",
     "hooks",
     "README.md",

@@ -40,7 +40,7 @@ export function resetDataLayerMock() {
 }
 ```
 
-Taro treats these locations as payload sources for learned boundary profiles. When no learned support exists, `generate` can scaffold a low-confidence central support module instead of emitting repo-local query-hook implementations inline in the test file.
+Taro treats these locations as payload sources for learned boundary profiles. When no learned support exists, `gen` can scaffold a low-confidence central support module instead of emitting repo-local query-hook implementations inline in the test file.
 
 ## Framework Shims
 

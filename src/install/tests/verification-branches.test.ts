@@ -23,14 +23,14 @@ function createTarget(
     globalDirectorySegments: [".claude"],
     localDirectoryName: ".claude",
     packageContainerSegments: ["commands", "claude"],
-    verificationCommand: "/@taro-test/rtl:help",
+    verificationCommand: "/@tr/rtl:help",
     ownershipMarkerFileName: "install-manifest.json",
     assets: [],
     location: "global",
     destinationDirectory: "/Users/tester/.claude",
     runtimeNodePath: "/usr/bin/node",
     runtimeEntrypointPath:
-      "/Users/tester/.claude/commands/@taro-test/rtl/help.md",
+      "/Users/tester/.claude/commands/@tr/rtl/help.md",
     runtimeCommand: "claude",
     operations: [
       {
@@ -39,9 +39,9 @@ function createTarget(
         location: "global",
         kind: "prompt",
         sourcePath: "/pkg/help.md",
-        relativeDestinationPath: "commands/@taro-test/rtl/help.md",
-        targetPath: "/Users/tester/.claude/commands/@taro-test/rtl/help.md",
-        entrypoint: "/@taro-test/rtl:help",
+        relativeDestinationPath: "commands/@tr/rtl/help.md",
+        targetPath: "/Users/tester/.claude/commands/@tr/rtl/help.md",
+        entrypoint: "/@tr/rtl:help",
       },
       {
         assetId: "manifest",
@@ -76,8 +76,8 @@ describe("verifyInstalledRuntime branches", () => {
             location: "global",
             kind: "prompt",
             sourcePath: "/pkg/help.md",
-            relativeDestinationPath: "commands/@taro-test/rtl/help.md",
-            targetPath: "/Users/tester/.claude/commands/@taro-test/rtl/help.md",
+            relativeDestinationPath: "commands/@tr/rtl/help.md",
+            targetPath: "/Users/tester/.claude/commands/@tr/rtl/help.md",
             entrypoint: "/different-command",
           },
         ],
@@ -85,7 +85,7 @@ describe("verifyInstalledRuntime branches", () => {
     );
 
     expect(result).toEqual({
-      verificationCommand: "/@taro-test/rtl:help",
+      verificationCommand: "/@tr/rtl:help",
       status: "missing-entrypoint",
       missingPaths: [],
     });
@@ -107,13 +107,13 @@ describe("verifyInstalledRuntime branches", () => {
 
     expect(result.status).toBe("missing-installed-assets");
     expect(result.checkedPath).toBe(
-      "/Users/tester/.claude/commands/@taro-test/rtl/help.md"
+      "/Users/tester/.claude/commands/@tr/rtl/help.md"
     );
     expect(result.launcherCommand).toBe("claude");
     expect(result.missingPaths).toEqual([
-      "/Users/tester/.claude/commands/@taro-test/rtl/help.md",
+      "/Users/tester/.claude/commands/@tr/rtl/help.md",
       "/Users/tester/.claude/install-manifest.json",
-      "/Users/tester/.claude/commands/@taro-test/rtl/help.md",
+      "/Users/tester/.claude/commands/@tr/rtl/help.md",
     ]);
     expect(execFileMock).not.toHaveBeenCalled();
   });

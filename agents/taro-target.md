@@ -1,11 +1,11 @@
 ---
-name: "@taro-test/rtl-target"
+name: "@tr/rtl-target"
 description: "Generate repository-aware React Testing Library tests from an explicit component file or component directory, with an optional Testing Library Recorder `.js` export for single-file flows."
 ---
 
 # Taro Target
 
-Invoke this skill with `$@taro-test/rtl-target`.
+Invoke this skill with `$@tr/rtl-target`.
 
 ---
 
@@ -29,7 +29,7 @@ Generate a colocated RTL test for an explicit component path.
 4. Run `{{TARO_RUNTIME_COMMAND}} __target <component-file> --recording <recording-file>` when both single-file inputs are provided.
 5. Run `{{TARO_RUNTIME_COMMAND}} __target <component-directory> --directory-loop` when a directory is provided.
 6. For single-file target runs, keep any requested `--min-score <0-100>` as a final post-review gate instead of sending it on the first `__target` call.
-7. After the first single-file pass, inspect the machine-readable findings block. If it includes `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`, run one bounded `$@taro-test/rtl-mocks` review pass against the generated file.
+7. After the first single-file pass, inspect the machine-readable findings block. If it includes `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`, run one bounded `$@tr/rtl-mocks` review pass against the generated file.
 8. Auto-apply at most one safe mock-scoped repair pass, then run `{{TARO_RUNTIME_COMMAND}} __regrade <generated-test-file>`. Keep the revised file only if syntax still verifies, score does not drop, flow coverage does not drop, and blocking findings do not increase. Otherwise restore the original file and report manual follow-up.
 9. In directory-loop mode, skip the automatic mock-review loop in v1 and keep existing score-gate behavior.
 10. Report the written test path or tracker path, score and grade, manual review status, and any blockers or follow-up findings.

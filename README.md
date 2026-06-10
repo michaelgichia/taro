@@ -9,7 +9,7 @@ For the current strict-order runtime generation path, see [docs/PIPELINE.md](./d
 ## Getting Started
 
 ```bash
-pnpm dlx @taro-test/rtl@latest
+pnpm dlx @tr/rtl@latest
 ```
 
 The installer prompts you to choose:
@@ -19,42 +19,42 @@ The installer prompts you to choose:
 
 After installation or reinstall, run the runtime-native `init` entrypoint:
 
-- Claude Code: `/@taro-test/rtl:init`
-- Gemini CLI: `/@taro-test/rtl:init`
-- OpenCode: `/@taro-test/rtl-init`
-- Codex: `$@taro-test/rtl-init`
+- Claude Code: `/@tr/rtl:init`
+- Gemini CLI: `/@tr/rtl:init`
+- OpenCode: `/@tr/rtl-init`
+- Codex: `$@tr/rtl-init`
 
-The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `pnpm dlx @taro-test/rtl@latest --version`.
+The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `pnpm dlx @tr/rtl@latest --version`.
 
 Use the runtime-native help entrypoint when you want routing guidance:
 
-- Claude Code: `/@taro-test/rtl:help`
-- Gemini CLI: `/@taro-test/rtl:help`
-- OpenCode: `/@taro-test/rtl-help`
-- Codex: `$@taro-test/rtl-help`
+- Claude Code: `/@tr/rtl:help`
+- Gemini CLI: `/@tr/rtl:help`
+- OpenCode: `/@tr/rtl-help`
+- Codex: `$@tr/rtl-help`
 
 Use the runtime-native mock review entrypoint when you want standalone mock and fixture guidance:
 
-- Claude Code: `/@taro-test/rtl:mocks`
-- Gemini CLI: `/@taro-test/rtl:mocks`
-- OpenCode: `/@taro-test/rtl-mocks`
-- Codex: `$@taro-test/rtl-mocks`
+- Claude Code: `/@tr/rtl:mocks`
+- Gemini CLI: `/@tr/rtl:mocks`
+- OpenCode: `/@tr/rtl-mocks`
+- Codex: `$@tr/rtl-mocks`
 
-> [!NOTE] Codex installation uses skills under `skills/@taro-test/rtl-*/SKILL.md`, not prompt files.
+> [!NOTE] Codex installation uses skills under `skills/@tr/rtl-*/SKILL.md`, not prompt files.
 
 ## Staying Updated
 
 Use the runtime-native `refresh` entrypoint for maintenance after Taro is already installed:
 
-- Claude Code: `/@taro-test/rtl:refresh`
-- Gemini CLI: `/@taro-test/rtl:refresh`
-- OpenCode: `/@taro-test/rtl-refresh`
-- Codex: `$@taro-test/rtl-refresh`
+- Claude Code: `/@tr/rtl:refresh`
+- Gemini CLI: `/@tr/rtl:refresh`
+- OpenCode: `/@tr/rtl-refresh`
+- Codex: `$@tr/rtl-refresh`
 
 If you need a newer package version first, rerun the installer package:
 
 ```bash
-pnpm dlx @taro-test/rtl@latest
+pnpm dlx @tr/rtl@latest
 ```
 
 After updating the package, run the runtime-native `refresh` entrypoint. Refresh is the maintenance path for owned assets: it restores missing owned files and protects manual edits instead of overwriting them silently.
@@ -65,24 +65,24 @@ Use runtime flags plus exactly one location flag to skip prompts:
 
 ```bash
 # Claude Code
-pnpm dlx @taro-test/rtl@latest --claude --global
-pnpm dlx @taro-test/rtl@latest --claude --local
+pnpm dlx @tr/rtl@latest --claude --global
+pnpm dlx @tr/rtl@latest --claude --local
 
 # OpenCode
-pnpm dlx @taro-test/rtl@latest --opencode --global
-pnpm dlx @taro-test/rtl@latest --opencode --local
+pnpm dlx @tr/rtl@latest --opencode --global
+pnpm dlx @tr/rtl@latest --opencode --local
 
 # Gemini CLI
-pnpm dlx @taro-test/rtl@latest --gemini --global
-pnpm dlx @taro-test/rtl@latest --gemini --local
+pnpm dlx @tr/rtl@latest --gemini --global
+pnpm dlx @tr/rtl@latest --gemini --local
 
 # Codex
-pnpm dlx @taro-test/rtl@latest --codex --global
-pnpm dlx @taro-test/rtl@latest --codex --local
+pnpm dlx @tr/rtl@latest --codex --global
+pnpm dlx @tr/rtl@latest --codex --local
 
 # All runtimes
-pnpm dlx @taro-test/rtl@latest --all --global
-pnpm dlx @taro-test/rtl@latest --all --local
+pnpm dlx @tr/rtl@latest --all --global
+pnpm dlx @tr/rtl@latest --all --local
 ```
 
 Local installs write to hidden runtime directories in the current project:
@@ -114,7 +114,7 @@ node dist/index.js --all --local
 
 # Or verify the publish boundary with a tarball
 pnpm pack --pack-destination /tmp/taro-pack
-pnpm dlx /tmp/taro-pack/taro-test-rtl-1.0.0.tgz --codex --local
+pnpm dlx /tmp/taro-pack/tr-rtl-1.0.0.tgz --codex --local
 ```
 
 The tarball flow is the closest match to what end users get from npm.
@@ -123,20 +123,20 @@ The tarball flow is the closest match to what end users get from npm.
 
 1. builds the package
 2. installs Claude commands into this repo's `./.claude/`
-3. deletes the existing global Taro Claude command directory at `~/.claude/commands/@taro-test/rtl` and reinstalls it cleanly
+3. deletes the existing global Taro Claude command directory at `~/.claude/commands/@tr/rtl` and reinstalls it cleanly
 
 `pnpm run build:opencode` performs the OpenCode equivalent:
 
 1. builds the package
 2. installs OpenCode commands into this repo's `./.opencode/`
-3. deletes the existing global Taro OpenCode command namespace at `~/.config/opencode/commands/@taro-test` plus `~/.config/opencode/install-manifest.json`
+3. deletes the existing global Taro OpenCode command namespace at `~/.config/opencode/commands/@tr` plus `~/.config/opencode/install-manifest.json`
 4. reinstalls the global OpenCode surface cleanly
 
 `pnpm run build:codex` performs the Codex equivalent:
 
 1. builds the package
 2. installs Codex skills into this repo's `./.codex/`
-3. deletes the existing global Taro Codex skill directories plus `~/.codex/@taro-test-rtl-manifest.json`
+3. deletes the existing global Taro Codex skill directories plus `~/.codex/@tr-rtl-manifest.json`
 4. reinstalls the global Codex surface cleanly
 
 That reinstalls the Codex skill surface only. It does not place a global `taro` binary on your shell `PATH`; the installed Codex skills call this checkout's `dist/index.js` directly. When you move or replace the checkout, rerun `pnpm run build:codex` so the launcher paths stay current.
@@ -157,7 +157,7 @@ Use `minor` or `major` instead of `patch` when needed. `pnpm version` updates `p
 
 One-time setup:
 
-1. In npm package settings for `@taro-test/rtl`, add GitHub Actions as a Trusted Publisher
+1. In npm package settings for `@tr/rtl`, add GitHub Actions as a Trusted Publisher
 2. Use the GitHub repository `michaelgichia/taro`
 3. Set the workflow filename to `publish.yml`
 4. Leave the environment name blank unless you intentionally protect releases with a GitHub Actions environment
@@ -170,30 +170,30 @@ Because publishing only runs from tagged commits in CI, the package version, git
 
 After installation and a first `init` run, use the runtime-native installed generate command or skill for your agent:
 
-- Claude Code: `/@taro-test/rtl:generate`
-- Claude Code: `/@taro-test/rtl:generate-i`
-- Claude Code: `/@taro-test/rtl:grade`
-- Claude Code: `/@taro-test/rtl:regrade`
-- Claude Code: `/@taro-test/rtl:target`
-- Claude Code: `/@taro-test/rtl:mocks`
-- Gemini CLI: `/@taro-test/rtl:generate`
-- Gemini CLI: `/@taro-test/rtl:generate-i`
-- Gemini CLI: `/@taro-test/rtl:grade`
-- Gemini CLI: `/@taro-test/rtl:regrade`
-- Gemini CLI: `/@taro-test/rtl:target`
-- Gemini CLI: `/@taro-test/rtl:mocks`
-- OpenCode: `/@taro-test/rtl-generate`
-- OpenCode: `/@taro-test/rtl-generate-i`
-- OpenCode: `/@taro-test/rtl-grade`
-- OpenCode: `/@taro-test/rtl-regrade`
-- OpenCode: `/@taro-test/rtl-target`
-- OpenCode: `/@taro-test/rtl-mocks`
-- Codex: `$@taro-test/rtl-generate`
-- Codex: `$@taro-test/rtl-generate-i`
-- Codex: `$@taro-test/rtl-grade`
-- Codex: `$@taro-test/rtl-regrade`
-- Codex: `$@taro-test/rtl-target`
-- Codex: `$@taro-test/rtl-mocks`
+- Claude Code: `/@tr/rtl:gen`
+- Claude Code: `/@tr/rtl:geni`
+- Claude Code: `/@tr/rtl:grade`
+- Claude Code: `/@tr/rtl:regrade`
+- Claude Code: `/@tr/rtl:target`
+- Claude Code: `/@tr/rtl:mocks`
+- Gemini CLI: `/@tr/rtl:gen`
+- Gemini CLI: `/@tr/rtl:geni`
+- Gemini CLI: `/@tr/rtl:grade`
+- Gemini CLI: `/@tr/rtl:regrade`
+- Gemini CLI: `/@tr/rtl:target`
+- Gemini CLI: `/@tr/rtl:mocks`
+- OpenCode: `/@tr/rtl-gen`
+- OpenCode: `/@tr/rtl-geni`
+- OpenCode: `/@tr/rtl-grade`
+- OpenCode: `/@tr/rtl-regrade`
+- OpenCode: `/@tr/rtl-target`
+- OpenCode: `/@tr/rtl-mocks`
+- Codex: `$@tr/rtl-gen`
+- Codex: `$@tr/rtl-geni`
+- Codex: `$@tr/rtl-grade`
+- Codex: `$@tr/rtl-regrade`
+- Codex: `$@tr/rtl-target`
+- Codex: `$@tr/rtl-mocks`
 
 ### Prerequisites
 
@@ -215,7 +215,7 @@ Run your runtime-native generate entrypoint against `recording.js`. When Taro in
 
 If you already know the component under test, use the runtime-native `target` entrypoint with a component file path or a component-directory path. File mode writes next to the supplied component and can optionally take a Recorder `.js` file to preserve concrete interaction flow while forcing the component render target. Directory mode runs with `--directory-loop`, writes a tracker under `.taro/directory-loop/`, and skips non-component source files so mixed directories only queue files that export JSX components.
 
-Single-file `generate`, `generate-i`, and `target` flows may run one automatic mock-review repair pass when Taro emits mock-review findings such as `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`. That second pass is limited to mock-scoped edits, regrades with `__regrade`, and keeps changes only when syntax, score, flow coverage, and blocking findings do not regress.
+Single-file `gen`, `geni`, and `target` flows may run one automatic mock-review repair pass when Taro emits mock-review findings such as `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`. That second pass is limited to mock-scoped edits, regrades with `__regrade`, and keeps changes only when syntax, score, flow coverage, and blocking findings do not regress.
 
 When you need a score gate, append `--min-score <0-100>` to `__generate` or `__target`. For single-file generation flows, the installed runtime entrypoint treats that as the final post-review gate, not the first-pass gate. `target --directory-loop` keeps the existing review-only behavior in v1 and still applies `--min-score` directly to the runtime command.
 
@@ -228,7 +228,7 @@ Created: src/components/MyComponent.test.tsx
 [taro] ✓ post-write verified
 ```
 
-On subsequent runs in the same project, Taro reads `.taro/state.json` package profiles to match your test style automatically. If `.taro/state.json` is missing, `generate` performs a light bootstrap, but `init` remains the recommended first step for brownfield repos.
+On subsequent runs in the same project, Taro reads `.taro/state.json` package profiles to match your test style automatically. If `.taro/state.json` is missing, `gen` performs a light bootstrap, but `init` remains the recommended first step for brownfield repos.
 
 For the exact module execution order behind `__generate`, see [docs/PIPELINE.md](./docs/PIPELINE.md).
 
@@ -236,19 +236,19 @@ For the exact module execution order behind `__generate`, see [docs/PIPELINE.md]
 
 Use the runtime-native grading entrypoints when you want an AI-facing review of existing RTL tests without rerunning generation:
 
-- Claude Code: `/@taro-test/rtl:grade path/to/test-file`
-- Claude Code: `/@taro-test/rtl:regrade path/to/test-file`
-- Claude Code: `/@taro-test/rtl:regrade path/to/test-directory --directory-loop`
-- Gemini CLI: `/@taro-test/rtl:grade path/to/test-file`
-- Gemini CLI: `/@taro-test/rtl:regrade path/to/test-file`
-- Gemini CLI: `/@taro-test/rtl:regrade path/to/test-directory --directory-loop`
-- OpenCode: `/@taro-test/rtl-grade path/to/test-file`
-- OpenCode: `/@taro-test/rtl-regrade path/to/test-file`
-- OpenCode: `/@taro-test/rtl-regrade path/to/test-directory --directory-loop`
-- Codex: `$@taro-test/rtl-grade`
-- Codex: `$@taro-test/rtl-regrade`
+- Claude Code: `/@tr/rtl:grade path/to/test-file`
+- Claude Code: `/@tr/rtl:regrade path/to/test-file`
+- Claude Code: `/@tr/rtl:regrade path/to/test-directory --directory-loop`
+- Gemini CLI: `/@tr/rtl:grade path/to/test-file`
+- Gemini CLI: `/@tr/rtl:regrade path/to/test-file`
+- Gemini CLI: `/@tr/rtl:regrade path/to/test-directory --directory-loop`
+- OpenCode: `/@tr/rtl-grade path/to/test-file`
+- OpenCode: `/@tr/rtl-regrade path/to/test-file`
+- OpenCode: `/@tr/rtl-regrade path/to/test-directory --directory-loop`
+- Codex: `$@tr/rtl-grade`
+- Codex: `$@tr/rtl-regrade`
 
-`grade` scores the current file with the same `ScoreResult` scorer used by `generate`, `generate-i`, and `target`, then appends a new `generatedTests` snapshot into `.taro/state.json`.
+`grade` scores the current file with the same `ScoreResult` scorer used by `gen`, `geni`, and `target`, then appends a new `generatedTests` snapshot into `.taro/state.json`.
 
 `regrade` supports two modes:
 
@@ -259,7 +259,7 @@ For both commands, Taro keeps only the latest 5 stored snapshots per `generatedT
 
 Stored `generatedTests` scores bias existing-test learning during `init`, `refresh`, and stale-state bootstrap. Legacy `gradedTests` history is only used as fallback when no canonical `generatedTests` snapshot exists yet for a test. Higher-scored stored tests count more strongly when Taro relearns conventions, helpers, exemplars, and boundary patterns; unscored tests remain neutral.
 
-Across `target`, `grade`, `regrade`, `generate`, and `generate-i`, Taro reports the same score shape:
+Across `target`, `grade`, `regrade`, `gen`, and `geni`, Taro reports the same score shape:
 
 - `queryQuality` /100
 - `assertionSpecificity` /100
@@ -359,7 +359,7 @@ describe('login flow', () => {
 
 ## Agent Usage
 
-After installation, each runtime gets a namespaced help entrypoint plus `init`, `refresh`, `generate`, `mocks`, `grade`, `regrade`, and `target` entrypoints. Use `init` first, `refresh` for maintenance, `generate` for Recorder-to-RTL output, `mocks` for standalone mock or fixture review, `grade` for existing-test evaluation with a stored snapshot, `regrade` when you want a delta-focused re-evaluation plus a new stored snapshot after edits, and `target` when you want to force a specific component path.
+After installation, each runtime gets a namespaced help entrypoint plus `init`, `refresh`, `gen`, `mocks`, `grade`, `regrade`, and `target` entrypoints. Use `init` first, `refresh` for maintenance, `gen` for Recorder-to-RTL output, `mocks` for standalone mock or fixture review, `grade` for existing-test evaluation with a stored snapshot, `regrade` when you want a delta-focused re-evaluation plus a new stored snapshot after edits, and `target` when you want to force a specific component path.
 
 ### Tips
 

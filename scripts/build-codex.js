@@ -13,10 +13,10 @@ export { runInstallOrExit, shouldRunAsMain };
 export function getCodexBuildPaths(rootDir, homeDirectory = homedir()) {
   const globalCodexRoot = join(homeDirectory, ".codex");
   const localCodexRoot = join(rootDir, ".codex");
-  const currentNamespace = "@taro-test";
+  const currentNamespace = "@tr";
   const deprecatedNamespace = "@taro-dev";
   const legacyNamespace = "@tayo-dev";
-  const currentManifestFileName = "@taro-test-rtl-manifest.json";
+  const currentManifestFileName = "@tr-rtl-manifest.json";
   const deprecatedManifestFileName = "@taro-dev-rtl-manifest.json";
   const legacyManifestFileName = "@tayo-dev-rtl-manifest.json";
 

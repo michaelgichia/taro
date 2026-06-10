@@ -1,11 +1,11 @@
 ---
-name: "@taro-test/rtl-generate"
+name: "@tr/rtl-gen"
 description: "Generate deterministic, repository-aware React Testing Library tests from Testing Library Recorder JS exports with Taro. Use when a user provides a Recorder `.js` file, asks to turn a recorded flow into an RTL test, needs render-boundary or mock strategy guidance, or needs score and verification output interpreted precisely."
 ---
 
 # Taro Generate
 
-Invoke this skill with `$@taro-test/rtl-generate`.
+Invoke this skill with `$@tr/rtl-gen`.
 
 ## Purpose
 
@@ -84,7 +84,7 @@ When you do repo inspection beyond Taro's own console output, report:
 2. Recover semantic intent from the recording before discussing code changes.
 3. Resolve render boundary and mock plan with entry-path fidelity in mind.
 4. Run `{{TARO_RUNTIME_COMMAND}} __generate <recording-file>` for the first pass, even when the user requested a score threshold.
-5. Inspect the machine-readable findings block. If it includes `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`, run one bounded `$@taro-test/rtl-mocks` review pass against the generated file.
+5. Inspect the machine-readable findings block. If it includes `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`, run one bounded `$@tr/rtl-mocks` review pass against the generated file.
 6. Auto-apply at most one mock-scoped repair pass. Limit edits to the generated test file and existing repo support paths backed by repo evidence or already planned boundary support.
 7. After auto-fixes, run `{{TARO_RUNTIME_COMMAND}} __regrade <generated-test-file>` and keep the revised file only if syntax still verifies, score does not drop, flow coverage does not drop, and blocking findings do not increase. Otherwise restore the original file and report the mock feedback as manual follow-up.
 8. Treat any requested `--min-score <0-100>` as the final post-review gate, not the first-pass gate.
@@ -135,7 +135,7 @@ When repo-local examples are missing:
 
 ## Automatic Mock Review Loop
 
-Use the `$@taro-test/rtl-mocks` contract as the second-pass repair workflow.
+Use the `$@tr/rtl-mocks` contract as the second-pass repair workflow.
 
 - Allowed auto-fixes: replace inline shared-boundary mocks with learned shared support imports, remove forbidden boundary/package mocks while keeping wrappers real, move `vi.mock(...)` or `jest.mock(...)` factories to module scope, replace mutable shared mock-control state with hoisted handles plus per-test implementations, and add missing mutation lifecycle coverage only when repo evidence already exists.
 - Manual-only follow-up: invented API shapes, invented fixture payloads, or brand-new support modules without repo evidence.

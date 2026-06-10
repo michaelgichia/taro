@@ -34,7 +34,7 @@ function createTarget(
     globalDirectorySegments: [".claude"],
     localDirectoryName: ".claude",
     packageContainerSegments: ["commands", "claude"],
-    verificationCommand: "/@taro-test/rtl:help",
+    verificationCommand: "/@tr/rtl:help",
     ownershipMarkerFileName: "install-manifest.json",
     assets: [],
     location: "global",
@@ -48,7 +48,7 @@ function createTarget(
 
 function createPlan(targets: PlannedInstallTarget[]): InstallPlan {
   return {
-    packageName: "@taro-test/rtl",
+    packageName: "@tr/rtl",
     commandName: "taro",
     stage: "ready-to-write",
     source: "flags",
@@ -71,7 +71,7 @@ function createPlannedTarget(
         sourcePath: "/pkg/help.md",
         relativeDestinationPath: "help.md",
         targetPath: "/tmp/help.md",
-        entrypoint: "/@taro-test/rtl:help",
+        entrypoint: "/@tr/rtl:help",
       },
     ],
     ...overrides,
@@ -116,7 +116,7 @@ describe("renderInstallSummary", () => {
 
     const summary = renderInstallSummary(plan);
 
-    expect(summary).toContain("Install plan for @taro-test/rtl");
+    expect(summary).toContain("Install plan for @tr/rtl");
     expect(summary).toContain("- Claude Code: global (");
     expect(summary).toContain("1 asset");
     expect(summary).toContain("- OpenAI Codex: local (./.codex)");
@@ -185,7 +185,7 @@ describe("confirmInstallPlan", () => {
 describe("renderInstallExecutionResult", () => {
   it("renders installed, updated, repaired, and blocked outcomes with verification and ownership sections", () => {
     const result: InstallExecutionResult = {
-      packageName: "@taro-test/rtl",
+      packageName: "@tr/rtl",
       status: "partial",
       targets: [
         {
@@ -193,16 +193,16 @@ describe("renderInstallExecutionResult", () => {
           displayName: "Claude Code",
           location: "global",
           destinationDirectory: "/Users/tester/.claude",
-          verificationCommand: "/@taro-test/rtl:help",
+          verificationCommand: "/@tr/rtl:help",
           status: "installed",
           writtenFiles: ["help.md"],
           conflicts: [],
           manifestPath: "/Users/tester/.claude/install-manifest.json",
           verification: {
-            verificationCommand: "/@taro-test/rtl:help",
+            verificationCommand: "/@tr/rtl:help",
             status: "verified",
             checkedPath:
-              "/Users/tester/.claude/commands/@taro-test/rtl/help.md",
+              "/Users/tester/.claude/commands/@tr/rtl/help.md",
             launcherCommand: "claude",
             missingPaths: [],
           },
@@ -212,13 +212,13 @@ describe("renderInstallExecutionResult", () => {
           displayName: "Gemini CLI",
           location: "global",
           destinationDirectory: "/Users/tester/.gemini",
-          verificationCommand: "/@taro-test/rtl:help",
+          verificationCommand: "/@tr/rtl:help",
           status: "updated",
           writtenFiles: ["help.toml"],
           conflicts: [],
           manifestPath: "/Users/tester/.gemini/install-manifest.json",
           verification: {
-            verificationCommand: "/@taro-test/rtl:help",
+            verificationCommand: "/@tr/rtl:help",
             status: "missing-installed-assets",
             checkedPath: "/Users/tester/.gemini/commands/help.toml",
             launcherCommand: "gemini",
@@ -230,13 +230,13 @@ describe("renderInstallExecutionResult", () => {
           displayName: "OpenCode",
           location: "global",
           destinationDirectory: "/Users/tester/.config/opencode",
-          verificationCommand: "/@taro-test/rtl-help",
+          verificationCommand: "/@tr/rtl-help",
           status: "repaired",
           writtenFiles: ["rtl-help.md"],
           conflicts: [],
           manifestPath: "/Users/tester/.config/opencode/install-manifest.json",
           verification: {
-            verificationCommand: "/@taro-test/rtl-help",
+            verificationCommand: "/@tr/rtl-help",
             status: "runtime-check-failed",
             checkedPath: "/Users/tester/.config/opencode/rtl-help.md",
             launcherCommand: "opencode",
@@ -249,7 +249,7 @@ describe("renderInstallExecutionResult", () => {
           displayName: "OpenAI Codex",
           location: "local",
           destinationDirectory: "/repo/.codex",
-          verificationCommand: "$@taro-test/rtl-help",
+          verificationCommand: "$@tr/rtl-help",
           status: "blocked",
           writtenFiles: [],
           conflicts: [
@@ -280,7 +280,7 @@ describe("renderInstallExecutionResult", () => {
     expect(output).toContain("missing at /repo/.codex/help.md");
     expect(output).toContain("Verification commands:");
     expect(output).toContain(
-      "(verified at /Users/tester/.claude/commands/@taro-test/rtl/help.md)"
+      "(verified at /Users/tester/.claude/commands/@tr/rtl/help.md)"
     );
     expect(output).toContain(
       "(missing /Users/tester/.gemini/commands/help.toml)"
@@ -292,7 +292,7 @@ describe("renderInstallExecutionResult", () => {
 
   it("renders blocked installs and missing verification metadata fallback", () => {
     const result: InstallExecutionResult = {
-      packageName: "@taro-test/rtl",
+      packageName: "@tr/rtl",
       status: "blocked",
       targets: [
         {
@@ -300,7 +300,7 @@ describe("renderInstallExecutionResult", () => {
           displayName: "Claude Code",
           location: "global",
           destinationDirectory: "/Users/tester/.claude",
-          verificationCommand: "/@taro-test/rtl:help",
+          verificationCommand: "/@tr/rtl:help",
           status: "installed",
           writtenFiles: ["help.md"],
           conflicts: [],
