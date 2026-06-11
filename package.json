@@ -1,6 +1,6 @@
 {
   "name": "@tr-rtl/cli",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Generate high-quality React Testing Library tests from Recorder exports",
   "type": "module",
   "bin": {
