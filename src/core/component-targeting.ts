@@ -8,6 +8,10 @@ import { match, P } from "ts-pattern";
 import { getJsxName } from "#core/babel-utils.ts";
 import { classifyBoundaryKind } from "#core/boundary-learning.ts";
 import {
+  type CallSiteEvidence,
+  harvestComponentCallSites,
+} from "#core/component-call-sites.ts";
+import {
   collectLiteralText,
   collectReturnedJsxRoots,
   evaluateAttributeValue,
@@ -1041,6 +1045,96 @@ function buildAnalyzedRecording(
   };
 }
 
+interface PropsRenderPlan {
+  finding: Finding | null;
+  moduleStatements: string[];
+  renderExpression: string | null;
+}
+
+function safeDefaultForPropName(name: string): string {
+  if (/^(?:on|handle)[A-Z]/u.test(name)) {
+    return "() => {}";
+  }
+  if (
+    /^(?:is|has|can|should|are|allow|disable|enable|loading|pending|open|active|visible|required|readonly|checked|selected|hidden|disabled)/iu.test(
+      name
+    ) ||
+    /(?:Disabled|Pending|Loading|Open|Active|Visible|Required|Readonly|Checked|Selected|Hidden)$/u.test(
+      name
+    )
+  ) {
+    return "false";
+  }
+  return "undefined";
+}
+
+function buildPropsRenderPlan(params: {
+  componentName: string;
+  declaredProps: string[];
+  evidence: CallSiteEvidence[];
+}): PropsRenderPlan {
+  const { componentName, declaredProps, evidence } = params;
+
+  if (declaredProps.length === 0) {
+    return {
+      finding: null,
+      moduleStatements: [],
+      renderExpression: `<${componentName} />`,
+    };
+  }
+
+  if (evidence.length === 0) {
+    return {
+      finding: {
+        severity: "BLOCKING",
+        category: "component-target",
+        message:
+          "Taro detected component props but could not find explicit repo-local defaults or fixtures to reuse. Keep this target as a draft until the prop setup is supplied directly.",
+      },
+      moduleStatements: [
+        `// TODO: replace this placeholder with explicit repo-local props or a recording-backed render path.`,
+        `const UNRESOLVED_COMPONENT_PROPS = {} as Record<string, never>`,
+      ],
+      renderExpression: `<${componentName} {...UNRESOLVED_COMPONENT_PROPS} />`,
+    };
+  }
+
+  const [primary] = evidence;
+  const harvestedByName = new Map(
+    primary.props.map((prop) => [prop.name, prop])
+  );
+
+  const entries = declaredProps.map((propName) => {
+    const harvested = harvestedByName.get(propName);
+    const expression = harvested
+      ? harvested.expression
+      : safeDefaultForPropName(propName);
+    return `  ${propName}: ${expression},`;
+  });
+
+  const sourceFiles = evidence
+    .slice(0, 3)
+    .map((entry) => entry.filePath.replace(/\\/g, "/"));
+
+  const moduleStatements = [
+    `// Props inferred from call site${evidence.length > 1 ? "s" : ""}: ${sourceFiles.join(", ")}`,
+    `// TODO: replace placeholder handlers/booleans with assertions appropriate to the test.`,
+    `const COMPONENT_PROPS = {`,
+    ...entries,
+    `};`,
+  ];
+
+  return {
+    finding: {
+      severity: "ADVISORY",
+      category: "component-target",
+      message: `Taro inferred prop defaults from production call site${evidence.length > 1 ? "s" : ""}: ${sourceFiles.join(", ")}. Review COMPONENT_PROPS before treating these tests as canonical.`,
+    },
+    moduleStatements,
+    renderExpression: `<${componentName} {...COMPONENT_PROPS} />`,
+  };
+}
+
 export async function inferComponentTargetPlan(params: {
   componentPath: string;
   outputPath: string;
@@ -1104,26 +1198,29 @@ export async function inferComponentTargetPlan(params: {
     importBindings,
     surface.importBindingsUsed
   );
-  const moduleStatements =
-    definition.props.length > 0
-      ? [
-          `// TODO: replace this placeholder with explicit repo-local props or a recording-backed render path.`,
-          `const UNRESOLVED_COMPONENT_PROPS = {} as Record<string, never>`,
-        ]
-      : [];
+
+  let callSiteEvidence: CallSiteEvidence[] = [];
+  if (definition.props.length > 0) {
+    callSiteEvidence = await harvestComponentCallSites({
+      projectRoot,
+      componentPath,
+      componentName: definition.name,
+      propNames: definition.props,
+    });
+  }
+  const propsPlan = buildPropsRenderPlan({
+    componentName: definition.name,
+    declaredProps: definition.props,
+    evidence: callSiteEvidence,
+  });
+
+  const moduleStatements = propsPlan.moduleStatements;
   const renderExpression =
-    definition.props.length > 0
-      ? `<${definition.name} {...UNRESOLVED_COMPONENT_PROPS} />`
-      : `<${definition.name} />`;
+    propsPlan.renderExpression ?? `<${definition.name} />`;
 
   const findings: Finding[] = [];
-  if (definition.props.length > 0) {
-    findings.push({
-      severity: "BLOCKING",
-      category: "component-target",
-      message:
-        "Taro detected component props but could not find explicit repo-local defaults or fixtures to reuse. Keep this target as a draft until the prop setup is supplied directly.",
-    });
+  if (propsPlan.finding) {
+    findings.push(propsPlan.finding);
   }
   if (surface.boundaryImports.length > 0) {
     findings.push({
