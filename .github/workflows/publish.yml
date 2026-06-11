@@ -42,6 +42,12 @@ jobs:
       - name: Build package
         run: pnpm run --if-present build
 
+      # npm Trusted Publishing needs the OIDC token exchange added in
+      # npm 11.5.1. Node 22.14 ships with npm 10.x, which signs provenance
+      # but never sends an auth header — npm then returns 404 disguising 403.
+      - name: Upgrade npm for Trusted Publishing
+        run: npm install -g npm@latest
+
       # Use `npm publish` (not `pnpm publish`) because npm Trusted Publishing
       # requires the npm CLI to perform the OIDC token exchange with the
       # registry. `pnpm publish` skips that exchange and tries to PUT with no
