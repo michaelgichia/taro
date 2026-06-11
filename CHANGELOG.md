@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v1.6.0
+
+- added cross-package-manager install support: the installer, in-product update hook, and docs now cover npm, pnpm, yarn (berry), bun, and deno instead of only pnpm
+- added a `src/install/package-manager.ts` detector that resolves the user's package manager from `npm_config_user_agent`, `DENO_VERSION`, or a lockfile probe, with a typed `dlxCommand` table for the five supported managers
+- rewrote `hooks/taro-check-update.js` to detect the caller's package manager at runtime and print the matching upgrade command instead of a hardcoded `pnpm dlx`
+- refreshed `README.md`, `docs/USER-GUIDE.md`, and runtime help/init prompts (Claude Code, Gemini CLI, OpenCode) to lead with a five-row install matrix and use `npx` as the canonical example form
 - added a GitHub Actions publish workflow so tagged releases run install, test, build, and npm publish in CI with provenance
 - switched release automation from token-based npm publishing to npm Trusted Publishing on GitHub Actions
 

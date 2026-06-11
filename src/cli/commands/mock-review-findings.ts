@@ -38,10 +38,7 @@ function getPreferredSharedMockHint(
       profile.supportImportPath &&
       hasModuleMockForTarget(code, profile.target)
     ) {
-      return {
-        importPath: profile.supportImportPath,
-        target: profile.target,
-      };
+      return { importPath: profile.supportImportPath, target: profile.target };
     }
   }
 
@@ -127,11 +124,10 @@ export function buildMockReviewFindings(params: {
     findings.push({
       severity: "HIGH",
       category: "mock-instability",
-      message:
-        topRepoInstabilityIssue
-          ? `${topRepoInstabilityIssue} (${outputPath}).`
-          : `Repo mock analysis flagged instability that should trigger rtl-mocks review: ` +
-            `${topAnalysisInstabilityWarning?.reason ?? "unknown instability"} (${outputPath}).`,
+      message: topRepoInstabilityIssue
+        ? `${topRepoInstabilityIssue} (${outputPath}).`
+        : `Repo mock analysis flagged instability that should trigger rtl-mocks review: ` +
+          `${topAnalysisInstabilityWarning?.reason ?? "unknown instability"} (${outputPath}).`,
     });
   }
 
@@ -145,8 +141,7 @@ export function buildMockReviewFindings(params: {
     findings.push({
       severity: "ADVISORY",
       category: "mock-lifecycle",
-      message:
-        `Repo mutation lifecycle evidence suggests ${outputPath} may need loading or failure companion coverage before final acceptance.`,
+      message: `Repo mutation lifecycle evidence suggests ${outputPath} may need loading or failure companion coverage before final acceptance.`,
     });
   }
 

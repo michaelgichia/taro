@@ -94,14 +94,7 @@ describe("runInstallCommand", () => {
     ).resolves.toContain("$@tr-rtl/cli-help");
     await expect(
       readFile(
-        join(
-          sandbox.home,
-          ".claude",
-          "commands",
-          "@tr-rtl",
-          "rtl",
-          "init.md"
-        ),
+        join(sandbox.home, ".claude", "commands", "@tr-rtl", "cli", "init.md"),
         "utf8"
       )
     ).resolves.toContain(`${runtimeCommand} __init`);
@@ -112,7 +105,7 @@ describe("runInstallCommand", () => {
           ".claude",
           "commands",
           "@tr-rtl",
-          "rtl",
+          "cli",
           "refresh.md"
         ),
         "utf8"
@@ -125,7 +118,7 @@ describe("runInstallCommand", () => {
           ".claude",
           "commands",
           "@tr-rtl",
-          "rtl",
+          "cli",
           "overrides.md"
         ),
         "utf8"
@@ -190,7 +183,7 @@ describe("runInstallCommand", () => {
           ".claude",
           "commands",
           "@tr-rtl",
-          "rtl",
+          "cli",
           "regrade.md"
         ),
         "utf8"
@@ -247,14 +240,7 @@ describe("runInstallCommand", () => {
     );
 
     await rm(
-      join(
-        sandbox.home,
-        ".gemini",
-        "commands",
-        "@tr-rtl",
-        "rtl",
-        "help.toml"
-      ),
+      join(sandbox.home, ".gemini", "commands", "@tr-rtl", "cli", "help.toml"),
       { force: true }
     );
     process.exitCode = undefined;

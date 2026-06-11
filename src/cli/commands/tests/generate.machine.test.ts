@@ -52,21 +52,21 @@ const makeAllActors = (
   assessOutputActor: noopReturn({
     existingCode: null,
     existingAssessment: null,
-      outputResolution: {
-        mergeApplied: false,
-        mergedTestCount: 0,
-        outputAssessment: {
-          flowCoverage: {
-            totalSteps: 1,
-            coveredSteps: 1,
-            coveredStepIds: ["0"],
-            uncoveredStepIds: [],
-          },
-          scoreResult: makeScore(80, "B"),
+    outputResolution: {
+      mergeApplied: false,
+      mergedTestCount: 0,
+      outputAssessment: {
+        flowCoverage: {
+          totalSteps: 1,
+          coveredSteps: 1,
+          coveredStepIds: ["0"],
+          uncoveredStepIds: [],
         },
-        outputCode: "generated()",
-        preferredSource: "candidate",
-        shouldWrite: true,
+        scoreResult: makeScore(80, "B"),
+      },
+      outputCode: "generated()",
+      preferredSource: "candidate",
+      shouldWrite: true,
     },
   }),
   writeOutputActor: noop,
@@ -120,10 +120,7 @@ function makeScore(total: number, grade: "A" | "B" | "C") {
       },
       requiresReview: total < 70,
     },
-    grading: {
-      total,
-      requiresReview: total < 70,
-    },
+    grading: { total, requiresReview: total < 70 },
     requiresReview: total < 70,
   });
 }

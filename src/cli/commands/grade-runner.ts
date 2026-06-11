@@ -3,9 +3,7 @@ import { dirname, relative, resolve } from "node:path";
 
 import { toImportPath } from "#cli/commands/generate-paths.ts";
 import { loadComponentScoreContext } from "#core/component-score-context.ts";
-import {
-  findLatestExistingTestHistoryRecord,
-} from "#core/graded-test-history.ts";
+import { findLatestExistingTestHistoryRecord } from "#core/graded-test-history.ts";
 import {
   appendGeneratedTestRecord,
   runLoadOrBootstrapStateWorkflow,
@@ -52,9 +50,7 @@ function buildFallbackPersistenceContext(params: {
   return { packagePath: profile?.packagePath ?? ".", recordingFile: null };
 }
 
-export function buildGradeFollowUpComments(
-  gradeResult: ScoreResult
-): string[] {
+export function buildGradeFollowUpComments(gradeResult: ScoreResult): string[] {
   const comments = gradeResult.blockers.length
     ? [...gradeResult.blockers]
     : gradeResult.reasons
@@ -122,8 +118,9 @@ async function resolveRecordedComponentScoreContext(params: {
     params.projectRoot,
     params.recordingFile
   );
-  const componentScoreContext =
-    await loadComponentScoreContext(resolvedRecordingFile);
+  const componentScoreContext = await loadComponentScoreContext(
+    resolvedRecordingFile
+  );
 
   return normalizeComponentScoreContextForOutput({
     componentPath: resolvedRecordingFile,

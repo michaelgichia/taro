@@ -6,15 +6,23 @@ For the current strict-order runtime pipeline, see [PIPELINE.md](./PIPELINE.md).
 
 ## Install
 
-```bash
-pnpm dlx @tr-rtl/cli@latest
-```
+Pick the install command that matches your project's package manager:
+
+| Package manager | Install command                      |
+| --------------- | ------------------------------------ |
+| npm             | `npx @tr-rtl/cli@latest`             |
+| pnpm            | `pnpm dlx @tr-rtl/cli@latest`        |
+| yarn (berry)    | `yarn dlx @tr-rtl/cli@latest`        |
+| bun             | `bunx @tr-rtl/cli@latest`            |
+| deno            | `deno run -A npm:@tr-rtl/cli@latest` |
+
+Yarn classic (v1) has no `dlx`; use `npx @tr-rtl/cli@latest` from a yarn classic project. The remaining snippets in this guide use `npx` as the canonical form — substitute any row from the table and all flags behave identically.
 
 Use runtime flags plus one location flag to skip prompts:
 
 ```bash
-pnpm dlx @tr-rtl/cli@latest --codex --local
-pnpm dlx @tr-rtl/cli@latest --all --global
+npx @tr-rtl/cli@latest --codex --local
+npx @tr-rtl/cli@latest --all --global
 ```
 
 After install or reinstall, run the runtime-native `init` entrypoint:
@@ -24,7 +32,7 @@ After install or reinstall, run the runtime-native `init` entrypoint:
 - OpenCode: `/@tr-rtl/cli-init`
 - Codex: `$@tr-rtl/cli-init`
 
-The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `pnpm dlx @tr-rtl/cli@latest --version`.
+The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run any matrix row with `--version`, e.g. `npx @tr-rtl/cli@latest --version`.
 
 For Claude Code local testing from this repo, run:
 
@@ -58,7 +66,7 @@ Use the runtime-native `refresh` entrypoint when Taro is already installed and y
 - OpenCode: `/@tr-rtl/cli-refresh`
 - Codex: `$@tr-rtl/cli-refresh`
 
-If you need a newer package version first, rerun `pnpm dlx @tr-rtl/cli@latest` and then run the runtime-native `refresh` entrypoint.
+If you need a newer package version first, rerun the installer with your package manager (e.g. `npx @tr-rtl/cli@latest`, `pnpm dlx @tr-rtl/cli@latest`, `yarn dlx @tr-rtl/cli@latest`, `bunx @tr-rtl/cli@latest`, or `deno run -A npm:@tr-rtl/cli@latest`) and then run the runtime-native `refresh` entrypoint.
 
 ## Generation Rules
 

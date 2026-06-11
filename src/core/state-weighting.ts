@@ -240,15 +240,12 @@ export function summarizePackageScoreLearning(
 }
 
 function getLatestGeneratedTestRecordTimestamp(state: TaroState): number {
-  return state.generatedTests.reduce(
-    (latest, record) => {
-      const createdAtMs = Date.parse(record.createdAt);
-      return Number.isFinite(createdAtMs)
-        ? Math.max(latest, createdAtMs)
-        : latest;
-    },
-    0
-  );
+  return state.generatedTests.reduce((latest, record) => {
+    const createdAtMs = Date.parse(record.createdAt);
+    return Number.isFinite(createdAtMs)
+      ? Math.max(latest, createdAtMs)
+      : latest;
+  }, 0);
 }
 
 function getLatestPackageScanTimestamp(state: TaroState): number {
@@ -489,7 +486,10 @@ export function buildSummaryPackages(
   packages: Record<string, TaroPackageProfile>,
   generatedTests: TaroState["generatedTests"]
 ): TaroStateSummaryPackage[] {
-  const qualityIndex = buildGeneratedTestQualityIndex(projectRoot, generatedTests);
+  const qualityIndex = buildGeneratedTestQualityIndex(
+    projectRoot,
+    generatedTests
+  );
 
   return orderBy(
     Object.values(packages).map((profile) => ({

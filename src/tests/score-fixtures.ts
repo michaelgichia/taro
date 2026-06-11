@@ -105,12 +105,7 @@ export function makeScoreSignals(
 export function makeMarkerCoverage(
   overrides: Partial<MarkerCoverageTotals> = {}
 ): MarkerCoverageTotals {
-  return {
-    detected: 0,
-    emitted: 0,
-    unresolved: 0,
-    ...overrides,
-  };
+  return { detected: 0, emitted: 0, unresolved: 0, ...overrides };
 }
 
 export function makeMarkerDiagnostics(
@@ -265,10 +260,7 @@ export function makeHybridScoreResult(
       overrides.requiresReview ??
       (generation.requiresReview || grading.requiresReview),
     blockers,
-    families: {
-      generation,
-      grading,
-    },
+    families: { generation, grading },
     dimensions: generation.dimensions,
     signals: generation.signals,
     reasons: generation.reasons,

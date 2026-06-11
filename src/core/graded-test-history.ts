@@ -1,6 +1,6 @@
 import {
-  runLoadOrBootstrapStateWorkflow,
   refreshTaroState,
+  runLoadOrBootstrapStateWorkflow,
   writeTaroState,
 } from "#core/state.ts";
 import { normalizeGeneratedTestHistoryPath } from "#core/state-paths.ts";
@@ -50,16 +50,6 @@ function findLatestRecordByPath<
   }
 
   return latestRecord;
-}
-
-function trimGradedTestHistory(
-  projectRoot: string,
-  gradedTests: TaroGradedTestRecord[]
-): TaroGradedTestRecord[] {
-  return trimGeneratedTestHistory(
-    projectRoot,
-    gradedTests as unknown as TaroGeneratedTestRecord[]
-  ) as unknown as TaroGradedTestRecord[];
 }
 
 export function findLatestGradedTestRecord(
@@ -141,10 +131,7 @@ export async function appendGradedTestRecord(
           grade: record.gradeResult.grade,
           overallSource: "legacy-graded",
           blockers: record.gradeResult.blockers,
-          families: {
-            generation: null,
-            grading: record.gradeResult,
-          },
+          families: { generation: null, grading: record.gradeResult },
         },
         requiresReview: record.gradeResult.requiresReview,
       },

@@ -56,13 +56,13 @@ import {
 } from "#cli/commands/selector-resolution.ts";
 import { maybeCaptureVisualState } from "#cli/commands/visual-auth.ts";
 import type { Finding } from "#core/findings-reporter.ts";
+import { makeHybridScoreResult } from "#tests/score-fixtures.ts";
 import type {
   ItGroup,
   QueryDescriptor,
   QueryResult,
   SelectorResolutionResult,
 } from "#types/recording.ts";
-import { makeHybridScoreResult } from "#tests/score-fixtures.ts";
 
 const generateCommandInternals = {
   applyRepoRenderTarget,
@@ -263,15 +263,15 @@ function makeScoreResult(overrides: Record<string, unknown> = {}) {
     grade: typedOverrides.grade,
     blockers: typedOverrides.blockers,
     dimensions:
-      (typedOverrides.dimensions as Partial<
-        ReturnType<typeof makeHybridScoreResult>["dimensions"]
-      > | undefined) ?? undefined,
+      (typedOverrides.dimensions as
+        | Partial<ReturnType<typeof makeHybridScoreResult>["dimensions"]>
+        | undefined) ?? undefined,
     reasons: typedOverrides.reasons as any,
     requiresReview: typedOverrides.requiresReview,
     signals:
-      (typedOverrides.signals as Partial<
-        ReturnType<typeof makeHybridScoreResult>["signals"]
-      > | undefined) ?? undefined,
+      (typedOverrides.signals as
+        | Partial<ReturnType<typeof makeHybridScoreResult>["signals"]>
+        | undefined) ?? undefined,
     generation: {
       total,
       markerQualityGate: {

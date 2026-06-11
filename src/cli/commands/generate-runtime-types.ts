@@ -2,8 +2,8 @@ import type { Finding } from "#core/findings-reporter.ts";
 import type { MockAnalysis } from "#core/mock-intelligence.ts";
 import type { ReplayStepDebugTrace } from "#core/resolver.ts";
 import type {
-  runLoadOrBootstrapStateWorkflow,
   readTaroOverrides,
+  runLoadOrBootstrapStateWorkflow,
 } from "#core/state.ts";
 import type { JsSuitePlan } from "#core/suite-planner.ts";
 import type {
@@ -88,7 +88,9 @@ export interface GenerateMachineContext {
   normalizedRecording?: NormalizedRecording;
   defaultOutputPath?: string;
   hadState?: boolean;
-  bootstrappedState?: Awaited<ReturnType<typeof runLoadOrBootstrapStateWorkflow>>;
+  bootstrappedState?: Awaited<
+    ReturnType<typeof runLoadOrBootstrapStateWorkflow>
+  >;
   overrides?: Awaited<ReturnType<typeof readTaroOverrides>>;
   packageProfile?: ResolvedTaroPackageProfile | null;
   explicitAuthPath?: { absolutePath: string; relativePath: string } | null;
@@ -153,7 +155,9 @@ export type LoadStateActorInput = Pick<
 
 export interface LoadStateActorOutput {
   hadState: boolean;
-  bootstrappedState: Awaited<ReturnType<typeof runLoadOrBootstrapStateWorkflow>>;
+  bootstrappedState: Awaited<
+    ReturnType<typeof runLoadOrBootstrapStateWorkflow>
+  >;
   overrides: Awaited<ReturnType<typeof readTaroOverrides>>;
   packageProfile: ResolvedTaroPackageProfile | null;
   defaultOutputPath: string;
@@ -208,7 +212,9 @@ export type RefreshProfileActorInput = Pick<
 >;
 
 export interface RefreshProfileActorOutput {
-  bootstrappedState: Awaited<ReturnType<typeof runLoadOrBootstrapStateWorkflow>>;
+  bootstrappedState: Awaited<
+    ReturnType<typeof runLoadOrBootstrapStateWorkflow>
+  >;
   overrides: Awaited<ReturnType<typeof readTaroOverrides>>;
   packageProfile: ResolvedTaroPackageProfile | null;
   contextProfileReason: string | null;

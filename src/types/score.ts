@@ -1,8 +1,8 @@
+import type { ExistingTestGradeResult } from "#types/existing-test-grade.ts";
 import type {
   TaroBoundaryGuardrailReason,
   TaroBoundaryKind,
 } from "#types/state.ts";
-import type { ExistingTestGradeResult } from "#types/existing-test-grade.ts";
 
 export type ScoreGradeLetter = "A" | "B" | "C" | "D" | "F";
 
@@ -121,7 +121,10 @@ export interface ScoreFamilies {
   grading: ExistingTestGradeResult;
 }
 
-export type ScoreOverallSource = "hybrid" | "legacy-generated" | "legacy-graded";
+export type ScoreOverallSource =
+  | "hybrid"
+  | "legacy-generated"
+  | "legacy-graded";
 
 export interface ScoreResult {
   overall: number;

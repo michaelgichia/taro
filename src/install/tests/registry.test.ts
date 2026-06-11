@@ -17,7 +17,7 @@ describe("RUNTIME_REGISTRY", () => {
     expect(RUNTIME_REGISTRY.claude.packageContainerSegments).toContain(
       "@tr-rtl"
     );
-    expect(RUNTIME_REGISTRY.gemini.packageContainerSegments).toContain("rtl");
+    expect(RUNTIME_REGISTRY.gemini.packageContainerSegments).toContain("cli");
     expect(RUNTIME_REGISTRY.opencode.verificationCommand).toBe(
       "/@tr-rtl/cli-help"
     );

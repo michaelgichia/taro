@@ -11,25 +11,35 @@ import { runInstallOrExit, shouldRunAsMain } from "./script-runtime-utils.js";
 export { runInstallOrExit, shouldRunAsMain };
 
 export function getClaudeBuildPaths(rootDir, homeDirectory = homedir()) {
+  const localCommandsRoot = join(rootDir, ".claude", "commands");
+  const globalCommandsRoot = join(homeDirectory, ".claude", "commands");
+
+  // current = the package's live namespace (matches the asset registry)
+  // deprecated = the previous public namespace
+  // legacy = the original pre-rename namespace
+  const currentSegments = ["@tr-rtl", "cli"];
+  const deprecatedSegments = ["@taro-dev", "rtl"];
+  const legacySegments = ["@tayo-dev", "rtl"];
+
   return {
+    localClaudePackageDir: join(localCommandsRoot, ...currentSegments),
+    deprecatedLocalClaudePackageDir: join(
+      localCommandsRoot,
+      ...deprecatedSegments
+    ),
+    legacyLocalClaudePackageDir: join(localCommandsRoot, ...legacySegments),
+    // Retained for backwards compatibility with callers that consumed the
+    // pre-rename shape; lists the two pre-rename local namespaces only.
     localClaudePackageDirs: [
-      join(rootDir, ".claude", "commands", "@taro-dev", "rtl"),
-      join(rootDir, ".claude", "commands", "@tayo-dev", "rtl"),
+      join(localCommandsRoot, ...deprecatedSegments),
+      join(localCommandsRoot, ...legacySegments),
     ],
-    globalClaudePackageDir: join(
-      homeDirectory,
-      ".claude",
-      "commands",
-      "@taro-dev",
-      "rtl"
+    globalClaudePackageDir: join(globalCommandsRoot, ...currentSegments),
+    deprecatedGlobalClaudePackageDir: join(
+      globalCommandsRoot,
+      ...deprecatedSegments
     ),
-    legacyGlobalClaudePackageDir: join(
-      homeDirectory,
-      ".claude",
-      "commands",
-      "@tayo-dev",
-      "rtl"
-    ),
+    legacyGlobalClaudePackageDir: join(globalCommandsRoot, ...legacySegments),
   };
 }
 
@@ -46,12 +56,24 @@ export async function runClaudeBuild(options = {}) {
   const exit = options.exit ?? process.exit;
   const paths = getClaudeBuildPaths(rootDir, options.homeDir ?? homedir());
 
-  for (const localClaudePackageDir of paths.localClaudePackageDirs) {
-    log(
-      `[taro] Removing existing local Claude commands at ${localClaudePackageDir}...`
-    );
-    await remove(localClaudePackageDir, { recursive: true, force: true });
-  }
+  log(
+    `[taro] Removing existing local Claude commands at ${paths.localClaudePackageDir}...`
+  );
+  await remove(paths.localClaudePackageDir, { recursive: true, force: true });
+  log(
+    `[taro] Removing deprecated local Claude commands at ${paths.deprecatedLocalClaudePackageDir}...`
+  );
+  await remove(paths.deprecatedLocalClaudePackageDir, {
+    recursive: true,
+    force: true,
+  });
+  log(
+    `[taro] Removing legacy local Claude commands at ${paths.legacyLocalClaudePackageDir}...`
+  );
+  await remove(paths.legacyLocalClaudePackageDir, {
+    recursive: true,
+    force: true,
+  });
 
   log("[taro] Installing Claude commands locally...");
   runInstallOrExit(["--claude", "--local"], {
@@ -67,6 +89,13 @@ export async function runClaudeBuild(options = {}) {
     `[taro] Removing existing global Claude commands at ${paths.globalClaudePackageDir}...`
   );
   await remove(paths.globalClaudePackageDir, { recursive: true, force: true });
+  log(
+    `[taro] Removing deprecated global Claude commands at ${paths.deprecatedGlobalClaudePackageDir}...`
+  );
+  await remove(paths.deprecatedGlobalClaudePackageDir, {
+    recursive: true,
+    force: true,
+  });
   log(
     `[taro] Removing legacy global Claude commands at ${paths.legacyGlobalClaudePackageDir}...`
   );

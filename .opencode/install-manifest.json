@@ -3,57 +3,57 @@
   "runtime": "opencode",
   "location": "local",
   "manifestVersion": 1,
-  "generatedAt": "2026-04-18T13:30:14.107Z",
+  "generatedAt": "2026-06-11T05:31:20.210Z",
   "files": [
     {
       "relativePath": "commands/@tr-rtl/cli-help.md",
       "kind": "command",
-      "checksum": "35d627dee305c66a5f09784cec478bb4c12bd34bc70bf2c091df8f10d7176170"
+      "checksum": "3585515abb7856764d8597dc4fda44d8b630fb81177e04874ad6cb0862a13109"
     },
     {
       "relativePath": "commands/@tr-rtl/cli-init.md",
       "kind": "command",
-      "checksum": "2721a5f9eabc5ac9c3d67716d5f982d4b83a0dc68a9c3752d9cf84e3922e1a68"
+      "checksum": "c8b0c944d2fc1cc7d196b6ff71037db236355ab5f2ffe909fa64c8eb88e01638"
     },
     {
       "relativePath": "commands/@tr-rtl/cli-gen.md",
       "kind": "command",
-      "checksum": "dab707f13ef0a691a1d092b015d8367f496d58abdaca26c053dcec59ff8fc0fb"
+      "checksum": "7234105cd7762865d4ef5b3493e07440176157907801f4a1f489a3a1a02cd6d2"
     },
     {
       "relativePath": "commands/@tr-rtl/cli-geni.md",
       "kind": "command",
-      "checksum": "28f69967e5cf1653d9e68ad6d82227727889cf00c32aed1b81d9b13be4ddbdad"
+      "checksum": "1bd3d1ec4e364fecdff5efd3cdc07b26a3e682d4bc791f8e0b2e475ae07ec444"
     },
     {
       "relativePath": "commands/@tr-rtl/cli-grade.md",
       "kind": "command",
-      "checksum": "0466a061a0c2f57def7c168d86849da11073bc466f6fe447c143c42bc69a917a"
+      "checksum": "4eb0033d29ade22581145c584121d252474ce6ad06360fa2d4c9298d2cc80e77"
     },
     {
       "relativePath": "commands/@tr-rtl/cli-regrade.md",
       "kind": "command",
-      "checksum": "cebfdb32eccc9c0c9e9c5e6e9ffe4aadcff1e2cd1ce542e77e6daca00d13e6a0"
+      "checksum": "bf8c1b01381efefae17e2efb24bb1d1c34ae5cbd2b599a42d53d0562a2c6e6d2"
     },
     {
       "relativePath": "commands/@tr-rtl/cli-target.md",
       "kind": "command",
-      "checksum": "bae974c0d43e69e0227db44052a4553ff48365dcf3c530b21f8c8d4c790e624f"
+      "checksum": "c249f36068ad853d4f7cf793b6f2fbde452ced7f0d5602d7914d4243b2a00c70"
     },
     {
       "relativePath": "commands/@tr-rtl/cli-mocks.md",
       "kind": "command",
-      "checksum": "511af80683996c482c106100711ec3853ad156e9689d321ff801e1d11d5729c4"
+      "checksum": "8b18a38d343f02068b069581dd23a1664a1ce1e36be6f4605edaedeb7c8ac2d6"
     },
     {
       "relativePath": "commands/@tr-rtl/cli-refresh.md",
       "kind": "command",
-      "checksum": "41ce7ec2760c3886eb31a1077e0d7ebf3d7755f0203b060eeabc46a7c5742635"
+      "checksum": "a4346d0076c173b1b5937fe0e053845e8dfe5afdee350d66691f26d82ef946b7"
     },
     {
       "relativePath": "commands/@tr-rtl/cli-overrides.md",
       "kind": "command",
-      "checksum": "46f2967e16e2a62f93eeccbb34f4593509461a0554fe8634deca6ba444c72481"
+      "checksum": "36d66da35765af67bc6db0915edfa6ba05e35442a63dd3e4a52e00a864b3ff4f"
     }
   ]
 }

@@ -96,7 +96,7 @@ describe("prompt runtime install builders", () => {
       ".claude",
       "commands",
       "@tr-rtl",
-      "rtl",
+      "cli",
       "help.md"
     );
     const helpContent = await expectFile(helpPath);
@@ -208,7 +208,9 @@ describe("prompt runtime install builders", () => {
       `${target.runtimeCommand} __target <component-directory> --directory-loop`
     );
     expect(generateContent).toContain("final post-review gate");
-    expect(targetContent).toContain("skip the automatic mock-review loop in v1");
+    expect(targetContent).toContain(
+      "skip the automatic mock-review loop in v1"
+    );
     expect(gradeContent).toContain("Strong `B` example");
     expect(regradeContent).toContain("latest 5 snapshots");
     expect(regradeContent).toContain(
@@ -348,7 +350,9 @@ describe("prompt runtime install builders", () => {
       `\`${target.runtimeCommand} __target <component-directory> --directory-loop\``
     );
     expect(generateContent).toContain("final post-review gate");
-    expect(targetContent).toContain("skip the automatic mock-review loop in v1");
+    expect(targetContent).toContain(
+      "skip the automatic mock-review loop in v1"
+    );
     expect(gradeContent).toContain("Strong B");
     expect(regradeContent).toContain("latest 5 snapshots");
     expect(regradeContent).toContain(
@@ -380,44 +384,16 @@ describe("prompt runtime install builders", () => {
       join(home, ".config", "opencode", "commands", "@tr-rtl", "cli-init.md")
     );
     const refreshContent = await expectFile(
-      join(
-        home,
-        ".config",
-        "opencode",
-        "commands",
-        "@tr-rtl",
-        "cli-refresh.md"
-      )
+      join(home, ".config", "opencode", "commands", "@tr-rtl", "cli-refresh.md")
     );
     const gradeContent = await expectFile(
-      join(
-        home,
-        ".config",
-        "opencode",
-        "commands",
-        "@tr-rtl",
-        "cli-grade.md"
-      )
+      join(home, ".config", "opencode", "commands", "@tr-rtl", "cli-grade.md")
     );
     const regradeContent = await expectFile(
-      join(
-        home,
-        ".config",
-        "opencode",
-        "commands",
-        "@tr-rtl",
-        "cli-regrade.md"
-      )
+      join(home, ".config", "opencode", "commands", "@tr-rtl", "cli-regrade.md")
     );
     const mocksContent = await expectFile(
-      join(
-        home,
-        ".config",
-        "opencode",
-        "commands",
-        "@tr-rtl",
-        "cli-mocks.md"
-      )
+      join(home, ".config", "opencode", "commands", "@tr-rtl", "cli-mocks.md")
     );
     const overridesContent = await expectFile(
       join(
@@ -524,7 +500,9 @@ describe("prompt runtime install builders", () => {
       `\`${target.runtimeCommand} __target <component-directory> --directory-loop\``
     );
     expect(generateContent).toContain("final post-review gate");
-    expect(targetContent).toContain("skip the automatic mock-review loop in v1");
+    expect(targetContent).toContain(
+      "skip the automatic mock-review loop in v1"
+    );
     expect(gradeContent).toContain("Strong `B`");
     expect(regradeContent).toContain("latest 5 snapshots");
     expect(regradeContent).toContain(

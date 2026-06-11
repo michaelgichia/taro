@@ -81,7 +81,9 @@ export interface GenerateMachineContext {
   normalizedRecording?: NormalizedRecording;
   defaultOutputPath?: string;
   hadState?: boolean;
-  bootstrappedState?: Awaited<ReturnType<typeof runLoadOrBootstrapStateWorkflow>>;
+  bootstrappedState?: Awaited<
+    ReturnType<typeof runLoadOrBootstrapStateWorkflow>
+  >;
   overrides?: Awaited<ReturnType<typeof readTaroOverrides>>;
   packageProfile?: ResolvedTaroPackageProfile | null;
   explicitAuthPath?: { absolutePath: string; relativePath: string } | null;
@@ -395,7 +397,8 @@ export const loadStateActor = fromPromise(
     const hadState = await access(join(projectRoot, ".taro", "state.json"))
       .then(() => true)
       .catch(() => false);
-    const bootstrappedState = await runLoadOrBootstrapStateWorkflow(projectRoot);
+    const bootstrappedState =
+      await runLoadOrBootstrapStateWorkflow(projectRoot);
     const overrides = await readTaroOverrides(projectRoot);
     const defaultOutputPath = deriveOutputPath(input.filePath);
     const packageProfile = resolveTaroPackageProfile(

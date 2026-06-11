@@ -10,10 +10,10 @@ import type {
   MutationLifecyclePattern,
 } from "#types/conventions.ts";
 import type {
-  ExistingTestGradeResult,
   ExistingTestGradeDimensions,
   ExistingTestGradeLetter,
   ExistingTestGradeReason,
+  ExistingTestGradeResult,
   ExistingTestGradeSignals,
 } from "#types/existing-test-grade.ts";
 import type {

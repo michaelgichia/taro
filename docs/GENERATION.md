@@ -1,6 +1,6 @@
 # How tr Decides What to Write
 
-When the same recording produces a different test in two different repos — or when generation suddenly switches style after a new sibling test is added — the behavior looks like nondeterminism. It isn't. The output is a deterministic function of (a) the recording, (b) what's currently in the repo, and (c) what `.taro/state.json` has learned from past tests. This document explains that function, so a contributor reading a generated test can reason about *why it looks the way it does* and trace any surprise back to a specific input.
+When the same recording produces a different test in two different repos — or when generation suddenly switches style after a new sibling test is added — the behavior looks like nondeterminism. It isn't. The output is a deterministic function of (a) the recording, (b) what's currently in the repo, and (c) what `.taro/state.json` has learned from past tests. This document explains that function, so a contributor reading a generated test can reason about _why it looks the way it does_ and trace any surprise back to a specific input.
 
 For the strict module-order contract (which file runs in which stage), see [`PIPELINE.md`](./PIPELINE.md). This document layers two things on top of that contract: what evidence each stage consumes, and the disproportionate role past tests play in shaping the output.
 
@@ -12,7 +12,7 @@ For the strict module-order contract (which file runs in which stage), see [`PIP
 
 **2. State bootstrap.** Load `.taro/state.json`, layer `.taro/overrides.json` on top, resolve auth inputs. Produces the bootstrapped state, a candidate package profile, the override policy, and the runtime auth config. Every downstream stage reads from this.
 
-**3. Visual preflight.** If the recording has a URL, drive Playwright to the recorded page *before* the repo is searched. Confirms landmarks, recovers from auth walls, captures a starting-point or auth-checkpoint screenshot. Without this stage, repo grounding would search against the recording's intent alone — Playwright proves that intent against the live DOM and discards selector candidates that don't survive the round trip.
+**3. Visual preflight.** If the recording has a URL, drive Playwright to the recorded page _before_ the repo is searched. Confirms landmarks, recovers from auth walls, captures a starting-point or auth-checkpoint screenshot. Without this stage, repo grounding would search against the recording's intent alone — Playwright proves that intent against the live DOM and discards selector candidates that don't survive the round trip.
 
 **4. Repo grounding.** Combine recording evidence with the confirmed visual context to search the repo for the file under test. Enrich semantic markers (the `taro-query-checkpoint` tags and role/label hints) with what the repo actually contains. Produces ranked context matches and enriched marker evidence.
 
@@ -24,7 +24,7 @@ For the strict module-order contract (which file runs in which stage), see [`PIP
 
 **8. Emission.** Generate the RTL test code, apply boundary policy, compute the quality `ScoreResult`, emit review warnings. This stage also runs the pre-write audit — see the next section. Produces the generated code, the score, and marker and boundary diagnostics.
 
-Stage 9 (Materialization) is the actual `writeFileSync`. By the time control reaches it, every decision about *what the test should look like* has already been made.
+Stage 9 (Materialization) is the actual `writeFileSync`. By the time control reaches it, every decision about _what the test should look like_ has already been made.
 
 ## The pre-write gate
 
@@ -46,7 +46,7 @@ Five evidence sources feed Emission. They are layered — later sources refine o
 
 ## Past tests as the dominant signal
 
-Of the five sources above, past tests are the heaviest weight on the output. The recording determines *what* the test asserts; past tests determine *how it's written*. This section is the largest in the document because the past-test learning subsystem is the part most likely to surprise a reader — it's invisible behavior driven by files (`.taro/state.json`, SQLite) that look like opaque state.
+Of the five sources above, past tests are the heaviest weight on the output. The recording determines _what_ the test asserts; past tests determine _how it's written_. This section is the largest in the document because the past-test learning subsystem is the part most likely to surprise a reader — it's invisible behavior driven by files (`.taro/state.json`, SQLite) that look like opaque state.
 
 There are three distinct learning paths, and they feed different stages.
 
@@ -88,7 +88,7 @@ Beyond convention learning, Taro grades every existing test using a richer regex
 Each grade lands in `.taro/state.json` under `gradedTests` (and under `generatedTests` for tests Taro authored). The history is used three ways:
 
 - **High-graded tests become exemplars.** When the generator needs a pattern for "how does this package handle async form submission?" it pulls the highest-graded sibling test for that component family and mirrors its shape.
-- **Low-graded tests become warnings.** Patterns that appear *only* in low-graded tests get deprioritized. The generator won't propagate a smell just because the smell is already in the repo.
+- **Low-graded tests become warnings.** Patterns that appear _only_ in low-graded tests get deprioritized. The generator won't propagate a smell just because the smell is already in the repo.
 - **The nearest sibling test gets special weight.** From `agents/taro-gen.md`: "Prioritize target source, nearest sibling test, shared mock setup, nearest fixture store, then config." When generating a test for `Foo.tsx`, the test next to it is the strongest single signal for shape.
 
 ## Where each source enters the pipeline
@@ -116,4 +116,4 @@ Taro's output looks deterministic from the inside (it is) and stochastic from th
 - A user sees the generator change its style after one new test lands in the repo and assumes Taro is broken.
 - A reviewer of a generation-stage change can't tell which downstream stages still hold the invariants the old code relied on.
 
-This document exists to short-circuit all three. The pipeline contract belongs to [`PIPELINE.md`](./PIPELINE.md). The scoring contract belongs to [`GRADING.md`](./GRADING.md) and [`../taro/references/quality-scoring.md`](../taro/references/quality-scoring.md). The behavioral rules the generator enforces on top of evidence (one behavior per test, no `.toBeDefined()` wrapping, hoisted `vi.fn()` mocks, etc.) belong to [`../agents/taro-gen.md`](../agents/taro-gen.md). What this document uniquely covers is the *path from inputs to output* — and specifically how disproportionately past tests shape that path.
+This document exists to short-circuit all three. The pipeline contract belongs to [`PIPELINE.md`](./PIPELINE.md). The scoring contract belongs to [`GRADING.md`](./GRADING.md) and [`../taro/references/quality-scoring.md`](../taro/references/quality-scoring.md). The behavioral rules the generator enforces on top of evidence (one behavior per test, no `.toBeDefined()` wrapping, hoisted `vi.fn()` mocks, etc.) belong to [`../agents/taro-gen.md`](../agents/taro-gen.md). What this document uniquely covers is the _path from inputs to output_ — and specifically how disproportionately past tests shape that path.

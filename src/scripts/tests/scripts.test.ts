@@ -82,11 +82,19 @@ describe("build-claude.js", () => {
   it("uses the OS home directory when Claude build paths are resolved without an override", () => {
     const paths = getClaudeBuildPaths("/repo");
 
-    expect(paths.localClaudePackageDirs).toEqual([
-      "/repo/.claude/commands/@taro-dev/rtl",
-      "/repo/.claude/commands/@tayo-dev/rtl",
-    ]);
+    expect(paths.localClaudePackageDir).toBe(
+      "/repo/.claude/commands/@tr-rtl/cli"
+    );
+    expect(paths.deprecatedLocalClaudePackageDir).toBe(
+      "/repo/.claude/commands/@taro-dev/rtl"
+    );
+    expect(paths.legacyLocalClaudePackageDir).toBe(
+      "/repo/.claude/commands/@tayo-dev/rtl"
+    );
     expect(paths.globalClaudePackageDir).toContain(
+      "/.claude/commands/@tr-rtl/cli"
+    );
+    expect(paths.deprecatedGlobalClaudePackageDir).toContain(
       "/.claude/commands/@taro-dev/rtl"
     );
     expect(paths.legacyGlobalClaudePackageDir).toContain(
@@ -113,11 +121,15 @@ describe("build-claude.js", () => {
     });
 
     const paths = getClaudeBuildPaths("/repo", "/home/tester");
-    expect(rmImpl).toHaveBeenCalledWith(paths.localClaudePackageDirs[0], {
+    expect(rmImpl).toHaveBeenCalledWith(paths.localClaudePackageDir, {
       recursive: true,
       force: true,
     });
-    expect(rmImpl).toHaveBeenCalledWith(paths.localClaudePackageDirs[1], {
+    expect(rmImpl).toHaveBeenCalledWith(paths.deprecatedLocalClaudePackageDir, {
+      recursive: true,
+      force: true,
+    });
+    expect(rmImpl).toHaveBeenCalledWith(paths.legacyLocalClaudePackageDir, {
       recursive: true,
       force: true,
     });
@@ -125,6 +137,10 @@ describe("build-claude.js", () => {
       recursive: true,
       force: true,
     });
+    expect(rmImpl).toHaveBeenCalledWith(
+      paths.deprecatedGlobalClaudePackageDir,
+      { recursive: true, force: true }
+    );
     expect(rmImpl).toHaveBeenCalledWith(paths.legacyGlobalClaudePackageDir, {
       recursive: true,
       force: true,
@@ -575,19 +591,16 @@ describe("build-opencode.js", () => {
     });
 
     const paths = getOpenCodeBuildPaths("/repo", "/home/tester");
-    expect(rmImpl).toHaveBeenCalledWith(paths.localOpenCodeCommandNamespaceDir, {
-      recursive: true,
-      force: true,
-    });
+    expect(rmImpl).toHaveBeenCalledWith(
+      paths.localOpenCodeCommandNamespaceDir,
+      { recursive: true, force: true }
+    );
     expect(rmImpl).toHaveBeenCalledWith(paths.localOpenCodeManifestPath, {
       force: true,
     });
     expect(rmImpl).toHaveBeenCalledWith(
       paths.globalOpenCodeCommandNamespaceDir,
-      {
-        recursive: true,
-        force: true,
-      }
+      { recursive: true, force: true }
     );
     expect(rmImpl).toHaveBeenCalledWith(paths.globalOpenCodeManifestPath, {
       force: true,
@@ -708,20 +721,14 @@ describe("build-opencode.js", () => {
       const paths = getOpenCodeBuildPaths(rootDir, "/home/default-opencode");
       expect(rmImpl).toHaveBeenCalledWith(
         paths.localOpenCodeCommandNamespaceDir,
-        {
-          recursive: true,
-          force: true,
-        }
+        { recursive: true, force: true }
       );
       expect(rmImpl).toHaveBeenCalledWith(paths.localOpenCodeManifestPath, {
         force: true,
       });
       expect(rmImpl).toHaveBeenCalledWith(
         paths.globalOpenCodeCommandNamespaceDir,
-        {
-          recursive: true,
-          force: true,
-        }
+        { recursive: true, force: true }
       );
       expect(rmImpl).toHaveBeenCalledWith(paths.globalOpenCodeManifestPath, {
         force: true,

@@ -32,11 +32,11 @@ import {
 import type { GenerateMachineActors } from "#cli/commands/generate.machine.ts";
 import { createGenerateMachine } from "#cli/commands/generate.machine.ts";
 import { flushFindings } from "#cli/commands/generate-findings.ts";
-import { buildMockReviewFindings } from "#cli/commands/mock-review-findings.ts";
 import type { GenerateMachineContext } from "#cli/commands/generate-runtime-types.ts";
 import { type SelectorDebugReporter } from "#cli/commands/generate-runtime-types.ts";
 import { logToStderr as log } from "#cli/commands/log.ts";
 import { formatScore, parseMinScoreOption } from "#cli/commands/min-score.ts";
+import { buildMockReviewFindings } from "#cli/commands/mock-review-findings.ts";
 import type { Finding } from "#core/findings-reporter.ts";
 import type { ReplayStepDebugTrace } from "#core/resolver.ts";
 import type { SelectorResolutionResult } from "#types/recording.ts";

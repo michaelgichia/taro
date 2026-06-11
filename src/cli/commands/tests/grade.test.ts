@@ -179,7 +179,9 @@ describe("createGradeCommand", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.logs).toContain("Grade single-file mode enabled");
-    expect(result.logs).toContain("Previous snapshot (generatedTests): 72/100 (C)");
+    expect(result.logs).toContain(
+      "Previous snapshot (generatedTests): 72/100 (C)"
+    );
     expect(result.logs).toContain("Score: 84/100 (B)");
     expect(result.logs).toContain("Delta: +12");
     expect(result.logs).toContain("Follow-up: Tighten the success assertions.");

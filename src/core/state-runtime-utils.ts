@@ -211,11 +211,7 @@ export function migrateLegacyHistory(
                 reasons: [],
                 blockers: [],
                 requiresReview: true,
-                markerCoverage: {
-                  detected: 0,
-                  emitted: 0,
-                  unresolved: 0,
-                },
+                markerCoverage: { detected: 0, emitted: 0, unresolved: 0 },
                 markerDiagnostics: {
                   canonicalRecoveries: 0,
                   placementConflicts: 0,

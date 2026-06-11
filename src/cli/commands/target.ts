@@ -14,7 +14,6 @@ import {
   finalizeGeneratedOutput,
   maybeAnalyzeMocks,
 } from "#cli/commands/generate-postprocess.ts";
-import { buildMockReviewFindings } from "#cli/commands/mock-review-findings.ts";
 import { getPrimarySelector } from "#cli/commands/generate-recording.ts";
 import {
   emitLowConfidenceBanner,
@@ -28,6 +27,7 @@ import {
   resolveTargetScoreGateConfig,
   type ScoreGateConfig,
 } from "#cli/commands/min-score.ts";
+import { buildMockReviewFindings } from "#cli/commands/mock-review-findings.ts";
 import {
   assessOutputAgainstRecording,
   buildFlowCoverageSummary,
@@ -68,16 +68,16 @@ import { emitQuerySummary, generateTestFromGroups } from "#core/generator.ts";
 import { loadInput } from "#core/input-loader.ts";
 import { parseJsRecording } from "#core/js-parser.ts";
 import { analyzeRecording } from "#core/recording-intelligence.ts";
-import { scoreTestQuality } from "#core/test-quality-scorer.ts";
 import {
   detectPackageProfileStaleness,
-  runLoadOrBootstrapStateWorkflow,
   readTaroOverrides,
   refreshTaroState,
   resolveTaroPackageProfile,
+  runLoadOrBootstrapStateWorkflow,
 } from "#core/state.ts";
 import { normalizeGeneratedTestHistoryPath } from "#core/state-paths.ts";
 import { planJsSuite } from "#core/suite-planner.ts";
+import { scoreTestQuality } from "#core/test-quality-scorer.ts";
 import { verifySyntax } from "#core/verifier.ts";
 import { writeTestFile } from "#core/writer.ts";
 import type { QueryResult } from "#types/recording.ts";
@@ -105,8 +105,7 @@ interface CommandOptions {
   screenshots?: boolean;
 }
 
-interface RawCommandOptions
-  extends Omit<CommandOptions, "minScore"> {
+interface RawCommandOptions extends Omit<CommandOptions, "minScore"> {
   minScore?: string;
 }
 
@@ -130,19 +129,16 @@ function isTestFilePath(filePath: string): boolean {
   return /\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(filePath);
 }
 
-function passesTargetOutputGate(scoreResult: {
-  requiresReview: boolean;
-  overall: number;
-  total: number;
-}, scoreGate: ScoreGateConfig): boolean {
+function passesTargetOutputGate(
+  scoreResult: { requiresReview: boolean; overall: number; total: number },
+  scoreGate: ScoreGateConfig
+): boolean {
   return passesScoreGate(scoreResult, scoreGate);
 }
 
 function resolveTargetTrackerEntryStatus(params: {
   hasAcceptedExistingOutput: boolean;
-  previousStatus:
-    | DirectoryLoopTracker["entries"][number]["status"]
-    | undefined;
+  previousStatus: DirectoryLoopTracker["entries"][number]["status"] | undefined;
 }): DirectoryLoopTracker["entries"][number]["status"] {
   if (params.hasAcceptedExistingOutput) {
     return "completed";
@@ -211,7 +207,9 @@ function buildTargetTrackerFollowUpComments(params: {
       comments.push("No follow-up required.");
     }
   } else if (params.outputExists) {
-    comments.push("Generated output exists, but no latest score record was found.");
+    comments.push(
+      "Generated output exists, but no latest score record was found."
+    );
   }
 
   if (params.exitCode && params.exitCode !== 0) {
@@ -503,7 +501,10 @@ function buildPostWriteGateFindings(params: {
     });
   }
 
-  if (params.scoreResult.requiresReview && params.scoreGate.enforceRequiresReview) {
+  if (
+    params.scoreResult.requiresReview &&
+    params.scoreGate.enforceRequiresReview
+  ) {
     findings.push({
       severity: "BLOCKING",
       category: "follow-up",
@@ -1166,7 +1167,9 @@ async function buildDirectoryLoopTracker(params: {
   commandOptions: CommandOptions;
   previousTracker?: DirectoryLoopTracker;
 }): Promise<DirectoryLoopTracker> {
-  const scoreGate = resolveTargetScoreGateConfig(params.commandOptions.minScore);
+  const scoreGate = resolveTargetScoreGateConfig(
+    params.commandOptions.minScore
+  );
   const previousTracker =
     params.previousTracker ??
     (await readDirectoryLoopTracker({
@@ -1205,17 +1208,22 @@ async function buildDirectoryLoopTracker(params: {
     const hasAcceptedExistingOutput =
       hasExistingOutput &&
       latestOutputStatus !== undefined &&
-      passesTargetOutputGate({
-        requiresReview: latestOutputStatus.requiresReview,
-        overall: latestOutputStatus.overall,
-        total: latestOutputStatus.overall,
-      }, scoreGate);
+      passesTargetOutputGate(
+        {
+          requiresReview: latestOutputStatus.requiresReview,
+          overall: latestOutputStatus.overall,
+          total: latestOutputStatus.overall,
+        },
+        scoreGate
+      );
 
     entries.push({
       componentPath: filePath,
       currentScoreThreshold: preserveCurrentScoreThresholds
-        ? previousEntry?.currentScoreThreshold ?? latestOutputStatus?.overall ?? null
-        : latestOutputStatus?.overall ?? null,
+        ? (previousEntry?.currentScoreThreshold ??
+          latestOutputStatus?.overall ??
+          null)
+        : (latestOutputStatus?.overall ?? null),
       followUpComments:
         previousEntry?.followUpComments ??
         buildTargetTrackerFollowUpComments({
@@ -1451,7 +1459,8 @@ export function createTargetCommand(
           );
 
           while (true) {
-            const { entry, pendingCount } = selectNextTargetTrackerEntry(tracker);
+            const { entry, pendingCount } =
+              selectNextTargetTrackerEntry(tracker);
 
             if (!entry) {
               const failedEntries = tracker.entries.filter(

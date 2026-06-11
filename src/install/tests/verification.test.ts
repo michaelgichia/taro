@@ -70,7 +70,10 @@ describe("verifyInstalledRuntime", () => {
   }, 10000);
 });
 
-describe("package smoke proof", () => {
+// Contributor-side test: this uses `pnpm pack` because pnpm is the repo's
+// build toolchain. The produced tarball shape is package-manager-independent —
+// end users can install it with npm, pnpm, yarn, bun, or deno.
+describe("package smoke proof (pnpm pack)", () => {
   it("packs dist, authored runtime sources, and docs into the package tarball", async () => {
     const { root } = await createSandbox("pack");
     const packDir = join(root, "pack");
