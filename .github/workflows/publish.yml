@@ -42,8 +42,12 @@ jobs:
       - name: Build package
         run: pnpm run --if-present build
 
+      # Use `npm publish` (not `pnpm publish`) because npm Trusted Publishing
+      # requires the npm CLI to perform the OIDC token exchange with the
+      # registry. `pnpm publish` skips that exchange and tries to PUT with no
+      # real auth, which npm rejects with a 404 disguising 403.
       - name: Publish package
-        run: pnpm publish --access public --no-git-checks
+        run: npm publish --provenance --access public
 
       - name: Post changelog to release issue
         if: success()
