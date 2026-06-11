@@ -244,6 +244,79 @@ describe("inferComponentTargetPlan", () => {
     );
   });
 
+  it("harvests prop defaults from a production call site when fixtures are missing", async () => {
+    const root = await createWorkspace("call-site-evidence");
+    const componentPath = join(root, "src", "DeployDeviceDialog.tsx");
+    const outputPath = join(root, "src", "DeployDeviceDialog.test.tsx");
+    const callSitePath = join(root, "src", "business-detail", "index.tsx");
+    await mkdir(dirname(componentPath), { recursive: true });
+    await mkdir(dirname(callSitePath), { recursive: true });
+    await writeFile(
+      componentPath,
+      [
+        "interface Props {",
+        "  onSubmit: (values: { id: string }) => void;",
+        "  isPending: boolean;",
+        "  disabled: boolean;",
+        "}",
+        "export function DeployDeviceDialog({ onSubmit, isPending, disabled }: Props) {",
+        "  return <button disabled={disabled || isPending} onClick={() => onSubmit({ id: '' })}>Deploy</button>;",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+    await writeFile(
+      callSitePath,
+      [
+        "import { DeployDeviceDialog } from '../DeployDeviceDialog';",
+        "export function BusinessDetail() {",
+        "  const handleDeploy = () => {};",
+        "  return (",
+        "    <DeployDeviceDialog",
+        "      onSubmit={handleDeploy}",
+        "      isPending={false}",
+        "      disabled={true}",
+        "    />",
+        "  );",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+
+    const plan = await inferComponentTargetPlan({
+      componentPath,
+      outputPath,
+      projectRoot: root,
+    });
+
+    expect(plan.renderExpression).toBe(
+      "<DeployDeviceDialog {...COMPONENT_PROPS} />"
+    );
+    expect(plan.moduleStatements?.some((line) => line.includes("UNRESOLVED"))).toBe(
+      false
+    );
+    const propsBlock = (plan.moduleStatements ?? []).join("\n");
+    expect(propsBlock).toContain("onSubmit: () => {}");
+    expect(propsBlock).toContain("isPending: false");
+    expect(propsBlock).toContain("disabled: true");
+    expect(propsBlock).toContain(
+      "src/business-detail/index.tsx".replace(/\//g, "/")
+    );
+    expect(
+      plan.findings.some((finding) => finding.severity === "BLOCKING")
+    ).toBe(false);
+    expect(
+      plan.findings.some(
+        (finding) =>
+          finding.severity === "ADVISORY" &&
+          finding.category === "component-target" &&
+          /call site/iu.test(finding.message)
+      )
+    ).toBe(true);
+  });
+
   it("emits a blocking finding for opaque wrapper components", async () => {
     const root = await createWorkspace("opaque");
     const componentPath = join(root, "src", "Wrapper.tsx");
