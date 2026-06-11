@@ -35,3 +35,6 @@ vendor/
 *.log
 .cache/
 tmp/
+
+.agents/*
+AGENTS.md
