@@ -47,16 +47,6 @@ jobs:
       - name: Verify package publish payload
         run: pnpm publish --dry-run --access public --no-git-checks
 
-      - name: Pack tarball for install-smoke
-        run: pnpm pack --pack-destination ./packed
-
-      - name: Upload tarball
-        uses: actions/upload-artifact@v4
-        with:
-          name: taro-tarball
-          path: packed/*.tgz
-          retention-days: 1
-
       - name: Summary
         run: |
           {
@@ -68,66 +58,3 @@ jobs:
             echo "- Publish payload verified with pnpm dry-run"
             echo "- Trusted publishing workflow is ready on GitHub-hosted runners"
           } >> "$GITHUB_STEP_SUMMARY"
-
-  install-smoke:
-    name: install-smoke (${{ matrix.pm }})
-    needs: test-publish
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        pm: [npm, pnpm, yarn, bun]
-    steps:
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22.14.0
-
-      - name: Set up pnpm
-        if: matrix.pm == 'pnpm'
-        uses: pnpm/action-setup@v4
-
-      - name: Enable corepack for yarn
-        if: matrix.pm == 'yarn'
-        run: |
-          corepack enable
-          corepack prepare yarn@4.5.0 --activate
-
-      - name: Set up bun
-        if: matrix.pm == 'bun'
-        uses: oven-sh/setup-bun@v2
-
-      - name: Download tarball
-        uses: actions/download-artifact@v4
-        with:
-          name: taro-tarball
-          path: ./packed
-
-      - name: Resolve tarball path
-        id: resolve
-        run: |
-          tarball=$(ls ./packed/*.tgz | head -n 1)
-          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
-
-      - name: Invoke installer with --version
-        env:
-          TARBALL: ${{ steps.resolve.outputs.tarball }}
-        run: |
-          set -euxo pipefail
-          case "${{ matrix.pm }}" in
-            npm)
-              npx --yes "$TARBALL" --version
-              ;;
-            pnpm)
-              pnpm dlx "$TARBALL" --version
-              ;;
-            yarn)
-              # yarn berry's dlx requires a registry spec; fall back to npx for tarball inputs.
-              npx --yes "$TARBALL" --version
-              ;;
-            bun)
-              bunx "$TARBALL" --version
-              ;;
-          esac

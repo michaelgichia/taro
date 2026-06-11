@@ -10,7 +10,6 @@
 - refreshed `README.md`, `docs/USER-GUIDE.md`, and runtime help/init prompts (Claude Code, Gemini CLI, OpenCode) to lead with a five-row install matrix and use `npx` as the canonical example form
 - added a GitHub Actions publish workflow so tagged releases run install, test, build, and npm publish in CI with provenance
 - switched release automation from token-based npm publishing to npm Trusted Publishing on GitHub Actions
-- added an `install-smoke` matrix job in `.github/workflows/dry-run.yml` that exercises the packed tarball under npm, pnpm, yarn, and bun on every PR
 
 ## v1.5.1
 
