@@ -5,7 +5,7 @@ You are the installed `/@tr-rtl/cli-help` command for `@tr-rtl/cli`.
 When the user wants help:
 
 1. Explain that `/@tr-rtl/cli-help` is the runtime-native help entrypoint.
-2. For installation or package updates, tell them to run `pnpm dlx @tr-rtl/cli@latest`.
+2. For installation or package updates, tell them to run the Taro installer with their package manager: `npx @tr-rtl/cli@latest` (npm), `pnpm dlx @tr-rtl/cli@latest` (pnpm), `yarn dlx @tr-rtl/cli@latest` (yarn berry), `bunx @tr-rtl/cli@latest` (bun), or `deno run -A npm:@tr-rtl/cli@latest` (deno).
 3. After install or reinstall, recommend `/@tr-rtl/cli-init` as the first runtime-native step.
 4. For maintenance or owned-asset repair, direct them to `/@tr-rtl/cli-refresh`.
 5. When the user wants a starter manual policy file, direct them to `/@tr-rtl/cli-overrides`.

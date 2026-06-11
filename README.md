@@ -8,9 +8,17 @@ For the current strict-order runtime generation path, see [docs/PIPELINE.md](./d
 
 ## Getting Started
 
-```bash
-pnpm dlx @tr-rtl/cli@latest
-```
+Run the installer with whichever package manager your project uses:
+
+| Package manager | Install command                          |
+| --------------- | ---------------------------------------- |
+| npm             | `npx @tr-rtl/cli@latest`                 |
+| pnpm            | `pnpm dlx @tr-rtl/cli@latest`            |
+| yarn (berry)    | `yarn dlx @tr-rtl/cli@latest`            |
+| bun             | `bunx @tr-rtl/cli@latest`                |
+| deno            | `deno run -A npm:@tr-rtl/cli@latest`     |
+
+Yarn classic (v1) has no `dlx`; use `npx @tr-rtl/cli@latest` from a yarn classic project. Examples below use `npx` as the canonical form — substitute any row from the matrix and the flags work identically.
 
 The installer prompts you to choose:
 
@@ -24,7 +32,7 @@ After installation or reinstall, run the runtime-native `init` entrypoint:
 - OpenCode: `/@tr-rtl/cli-init`
 - Codex: `$@tr-rtl/cli-init`
 
-The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run `pnpm dlx @tr-rtl/cli@latest --version`.
+The installed runtime entrypoints invoke Taro through an installed launcher path; they do not require a shell-wide `taro` binary on `PATH`. If you need the package version without a `PATH` install, run any matrix row with `--version`, e.g. `npx @tr-rtl/cli@latest --version`.
 
 Use the runtime-native help entrypoint when you want routing guidance:
 
@@ -51,38 +59,34 @@ Use the runtime-native `refresh` entrypoint for maintenance after Taro is alread
 - OpenCode: `/@tr-rtl/cli-refresh`
 - Codex: `$@tr-rtl/cli-refresh`
 
-If you need a newer package version first, rerun the installer package:
-
-```bash
-pnpm dlx @tr-rtl/cli@latest
-```
+If you need a newer package version first, rerun the installer package with the matrix command for your package manager (e.g. `npx @tr-rtl/cli@latest`, `pnpm dlx @tr-rtl/cli@latest`, `yarn dlx @tr-rtl/cli@latest`, `bunx @tr-rtl/cli@latest`, or `deno run -A npm:@tr-rtl/cli@latest`).
 
 After updating the package, run the runtime-native `refresh` entrypoint. Refresh is the maintenance path for owned assets: it restores missing owned files and protects manual edits instead of overwriting them silently.
 
 ## Non-interactive Install
 
-Use runtime flags plus exactly one location flag to skip prompts:
+Use runtime flags plus exactly one location flag to skip prompts. The examples below use `npx` — swap in `pnpm dlx`, `yarn dlx`, `bunx`, or `deno run -A npm:` as appropriate:
 
 ```bash
 # Claude Code
-pnpm dlx @tr-rtl/cli@latest --claude --global
-pnpm dlx @tr-rtl/cli@latest --claude --local
+npx @tr-rtl/cli@latest --claude --global
+npx @tr-rtl/cli@latest --claude --local
 
 # OpenCode
-pnpm dlx @tr-rtl/cli@latest --opencode --global
-pnpm dlx @tr-rtl/cli@latest --opencode --local
+npx @tr-rtl/cli@latest --opencode --global
+npx @tr-rtl/cli@latest --opencode --local
 
 # Gemini CLI
-pnpm dlx @tr-rtl/cli@latest --gemini --global
-pnpm dlx @tr-rtl/cli@latest --gemini --local
+npx @tr-rtl/cli@latest --gemini --global
+npx @tr-rtl/cli@latest --gemini --local
 
 # Codex
-pnpm dlx @tr-rtl/cli@latest --codex --global
-pnpm dlx @tr-rtl/cli@latest --codex --local
+npx @tr-rtl/cli@latest --codex --global
+npx @tr-rtl/cli@latest --codex --local
 
 # All runtimes
-pnpm dlx @tr-rtl/cli@latest --all --global
-pnpm dlx @tr-rtl/cli@latest --all --local
+npx @tr-rtl/cli@latest --all --global
+npx @tr-rtl/cli@latest --all --local
 ```
 
 Local installs write to hidden runtime directories in the current project:

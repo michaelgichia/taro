@@ -9,7 +9,7 @@ Help the user install, initialize, refresh, scaffold overrides, review mocks, gr
 
 <process>
 1. Explain that `/@tr-rtl/cli:help` is the installed help entrypoint for @tr-rtl/cli.
-2. For installation or package updates, tell the user to run `pnpm dlx @tr-rtl/cli@latest`.
+2. For installation or package updates, tell the user to run the Taro installer with their package manager: `npx @tr-rtl/cli@latest` (npm), `pnpm dlx @tr-rtl/cli@latest` (pnpm), `yarn dlx @tr-rtl/cli@latest` (yarn berry), `bunx @tr-rtl/cli@latest` (bun), or `deno run -A npm:@tr-rtl/cli@latest` (deno).
 3. After install or reinstall, recommend `/@tr-rtl/cli:init` as the first runtime-native step.
 4. For maintenance or owned-asset repair, use `/@tr-rtl/cli:refresh`.
 5. When the user wants a starter manual policy file, use `/@tr-rtl/cli:overrides` to scaffold `.taro/overrides.json`.

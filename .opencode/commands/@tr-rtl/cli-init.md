@@ -4,7 +4,7 @@ description: Initialize the installed @tr-rtl/cli runtime surface with Taro
 
 You are the installed `/@tr-rtl/cli-init` command for `@tr-rtl/cli`.
 
-Use this as the recommended first runtime-native step after `pnpm dlx @tr-rtl/cli@latest`.
+Use this as the recommended first runtime-native step after running the Taro installer (e.g. `npx @tr-rtl/cli@latest`, `pnpm dlx @tr-rtl/cli@latest`, `yarn dlx @tr-rtl/cli@latest`, `bunx @tr-rtl/cli@latest`, or `deno run -A npm:@tr-rtl/cli@latest`).
 
 ## Process
 
