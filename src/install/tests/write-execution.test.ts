@@ -72,14 +72,7 @@ describe("executeInstallPlan", () => {
     ).resolves.toContain("/@tr-rtl/cli:help");
     await expect(
       readFile(
-        join(
-          home,
-          ".config",
-          "opencode",
-          "commands",
-          "@tr-rtl",
-          "cli-help.md"
-        ),
+        join(home, ".config", "opencode", "commands", "@tr-rtl", "cli-help.md"),
         "utf8"
       )
     ).resolves.toContain("/@tr-rtl/cli-help");
@@ -139,7 +132,7 @@ describe("writeInstallPlan conflict handling", () => {
       ".gemini",
       "commands",
       "@tr-rtl",
-      "rtl",
+      "cli",
       "help.toml"
     );
 
@@ -169,7 +162,7 @@ describe("writeInstallPlan conflict handling", () => {
       ".claude",
       "commands",
       "@tr-rtl",
-      "rtl",
+      "cli",
       "help.md"
     );
 

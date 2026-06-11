@@ -572,7 +572,8 @@ export function createGenerateMachine(actors: GenerateMachineActors) {
                     existingAssessment: out?.existingAssessment,
                     outputResolution: out?.outputResolution,
                     generatedCode:
-                      out?.outputResolution?.outputCode ?? context.generatedCode,
+                      out?.outputResolution?.outputCode ??
+                      context.generatedCode,
                     scoreResult:
                       out?.outputResolution?.outputAssessment?.scoreResult ??
                       context.scoreResult,

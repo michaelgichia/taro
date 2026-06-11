@@ -11,12 +11,12 @@ import {
   findRepoFallbackPackageProfile,
   formatStateSummary,
   initTaroState,
-  runLoadOrBootstrapStateWorkflow,
   persistPlaywrightAuthProfile,
   readTaroOverrides,
   readTaroState,
   refreshTaroState,
   resolveTaroPackageProfile,
+  runLoadOrBootstrapStateWorkflow,
   writeTaroState,
 } from "#core/state.ts";
 import {
@@ -1250,8 +1250,7 @@ describe("appendGeneratedTestRecord", () => {
         ...makeGeneratedTestRecord({
           createdAt: `2026-03-20T0${index}:00:00.000Z`,
           packagePath: ".",
-          recordingFile:
-            index % 2 === 0 ? `/tmp/recording-${index}.js` : null,
+          recordingFile: index % 2 === 0 ? `/tmp/recording-${index}.js` : null,
           requiresReview: index < 4,
           scoreResult: makeHybridScoreResult({
             overall: 70 + index,
@@ -1407,13 +1406,15 @@ describe("appendGeneratedTestRecord", () => {
     );
 
     const state = await readTaroState(projectRoot);
-    const signals = state?.generatedTests[0]?.quality.families.generation?.signals;
+    const signals =
+      state?.generatedTests[0]?.quality.families.generation?.signals;
 
     expect(signals?.presenceAssertionCount).toBe(2);
     expect(signals?.visibilityAssertionCount).toBe(0);
     expect(signals?.minimumExpectedTestCount).toBe(0);
     expect(
-      state?.generatedTests[0]?.quality.families.generation?.reasons[0]?.severity
+      state?.generatedTests[0]?.quality.families.generation?.reasons[0]
+        ?.severity
     ).toBeUndefined();
   });
 });

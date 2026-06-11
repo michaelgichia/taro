@@ -117,10 +117,7 @@ export async function detectPackageManager(
     };
   }
 
-  return {
-    packageManager: DEFAULT_PACKAGE_MANAGER,
-    source: "default",
-  };
+  return { packageManager: DEFAULT_PACKAGE_MANAGER, source: "default" };
 }
 
 const PACKAGE_NAME = "@tr-rtl/cli";

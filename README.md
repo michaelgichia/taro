@@ -10,13 +10,13 @@ For the current strict-order runtime generation path, see [docs/PIPELINE.md](./d
 
 Run the installer with whichever package manager your project uses:
 
-| Package manager | Install command                          |
-| --------------- | ---------------------------------------- |
-| npm             | `npx @tr-rtl/cli@latest`                 |
-| pnpm            | `pnpm dlx @tr-rtl/cli@latest`            |
-| yarn (berry)    | `yarn dlx @tr-rtl/cli@latest`            |
-| bun             | `bunx @tr-rtl/cli@latest`                |
-| deno            | `deno run -A npm:@tr-rtl/cli@latest`     |
+| Package manager | Install command                      |
+| --------------- | ------------------------------------ |
+| npm             | `npx @tr-rtl/cli@latest`             |
+| pnpm            | `pnpm dlx @tr-rtl/cli@latest`        |
+| yarn (berry)    | `yarn dlx @tr-rtl/cli@latest`        |
+| bun             | `bunx @tr-rtl/cli@latest`            |
+| deno            | `deno run -A npm:@tr-rtl/cli@latest` |
 
 Yarn classic (v1) has no `dlx`; use `npx @tr-rtl/cli@latest` from a yarn classic project. Examples below use `npx` as the canonical form — substitute any row from the matrix and the flags work identically.
 

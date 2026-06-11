@@ -446,7 +446,9 @@ beforeEach(() => {
     browser: { close: vi.fn(async () => undefined) },
     page: {},
   });
-  runLoadOrBootstrapStateWorkflowMock.mockResolvedValue(createDefaultTaroState());
+  runLoadOrBootstrapStateWorkflowMock.mockResolvedValue(
+    createDefaultTaroState()
+  );
   detectPackageProfileStalenessMock.mockResolvedValue({
     stale: false,
     reason: null,
@@ -3559,7 +3561,10 @@ test('baseline', () => { render(<FeatureFlow />) })`,
   it("applies --min-score to the selected existing output after reconciliation", async () => {
     const fixture = await createRecordingFixture("min-score-existing-output");
 
-    const firstRun = await runGenerate([fixture.recordingPath], fixture.outputDir);
+    const firstRun = await runGenerate(
+      [fixture.recordingPath],
+      fixture.outputDir
+    );
     expect(firstRun.exitCode).toBe(0);
 
     const secondRun = await runGenerate(

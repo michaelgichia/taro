@@ -98,12 +98,7 @@ const CODEX_SKILL_ASSETS: RuntimeAssetDefinition[] = [
     id: "conventions",
     kind: "skill",
     sourceSegments: ["agents", "taro-conventions.md"],
-    destinationSegments: [
-      "skills",
-      "@tr-rtl",
-      "cli-conventions",
-      "SKILL.md",
-    ],
+    destinationSegments: ["skills", "@tr-rtl", "cli-conventions", "SKILL.md"],
     entrypoint: "$@tr-rtl/cli-conventions",
   },
   {

@@ -189,9 +189,7 @@ describe("buildCodexOperations", () => {
       ),
       "utf8"
     );
-    expect(helpSkill).toContain(
-      "Invoke this skill with `$@tr-rtl/cli-help`."
-    );
+    expect(helpSkill).toContain("Invoke this skill with `$@tr-rtl/cli-help`.");
     expect(helpSkill).toContain("$@tr-rtl/cli-mocks");
     expect(helpSkill).toContain("Return:");
     expect(helpSkill).toContain("--directory-loop");

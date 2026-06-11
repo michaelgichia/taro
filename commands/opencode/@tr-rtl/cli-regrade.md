@@ -31,9 +31,11 @@ Regrade an existing React Testing Library test file, or batch regrade every matc
    - `D`: 60-69
    - `F`: 0-59
 10. Calibrate the result with these worked examples:
-   - Improvement: stored `72 / C`, current file upgrades weak queries to `getByRole(...)`, adds exact payload assertions, and adds a visible success outcome, so the new result typically lands in the `80s / B`.
-   - Regression: stored `88 / B`, current file regresses to `<App />`, brittle selectors, and weak assertions, so the new result typically drops into `D` or `F`.
-   - First snapshot: report the fresh grade, initialize or update state, and append the first stored history entry.
+
+- Improvement: stored `72 / C`, current file upgrades weak queries to `getByRole(...)`, adds exact payload assertions, and adds a visible success outcome, so the new result typically lands in the `80s / B`.
+- Regression: stored `88 / B`, current file regresses to `<App />`, brittle selectors, and weak assertions, so the new result typically drops into `D` or `F`.
+- First snapshot: report the fresh grade, initialize or update state, and append the first stored history entry.
+
 11. Persist a new `generatedTests` snapshot in `.taro/state.json`:
 
 - if state is missing, initialize a valid minimal state object first

@@ -11,7 +11,11 @@ import {
   createDirectoryLoopTracker,
   writeDirectoryLoopTracker,
 } from "#cli/commands/target-directory-tracker.ts";
-import { appendGeneratedTestRecord, runLoadOrBootstrapStateWorkflow, writeTaroState } from "#core/state.ts";
+import {
+  appendGeneratedTestRecord,
+  runLoadOrBootstrapStateWorkflow,
+  writeTaroState,
+} from "#core/state.ts";
 import {
   makeExistingTestGradeResult,
   makeGeneratedTestRecord,

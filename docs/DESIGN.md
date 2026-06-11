@@ -18,7 +18,7 @@ Heuristics start generic and refine through observation. tr ASTs every existing 
 
 ## The cost
 
-Heuristics are approximate. They will occasionally reward a test that looks right but isn't, occasionally penalize an unusual but valid pattern, and occasionally pick the wrong render helper because the package profile is stale. That's why `requiresReview` exists and why scores under 80 always send the test back to a human. tr is not trying to be smart — it is trying to be *predictable*, so a human can stay in the loop without surprises.
+Heuristics are approximate. They will occasionally reward a test that looks right but isn't, occasionally penalize an unusual but valid pattern, and occasionally pick the wrong render helper because the package profile is stale. That's why `requiresReview` exists and why scores under 80 always send the test back to a human. tr is not trying to be smart — it is trying to be _predictable_, so a human can stay in the loop without surprises.
 
 ## The pithy version
 
@@ -26,7 +26,7 @@ Heuristics are approximate. They will occasionally reward a test that looks righ
 
 ## Why this document exists
 
-The companion docs explain *what* tr does at each layer — [`PIPELINE.md`](./PIPELINE.md) for module order, [`GENERATION.md`](./GENERATION.md) for evidence sources, [`GRADING.md`](./GRADING.md) for scoring. None of them explain *why the tool is built this way at all*. Without that framing, three misreadings are common:
+The companion docs explain _what_ tr does at each layer — [`PIPELINE.md`](./PIPELINE.md) for module order, [`GENERATION.md`](./GENERATION.md) for evidence sources, [`GRADING.md`](./GRADING.md) for scoring. None of them explain _why the tool is built this way at all_. Without that framing, three misreadings are common:
 
 - A contributor proposes "let's add an LLM call here" to fix a heuristic miss, missing that the LLM call would forfeit determinism, cheapness, and explainability for one local win.
 - A user expects tr to produce a perfect test from a single recording, missing that the design intentionally keeps the human as the final judge.

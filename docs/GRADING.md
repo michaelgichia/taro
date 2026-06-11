@@ -8,12 +8,12 @@ For the strict contract shape, see [`taro/references/quality-scoring.md`](../tar
 
 Every test is rated on four dimensions, each 0-100, then combined into a weighted `overall` score.
 
-| Dimension | Weight | What it measures |
-| --- | --- | --- |
-| Query Quality | 30% | How robustly the test locates UI under test |
-| Assertion Specificity | 25% | Whether assertions prove the right outcome |
-| Test Structure | 20% | Readability, organization, behavior focus |
-| Boundary Isolation | 25% | Mock coverage and contract fidelity |
+| Dimension             | Weight | What it measures                            |
+| --------------------- | ------ | ------------------------------------------- |
+| Query Quality         | 30%    | How robustly the test locates UI under test |
+| Assertion Specificity | 25%    | Whether assertions prove the right outcome  |
+| Test Structure        | 20%    | Readability, organization, behavior focus   |
+| Boundary Isolation    | 25%    | Mock coverage and contract fidelity         |
 
 `overall = clamp(0, 100, queryQuality*0.30 + assertionSpecificity*0.25 + testStructure*0.20 + boundaryIsolation*0.25)`
 
@@ -58,13 +58,13 @@ Rewards mock contracts that match the real repo. Penalizes drift.
 
 The `overall` number maps to a letter:
 
-| Grade | Range |
-| --- | --- |
-| A | 90-100 |
-| B | 80-89 |
-| C | 70-79 |
-| D | 60-69 |
-| F | 0-59 |
+| Grade | Range  |
+| ----- | ------ |
+| A     | 90-100 |
+| B     | 80-89  |
+| C     | 70-79  |
+| D     | 60-69  |
+| F     | 0-59   |
 
 `requiresReview` is set to `true` (regardless of letter) when any of these hold:
 
@@ -82,13 +82,13 @@ Every command emits the same shape:
 
 ```jsonc
 {
-  "overall": 0,            // 0-100 weighted aggregate
+  "overall": 0, // 0-100 weighted aggregate
   "grade": "F|D|C|B|A",
   "dimensions": {
     "queryQuality": 0,
     "assertionSpecificity": 0,
     "testStructure": 0,
-    "boundaryIsolation": 0
+    "boundaryIsolation": 0,
   },
   "signals": {
     "queryCheckpointCount": 0,
@@ -104,7 +104,7 @@ Every command emits the same shape:
     "fireEventCount": 0,
     "hasBasePropsConstant": false,
     "hasOverrideRenderHelper": false,
-    "duplicatedInlineRenderCount": 0
+    "duplicatedInlineRenderCount": 0,
   },
   "reasons": [
     {
@@ -113,11 +113,11 @@ Every command emits the same shape:
       "impact": "negative",
       "weight": 16,
       "message": "Shared helpers contain assertions, obscuring which contract actually failed.",
-      "severity": "advisory"
-    }
+      "severity": "advisory",
+    },
   ],
   "blockers": [],
-  "requiresReview": false
+  "requiresReview": false,
 }
 ```
 
@@ -127,13 +127,13 @@ Every command emits the same shape:
 
 A single `gen` or `target` run goes through three scoring touchpoints:
 
-1. **Pre-write audit** (`src/scorer/pre-audit.ts`) — runs `evaluateQualityGates` on the generated code before the file is written. Any `error`-severity issue becomes a *blocking* reason and aborts the write. Warnings become advisory.
+1. **Pre-write audit** (`src/scorer/pre-audit.ts`) — runs `evaluateQualityGates` on the generated code before the file is written. Any `error`-severity issue becomes a _blocking_ reason and aborts the write. Warnings become advisory.
 2. **Post-write verification** (`src/scorer/post-verify.ts`) — runs after the file is on disk. Confirms the file still parses and passes basic sanity checks. A failure here invalidates the run.
 3. **Final scoring** (`src/scorer/quality-gates.ts`) — produces the `ScoreResult` that gets returned to the caller and snapshotted into `.taro/state.json` under `generatedTests`.
 
 `grade` skips steps 1 and 2 — it scores an existing file in place. `regrade` reads the previous snapshot from `.taro/state.json`, rescores, and flags regressions.
 
-Single-file `gen`, `geni`, and `target` flows may run one bounded mock-review repair pass after Taro emits mock-review findings such as `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`. When the user passes `--min-score <0-100>`, the threshold applies to the *post-review* score, not the first pass — so the second pass has a chance to lift the score over the gate.
+Single-file `gen`, `geni`, and `target` flows may run one bounded mock-review repair pass after Taro emits mock-review findings such as `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`. When the user passes `--min-score <0-100>`, the threshold applies to the _post-review_ score, not the first pass — so the second pass has a chance to lift the score over the gate.
 
 ## Why heuristic instead of LLM-scored
 

@@ -81,7 +81,7 @@ export async function resolveGlobalCodexSkillDirs(options) {
     });
 
     return entries
-      .filter((entry) => entry.isDirectory() && entry.name.startsWith("rtl-"))
+      .filter((entry) => entry.isDirectory() && entry.name.startsWith("cli-"))
       .map((entry) => join(globalCodexSkillNamespaceDir, entry.name))
       .sort();
   } catch (error) {

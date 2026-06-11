@@ -16,12 +16,11 @@ const { maybeAnalyzeMocksMock } = vi.hoisted(() => ({
 
 vi.mock("#cli/commands/generate-postprocess.ts", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("#cli/commands/generate-postprocess.ts")>();
+    await importOriginal<
+      typeof import("#cli/commands/generate-postprocess.ts")
+    >();
 
-  return {
-    ...actual,
-    maybeAnalyzeMocks: maybeAnalyzeMocksMock,
-  };
+  return { ...actual, maybeAnalyzeMocks: maybeAnalyzeMocksMock };
 });
 
 const sandboxes: string[] = [];
@@ -1277,18 +1276,22 @@ describe("createTargetCommand", () => {
       "utf-8"
     );
 
-    const result = await runTarget([srcDir, "--directory-loop", "--min-score", "88"], root, {
-      runDirectoryLoopComponent: async ({ commandOptions }) => {
-        seenMinScores.push(commandOptions.minScore);
-        const outputPath = join(srcDir, "Alpha.test.tsx");
-        await writeFile(outputPath, "describe('Alpha', () => {})\n", "utf-8");
-        await seedGeneratedTestRecord(root, outputPath, {
-          total: 90,
-          requiresReview: false,
-        });
-        return { exitCode: 0 };
-      },
-    });
+    const result = await runTarget(
+      [srcDir, "--directory-loop", "--min-score", "88"],
+      root,
+      {
+        runDirectoryLoopComponent: async ({ commandOptions }) => {
+          seenMinScores.push(commandOptions.minScore);
+          const outputPath = join(srcDir, "Alpha.test.tsx");
+          await writeFile(outputPath, "describe('Alpha', () => {})\n", "utf-8");
+          await seedGeneratedTestRecord(root, outputPath, {
+            total: 90,
+            requiresReview: false,
+          });
+          return { exitCode: 0 };
+        },
+      }
+    );
 
     expect(result.exitCode).toBe(0);
     expect(seenMinScores).toEqual([88]);
@@ -1314,12 +1317,16 @@ describe("createTargetCommand", () => {
       requiresReview: true,
     });
 
-    const result = await runTarget([srcDir, "--directory-loop", "--min-score", "85"], root, {
-      runDirectoryLoopComponent: async ({ componentPath }) => {
-        calls.push(componentPath);
-        return { exitCode: 0 };
-      },
-    });
+    const result = await runTarget(
+      [srcDir, "--directory-loop", "--min-score", "85"],
+      root,
+      {
+        runDirectoryLoopComponent: async ({ componentPath }) => {
+          calls.push(componentPath);
+          return { exitCode: 0 };
+        },
+      }
+    );
 
     expect(result.exitCode).toBe(0);
     expect(calls).toEqual([]);
@@ -1348,18 +1355,22 @@ describe("createTargetCommand", () => {
       requiresReview: false,
     });
 
-    const result = await runTarget([srcDir, "--directory-loop", "--min-score", "90"], root, {
-      runDirectoryLoopComponent: async ({ componentPath }) => {
-        calls.push(componentPath);
-        const outputPath = join(srcDir, "Alpha.test.tsx");
-        await writeFile(outputPath, "describe('Alpha', () => {})\n", "utf-8");
-        await seedGeneratedTestRecord(root, outputPath, {
-          total: 92,
-          requiresReview: false,
-        });
-        return { exitCode: 0 };
-      },
-    });
+    const result = await runTarget(
+      [srcDir, "--directory-loop", "--min-score", "90"],
+      root,
+      {
+        runDirectoryLoopComponent: async ({ componentPath }) => {
+          calls.push(componentPath);
+          const outputPath = join(srcDir, "Alpha.test.tsx");
+          await writeFile(outputPath, "describe('Alpha', () => {})\n", "utf-8");
+          await seedGeneratedTestRecord(root, outputPath, {
+            total: 92,
+            requiresReview: false,
+          });
+          return { exitCode: 0 };
+        },
+      }
+    );
 
     expect(result.exitCode).toBe(0);
     expect(calls).toEqual(["src/Alpha.tsx"]);

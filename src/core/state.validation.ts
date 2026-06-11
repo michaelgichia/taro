@@ -519,11 +519,7 @@ function migrateGeneratedRecordV1(
           reasons: record.quality.reasons,
           blockers: [],
           requiresReview: record.requiresReview,
-          markerCoverage: {
-            detected: 0,
-            emitted: 0,
-            unresolved: 0,
-          },
+          markerCoverage: { detected: 0, emitted: 0, unresolved: 0 },
           markerDiagnostics: {
             canonicalRecoveries: 0,
             placementConflicts: 0,
@@ -607,10 +603,7 @@ export function safeParseTaroState(value: unknown) {
     return current;
   }
 
-  return {
-    success: true as const,
-    data: migrateStateV1ToV2(legacy.data),
-  };
+  return { success: true as const, data: migrateStateV1ToV2(legacy.data) };
 }
 
 export function safeParseTaroOverrides(value: unknown) {

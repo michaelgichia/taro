@@ -121,7 +121,9 @@ describe("graded-test-history", () => {
     expect(matching).toHaveLength(5);
     expect(totals).toEqual([71, 72, 73, 74, 75]);
     expect(
-      matching.every((record) => record.quality.overallSource === "legacy-graded")
+      matching.every(
+        (record) => record.quality.overallSource === "legacy-graded"
+      )
     ).toBe(true);
   });
 });

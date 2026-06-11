@@ -8,13 +8,13 @@ For the current strict-order runtime pipeline, see [PIPELINE.md](./PIPELINE.md).
 
 Pick the install command that matches your project's package manager:
 
-| Package manager | Install command                          |
-| --------------- | ---------------------------------------- |
-| npm             | `npx @tr-rtl/cli@latest`                 |
-| pnpm            | `pnpm dlx @tr-rtl/cli@latest`            |
-| yarn (berry)    | `yarn dlx @tr-rtl/cli@latest`            |
-| bun             | `bunx @tr-rtl/cli@latest`                |
-| deno            | `deno run -A npm:@tr-rtl/cli@latest`     |
+| Package manager | Install command                      |
+| --------------- | ------------------------------------ |
+| npm             | `npx @tr-rtl/cli@latest`             |
+| pnpm            | `pnpm dlx @tr-rtl/cli@latest`        |
+| yarn (berry)    | `yarn dlx @tr-rtl/cli@latest`        |
+| bun             | `bunx @tr-rtl/cli@latest`            |
+| deno            | `deno run -A npm:@tr-rtl/cli@latest` |
 
 Yarn classic (v1) has no `dlx`; use `npx @tr-rtl/cli@latest` from a yarn classic project. The remaining snippets in this guide use `npx` as the canonical form — substitute any row from the table and all flags behave identically.
 

@@ -58,10 +58,7 @@ export function mergeScoreFamilies(params: {
     grade: toGrade(overall),
     requiresReview,
     blockers,
-    families: {
-      generation: params.generation,
-      grading: params.grading,
-    },
+    families: { generation: params.generation, grading: params.grading },
     dimensions: params.generation.dimensions,
     signals: params.generation.signals,
     reasons: params.generation.reasons,
@@ -73,7 +70,9 @@ export function mergeScoreFamilies(params: {
 
 export function scoreTestQuality(
   code: string,
-  input: import("#types/recording.ts").QueryResult[] | ScoreGeneratedTestOptions = []
+  input:
+    | import("#types/recording.ts").QueryResult[]
+    | ScoreGeneratedTestOptions = []
 ): ScoreResult {
   const generation = scoreGeneratedTest(code, input);
   const grading = gradeExistingTest(code);

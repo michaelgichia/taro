@@ -29,8 +29,7 @@ function createTarget(
     location: "global",
     destinationDirectory: "/Users/tester/.claude",
     runtimeNodePath: "/usr/bin/node",
-    runtimeEntrypointPath:
-      "/Users/tester/.claude/commands/@tr-rtl/cli/help.md",
+    runtimeEntrypointPath: "/Users/tester/.claude/commands/@tr-rtl/cli/help.md",
     runtimeCommand: "claude",
     operations: [
       {
@@ -95,7 +94,7 @@ describe("verifyInstalledRuntime branches", () => {
     accessMock.mockImplementation((path: string) => {
       if (
         path.includes("install-manifest.json") ||
-        path.includes("rtl/help.md")
+        path.includes("cli/help.md")
       ) {
         return Promise.reject(new Error("missing"));
       }

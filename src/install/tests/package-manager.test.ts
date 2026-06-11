@@ -19,13 +19,32 @@ async function makeTempDir(): Promise<string> {
 
 describe("detectPackageManager", () => {
   let tempRoot: string;
+  let savedUserAgent: string | undefined;
+  let savedDenoVersion: string | undefined;
 
   beforeEach(async () => {
     tempRoot = await makeTempDir();
+    // CI runs vitest under pnpm, which sets npm_config_user_agent and would
+    // short-circuit every "no UA" test case. Clear both knobs before each test
+    // and restore after so detection sees exactly what the test provides.
+    savedUserAgent = process.env.npm_config_user_agent;
+    savedDenoVersion = process.env.DENO_VERSION;
+    delete process.env.npm_config_user_agent;
+    delete process.env.DENO_VERSION;
   });
 
   afterEach(async () => {
     await rm(tempRoot, { recursive: true, force: true });
+    if (savedUserAgent === undefined) {
+      delete process.env.npm_config_user_agent;
+    } else {
+      process.env.npm_config_user_agent = savedUserAgent;
+    }
+    if (savedDenoVersion === undefined) {
+      delete process.env.DENO_VERSION;
+    } else {
+      process.env.DENO_VERSION = savedDenoVersion;
+    }
   });
 
   it("identifies pnpm from npm_config_user_agent", async () => {
@@ -46,10 +65,7 @@ describe("detectPackageManager", () => {
     ["yarn/4.5.0 npm/? node/v22.0.0 linux x64", "yarn"],
     ["bun/1.1.0", "bun"],
   ] as const)("identifies %s from user-agent", async (ua, expected) => {
-    const result = await detectPackageManager({
-      cwd: tempRoot,
-      userAgent: ua,
-    });
+    const result = await detectPackageManager({ cwd: tempRoot, userAgent: ua });
 
     expect(result.packageManager).toBe(expected);
     expect(result.source).toBe("user-agent");

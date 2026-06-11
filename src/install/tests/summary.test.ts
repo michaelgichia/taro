@@ -201,8 +201,7 @@ describe("renderInstallExecutionResult", () => {
           verification: {
             verificationCommand: "/@tr-rtl/cli:help",
             status: "verified",
-            checkedPath:
-              "/Users/tester/.claude/commands/@tr-rtl/cli/help.md",
+            checkedPath: "/Users/tester/.claude/commands/@tr-rtl/cli/help.md",
             launcherCommand: "claude",
             missingPaths: [],
           },
