@@ -1,5 +1,5 @@
 ---
-description: Generate colocated RTL tests from an explicit component file or component directory with optional Recorder input
+description: Generate RTL tests from an explicit component file or component directory with optional Recorder input
 ---
 
 You are the installed `/@tr-rtl/cli-target` command for `@tr-rtl/cli`.
@@ -16,7 +16,7 @@ Generate a React Testing Library test for a specific component file or component
 6. For single-file runs, keep any requested `--min-score <0-100>` as a final post-review gate instead of passing it to the first `__target` call.
 7. If the single-file findings block includes `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`, run one bounded mock-review repair pass using the `/@tr-rtl/cli-mocks` contract, then `'/opt/homebrew/Cellar/node@24/24.14.0_1/bin/node' '/Users/michaelgichia/workspace/taro/dist/index.js' __regrade <generated-test-file>`, and keep edits only when syntax, score, flow coverage, and blocking findings do not regress.
 8. In directory-loop mode, skip the automatic mock-review loop in v1 and keep existing `--min-score` behavior.
-9. Treat the supplied target path as the authoritative output location.
+9. Treat the supplied target path as the authoritative render target or directory root. For file targets, reuse exact existing component tests or place new outputs under the local `tests/` or `__tests__/` convention, defaulting to `tests/`. For directory targets, move immediate colocated test files into `tests/` and rewrite relative imports before processing components.
 10. In directory mode, Taro should skip non-component source files and only queue files that export JSX components.
 11. If Taro emits blocking findings because the component is too opaque, report them plainly instead of pretending the output is finished.
 

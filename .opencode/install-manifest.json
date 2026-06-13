@@ -3,12 +3,12 @@
   "runtime": "opencode",
   "location": "local",
   "manifestVersion": 1,
-  "generatedAt": "2026-06-13T02:41:35.615Z",
+  "generatedAt": "2026-06-13T06:12:11.839Z",
   "files": [
     {
       "relativePath": "commands/@tr-rtl/cli-help.md",
       "kind": "command",
-      "checksum": "3585515abb7856764d8597dc4fda44d8b630fb81177e04874ad6cb0862a13109"
+      "checksum": "53f21e03f0fea4c595df53c3cf76242708d46fc21602f67ed5da8f2df2bbfbb3"
     },
     {
       "relativePath": "commands/@tr-rtl/cli-init.md",
@@ -38,7 +38,7 @@
     {
       "relativePath": "commands/@tr-rtl/cli-target.md",
       "kind": "command",
-      "checksum": "c249f36068ad853d4f7cf793b6f2fbde452ced7f0d5602d7914d4243b2a00c70"
+      "checksum": "18abeb14d8c8c5ff36d226c3aa92e978e911e8fdb6376611d2f028eae095e852"
     },
     {
       "relativePath": "commands/@tr-rtl/cli-mocks.md",

@@ -217,7 +217,7 @@ Taro supports one export path:
 
 Run your runtime-native generate entrypoint against `recording.js`. When Taro infers the owning render target, it must write the generated test next to the inferred component and refuses to overwrite an existing file. If it cannot infer a render target, the fallback boundary-draft output is written next to the recording instead.
 
-If you already know the component under test, use the runtime-native `target` entrypoint with a component file path or a component-directory path. File mode writes next to the supplied component and can optionally take a Recorder `.js` file to preserve concrete interaction flow while forcing the component render target. Directory mode runs with `--directory-loop`, writes a tracker under `.taro/directory-loop/`, and skips non-component source files so mixed directories only queue files that export JSX components.
+If you already know the component under test, use the runtime-native `target` entrypoint with a component file path or a component-directory path. File mode reuses an exact existing component test when present; otherwise new target output defaults to a sibling `tests/` folder, while still honoring local `tests/` or `__tests__/` evidence. It can optionally take a Recorder `.js` file to preserve concrete interaction flow while forcing the component render target. Directory mode runs with `--directory-loop`, moves immediate colocated test files into a sibling `tests/` folder while rewriting relative imports, writes a tracker under `.taro/directory-loop/`, and skips non-component source files so mixed directories only queue files that export JSX components.
 
 Single-file `gen`, `geni`, and `target` flows may run one automatic mock-review repair pass when Taro emits mock-review findings such as `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`. That second pass is limited to mock-scoped edits, regrades with `__regrade`, and keeps changes only when syntax, score, flow coverage, and blocking findings do not regress.
 
@@ -367,7 +367,7 @@ After installation, each runtime gets a namespaced help entrypoint plus `init`, 
 
 ### Tips
 
-- When Taro infers the owning render target, it writes the generated test next to that component using the same basename
+- Recorder generation writes next to the inferred render target; explicit file `target` generation reuses exact existing component tests, while directory-loop target normalizes immediate tests into a sibling `tests/` folder and defaults new outputs there
 - If you re-record a flow, Taro now compares the existing generated test against the new Recorder flow and only overwrites when coverage or quality improves
 - If you record multiple flows, run Taro on each to build up package state in `.taro/state.json` — later runs benefit from earlier ones
 - Commit `.taro/state.json` when you want learned package profiles to persist across teammates and CI

@@ -237,14 +237,14 @@ export async function assessOutputAgainstRecording(params: {
   code: string;
   componentScoreContext?: ComponentScoreContext | null;
 }): Promise<OutputAssessment> {
-  const parsed = await parseJsRecording(params.code);
+  const parsed = await parseJsRecording(params.code).catch(() => null);
   const flowCoverage = buildFlowCoverageSummary(
     params.analyzedRecording,
     params.code
   );
   const scoreResult = scoreTestQuality(params.code, {
     ...(params.componentScoreContext ?? {}),
-    queryResults: mapParsedQueriesToResults(parsed, params.code),
+    queryResults: parsed ? mapParsedQueriesToResults(parsed, params.code) : [],
   });
 
   return { flowCoverage, scoreResult };
@@ -1008,21 +1008,33 @@ export async function reconcileExistingOutput(params: {
           otherCode: alternateCode,
         })
       : { code: preferredCode, mergedTestCount: 0 };
-  const mergeApplied =
+  const mergeWouldChange =
     normalizeCodeFragment(merged.code) !== normalizeCodeFragment(preferredCode);
-  const outputCode = mergeApplied ? merged.code : preferredCode;
-  const outputAssessment = mergeApplied
-    ? await assessOutputAgainstRecording({
+  let mergeApplied =
+    mergeWouldChange && parseTestModule(merged.code) !== null;
+  let outputCode = mergeApplied ? merged.code : preferredCode;
+  let outputAssessment: OutputAssessment;
+
+  if (mergeApplied) {
+    try {
+      outputAssessment = await assessOutputAgainstRecording({
         analyzedRecording,
         code: outputCode,
-      })
-    : candidateWins
-      ? candidateAssessment
-      : existingAssessment;
+      });
+    } catch {
+      mergeApplied = false;
+      outputCode = preferredCode;
+      outputAssessment = candidateWins
+        ? candidateAssessment
+        : existingAssessment;
+    }
+  } else {
+    outputAssessment = candidateWins ? candidateAssessment : existingAssessment;
+  }
 
   return {
     mergeApplied,
-    mergedTestCount: merged.mergedTestCount,
+    mergedTestCount: mergeApplied ? merged.mergedTestCount : 0,
     outputAssessment,
     outputCode,
     preferredSource,

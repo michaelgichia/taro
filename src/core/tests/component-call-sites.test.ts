@@ -52,6 +52,240 @@ describe("harvestComponentCallSites", () => {
     expect(evidence).toEqual([]);
   });
 
+  it("ignores same-named JSX imported from a different component file", async () => {
+    const root = await createWorkspace("wrong-module");
+    const componentPath = await writeSource(
+      root,
+      "src/modules/uae/items/EditItemForm.tsx",
+      [
+        "export function EditItemForm({ item }: { item: string }) {",
+        "  return <div>{item}</div>;",
+        "}",
+      ].join("\n")
+    );
+    await writeSource(
+      root,
+      "src/modules/kenya/items/EditItemForm.tsx",
+      [
+        "export function EditItemForm({ item }: { item: string }) {",
+        "  return <div>{item}</div>;",
+        "}",
+      ].join("\n")
+    );
+    await writeSource(
+      root,
+      "src/modules/kenya/items/ItemsModule.tsx",
+      [
+        "import { EditItemForm } from './EditItemForm';",
+        "export function ItemsModule() {",
+        "  return <EditItemForm item='kenya' />;",
+        "}",
+      ].join("\n")
+    );
+
+    const evidence = await harvestComponentCallSites({
+      projectRoot: root,
+      componentPath,
+      componentName: "EditItemForm",
+      propNames: ["item"],
+    });
+
+    expect(evidence).toEqual([]);
+    expect(evidence.diagnostics.rejectedSameNameCallSites).toEqual([
+      expect.objectContaining({
+        filePath: "src/modules/kenya/items/ItemsModule.tsx",
+        importPath: "./EditItemForm",
+        reason: "different-component",
+        resolvedImportPath: "src/modules/kenya/items/EditItemForm.tsx",
+      }),
+    ]);
+  });
+
+  it("matches default import aliases that resolve to the target file", async () => {
+    const root = await createWorkspace("default-alias");
+    const componentPath = await writeSource(
+      root,
+      "src/EditItemForm.tsx",
+      [
+        "export default function EditItemForm({ label }: { label: string }) {",
+        "  return <button>{label}</button>;",
+        "}",
+      ].join("\n")
+    );
+    await writeSource(
+      root,
+      "src/Host.tsx",
+      [
+        "import UaeEdit from './EditItemForm';",
+        "export function Host() {",
+        "  return <UaeEdit label='UAE item' />;",
+        "}",
+      ].join("\n")
+    );
+
+    const evidence = await harvestComponentCallSites({
+      projectRoot: root,
+      componentPath,
+      componentName: "EditItemForm",
+      propNames: ["label"],
+    });
+
+    expect(evidence).toHaveLength(1);
+    expect(evidence[0]).toMatchObject({
+      filePath: "src/Host.tsx",
+      localName: "UaeEdit",
+      importKind: "default",
+      importedName: "default",
+      resolvedImportPath: "src/EditItemForm.tsx",
+      confidence: "import-resolved",
+    });
+  });
+
+  it("matches aliased named imports that resolve to the target file", async () => {
+    const root = await createWorkspace("named-alias");
+    const componentPath = await writeSource(
+      root,
+      "src/EditItemForm.tsx",
+      [
+        "export function EditItemForm({ item }: { item: string }) {",
+        "  return <div>{item}</div>;",
+        "}",
+      ].join("\n")
+    );
+    await writeSource(
+      root,
+      "src/Host.tsx",
+      [
+        "import { EditItemForm as UaeEditItemForm } from './EditItemForm';",
+        "export function Host() {",
+        "  return <UaeEditItemForm item='uae' />;",
+        "}",
+      ].join("\n")
+    );
+
+    const evidence = await harvestComponentCallSites({
+      projectRoot: root,
+      componentPath,
+      componentName: "EditItemForm",
+      propNames: ["item"],
+    });
+
+    expect(evidence).toHaveLength(1);
+    expect(evidence[0]).toMatchObject({
+      filePath: "src/Host.tsx",
+      localName: "UaeEditItemForm",
+      importKind: "named",
+      importedName: "EditItemForm",
+    });
+    expect(evidence[0].props[0]?.expression).toBe("'uae'");
+  });
+
+  it("matches @/ and ~/ imports using project-root conventions", async () => {
+    const root = await createWorkspace("repo-aliases");
+    const atComponentPath = await writeSource(
+      root,
+      "src/modules/uae/items/EditItemForm.tsx",
+      [
+        "export function EditItemForm({ item }: { item: string }) {",
+        "  return <div>{item}</div>;",
+        "}",
+      ].join("\n")
+    );
+    const tildeComponentPath = await writeSource(
+      root,
+      "components/UaeDialog.tsx",
+      [
+        "export function UaeDialog({ title }: { title: string }) {",
+        "  return <h1>{title}</h1>;",
+        "}",
+      ].join("\n")
+    );
+    await writeSource(
+      root,
+      "src/AtHost.tsx",
+      [
+        "import { EditItemForm } from '@/modules/uae/items/EditItemForm';",
+        "export function AtHost() {",
+        "  return <EditItemForm item='uae' />;",
+        "}",
+      ].join("\n")
+    );
+    await writeSource(
+      root,
+      "src/TildeHost.tsx",
+      [
+        "import { UaeDialog } from '~/components/UaeDialog';",
+        "export function TildeHost() {",
+        "  return <UaeDialog title='Dialog' />;",
+        "}",
+      ].join("\n")
+    );
+
+    const atEvidence = await harvestComponentCallSites({
+      projectRoot: root,
+      componentPath: atComponentPath,
+      componentName: "EditItemForm",
+      propNames: ["item"],
+    });
+    const tildeEvidence = await harvestComponentCallSites({
+      projectRoot: root,
+      componentPath: tildeComponentPath,
+      componentName: "UaeDialog",
+      propNames: ["title"],
+    });
+
+    expect(atEvidence.map((entry) => entry.filePath)).toEqual([
+      "src/AtHost.tsx",
+    ]);
+    expect(tildeEvidence.map((entry) => entry.filePath)).toEqual([
+      "src/TildeHost.tsx",
+    ]);
+  });
+
+  it("ignores barrel imports instead of guessing through re-exports", async () => {
+    const root = await createWorkspace("barrel");
+    const componentPath = await writeSource(
+      root,
+      "src/items/EditItemForm.tsx",
+      [
+        "export function EditItemForm({ item }: { item: string }) {",
+        "  return <div>{item}</div>;",
+        "}",
+      ].join("\n")
+    );
+    await writeSource(
+      root,
+      "src/items/index.ts",
+      "export { EditItemForm } from './EditItemForm';"
+    );
+    await writeSource(
+      root,
+      "src/Host.tsx",
+      [
+        "import { EditItemForm } from './items';",
+        "export function Host() {",
+        "  return <EditItemForm item='barrel' />;",
+        "}",
+      ].join("\n")
+    );
+
+    const evidence = await harvestComponentCallSites({
+      projectRoot: root,
+      componentPath,
+      componentName: "EditItemForm",
+      propNames: ["item"],
+    });
+
+    expect(evidence).toEqual([]);
+    expect(evidence.diagnostics.rejectedSameNameCallSites).toEqual([
+      expect.objectContaining({
+        importPath: "./items",
+        reason: "different-component",
+        resolvedImportPath: "src/items/index.ts",
+      }),
+    ]);
+  });
+
   it("harvests string literals, booleans, and handler identifiers from a call site", async () => {
     const root = await createWorkspace("evidence");
     const componentPath = await writeSource(
@@ -256,5 +490,61 @@ describe("harvestComponentCallSites", () => {
         .map((entry) => entry.filePath.replace(/\\/g, "/"))
         .sort()
     ).toEqual(["src/pages/about.tsx", "src/pages/home.tsx"]);
+  });
+
+  it("orders verified call sites by path proximity, concrete props, then file path", async () => {
+    const root = await createWorkspace("ranking");
+    const componentPath = await writeSource(
+      root,
+      "src/modules/uae/items/EditItemForm.tsx",
+      [
+        "export function EditItemForm({ item, isOpen }: { item: string; isOpen: boolean }) {",
+        "  return <div>{item}{isOpen ? 'open' : 'closed'}</div>;",
+        "}",
+      ].join("\n")
+    );
+    await writeSource(
+      root,
+      "src/modules/uae/items/ZHost.tsx",
+      [
+        "import { EditItemForm } from './EditItemForm';",
+        "export function ZHost() {",
+        "  return <EditItemForm item={item} isOpen={isOpen} />;",
+        "}",
+      ].join("\n")
+    );
+    await writeSource(
+      root,
+      "src/pages/AHost.tsx",
+      [
+        "import { EditItemForm } from '../modules/uae/items/EditItemForm';",
+        "export function AHost() {",
+        "  return <EditItemForm item='page' isOpen={true} />;",
+        "}",
+      ].join("\n")
+    );
+    await writeSource(
+      root,
+      "src/modules/uae/other/AHost.tsx",
+      [
+        "import { EditItemForm } from '../items/EditItemForm';",
+        "export function AHost() {",
+        "  return <EditItemForm item='near' isOpen={false} />;",
+        "}",
+      ].join("\n")
+    );
+
+    const evidence = await harvestComponentCallSites({
+      projectRoot: root,
+      componentPath,
+      componentName: "EditItemForm",
+      propNames: ["item", "isOpen"],
+    });
+
+    expect(evidence.map((entry) => entry.filePath)).toEqual([
+      "src/modules/uae/items/ZHost.tsx",
+      "src/modules/uae/other/AHost.tsx",
+      "src/pages/AHost.tsx",
+    ]);
   });
 });

@@ -11,7 +11,7 @@ Invoke this skill with `$@tr-rtl/cli-target`.
 
 ## Purpose
 
-Generate a colocated RTL test for an explicit component path.
+Generate an RTL test for an explicit component path, using a sibling `tests/` folder for target outputs.
 
 - A component file path or component-directory path is required.
 - A Recorder `.js` file is optional for single-file targeting.
@@ -67,7 +67,8 @@ Never invent a fake shared UI implementation when a partial-support or keep-real
 ## Guardrails
 
 - Never replace the supplied component with a repo-inferred render target.
-- Learn test placement from the state.json file. Fallback by collocating next to the supplied component basename.
+- For file targets, reuse exact existing component tests and local `tests/` or `__tests__/` evidence, then fallback new target output to a sibling `tests/` folder.
+- For directory-loop targets, move immediate colocated test files into a sibling `tests/` folder and rewrite their relative imports before processing component files.
 - Treat component-only inference conservatively; if the component surface is too opaque, report the blocking finding instead of fabricating a weak smoke test.
 - Do not run a second hand-written parser for Recorder input. Let Taro own the parsing pipeline.
 - In directory-loop mode, skip non-component `.ts` or `.tsx` files instead of treating them as blocking targets.
@@ -207,7 +208,7 @@ Return for every invocation:
 - **Command run** — the exact CLI command executed
 - **Component path** — resolved path of the target component
 - **Recording path** — resolved path if a Recorder file was supplied, otherwise `none`
-- **Generated file path** — colocated test file written by Taro
+- **Generated file path** — target test file written or reused by Taro
 - **Score and grade** — Taro's mechanical score plus any augmented advisory findings
 - **Manual review required** — yes / no, with the specific reason if yes
 - **Top blockers and advisories** — the highest-priority items from the scoring table that remain unresolved in the generated output

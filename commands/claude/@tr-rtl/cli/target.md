@@ -15,7 +15,7 @@ argument-instructions: |
 ---
 
 <objective>
-Generate a colocated React Testing Library test for a specific component file or component directory.
+Generate a React Testing Library test for a specific component file or component directory, using a sibling `tests/` folder for target outputs.
 
 Taro must:
 
@@ -25,7 +25,7 @@ Taro must:
 - run directory-loop mode when the supplied path is a directory, skipping non-component source files
 - keep boundary warnings or blocking findings explicit instead of faking confidence
 
-Output: a generated test written next to the supplied component, plus a report containing the command run, component path, optional recording path, generated file path, score and grade, manual review status, and the most important blockers or advisories. </objective>
+Output: a generated or reused target test path, plus a report containing the command run, component path, optional recording path, generated file path, score and grade, manual review status, and the most important blockers or advisories. </objective>
 
 <process>
 1. Confirm whether the target path is a component file or a component directory.
@@ -36,7 +36,7 @@ Output: a generated test written next to the supplied component, plus a report c
 6. For single-file runs, keep any requested `--min-score <0-100>` as a final post-review gate instead of passing it to the first `__target` call.
 7. If the single-file findings block includes `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`, run one bounded mock-review repair pass using the `/@tr-rtl/cli:mocks` contract, then `{{TARO_RUNTIME_COMMAND}} __regrade <generated-test-file>`, and keep edits only when syntax, score, flow coverage, and blocking findings do not regress.
 8. In directory-loop mode, skip the automatic mock-review loop in v1 and keep existing `--min-score` behavior.
-9. The supplied path is authoritative for output placement.
+9. The supplied path is authoritative for the render target or directory root. For file targets, reuse exact existing component tests or place new outputs under the local `tests/` or `__tests__/` convention, defaulting to `tests/`. For directory targets, move immediate colocated test files into `tests/` and rewrite relative imports before processing components.
 10. In directory mode, skip non-component `.ts` or `.tsx` files and report the tracker path.
 11. If the component surface is too opaque for safe inference, report the blocking finding instead of improvising a weak draft.
 12. Report the generated file path or tracker path, score and grade, whether manual review is required, and the top blockers or advisories.
