@@ -1,5 +1,5 @@
-import { readdir, readFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { readdir, readFile, stat } from "node:fs/promises";
+import { dirname, join, relative, resolve } from "node:path";
 
 import * as babelParser from "@babel/parser";
 import * as t from "@babel/types";
@@ -16,6 +16,16 @@ const AST_PLUGINS: babelParser.ParserPlugin[] = [
 ];
 
 const DEFAULT_MAX_FILES = 500;
+const RESOLVABLE_EXTENSIONS = [
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".mts",
+  ".cts",
+  ".mjs",
+  ".cjs",
+];
 
 const SKIPPED_DIRECTORY_NAMES = new Set([
   "node_modules",
@@ -45,8 +55,30 @@ export interface CallSiteProp {
 
 export interface CallSiteEvidence {
   filePath: string;
+  localName: string;
   componentName: string;
+  importKind: "default" | "named";
+  importedName: string;
+  resolvedImportPath: string;
+  confidence: "import-resolved";
   props: CallSiteProp[];
+}
+
+export interface RejectedCallSiteEvidence {
+  filePath: string;
+  importPath: string | null;
+  localName: string;
+  reason: "missing-import" | "unresolved-import" | "different-component";
+  resolvedImportPath: string | null;
+}
+
+export interface CallSiteHarvestDiagnostics {
+  rejectedSameNameCallSites: RejectedCallSiteEvidence[];
+}
+
+export interface CallSiteHarvestResult {
+  evidence: CallSiteEvidence[];
+  diagnostics: CallSiteHarvestDiagnostics;
 }
 
 export interface HarvestCallSitesOptions {
@@ -63,6 +95,31 @@ function isSourceFile(filePath: string): boolean {
 
 function isTestFile(filePath: string): boolean {
   return /\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(filePath);
+}
+
+function isRelativeImportPath(importPath: string): boolean {
+  return importPath.startsWith("./") || importPath.startsWith("../");
+}
+
+function normalizeAbsolutePath(filePath: string): string {
+  // macOS resolves /var and /tmp through /private symlinks; strip the prefix so
+  // resolved paths round-trip when compared against non-symlinked equivalents
+  // (e.g. temp-dir test fixtures).
+  return resolve(filePath)
+    .replace(/\\/g, "/")
+    .replace(/^\/private(?=\/(?:var|tmp)\/)/u, "");
+}
+
+function normalizeProjectPath(projectRoot: string, filePath: string): string {
+  return relative(projectRoot, filePath).replace(/\\/g, "/");
+}
+
+async function pathExists(filePath: string): Promise<boolean> {
+  try {
+    return (await stat(filePath)).isFile();
+  } catch {
+    return false;
+  }
 }
 
 async function listProjectSourceFiles(
@@ -271,22 +328,198 @@ function collectCallSiteProps(params: {
   return props;
 }
 
-function findCallSitesInFile(params: {
+interface ResolvedComponentImport {
+  importKind: "default" | "named";
+  importedName: string;
+  importPath: string;
+  localName: string;
+  resolvedImportPath: string;
+}
+
+interface CallSiteMatch {
+  importBinding: ResolvedComponentImport;
+  localName: string;
+  props: CallSiteProp[];
+}
+
+function getImportCandidateBases(params: {
+  importPath: string;
+  importerFile: string;
+  projectRoot: string;
+}): string[] {
+  const { importerFile, importPath, projectRoot } = params;
+  if (isRelativeImportPath(importPath)) {
+    return [resolve(dirname(importerFile), importPath)];
+  }
+  if (importPath.startsWith("@/") || importPath.startsWith("~/")) {
+    const trimmed = importPath.slice(2);
+    return [resolve(projectRoot, "src", trimmed), resolve(projectRoot, trimmed)];
+  }
+
+  return [];
+}
+
+async function resolveImportPath(params: {
+  importPath: string;
+  importerFile: string;
+  projectRoot: string;
+}): Promise<string | null> {
+  const candidates = new Set<string>();
+  for (const base of getImportCandidateBases(params)) {
+    candidates.add(base);
+    for (const extension of RESOLVABLE_EXTENSIONS) {
+      candidates.add(`${base}${extension}`);
+      candidates.add(join(base, `index${extension}`));
+    }
+  }
+
+  for (const candidate of candidates) {
+    if (await pathExists(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+async function buildComponentImportBindings(params: {
   ast: t.File;
   componentName: string;
+  componentPath: string;
+  importerFile: string;
+  projectRoot: string;
+}): Promise<{
+  componentImports: Map<string, ResolvedComponentImport>;
+  sameNameImports: Map<string, ResolvedComponentImport | null>;
+}> {
+  const componentImports = new Map<string, ResolvedComponentImport>();
+  const sameNameImports = new Map<string, ResolvedComponentImport | null>();
+  const normalizedComponentPath = normalizeAbsolutePath(params.componentPath);
+
+  for (const node of params.ast.program.body) {
+    if (!t.isImportDeclaration(node)) {
+      continue;
+    }
+
+    const importPath = node.source.value;
+    const resolvedImportPath = await resolveImportPath({
+      importPath,
+      importerFile: params.importerFile,
+      projectRoot: params.projectRoot,
+    });
+    const normalizedResolvedImportPath = resolvedImportPath
+      ? normalizeAbsolutePath(resolvedImportPath)
+      : null;
+    const matchesTarget =
+      normalizedResolvedImportPath !== null &&
+      normalizedResolvedImportPath === normalizedComponentPath;
+
+    for (const specifier of node.specifiers) {
+      let binding: ResolvedComponentImport | null = null;
+      if (t.isImportDefaultSpecifier(specifier)) {
+        binding = resolvedImportPath
+          ? {
+              importKind: "default",
+              importedName: "default",
+              importPath,
+              localName: specifier.local.name,
+              resolvedImportPath,
+            }
+          : null;
+      } else if (t.isImportSpecifier(specifier)) {
+        const importedName = t.isIdentifier(specifier.imported)
+          ? specifier.imported.name
+          : specifier.imported.value;
+        binding = resolvedImportPath
+          ? {
+              importKind: "named",
+              importedName,
+              importPath,
+              localName: specifier.local.name,
+              resolvedImportPath,
+            }
+          : null;
+      }
+
+      if (!binding) {
+        if (
+          t.isImportDefaultSpecifier(specifier) &&
+          specifier.local.name === params.componentName
+        ) {
+          sameNameImports.set(specifier.local.name, null);
+        } else if (t.isImportSpecifier(specifier)) {
+          const importedName = t.isIdentifier(specifier.imported)
+            ? specifier.imported.name
+            : specifier.imported.value;
+          if (
+            importedName === params.componentName ||
+            specifier.local.name === params.componentName
+          ) {
+            sameNameImports.set(specifier.local.name, null);
+          }
+        }
+        continue;
+      }
+
+      if (
+        binding.localName === params.componentName ||
+        binding.importedName === params.componentName
+      ) {
+        sameNameImports.set(binding.localName, binding);
+      }
+
+      if (!matchesTarget) {
+        continue;
+      }
+
+      if (
+        binding.importKind === "default" ||
+        binding.importedName === params.componentName
+      ) {
+        componentImports.set(binding.localName, binding);
+      }
+    }
+  }
+
+  return { componentImports, sameNameImports };
+}
+
+function findCallSitesInFile(params: {
+  ast: t.File;
+  componentImports: Map<string, ResolvedComponentImport>;
+  componentName: string;
   source: string;
-}): CallSiteProp[][] {
-  const matches: CallSiteProp[][] = [];
+}): { matches: CallSiteMatch[]; rejected: RejectedCallSiteEvidence[] } {
+  const matches: CallSiteMatch[] = [];
+  const rejected: RejectedCallSiteEvidence[] = [];
+  const seenRejected = new Set<string>();
   function visit(node: t.Node | null | undefined): void {
     if (!node || typeof node !== "object") {
       return;
     }
     if (t.isJSXOpeningElement(node)) {
       const tagName = getJsxName(node.name);
-      if (tagName === params.componentName) {
-        matches.push(
-          collectCallSiteProps({ element: node, source: params.source })
-        );
+      const importBinding = tagName
+        ? params.componentImports.get(tagName)
+        : undefined;
+      if (tagName && importBinding) {
+        matches.push({
+          importBinding,
+          localName: tagName,
+          props: collectCallSiteProps({ element: node, source: params.source }),
+        });
+      } else if (tagName === params.componentName) {
+        const key = `${tagName}:${node.start ?? rejected.length}`;
+        if (!seenRejected.has(key)) {
+          seenRejected.add(key);
+          rejected.push({
+            filePath: "",
+            importPath: null,
+            localName: tagName,
+            reason: "missing-import",
+            resolvedImportPath: null,
+          });
+        }
       }
     }
     for (const key of Object.keys(node)) {
@@ -303,12 +536,67 @@ function findCallSitesInFile(params: {
     }
   }
   visit(params.ast);
-  return matches;
+  return { matches, rejected };
+}
+
+function countConcreteProps(props: CallSiteProp[]): number {
+  return props.filter((prop) => prop.origin !== "unknown").length;
+}
+
+function countCommonPathSegments(left: string, right: string): number {
+  const leftSegments = left.split(/[\\/]+/u);
+  const rightSegments = right.split(/[\\/]+/u);
+  let count = 0;
+  const max = Math.min(leftSegments.length, rightSegments.length);
+  for (let index = 0; index < max; index += 1) {
+    if (leftSegments[index] !== rightSegments[index]) {
+      break;
+    }
+    count += 1;
+  }
+  return count;
+}
+
+function sortEvidence(
+  evidence: CallSiteEvidence[],
+  componentPath: string,
+  projectRoot: string
+): CallSiteEvidence[] {
+  const componentDir = dirname(normalizeProjectPath(projectRoot, componentPath));
+
+  return evidence.sort((left, right) => {
+    const leftPrefix = countCommonPathSegments(
+      dirname(left.filePath),
+      componentDir
+    );
+    const rightPrefix = countCommonPathSegments(
+      dirname(right.filePath),
+      componentDir
+    );
+    if (leftPrefix !== rightPrefix) {
+      return rightPrefix - leftPrefix;
+    }
+
+    const concreteDelta =
+      countConcreteProps(right.props) - countConcreteProps(left.props);
+    if (concreteDelta !== 0) {
+      return concreteDelta;
+    }
+
+    return left.filePath.localeCompare(right.filePath);
+  });
+}
+
+function withDiagnostics(
+  evidence: CallSiteEvidence[],
+  diagnostics: CallSiteHarvestDiagnostics
+): CallSiteHarvestResult {
+  return { diagnostics, evidence };
 }
 
 export async function harvestComponentCallSites(
   options: HarvestCallSitesOptions
-): Promise<CallSiteEvidence[]> {
+): Promise<CallSiteHarvestResult> {
   const {
     projectRoot,
     componentPath,
@@ -318,9 +606,10 @@ export async function harvestComponentCallSites(
 
   const files = await listProjectSourceFiles(projectRoot, maxFiles);
   const evidence: CallSiteEvidence[] = [];
+  const rejectedSameNameCallSites: RejectedCallSiteEvidence[] = [];
 
   for (const file of files) {
-    if (file === componentPath) {
+    if (normalizeAbsolutePath(file) === normalizeAbsolutePath(componentPath)) {
       continue;
     }
 
@@ -328,10 +617,6 @@ export async function harvestComponentCallSites(
     try {
       source = await readFile(file, "utf-8");
     } catch {
-      continue;
-    }
-
-    if (!source.includes(componentName)) {
       continue;
     }
 
@@ -345,17 +630,60 @@ export async function harvestComponentCallSites(
       continue;
     }
 
-    const matches = findCallSitesInFile({ ast, componentName, source });
-    if (matches.length === 0) {
+    const { componentImports, sameNameImports } =
+      await buildComponentImportBindings({
+        ast,
+        componentName,
+        componentPath,
+        importerFile: file,
+        projectRoot,
+      });
+    const matches = findCallSitesInFile({
+      ast,
+      componentImports,
+      componentName,
+      source,
+    });
+    for (const rejected of matches.rejected) {
+      const sameNameImport = sameNameImports.get(rejected.localName);
+      rejectedSameNameCallSites.push({
+        filePath: normalizeProjectPath(projectRoot, file),
+        importPath: sameNameImport?.importPath ?? null,
+        localName: rejected.localName,
+        reason:
+          sameNameImport === undefined
+            ? "missing-import"
+            : sameNameImport === null
+              ? "unresolved-import"
+              : "different-component",
+        resolvedImportPath: sameNameImport?.resolvedImportPath
+          ? normalizeProjectPath(projectRoot, sameNameImport.resolvedImportPath)
+          : null,
+      });
+    }
+
+    if (matches.matches.length === 0) {
       continue;
     }
 
-    evidence.push({
-      filePath: relative(projectRoot, file),
-      componentName,
-      props: matches[0],
-    });
+    for (const match of matches.matches) {
+      evidence.push({
+        filePath: normalizeProjectPath(projectRoot, file),
+        localName: match.localName,
+        componentName,
+        importKind: match.importBinding.importKind,
+        importedName: match.importBinding.importedName,
+        resolvedImportPath: normalizeProjectPath(
+          projectRoot,
+          match.importBinding.resolvedImportPath
+        ),
+        confidence: "import-resolved",
+        props: match.props,
+      });
+    }
   }
 
-  return evidence;
+  return withDiagnostics(sortEvidence(evidence, componentPath, projectRoot), {
+    rejectedSameNameCallSites,
+  });
 }

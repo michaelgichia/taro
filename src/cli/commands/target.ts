@@ -1,8 +1,19 @@
 import { spawn } from "node:child_process";
-import { access, readdir, readFile, realpath, stat } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
+import {
+  access,
+  mkdir,
+  readdir,
+  readFile,
+  realpath,
+  stat,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { cwd, stdin, stdout } from "node:process";
 
+import * as babelParser from "@babel/parser";
+import * as t from "@babel/types";
 import { Command } from "commander";
 import pc from "picocolors";
 
@@ -53,6 +64,7 @@ import {
   resolveVisualAuthStorageStatePath,
 } from "#cli/commands/visual-auth.ts";
 import { normalizeJsBaseline } from "#core/baseline-normalizer.ts";
+import { walkBabelAst as walk } from "#core/babel-utils.ts";
 import {
   applyBoundarySupport,
   materializeBoundarySupport,
@@ -69,6 +81,7 @@ import { loadInput } from "#core/input-loader.ts";
 import { parseJsRecording } from "#core/js-parser.ts";
 import { analyzeRecording } from "#core/recording-intelligence.ts";
 import {
+  appendGeneratedTestRecord,
   detectPackageProfileStaleness,
   readTaroOverrides,
   refreshTaroState,
@@ -121,12 +134,25 @@ interface LatestGeneratedOutputStatus {
   requiresReview: boolean;
 }
 
+const TEST_MIGRATION_AST_PLUGINS: babelParser.ParserPlugin[] = [
+  "jsx",
+  "typescript",
+  "classProperties",
+  "classPrivateProperties",
+  "classPrivateMethods",
+  "topLevelAwait",
+];
+
 function isSupportedSourceFile(filePath: string): boolean {
   return /\.(?:[cm]?[jt]sx?)$/u.test(filePath);
 }
 
 function isTestFilePath(filePath: string): boolean {
   return /\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(filePath);
+}
+
+function isRelativeModuleSpecifier(value: string): boolean {
+  return value.startsWith("./") || value.startsWith("../");
 }
 
 function passesTargetOutputGate(
@@ -341,14 +367,10 @@ async function loadPackageContext(params: {
   };
 }
 
-function isConcreteFolderPattern(
+function isTargetConventionFolderPattern(
   folderPattern?: TaroFolderPattern | null
-): folderPattern is "colocated" | "__tests__" | "tests" {
-  return (
-    folderPattern === "colocated" ||
-    folderPattern === "__tests__" ||
-    folderPattern === "tests"
-  );
+): folderPattern is "__tests__" | "tests" {
+  return folderPattern === "__tests__" || folderPattern === "tests";
 }
 
 async function hasImmediateTestFiles(dirPath: string): Promise<boolean> {
@@ -396,6 +418,218 @@ async function detectLocalOutputFolderPattern(
   }
 
   return null;
+}
+
+async function resolveTargetOutputPathFromContext(params: {
+  componentPath: string;
+  packageProfile?: ResolvedTaroPackageProfile | null;
+}): Promise<string> {
+  const { componentPath, packageProfile } = params;
+  const localFolderPattern =
+    await detectLocalOutputFolderPattern(componentPath);
+  const configuredPattern = packageProfile?.folderPattern.value ?? null;
+
+  if (localFolderPattern === null && configuredPattern === "colocated") {
+    log(
+      pc.yellow(
+        `[taro] Configured folderPattern "colocated" is not used for new target output; writing to a sibling tests/ folder instead.`
+      )
+    );
+  }
+
+  const folderPattern =
+    localFolderPattern ??
+    (isTargetConventionFolderPattern(configuredPattern)
+      ? configuredPattern
+      : "tests");
+
+  return deriveOutputPath(componentPath, folderPattern);
+}
+
+function toMovedRelativeModuleSpecifier(
+  fromDir: string,
+  absoluteTargetPath: string
+): string {
+  const relativePath = relative(fromDir, absoluteTargetPath).replace(/\\/g, "/");
+  return relativePath.startsWith(".") ? relativePath : `./${relativePath}`;
+}
+
+function isMockCallExpression(node: t.CallExpression): boolean {
+  if (!t.isMemberExpression(node.callee) || node.callee.computed) {
+    return false;
+  }
+
+  if (!t.isIdentifier(node.callee.object) || !t.isIdentifier(node.callee.property)) {
+    return false;
+  }
+
+  return (
+    (node.callee.object.name === "vi" || node.callee.object.name === "jest") &&
+    ["doMock", "mock", "unmock"].includes(node.callee.property.name)
+  );
+}
+
+function isRelativeModuleSpecifierCall(node: t.CallExpression): boolean {
+  if (t.isImport(node.callee)) {
+    return true;
+  }
+
+  if (t.isIdentifier(node.callee, { name: "require" })) {
+    return true;
+  }
+
+  return isMockCallExpression(node);
+}
+
+function rewriteRelativeModuleSpecifiersForMove(params: {
+  newPath: string;
+  oldPath: string;
+  source: string;
+}): string {
+  const { newPath, oldPath, source } = params;
+  const oldDir = dirname(oldPath);
+  const newDir = dirname(newPath);
+  const replacements: Array<{ end: number; start: number; value: string }> = [];
+  const addReplacement = (literal: t.StringLiteral) => {
+    if (
+      typeof literal.start !== "number" ||
+      typeof literal.end !== "number" ||
+      !isRelativeModuleSpecifier(literal.value)
+    ) {
+      return;
+    }
+
+    const start = literal.start;
+    const end = literal.end;
+    const absoluteTargetPath = resolve(oldDir, literal.value);
+    const nextValue = toMovedRelativeModuleSpecifier(
+      newDir,
+      absoluteTargetPath
+    );
+    const quote = source[start] === "'" ? "'" : '"';
+    replacements.push({
+      end,
+      start,
+      value: `${quote}${nextValue}${quote}`,
+    });
+  };
+
+  let ast: t.File;
+  try {
+    ast = babelParser.parse(source, {
+      errorRecovery: true,
+      plugins: TEST_MIGRATION_AST_PLUGINS,
+      sourceType: "unambiguous",
+    });
+  } catch {
+    return source;
+  }
+
+  walk(ast, (node) => {
+    if (
+      (t.isImportDeclaration(node) ||
+        t.isExportAllDeclaration(node) ||
+        t.isExportNamedDeclaration(node)) &&
+      node.source
+    ) {
+      addReplacement(node.source);
+      return;
+    }
+
+    if (t.isCallExpression(node) && isRelativeModuleSpecifierCall(node)) {
+      const firstArg = node.arguments[0];
+      if (t.isStringLiteral(firstArg)) {
+        addReplacement(firstArg);
+      }
+    }
+  });
+
+  return replacements
+    .sort((a, b) => b.start - a.start)
+    .reduce(
+      (nextSource, replacement) =>
+        `${nextSource.slice(0, replacement.start)}${replacement.value}${nextSource.slice(replacement.end)}`,
+      source
+    );
+}
+
+async function moveImmediateDirectoryLoopTestsIntoTestsFolder(
+  directoryPath: string
+): Promise<string[]> {
+  const entries = await readdir(directoryPath, { withFileTypes: true });
+  const testsDir = join(directoryPath, "tests");
+  const movedFiles: string[] = [];
+  const testFiles = entries
+    .filter((entry) => entry.isFile() && isTestFilePath(entry.name))
+    .map((entry) => entry.name)
+    .sort();
+
+  if (testFiles.length === 0) {
+    return movedFiles;
+  }
+
+  await mkdir(testsDir, { recursive: true });
+
+  for (const fileName of testFiles) {
+    const oldPath = join(directoryPath, fileName);
+    const newPath = join(testsDir, fileName);
+    const destinationExists = await access(newPath)
+      .then(() => true)
+      .catch(() => false);
+    if (destinationExists) {
+      log(
+        pc.yellow(
+          `[taro] Skipping test relocation because destination already exists: ${newPath}`
+        )
+      );
+      continue;
+    }
+
+    const source = await readFile(oldPath, "utf-8");
+    const rewrittenSource = rewriteRelativeModuleSpecifiersForMove({
+      newPath,
+      oldPath,
+      source,
+    });
+    // Write to the destination first, then remove the source. Renaming after
+    // overwriting the source would corrupt the original file in place if the
+    // rename failed (e.g. cross-device move).
+    await writeFile(newPath, rewrittenSource, "utf-8");
+    await unlink(oldPath);
+    movedFiles.push(newPath);
+  }
+
+  return movedFiles;
+}
+
+async function appendSelectedTargetOutputRecord(params: {
+  componentPath: string;
+  outputPath: string;
+  packageProfile: ResolvedTaroPackageProfile | null;
+  projectRoot: string;
+  scoreResult: ScoreResult;
+}): Promise<void> {
+  const { componentPath, outputPath, packageProfile, projectRoot, scoreResult } =
+    params;
+
+  try {
+    await appendGeneratedTestRecord(projectRoot, {
+      packagePath: packageProfile?.packagePath ?? ".",
+      recordingFile: componentPath,
+      testFile: outputPath,
+      scoreResult,
+    });
+    log(
+      pc.dim("[taro]") +
+        ` Updated .taro/state.json for package ${packageProfile?.packagePath ?? "."}.`
+    );
+  } catch (error) {
+    // State updates are best-effort; generation should still report findings.
+    log(
+      pc.dim("[taro]") +
+        ` Skipped .taro/state.json update for package ${packageProfile?.packagePath ?? "."}: ${error instanceof Error ? error.message : String(error)}.`
+    );
+  }
 }
 
 function prependBoundaryWarnings(code: string, warnings: string[]): string {
@@ -714,15 +948,10 @@ async function generateForFile(params: {
     targetPath: componentPath,
     projectRoot,
   });
-  const localFolderPattern =
-    await detectLocalOutputFolderPattern(componentPath);
-  const outputPath = deriveOutputPath(
+  const outputPath = await resolveTargetOutputPathFromContext({
     componentPath,
-    localFolderPattern ??
-      (isConcreteFolderPattern(packageProfile?.folderPattern.value)
-        ? packageProfile.folderPattern.value
-        : undefined)
-  );
+    packageProfile,
+  });
 
   const targetPlan = await inferComponentTargetPlan({
     componentPath,
@@ -877,12 +1106,14 @@ async function generateForFile(params: {
       ...boundaryPolicyWarnings,
     ]);
 
-    const candidateParsed = await parseJsRecording(code);
+    const candidateParsed = await parseJsRecording(code).catch(() => null);
     const candidateAssessment = {
       flowCoverage: buildFlowCoverageSummary(analyzedRecording, code),
       scoreResult: scoreTestQuality(code, {
         ...(normalizedComponentScoreContext ?? {}),
-        queryResults: mapParsedQueriesToResults(candidateParsed, code),
+        queryResults: candidateParsed
+          ? mapParsedQueriesToResults(candidateParsed, code)
+          : [],
       }),
     };
 
@@ -1115,6 +1346,14 @@ async function generateForFile(params: {
       healthCommands: overrides.healthCommands,
       projectRoot,
     });
+  } else if (existingCode) {
+    await appendSelectedTargetOutputRecord({
+      componentPath,
+      outputPath,
+      packageProfile: packageProfile ?? null,
+      projectRoot,
+      scoreResult: outputResolution.outputAssessment.scoreResult,
+    });
   }
 
   return normalizeFindings([
@@ -1148,16 +1387,10 @@ async function resolveTargetOutputPath(params: {
     targetPath: componentPath,
     projectRoot,
   });
-  const localFolderPattern =
-    await detectLocalOutputFolderPattern(componentPath);
-
-  return deriveOutputPath(
+  return resolveTargetOutputPathFromContext({
     componentPath,
-    localFolderPattern ??
-      (isConcreteFolderPattern(packageProfile?.folderPattern.value)
-        ? packageProfile.folderPattern.value
-        : undefined)
-  );
+    packageProfile,
+  });
 }
 
 async function buildDirectoryLoopTracker(params: {
@@ -1424,6 +1657,8 @@ export function createTargetCommand(
             process.exit(2);
           }
 
+          const relocatedTestFiles =
+            await moveImmediateDirectoryLoopTestsIntoTestsFolder(componentPath);
           const { skippedFiles, sourceFiles } =
             await collectComponentSourceFiles(componentPath);
 
@@ -1448,6 +1683,12 @@ export function createTargetCommand(
           await writeDirectoryLoopTracker(tracker);
 
           log(pc.dim("[taro]") + " Directory loop mode enabled");
+          if (relocatedTestFiles.length > 0) {
+            log(
+              pc.dim("[taro]") +
+                ` Moved ${relocatedTestFiles.length} existing test file${relocatedTestFiles.length === 1 ? "" : "s"} into ${join(componentPath, "tests")}`
+            );
+          }
           if (skippedFiles.length > 0) {
             log(
               pc.dim("[taro]") +

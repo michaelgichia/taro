@@ -301,6 +301,7 @@ describe("inferComponentTargetPlan", () => {
     expect(propsBlock).toContain("onSubmit: () => {}");
     expect(propsBlock).toContain("isPending: false");
     expect(propsBlock).toContain("disabled: true");
+    expect(propsBlock).toContain("verified production call site");
     expect(propsBlock).toContain(
       "src/business-detail/index.tsx".replace(/\//g, "/")
     );
@@ -312,9 +313,110 @@ describe("inferComponentTargetPlan", () => {
         (finding) =>
           finding.severity === "ADVISORY" &&
           finding.category === "component-target" &&
-          /call site/iu.test(finding.message)
+          /verified production call site/iu.test(finding.message)
       )
     ).toBe(true);
+  });
+
+  it("blocks prop inference when same-name call sites import a different component", async () => {
+    const root = await createWorkspace("wrong-call-site-evidence");
+    const componentPath = join(
+      root,
+      "src",
+      "modules",
+      "uae",
+      "items",
+      "EditItemForm.tsx"
+    );
+    const outputPath = join(
+      root,
+      "src",
+      "modules",
+      "uae",
+      "items",
+      "EditItemForm.test.tsx"
+    );
+    const kenyaComponentPath = join(
+      root,
+      "src",
+      "modules",
+      "kenya",
+      "items",
+      "EditItemForm.tsx"
+    );
+    const callSitePath = join(
+      root,
+      "src",
+      "modules",
+      "kenya",
+      "items",
+      "ItemsModule.tsx"
+    );
+    await mkdir(dirname(componentPath), { recursive: true });
+    await mkdir(dirname(kenyaComponentPath), { recursive: true });
+    await mkdir(dirname(callSitePath), { recursive: true });
+    await writeFile(
+      componentPath,
+      [
+        "export function EditItemForm({ item }: { item: string }) {",
+        "  return <div>{item}</div>;",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+    await writeFile(
+      kenyaComponentPath,
+      [
+        "export function EditItemForm({ item }: { item: string }) {",
+        "  return <div>{item}</div>;",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+    await writeFile(
+      callSitePath,
+      [
+        "import { EditItemForm } from './EditItemForm';",
+        "export function ItemsModule() {",
+        "  return <EditItemForm item='kenya' />;",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+
+    const plan = await inferComponentTargetPlan({
+      componentPath,
+      outputPath,
+      projectRoot: root,
+    });
+
+    expect(plan.renderExpression).toBe(
+      "<EditItemForm {...UNRESOLVED_COMPONENT_PROPS} />"
+    );
+    expect((plan.moduleStatements ?? []).join("\n")).toContain(
+      "UNRESOLVED_COMPONENT_PROPS"
+    );
+    expect(plan.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          severity: "BLOCKING",
+          category: "component-target",
+          message: expect.stringContaining("same-name JSX call site"),
+        }),
+      ])
+    );
+    expect(plan.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining(
+            "src/modules/kenya/items/ItemsModule.tsx"
+          ),
+        }),
+      ])
+    );
   });
 
   it("emits a blocking finding for opaque wrapper components", async () => {

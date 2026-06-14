@@ -186,8 +186,23 @@ async function seedGeneratedTestRecord(
   });
 }
 
+async function writeGeneratedOutput(
+  root: string,
+  outputPath: string,
+  componentName: string,
+  overrides: Partial<ScoreResult> = {}
+) {
+  await mkdir(dirname(outputPath), { recursive: true });
+  await writeFile(
+    outputPath,
+    `describe('${componentName}', () => {})\n`,
+    "utf-8"
+  );
+  await seedGeneratedTestRecord(root, outputPath, overrides);
+}
+
 describe("createTargetCommand", () => {
-  it("generates a colocated test from a default-export component file", async () => {
+  it("generates a test under tests from a default-export component file", async () => {
     const root = await createSandbox("component-only");
     const componentPath = join(root, "src", "CheckoutForm.tsx");
     await mkdir(dirname(componentPath), { recursive: true });
@@ -210,12 +225,12 @@ describe("createTargetCommand", () => {
     );
 
     const result = await runTarget([componentPath, "--min-score", "70"], root);
-    const outputPath = join(root, "src", "CheckoutForm.test.tsx");
+    const outputPath = join(root, "src", "tests", "CheckoutForm.test.tsx");
     const written = await readFile(outputPath, "utf-8");
 
     expect(result.thrown).toBeUndefined();
     expect(result.exitCode).toBe(1);
-    expect(written).toContain("import CheckoutForm from './CheckoutForm'");
+    expect(written).toContain("import CheckoutForm from '../CheckoutForm'");
     expect(written).toContain("render(<CheckoutForm />)");
     expect(written).toContain(
       "expect(screen.getByRole('heading', { name: 'Checkout' }))"
@@ -230,6 +245,37 @@ describe("createTargetCommand", () => {
     const root = await createSandbox("local-tests-folder");
     const componentPath = join(root, "src", "widgets", "Button.tsx");
     const testsDir = join(root, "src", "widgets", "tests");
+    await mkdir(testsDir, { recursive: true });
+    await writeFile(
+      componentPath,
+      [
+        "export default function Button() {",
+        "  return <button>Click me</button>",
+        "}",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+    await writeFile(
+      join(testsDir, "Existing.test.tsx"),
+      "describe('existing', () => {})\n",
+      "utf-8"
+    );
+
+    const result = await runTarget([componentPath, "--min-score", "70"], root);
+    const outputPath = join(testsDir, "Button.test.tsx");
+    const written = await readFile(outputPath, "utf-8");
+
+    expect(result.thrown).toBeUndefined();
+    expect(result.exitCode).toBe(1);
+    expect(written).toContain("import Button from '../Button'");
+    expect(written).toContain("render(<Button />)");
+  });
+
+  it("prefers a sibling __tests__ directory when local test evidence exists", async () => {
+    const root = await createSandbox("local-underscore-tests-folder");
+    const componentPath = join(root, "src", "widgets", "Button.tsx");
+    const testsDir = join(root, "src", "widgets", "__tests__");
     await mkdir(testsDir, { recursive: true });
     await writeFile(
       componentPath,
@@ -284,7 +330,7 @@ describe("createTargetCommand", () => {
     );
 
     const result = await runTarget([componentPath, "--min-score", "60"], root);
-    const outputPath = join(root, "src", "ProfileCard.test.tsx");
+    const outputPath = join(root, "src", "tests", "ProfileCard.test.tsx");
     const written = await readFile(outputPath, "utf-8");
 
     expect(result.thrown).toBeUndefined();
@@ -416,6 +462,9 @@ describe("createTargetCommand", () => {
     expect(result.stdout).not.toContain("[BLOCKING] component-target");
     expect(result.stdout).not.toContain("[BLOCKING] quality");
     expect(result.stdout).not.toContain("[BLOCKING] follow-up");
+    await expect(
+      readFile(join(root, "src", "tests", "ProfileCard.test.tsx"), "utf-8")
+    ).rejects.toThrow();
   });
 
   it("runs post-write health commands and blocks when one fails", async () => {
@@ -447,7 +496,7 @@ describe("createTargetCommand", () => {
     );
 
     const result = await runTarget([componentPath, "--min-score", "85"], root);
-    const outputPath = join(root, "src", "CheckoutForm.test.tsx");
+    const outputPath = join(root, "src", "tests", "CheckoutForm.test.tsx");
     const written = await readFile(outputPath, "utf-8");
 
     expect(result.thrown).toBeUndefined();
@@ -523,12 +572,12 @@ describe("createTargetCommand", () => {
       [componentPath, "--recording", recordingPath],
       root
     );
-    const outputPath = join(root, "src", "CheckoutForm.test.tsx");
+    const outputPath = join(root, "src", "tests", "CheckoutForm.test.tsx");
     const written = await readFile(outputPath, "utf-8");
 
     expect(result.thrown).toBeUndefined();
     expect(result.exitCode).toBe(1);
-    expect(written).toContain("import { CheckoutForm } from './CheckoutForm'");
+    expect(written).toContain("import { CheckoutForm } from '../CheckoutForm'");
     expect(written).toContain("render(<CheckoutForm />)");
     expect(written).toContain("await user.click(screen.getByText('Continue'))");
     expect(written).not.toContain("render(<App />)");
@@ -585,14 +634,14 @@ describe("createTargetCommand", () => {
       repeatedTargets: [],
       mutationLifecycles: [
         {
-          file: "src/CheckoutMutation.test.tsx",
+          file: "src/tests/CheckoutMutation.test.tsx",
           stages: ["loading", "success"],
           evidence: [],
         },
       ],
       interactionContracts: [
         {
-          file: "src/CheckoutMutation.test.tsx",
+          file: "src/tests/CheckoutMutation.test.tsx",
           kind: "mutation-form",
           states: ["loading", "success"],
           supportTargets: [],
@@ -782,13 +831,8 @@ describe("createTargetCommand", () => {
         const componentName = componentPath
           .replace(/^src\//u, "")
           .replace(/\.tsx$/u, "");
-        const outputPath = join(srcDir, `${componentName}.test.tsx`);
-        await writeFile(
-          outputPath,
-          `describe('${componentName}', () => {})\n`,
-          "utf-8"
-        );
-        await seedGeneratedTestRecord(root, outputPath);
+        const outputPath = join(srcDir, "tests", `${componentName}.test.tsx`);
+        await writeGeneratedOutput(root, outputPath, componentName);
         return { exitCode: 0 };
       },
     });
@@ -802,15 +846,21 @@ describe("createTargetCommand", () => {
       "| Status | Path | Output | Current score | Updated score | Follow-up | Kind |"
     );
     expect(tracker).toContain(
-      `| completed | src/Footer.tsx | src/Footer.test.tsx | - | ${TARGET_OUTPUT_SCORE_GATE * 100}% | No follow-up required. | target |`
+      `| completed | src/Footer.tsx | src/tests/Footer.test.tsx | - | ${TARGET_OUTPUT_SCORE_GATE * 100}% | No follow-up required. | target |`
     );
     expect(tracker).toContain("| completed | src/Footer.tsx |");
     expect(tracker).toContain("| completed | src/Header.tsx |");
 
-    const headerTest = await readFile(join(srcDir, "Header.test.tsx"), "utf-8");
+    const headerTest = await readFile(
+      join(srcDir, "tests", "Header.test.tsx"),
+      "utf-8"
+    );
     expect(headerTest).toContain("describe('Header'");
 
-    const footerTest = await readFile(join(srcDir, "Footer.test.tsx"), "utf-8");
+    const footerTest = await readFile(
+      join(srcDir, "tests", "Footer.test.tsx"),
+      "utf-8"
+    );
     expect(footerTest).toContain("describe('Footer'");
   });
 
@@ -837,16 +887,84 @@ describe("createTargetCommand", () => {
 
     const result = await runTarget([srcDir, "--directory-loop"], root, {
       runDirectoryLoopComponent: async () => {
-        const outputPath = join(srcDir, "Button.test.tsx");
-        await writeFile(outputPath, "describe('Button', () => {})\n", "utf-8");
-        await seedGeneratedTestRecord(root, outputPath);
+        const outputPath = join(srcDir, "tests", "Button.test.tsx");
+        await writeGeneratedOutput(root, outputPath, "Button");
         return { exitCode: 0 };
       },
     });
+    const tracker = await readDirectoryTracker(result.logs);
 
     expect(result.thrown).toBeUndefined();
     expect(result.exitCode).toBe(0);
+    expect(result.logs).toContain("Moved 1 existing test file into");
     expect(result.logs).toContain("Processing 1 pending component file");
+    expect(tracker).toContain(
+      "| completed | src/Button.tsx | src/tests/Button.test.tsx |"
+    );
+    const movedTest = await readFile(
+      join(srcDir, "tests", "Existing.test.tsx"),
+      "utf-8"
+    );
+    expect(movedTest).toContain(
+      "import { render } from '@testing-library/react'"
+    );
+  });
+
+  it("moves colocated directory-loop tests into tests and rewrites relative imports", async () => {
+    const root = await createSandbox("dir-move-tests");
+    const srcDir = join(root, "src");
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(
+      join(srcDir, "Button.tsx"),
+      "export default function Button() { return <button>Click me</button> }\n",
+      "utf-8"
+    );
+    await writeFile(join(srcDir, "helper.ts"), "export const label = 'x'\n");
+    await writeFile(join(srcDir, "api.ts"), "export const api = {}\n");
+    await writeFile(join(srcDir, "setup.ts"), "export {}\n");
+    await writeFile(
+      join(srcDir, "Button.test.tsx"),
+      [
+        "import './setup'",
+        "import Button from './Button'",
+        "import { label } from './helper'",
+        "import { describe, vi } from 'vitest'",
+        "",
+        "vi.mock('./api', () => ({ api: {} }))",
+        "const helper = require('./helper')",
+        "",
+        "describe('Button', () => {})",
+        "",
+      ].join("\n"),
+      "utf-8"
+    );
+
+    const result = await runTarget([srcDir, "--directory-loop"], root, {
+      runDirectoryLoopComponent: async () => {
+        await seedGeneratedTestRecord(
+          root,
+          join(srcDir, "tests", "Button.test.tsx")
+        );
+        return { exitCode: 0 };
+      },
+    });
+    const tracker = await readDirectoryTracker(result.logs);
+    const movedTest = await readFile(
+      join(srcDir, "tests", "Button.test.tsx"),
+      "utf-8"
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.logs).toContain("Moved 1 existing test file into");
+    await expect(readFile(join(srcDir, "Button.test.tsx"), "utf-8")).rejects.toThrow();
+    expect(movedTest).toContain("import '../setup'");
+    expect(movedTest).toContain("import Button from '../Button'");
+    expect(movedTest).toContain("import { label } from '../helper'");
+    expect(movedTest).toContain("vi.mock('../api'");
+    expect(movedTest).toContain("require('../helper')");
+    expect(tracker).toContain(
+      "| completed | src/Button.tsx | src/tests/Button.test.tsx |"
+    );
   });
 
   it("skips non-component source files when scanning a directory", async () => {
@@ -873,9 +991,8 @@ describe("createTargetCommand", () => {
     const result = await runTarget([srcDir, "--directory-loop"], root, {
       runDirectoryLoopComponent: async ({ componentPath }) => {
         calls.push(componentPath);
-        const outputPath = join(srcDir, "Button.test.tsx");
-        await writeFile(outputPath, "describe('Button', () => {})\n", "utf-8");
-        await seedGeneratedTestRecord(root, outputPath);
+        const outputPath = join(srcDir, "tests", "Button.test.tsx");
+        await writeGeneratedOutput(root, outputPath, "Button");
         return { exitCode: 0 };
       },
     });
@@ -885,7 +1002,7 @@ describe("createTargetCommand", () => {
     expect(calls).toEqual(["src/Button.tsx"]);
     expect(result.logs).toContain("Skipping 1 non-component source file");
     expect(tracker).toContain(
-      "| completed | src/Button.tsx | src/Button.test.tsx |"
+      "| completed | src/Button.tsx | src/tests/Button.test.tsx |"
     );
     expect(tracker).not.toContain("constants.ts");
   });
@@ -893,6 +1010,7 @@ describe("createTargetCommand", () => {
   it("skips already-cleared components when building the directory loop tracker", async () => {
     const root = await createSandbox("dir-existing-test");
     const srcDir = join(root, "src");
+    const calls: string[] = [];
     await mkdir(srcDir, { recursive: true });
     await writeFile(
       join(srcDir, "Header.tsx"),
@@ -913,28 +1031,26 @@ describe("createTargetCommand", () => {
 
     const result = await runTarget([srcDir, "--directory-loop"], root, {
       runDirectoryLoopComponent: async ({ componentPath }) => {
+        calls.push(componentPath);
         const componentName = componentPath
           .replace(/^src\//u, "")
           .replace(/\.tsx$/u, "");
-        const outputPath = join(srcDir, `${componentName}.test.tsx`);
-        await writeFile(
-          outputPath,
-          `describe('${componentName}', () => {})\n`,
-          "utf-8"
-        );
-        await seedGeneratedTestRecord(root, outputPath);
+        const outputPath = join(srcDir, "tests", `${componentName}.test.tsx`);
+        await writeGeneratedOutput(root, outputPath, componentName);
         return { exitCode: 0 };
       },
     });
     const tracker = await readDirectoryTracker(result.logs);
 
     expect(result.exitCode).toBe(0);
-    expect(result.logs).toContain("Processing 1 pending component file");
+    expect(calls).toEqual(["src/Footer.tsx", "src/Header.tsx"]);
+    expect(result.logs).toContain("Moved 1 existing test file into");
+    expect(result.logs).toContain("Processing 2 pending component files");
     expect(tracker).toContain(
-      "| completed | src/Header.tsx | src/Header.test.tsx |"
+      "| completed | src/Header.tsx | src/tests/Header.test.tsx |"
     );
     expect(tracker).toContain(
-      "| completed | src/Footer.tsx | src/Footer.test.tsx |"
+      "| completed | src/Footer.tsx | src/tests/Footer.test.tsx |"
     );
   });
 
@@ -968,13 +1084,8 @@ describe("createTargetCommand", () => {
         const componentName = componentPath
           .replace(/^src\//u, "")
           .replace(/\.tsx$/u, "");
-        const outputPath = join(srcDir, `${componentName}.test.tsx`);
-        await writeFile(
-          outputPath,
-          `describe('${componentName}', () => {})\n`,
-          "utf-8"
-        );
-        await seedGeneratedTestRecord(root, outputPath);
+        const outputPath = join(srcDir, "tests", `${componentName}.test.tsx`);
+        await writeGeneratedOutput(root, outputPath, componentName);
         return { exitCode: 0 };
       },
     });
@@ -982,11 +1093,12 @@ describe("createTargetCommand", () => {
 
     expect(result.exitCode).toBe(0);
     expect(calls[0]).toBe("src/Alpha.tsx");
+    expect(result.logs).toContain("Moved 1 existing test file into");
     expect(tracker).toContain(
-      "| completed | src/Alpha.tsx | src/Alpha.test.tsx |"
+      "| completed | src/Alpha.tsx | src/tests/Alpha.test.tsx |"
     );
     expect(tracker).toContain(
-      "| completed | src/Beta.tsx | src/Beta.test.tsx |"
+      "| completed | src/Beta.tsx | src/tests/Beta.test.tsx |"
     );
   });
 
@@ -1010,9 +1122,8 @@ describe("createTargetCommand", () => {
       runDirectoryLoopComponent: async ({ componentPath }) => {
         calls.push(componentPath);
         if (componentPath === "src/Beta.tsx") {
-          const outputPath = join(srcDir, "Beta.test.tsx");
-          await writeFile(outputPath, "describe('Beta', () => {})\n", "utf-8");
-          await seedGeneratedTestRecord(root, outputPath);
+          const outputPath = join(srcDir, "tests", "Beta.test.tsx");
+          await writeGeneratedOutput(root, outputPath, "Beta");
           return { exitCode: 0 };
         }
 
@@ -1028,10 +1139,10 @@ describe("createTargetCommand", () => {
     );
     expect(result.logs).toContain("Failed: src/Alpha.tsx");
     expect(tracker).toContain(
-      "| failed | src/Alpha.tsx | src/Alpha.test.tsx | - | - | No generated test output was produced.<br>Per-file target run exited with code 1. | target |"
+      "| failed | src/Alpha.tsx | src/tests/Alpha.test.tsx | - | - | No generated test output was produced.<br>Per-file target run exited with code 1. | target |"
     );
     expect(tracker).toContain(
-      `| completed | src/Beta.tsx | src/Beta.test.tsx | - | ${TARGET_OUTPUT_SCORE_GATE * 100}% | No follow-up required. | target |`
+      `| completed | src/Beta.tsx | src/tests/Beta.test.tsx | - | ${TARGET_OUTPUT_SCORE_GATE * 100}% | No follow-up required. | target |`
     );
   });
 
@@ -1056,18 +1167,16 @@ describe("createTargetCommand", () => {
         firstRunCalls.push(componentPath);
 
         if (componentPath === "src/Alpha.tsx") {
-          const outputPath = join(srcDir, "Alpha.test.tsx");
-          await writeFile(outputPath, "describe('Alpha', () => {})\n", "utf-8");
-          await seedGeneratedTestRecord(root, outputPath, {
+          const outputPath = join(srcDir, "tests", "Alpha.test.tsx");
+          await writeGeneratedOutput(root, outputPath, "Alpha", {
             requiresReview: true,
             total: 64,
           });
           return { exitCode: 1 };
         }
 
-        const outputPath = join(srcDir, "Beta.test.tsx");
-        await writeFile(outputPath, "describe('Beta', () => {})\n", "utf-8");
-        await seedGeneratedTestRecord(root, outputPath);
+        const outputPath = join(srcDir, "tests", "Beta.test.tsx");
+        await writeGeneratedOutput(root, outputPath, "Beta");
         return { exitCode: 0 };
       },
     });
@@ -1076,10 +1185,10 @@ describe("createTargetCommand", () => {
     expect(firstRun.exitCode).toBe(1);
     expect(firstRunCalls).toEqual(["src/Alpha.tsx", "src/Beta.tsx"]);
     expect(firstTracker).toContain(
-      "| failed | src/Alpha.tsx | src/Alpha.test.tsx | - | 64% | Generated output did not clear the target gate (64/100, D).<br>Manual review required (64/100, D).<br>Per-file target run exited with code 1. | target |"
+      "| failed | src/Alpha.tsx | src/tests/Alpha.test.tsx | - | 64% | Generated output did not clear the target gate (64/100, D).<br>Manual review required (64/100, D).<br>Per-file target run exited with code 1. | target |"
     );
     expect(firstTracker).toContain(
-      `| completed | src/Beta.tsx | src/Beta.test.tsx | - | ${TARGET_OUTPUT_SCORE_GATE * 100}% | No follow-up required. | target |`
+      `| completed | src/Beta.tsx | src/tests/Beta.test.tsx | - | ${TARGET_OUTPUT_SCORE_GATE * 100}% | No follow-up required. | target |`
     );
 
     const secondRunCalls: string[] = [];
@@ -1087,9 +1196,8 @@ describe("createTargetCommand", () => {
     const secondRun = await runTarget([srcDir, "--directory-loop"], root, {
       runDirectoryLoopComponent: async ({ componentPath }) => {
         secondRunCalls.push(componentPath);
-        const outputPath = join(srcDir, "Alpha.test.tsx");
-        await writeFile(outputPath, "describe('Alpha', () => {})\n", "utf-8");
-        await seedGeneratedTestRecord(root, outputPath);
+        const outputPath = join(srcDir, "tests", "Alpha.test.tsx");
+        await writeGeneratedOutput(root, outputPath, "Alpha");
         return { exitCode: 0 };
       },
     });
@@ -1098,7 +1206,7 @@ describe("createTargetCommand", () => {
     expect(secondRun.exitCode).toBe(0);
     expect(secondRunCalls).toEqual(["src/Alpha.tsx"]);
     expect(secondTracker).toContain(
-      `| completed | src/Alpha.tsx | src/Alpha.test.tsx | 64% | ${TARGET_OUTPUT_SCORE_GATE * 100}% | No follow-up required. | target |`
+      `| completed | src/Alpha.tsx | src/tests/Alpha.test.tsx | 64% | ${TARGET_OUTPUT_SCORE_GATE * 100}% | No follow-up required. | target |`
     );
     expect(secondTracker).toContain("| completed | src/Beta.tsx |");
   });
@@ -1131,25 +1239,21 @@ describe("createTargetCommand", () => {
         const componentName = componentPath
           .replace(/^src\//u, "")
           .replace(/\.tsx$/u, "");
-        const outputPath = join(srcDir, `${componentName}.test.tsx`);
-        await writeFile(
-          outputPath,
-          `describe('${componentName}', () => {})\n`,
-          "utf-8"
-        );
-        await seedGeneratedTestRecord(root, outputPath);
+        const outputPath = join(srcDir, "tests", `${componentName}.test.tsx`);
+        await writeGeneratedOutput(root, outputPath, componentName);
         return { exitCode: 0 };
       },
     });
     const tracker = await readDirectoryTracker(result.logs);
 
     expect(result.exitCode).toBe(0);
-    expect(calls).toEqual(["src/Beta.tsx"]);
+    expect(calls).toEqual(["src/Alpha.tsx", "src/Beta.tsx"]);
+    expect(result.logs).toContain("Moved 1 existing test file into");
     expect(tracker).toContain(
-      "| completed | src/Alpha.tsx | src/Alpha.test.tsx |"
+      "| completed | src/Alpha.tsx | src/tests/Alpha.test.tsx |"
     );
     expect(tracker).toContain(
-      "| completed | src/Beta.tsx | src/Beta.test.tsx |"
+      "| completed | src/Beta.tsx | src/tests/Beta.test.tsx |"
     );
   });
 
@@ -1282,9 +1386,8 @@ describe("createTargetCommand", () => {
       {
         runDirectoryLoopComponent: async ({ commandOptions }) => {
           seenMinScores.push(commandOptions.minScore);
-          const outputPath = join(srcDir, "Alpha.test.tsx");
-          await writeFile(outputPath, "describe('Alpha', () => {})\n", "utf-8");
-          await seedGeneratedTestRecord(root, outputPath, {
+          const outputPath = join(srcDir, "tests", "Alpha.test.tsx");
+          await writeGeneratedOutput(root, outputPath, "Alpha", {
             total: 90,
             requiresReview: false,
           });
@@ -1323,13 +1426,23 @@ describe("createTargetCommand", () => {
       {
         runDirectoryLoopComponent: async ({ componentPath }) => {
           calls.push(componentPath);
+          await writeGeneratedOutput(
+            root,
+            join(srcDir, "tests", "Alpha.test.tsx"),
+            "Alpha",
+            {
+              total: 90,
+              requiresReview: true,
+            }
+          );
           return { exitCode: 0 };
         },
       }
     );
 
     expect(result.exitCode).toBe(0);
-    expect(calls).toEqual([]);
+    expect(calls).toEqual(["src/Alpha.tsx"]);
+    expect(result.logs).toContain("Moved 1 existing test file into");
     expect(result.logs).toContain(
       "Directory loop tracker is complete; no pending component source files remain."
     );
@@ -1361,9 +1474,8 @@ describe("createTargetCommand", () => {
       {
         runDirectoryLoopComponent: async ({ componentPath }) => {
           calls.push(componentPath);
-          const outputPath = join(srcDir, "Alpha.test.tsx");
-          await writeFile(outputPath, "describe('Alpha', () => {})\n", "utf-8");
-          await seedGeneratedTestRecord(root, outputPath, {
+          const outputPath = join(srcDir, "tests", "Alpha.test.tsx");
+          await writeGeneratedOutput(root, outputPath, "Alpha", {
             total: 92,
             requiresReview: false,
           });

@@ -3,12 +3,12 @@
   "runtime": "opencode",
   "location": "local",
   "manifestVersion": 1,
-  "generatedAt": "2026-06-11T05:31:20.210Z",
+  "generatedAt": "2026-06-13T06:12:11.839Z",
   "files": [
     {
       "relativePath": "commands/@tr-rtl/cli-help.md",
       "kind": "command",
-      "checksum": "3585515abb7856764d8597dc4fda44d8b630fb81177e04874ad6cb0862a13109"
+      "checksum": "53f21e03f0fea4c595df53c3cf76242708d46fc21602f67ed5da8f2df2bbfbb3"
     },
     {
       "relativePath": "commands/@tr-rtl/cli-init.md",
@@ -33,12 +33,12 @@
     {
       "relativePath": "commands/@tr-rtl/cli-regrade.md",
       "kind": "command",
-      "checksum": "bf8c1b01381efefae17e2efb24bb1d1c34ae5cbd2b599a42d53d0562a2c6e6d2"
+      "checksum": "659ab198ef220f9ee671d8f5c191b7e1479d40ce06136c2d26553fe5f3ae9d26"
     },
     {
       "relativePath": "commands/@tr-rtl/cli-target.md",
       "kind": "command",
-      "checksum": "c249f36068ad853d4f7cf793b6f2fbde452ced7f0d5602d7914d4243b2a00c70"
+      "checksum": "18abeb14d8c8c5ff36d226c3aa92e978e911e8fdb6376611d2f028eae095e852"
     },
     {
       "relativePath": "commands/@tr-rtl/cli-mocks.md",

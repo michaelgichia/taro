@@ -72,9 +72,9 @@ If you need a newer package version first, rerun the installer with your package
 
 1. Provide a Testing Library Recorder `.js` export for `gen`, or provide a component file path or component-directory path for `target`.
 2. Run the runtime-native `init` entrypoint first when Taro has just been installed or reinstalled.
-3. When Taro infers the owning render target, it must write the generated test next to the inferred component.
-4. When `target` is used with a file, Taro must write the generated test next to the supplied component.
-5. When `target` is used with a directory, Taro must run directory-loop mode, write a tracker under `.taro/directory-loop/`, and skip non-component `.ts` or `.tsx` files.
+3. When Recorder generation infers the owning render target, it must write the generated test next to the inferred component.
+4. When `target` is used with a file, Taro must reuse an exact existing component test when present; otherwise new target output defaults to a sibling `tests/` folder, while still honoring local `tests/` or `__tests__/` evidence.
+5. When `target` is used with a directory, Taro must move immediate colocated test files into a sibling `tests/` folder, rewrite their relative imports, run directory-loop mode, write a tracker under `.taro/directory-loop/`, and skip non-component `.ts` or `.tsx` files.
 6. Single-file `gen`, `geni`, and `target` runs may trigger one automatic mock-review repair pass when Taro emits mock-review findings such as `mock-boundary`, `mock-instability`, `mock-lifecycle`, or `mock-support`.
 7. That repair pass is limited to mock-scoped edits, regrades with `__regrade`, and keeps changes only when syntax, score, flow coverage, and blocking findings do not regress.
 8. `gen`, `geni`, and `target` accept `--min-score <0-100>` to require a minimum Taro score for the selected output. For single-file generation, the installed runtime entrypoint treats that as the final post-review gate instead of the first-pass gate.

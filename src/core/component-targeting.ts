@@ -9,6 +9,7 @@ import { getJsxName } from "#core/babel-utils.ts";
 import { classifyBoundaryKind } from "#core/boundary-learning.ts";
 import {
   type CallSiteEvidence,
+  type CallSiteHarvestDiagnostics,
   harvestComponentCallSites,
 } from "#core/component-call-sites.ts";
 import {
@@ -1070,10 +1071,11 @@ function safeDefaultForPropName(name: string): string {
 
 function buildPropsRenderPlan(params: {
   componentName: string;
+  diagnostics?: CallSiteHarvestDiagnostics | null;
   declaredProps: string[];
   evidence: CallSiteEvidence[];
 }): PropsRenderPlan {
-  const { componentName, declaredProps, evidence } = params;
+  const { componentName, declaredProps, diagnostics, evidence } = params;
 
   if (declaredProps.length === 0) {
     return {
@@ -1084,12 +1086,23 @@ function buildPropsRenderPlan(params: {
   }
 
   if (evidence.length === 0) {
+    const rejectedFiles =
+      diagnostics?.rejectedSameNameCallSites
+        .map((entry) => entry.filePath)
+        .filter((filePath, index, list) => list.indexOf(filePath) === index)
+        .slice(0, 3) ?? [];
+    const hasRejectedSameNameCallSites = rejectedFiles.length > 0;
+    const unresolvedPropsMessage = hasRejectedSameNameCallSites
+      ? `Taro found same-name JSX call site${rejectedFiles.length === 1 ? "" : "s"} in ${rejectedFiles.join(", ")} but ignored them because their imports did not resolve to the supplied component. ` +
+        "Keep this target as a draft until the prop setup is supplied directly."
+      : "Taro detected component props but could not find explicit repo-local defaults or fixtures to reuse. " +
+        "Keep this target as a draft until the prop setup is supplied directly.";
+
     return {
       finding: {
         severity: "BLOCKING",
         category: "component-target",
-        message:
-          "Taro detected component props but could not find explicit repo-local defaults or fixtures to reuse. Keep this target as a draft until the prop setup is supplied directly.",
+        message: unresolvedPropsMessage,
       },
       moduleStatements: [
         `// TODO: replace this placeholder with explicit repo-local props or a recording-backed render path.`,
@@ -1117,7 +1130,7 @@ function buildPropsRenderPlan(params: {
     .map((entry) => entry.filePath.replace(/\\/g, "/"));
 
   const moduleStatements = [
-    `// Props inferred from call site${evidence.length > 1 ? "s" : ""}: ${sourceFiles.join(", ")}`,
+    `// Props inferred from verified production call site${evidence.length > 1 ? "s" : ""}: ${sourceFiles.join(", ")}`,
     `// TODO: replace placeholder handlers/booleans with assertions appropriate to the test.`,
     `const COMPONENT_PROPS = {`,
     ...entries,
@@ -1128,7 +1141,7 @@ function buildPropsRenderPlan(params: {
     finding: {
       severity: "ADVISORY",
       category: "component-target",
-      message: `Taro inferred prop defaults from production call site${evidence.length > 1 ? "s" : ""}: ${sourceFiles.join(", ")}. Review COMPONENT_PROPS before treating these tests as canonical.`,
+      message: `Taro inferred prop defaults from verified production call site${evidence.length > 1 ? "s" : ""}: ${sourceFiles.join(", ")}. Review COMPONENT_PROPS before treating these tests as canonical.`,
     },
     moduleStatements,
     renderExpression: `<${componentName} {...COMPONENT_PROPS} />`,
@@ -1200,16 +1213,20 @@ export async function inferComponentTargetPlan(params: {
   );
 
   let callSiteEvidence: CallSiteEvidence[] = [];
+  let callSiteDiagnostics: CallSiteHarvestDiagnostics | null = null;
   if (definition.props.length > 0) {
-    callSiteEvidence = await harvestComponentCallSites({
+    const harvestedCallSiteEvidence = await harvestComponentCallSites({
       projectRoot,
       componentPath,
       componentName: definition.name,
       propNames: definition.props,
     });
+    callSiteEvidence = harvestedCallSiteEvidence.evidence;
+    callSiteDiagnostics = harvestedCallSiteEvidence.diagnostics;
   }
   const propsPlan = buildPropsRenderPlan({
     componentName: definition.name,
+    diagnostics: callSiteDiagnostics,
     declaredProps: definition.props,
     evidence: callSiteEvidence,
   });
