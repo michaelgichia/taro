@@ -5,8 +5,8 @@ import {
   readdir,
   readFile,
   realpath,
-  rename,
   stat,
+  unlink,
   writeFile,
 } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
@@ -427,10 +427,20 @@ async function resolveTargetOutputPathFromContext(params: {
   const { componentPath, packageProfile } = params;
   const localFolderPattern =
     await detectLocalOutputFolderPattern(componentPath);
+  const configuredPattern = packageProfile?.folderPattern.value ?? null;
+
+  if (localFolderPattern === null && configuredPattern === "colocated") {
+    log(
+      pc.yellow(
+        `[taro] Configured folderPattern "colocated" is not used for new target output; writing to a sibling tests/ folder instead.`
+      )
+    );
+  }
+
   const folderPattern =
     localFolderPattern ??
-    (isTargetConventionFolderPattern(packageProfile?.folderPattern.value)
-      ? packageProfile.folderPattern.value
+    (isTargetConventionFolderPattern(configuredPattern)
+      ? configuredPattern
       : "tests");
 
   return deriveOutputPath(componentPath, folderPattern);
@@ -581,8 +591,11 @@ async function moveImmediateDirectoryLoopTestsIntoTestsFolder(
       oldPath,
       source,
     });
-    await writeFile(oldPath, rewrittenSource, "utf-8");
-    await rename(oldPath, newPath);
+    // Write to the destination first, then remove the source. Renaming after
+    // overwriting the source would corrupt the original file in place if the
+    // rename failed (e.g. cross-device move).
+    await writeFile(newPath, rewrittenSource, "utf-8");
+    await unlink(oldPath);
     movedFiles.push(newPath);
   }
 
@@ -610,8 +623,12 @@ async function appendSelectedTargetOutputRecord(params: {
       pc.dim("[taro]") +
         ` Updated .taro/state.json for package ${packageProfile?.packagePath ?? "."}.`
     );
-  } catch {
+  } catch (error) {
     // State updates are best-effort; generation should still report findings.
+    log(
+      pc.dim("[taro]") +
+        ` Skipped .taro/state.json update for package ${packageProfile?.packagePath ?? "."}: ${error instanceof Error ? error.message : String(error)}.`
+    );
   }
 }
 

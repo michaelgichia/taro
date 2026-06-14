@@ -76,9 +76,10 @@ export interface CallSiteHarvestDiagnostics {
   rejectedSameNameCallSites: RejectedCallSiteEvidence[];
 }
 
-export type CallSiteHarvestResult = CallSiteEvidence[] & {
+export interface CallSiteHarvestResult {
+  evidence: CallSiteEvidence[];
   diagnostics: CallSiteHarvestDiagnostics;
-};
+}
 
 export interface HarvestCallSitesOptions {
   projectRoot: string;
@@ -101,9 +102,12 @@ function isRelativeImportPath(importPath: string): boolean {
 }
 
 function normalizeAbsolutePath(filePath: string): string {
+  // macOS resolves /var and /tmp through /private symlinks; strip the prefix so
+  // resolved paths round-trip when compared against non-symlinked equivalents
+  // (e.g. temp-dir test fixtures).
   return resolve(filePath)
     .replace(/\\/g, "/")
-    .replace(/^\/private(?=\/var\/)/u, "");
+    .replace(/^\/private(?=\/(?:var|tmp)\/)/u, "");
 }
 
 function normalizeProjectPath(projectRoot: string, filePath: string): string {
@@ -587,13 +591,7 @@ function withDiagnostics(
   evidence: CallSiteEvidence[],
   diagnostics: CallSiteHarvestDiagnostics
 ): CallSiteHarvestResult {
-  Object.defineProperty(evidence, "diagnostics", {
-    configurable: false,
-    enumerable: false,
-    value: diagnostics,
-    writable: false,
-  });
-  return evidence as CallSiteHarvestResult;
+  return { diagnostics, evidence };
 }
 
 export async function harvestComponentCallSites(

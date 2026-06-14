@@ -1221,7 +1221,7 @@ export async function inferComponentTargetPlan(params: {
       componentName: definition.name,
       propNames: definition.props,
     });
-    callSiteEvidence = harvestedCallSiteEvidence;
+    callSiteEvidence = harvestedCallSiteEvidence.evidence;
     callSiteDiagnostics = harvestedCallSiteEvidence.diagnostics;
   }
   const propsPlan = buildPropsRenderPlan({

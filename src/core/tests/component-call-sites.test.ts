@@ -42,7 +42,7 @@ describe("harvestComponentCallSites", () => {
       ].join("\n")
     );
 
-    const evidence = await harvestComponentCallSites({
+    const { evidence } = await harvestComponentCallSites({
       projectRoot: root,
       componentPath,
       componentName: "Widget",
@@ -83,7 +83,7 @@ describe("harvestComponentCallSites", () => {
       ].join("\n")
     );
 
-    const evidence = await harvestComponentCallSites({
+    const { diagnostics, evidence } = await harvestComponentCallSites({
       projectRoot: root,
       componentPath,
       componentName: "EditItemForm",
@@ -91,7 +91,7 @@ describe("harvestComponentCallSites", () => {
     });
 
     expect(evidence).toEqual([]);
-    expect(evidence.diagnostics.rejectedSameNameCallSites).toEqual([
+    expect(diagnostics.rejectedSameNameCallSites).toEqual([
       expect.objectContaining({
         filePath: "src/modules/kenya/items/ItemsModule.tsx",
         importPath: "./EditItemForm",
@@ -123,7 +123,7 @@ describe("harvestComponentCallSites", () => {
       ].join("\n")
     );
 
-    const evidence = await harvestComponentCallSites({
+    const { evidence } = await harvestComponentCallSites({
       projectRoot: root,
       componentPath,
       componentName: "EditItemForm",
@@ -163,7 +163,7 @@ describe("harvestComponentCallSites", () => {
       ].join("\n")
     );
 
-    const evidence = await harvestComponentCallSites({
+    const { evidence } = await harvestComponentCallSites({
       projectRoot: root,
       componentPath,
       componentName: "EditItemForm",
@@ -221,13 +221,13 @@ describe("harvestComponentCallSites", () => {
       ].join("\n")
     );
 
-    const atEvidence = await harvestComponentCallSites({
+    const { evidence: atEvidence } = await harvestComponentCallSites({
       projectRoot: root,
       componentPath: atComponentPath,
       componentName: "EditItemForm",
       propNames: ["item"],
     });
-    const tildeEvidence = await harvestComponentCallSites({
+    const { evidence: tildeEvidence } = await harvestComponentCallSites({
       projectRoot: root,
       componentPath: tildeComponentPath,
       componentName: "UaeDialog",
@@ -269,7 +269,7 @@ describe("harvestComponentCallSites", () => {
       ].join("\n")
     );
 
-    const evidence = await harvestComponentCallSites({
+    const { diagnostics, evidence } = await harvestComponentCallSites({
       projectRoot: root,
       componentPath,
       componentName: "EditItemForm",
@@ -277,7 +277,7 @@ describe("harvestComponentCallSites", () => {
     });
 
     expect(evidence).toEqual([]);
-    expect(evidence.diagnostics.rejectedSameNameCallSites).toEqual([
+    expect(diagnostics.rejectedSameNameCallSites).toEqual([
       expect.objectContaining({
         importPath: "./items",
         reason: "different-component",
@@ -323,7 +323,7 @@ describe("harvestComponentCallSites", () => {
       ].join("\n")
     );
 
-    const evidence = await harvestComponentCallSites({
+    const { evidence } = await harvestComponentCallSites({
       projectRoot: root,
       componentPath,
       componentName: "DeployDeviceDialog",
@@ -359,7 +359,7 @@ describe("harvestComponentCallSites", () => {
       ].join("\n")
     );
 
-    const evidence = await harvestComponentCallSites({
+    const { evidence } = await harvestComponentCallSites({
       projectRoot: root,
       componentPath,
       componentName: "SelfRef",
@@ -399,7 +399,7 @@ describe("harvestComponentCallSites", () => {
       ].join("\n")
     );
 
-    const evidence = await harvestComponentCallSites({
+    const { evidence } = await harvestComponentCallSites({
       projectRoot: root,
       componentPath,
       componentName: "Card",
@@ -432,7 +432,7 @@ describe("harvestComponentCallSites", () => {
       ].join("\n")
     );
 
-    const evidence = await harvestComponentCallSites({
+    const { evidence } = await harvestComponentCallSites({
       projectRoot: root,
       componentPath,
       componentName: "Counter",
@@ -477,7 +477,7 @@ describe("harvestComponentCallSites", () => {
       ].join("\n")
     );
 
-    const evidence = await harvestComponentCallSites({
+    const { evidence } = await harvestComponentCallSites({
       projectRoot: root,
       componentPath,
       componentName: "Banner",
@@ -534,7 +534,7 @@ describe("harvestComponentCallSites", () => {
       ].join("\n")
     );
 
-    const evidence = await harvestComponentCallSites({
+    const { evidence } = await harvestComponentCallSites({
       projectRoot: root,
       componentPath,
       componentName: "EditItemForm",
